@@ -2867,14 +2867,18 @@ public class Catalog {
                 sb.append(",\n\"").append(PropertyAnalyzer.PROPERTIES_COMPRESSION).append("\" = \"");
                 sb.append(olapTable.getCompressionType()).append("\"");
             }
-
             // sequence type
             if (olapTable.hasSequenceCol()) {
                 sb.append(",\n\"").append(PropertyAnalyzer.PROPERTIES_FUNCTION_COLUMN + "."
                     + PropertyAnalyzer.PROPERTIES_SEQUENCE_TYPE).append("\" = \"");
                 sb.append(olapTable.getSequenceType().toString()).append("\"");
             }
-
+            // auto batch load
+            boolean autoBatchLoad = olapTable.isAutoBatchLoad();
+            if (autoBatchLoad) {
+                sb.append(",\n\"").append(PropertyAnalyzer.PROPERTIES_AUTO_BATCH_LOAD).append("\" = \"");
+                sb.append(autoBatchLoad).append("\"");
+            }
             sb.append("\n)");
         } else if (table.getType() == TableType.MYSQL) {
             MysqlTable mysqlTable = (MysqlTable) table;

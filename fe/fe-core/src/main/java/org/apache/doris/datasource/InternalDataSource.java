@@ -1787,6 +1787,11 @@ public class InternalDataSource implements DataSourceIf<Database> {
         String remoteStoragePolicy = PropertyAnalyzer.analyzeRemoteStoragePolicy(properties);
         olapTable.setRemoteStoragePolicy(remoteStoragePolicy);
 
+        // set auto batch load switch
+        boolean isAutoBatchLoadOn = PropertyAnalyzer.analyzeBooleanProp(properties,
+                PropertyAnalyzer.PROPERTIES_AUTO_BATCH_LOAD, false);
+        olapTable.setIsAutoBatchLoad(isAutoBatchLoadOn);
+
         TTabletType tabletType;
         try {
             tabletType = PropertyAnalyzer.analyzeTabletType(properties);

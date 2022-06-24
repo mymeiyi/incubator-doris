@@ -1582,6 +1582,15 @@ public class OlapTable extends Table {
         tableProperty.buildRemoteStoragePolicy();
     }
 
+    public void setIsAutoBatchLoad(boolean autoBatchLoad) {
+        if (tableProperty == null) {
+            tableProperty = new TableProperty(new HashMap<>());
+        }
+        tableProperty.modifyTableProperties(PropertyAnalyzer.PROPERTIES_AUTO_BATCH_LOAD,
+                Boolean.valueOf(autoBatchLoad).toString());
+        tableProperty.buildAutoBatchLoad();
+    }
+
     // return true if partition with given name already exist, both in partitions and temp partitions.
     // return false otherwise
     public boolean checkPartitionNameExist(String partitionName) {
@@ -1773,6 +1782,10 @@ public class OlapTable extends Table {
             return false;
         }
         return tableProperty.getEnableUniqueKeyMergeOnWrite();
+    }
+
+    public boolean isAutoBatchLoad() {
+        return tableProperty != null && tableProperty.isAutoBatchLoad();
     }
 
     // For non partitioned table:
