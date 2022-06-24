@@ -36,6 +36,8 @@ package-lock.json
 .settings/
 **/.idea/
 **/.vscode/
+be/cmake-build*
+be/.clion.source.upload.marker
 
 # docs
 docs/contents/
