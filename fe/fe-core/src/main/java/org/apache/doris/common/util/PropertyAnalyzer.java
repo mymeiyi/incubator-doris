@@ -117,6 +117,7 @@ public class PropertyAnalyzer {
     private static final String COMMA_SEPARATOR = ",";
     private static final double MAX_FPP = 0.05;
     private static final double MIN_FPP = 0.0001;
+    public static final String PROPERTIES_AUTO_BATCH_LOAD = "auto_batch_load";
 
     public static final String ENABLE_UNIQUE_KEY_MERGE_ON_WRITE = "enable_unique_key_merge_on_write";
 
