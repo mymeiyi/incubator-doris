@@ -196,6 +196,8 @@ public:
     Status submit_compaction_task(TabletSharedPtr tablet, CompactionType compaction_type);
     Status submit_quick_compaction_task(TabletSharedPtr tablet);
 
+    std::string auto_batch_load_dir() { return _auto_batch_load_dir; }
+
 private:
     // Instance should be inited from `static open()`
     // MUST NOT be called in other circumstances.
@@ -267,6 +269,8 @@ private:
                                                CompactionType compaction_type);
 
     Status _init_stream_load_recorder(const std::string& stream_load_record_path);
+
+    Status _init_auto_batch_load_path(const std::string& store_dir_path);
 
     Status _submit_compaction_task(TabletSharedPtr tablet, CompactionType compaction_type);
 
@@ -412,6 +416,8 @@ private:
     std::mutex _running_cooldown_mutex;
     std::unordered_map<DataDir*, int64_t> _running_cooldown_tasks_cnt;
     std::unordered_set<int64_t> _running_cooldown_tablets;
+
+    std::string _auto_batch_load_dir;
 
     DISALLOW_COPY_AND_ASSIGN(StorageEngine);
 };
