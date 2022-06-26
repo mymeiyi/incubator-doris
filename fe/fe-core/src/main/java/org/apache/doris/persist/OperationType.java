@@ -232,6 +232,8 @@ public class OperationType {
     public static final short OP_ALTER_DS_NAME = 314;
     public static final short OP_ALTER_DS_PROPS = 315;
 
+    public static final short OP_AUTO_BATCH_LOAD_TABLE_AND_BE = 316;
+
     // get opcode name by op codeStri
     public static String getOpName(short opCode) {
         try {

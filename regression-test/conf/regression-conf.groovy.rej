@@ -1,0 +1,20 @@
+diff a/regression-test/conf/regression-conf.groovy b/regression-test/conf/regression-conf.groovy	(rejected hunks)
+@@ -20,15 +20,15 @@
+ // **Note**: default db will be create if not exist
+ defaultDb = "regression_test"
+ 
+-jdbcUrl = "jdbc:mysql://127.0.0.1:9030/?"
++jdbcUrl = "jdbc:mysql://127.0.0.1:9035/?"
+ jdbcUser = "root"
+ jdbcPassword = ""
+ 
+-feHttpAddress = "127.0.0.1:8030"
++feHttpAddress = "127.0.0.1:8035"
+ feHttpUser = "root"
+ feHttpPassword = ""
+ 
+-beHttpAddress = "127.0.0.1:8040"
++beHttpAddress = "127.0.0.1:8045"
+ 
+ // set DORIS_HOME by system properties
+ // e.g. java -DDORIS_HOME=./
