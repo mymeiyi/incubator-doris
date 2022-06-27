@@ -101,9 +101,15 @@ public class ModifyTablePropertiesClause extends AlterTableClause {
             // do nothing, just check valid.
         } else if (properties.containsKey(PropertyAnalyzer.PROPERTIES_TABLET_TYPE)) {
             throw new AnalysisException("Alter tablet type not supported");
+<<<<<<< HEAD
         } else if (properties.containsKey(PropertyAnalyzer.PROPERTIES_STORAGE_POLICY)) {
             this.needTableStable = false;
             setStoragePolicy(properties.getOrDefault(PropertyAnalyzer.PROPERTIES_STORAGE_POLICY, ""));
+=======
+        } else if (properties.containsKey(PropertyAnalyzer.PROPERTIES_AUTO_BATCH_LOAD)) {
+            this.needTableStable = false;
+            this.opType = AlterOpType.MODIFY_TABLE_PROPERTY_SYNC;
+>>>>>>> Alter table support 'auto_batch_load' property
         } else {
             throw new AnalysisException("Unknown table property: " + properties.keySet());
         }
