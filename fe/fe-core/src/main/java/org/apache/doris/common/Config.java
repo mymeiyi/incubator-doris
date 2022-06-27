@@ -1690,4 +1690,10 @@ public class Config extends ConfigBase {
 
     @ConfField(mutable = true, masterOnly = true)
     public static boolean use_date_v2_by_default = false;
+
+    /**
+     * The timeout of how long fe wait for be response after fe send one auto_batch_load request to be.
+     */
+    @ConfField
+    public static int auto_batch_load_timeout_second = 5;
 }
