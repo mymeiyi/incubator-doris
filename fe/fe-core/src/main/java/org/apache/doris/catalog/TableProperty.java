@@ -102,6 +102,9 @@ public class TableProperty implements Writable {
             case OperationType.OP_MODIFY_IN_MEMORY:
                 buildInMemory();
                 break;
+            case OperationType.OP_MODIFY_AUTO_BATCH_LOAD:
+                buildAutoBatchLoad();
+                break;
             default:
                 break;
         }

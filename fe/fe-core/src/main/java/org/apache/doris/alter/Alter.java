@@ -424,9 +424,13 @@ public class Alter {
                 }
             } else if (alterClause instanceof ModifyTablePropertiesClause) {
                 Map<String, String> properties = alterClause.getProperties();
-                // currently, only in memory property could reach here
-                Preconditions.checkState(properties.containsKey(PropertyAnalyzer.PROPERTIES_INMEMORY));
-                ((SchemaChangeHandler) schemaChangeHandler).updateTableInMemoryMeta(db, tableName, properties);
+                if (properties.containsKey(PropertyAnalyzer.PROPERTIES_INMEMORY)) {
+                    ((SchemaChangeHandler) schemaChangeHandler).updateTableInMemoryMeta(db, tableName, properties);
+                } else if (properties.containsKey(PropertyAnalyzer.PROPERTIES_AUTO_BATCH_LOAD)) {
+                    ((SchemaChangeHandler) schemaChangeHandler).updateTableAutoBatchLoadMeta(db, tableName, properties);
+                } else {
+                    throw new DdlException("Invalid alter table properties: " + properties);
+                }
             } else {
                 throw new DdlException("Invalid alter operation: " + alterClause.getOpType());
             }

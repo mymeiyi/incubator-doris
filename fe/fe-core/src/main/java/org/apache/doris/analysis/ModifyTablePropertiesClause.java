@@ -91,6 +91,9 @@ public class ModifyTablePropertiesClause extends AlterTableClause {
             // do nothing, just check valid.
         } else if (properties.containsKey(PropertyAnalyzer.PROPERTIES_TABLET_TYPE)) {
             throw new AnalysisException("Alter tablet type not supported");
+        } else if (properties.containsKey(PropertyAnalyzer.PROPERTIES_AUTO_BATCH_LOAD)) {
+            this.needTableStable = false;
+            this.opType = AlterOpType.MODIFY_TABLE_PROPERTY_SYNC;
         } else {
             throw new AnalysisException("Unknown table property: " + properties.keySet());
         }
