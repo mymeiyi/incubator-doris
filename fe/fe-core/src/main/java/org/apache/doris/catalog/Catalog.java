@@ -4954,7 +4954,6 @@ public class Catalog {
         AgentTaskExecutor.submit(batchTask);
     }
 
-<<<<<<< HEAD
     private static void addTableComment(Table table, StringBuilder sb) {
         if (StringUtils.isNotBlank(table.getComment())) {
             sb.append("\nCOMMENT '").append(table.getComment(true)).append("'");
@@ -4969,7 +4968,15 @@ public class Catalog {
             }
         }
         return count;
-=======
+    }
+
+    public long getBackendIdsForAutoBatchLoadTable(long tableId) {
+        if (autoBatchLoadTableToBackend.containsKey(tableId)) {
+            return autoBatchLoadTableToBackend.get(tableId).getBeId();
+        }
+        return -1;
+    }
+
     public long getOrSelectBackendIdsForAutoBatchLoadTable(long tableId) {
         if (autoBatchLoadTableToBackend.containsKey(tableId)) {
             return autoBatchLoadTableToBackend.get(tableId).getBeId();
@@ -4986,7 +4993,6 @@ public class Catalog {
             editLog.logAutoBatchLoadTableAndBeInfo(info);
         }
         return beId;
->>>>>>> Fe select and store load be for table
     }
 
     public TableName getTableNameByTableId(Long tableId) {
