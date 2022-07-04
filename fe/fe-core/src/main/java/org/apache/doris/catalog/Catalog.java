@@ -3197,6 +3197,10 @@ public class Catalog {
         autoBatchLoadTableToBackend.put(info.getTableId(), info);
     }
 
+    public void replayDropAutoBatchLoadTableAndBeInfo(AutoBatchLoadTableAndBeInfo info) {
+        removeBackendIdForAutoBatchLoadTable(info.getTableId());
+    }
+
     public int getClusterId() {
         return this.clusterId;
     }
@@ -5015,10 +5019,13 @@ public class Catalog {
             DatabaseIf db = getInternalDataSource().getDbNullable(dbName);
             Optional<Table> table = db.getTable(tableId);
             if (table.isPresent()) {
-                return new TableName(InternalDataSource.INTERNAL_DS_NAME,
-                                    db.getFullName(), table.get().getName());
+                return new TableName(InternalDataSource.INTERNAL_DS_NAME, db.getFullName(), table.get().getName());
             }
         }
         return null;
+    }
+
+    public void removeBackendIdForAutoBatchLoadTable(long tableId) {
+        autoBatchLoadTableToBackend.remove(tableId);
     }
 }

@@ -670,6 +670,7 @@ public class JournalEntity implements Writable {
                 isRead = true;
                 break;
             }
+            case OperationType.OP_DROP_AUTO_BATCH_LOAD_TABLE_AND_BE:
             case OperationType.OP_AUTO_BATCH_LOAD_TABLE_AND_BE: {
                 data = AutoBatchLoadTableAndBeInfo.read(in);
                 isRead = true;
