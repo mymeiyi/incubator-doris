@@ -110,7 +110,64 @@ Status AutoBatchLoadTable::commit() {
 }
 
 Status AutoBatchLoadTable::recovery_wal(const int64_t& wal_id, const std::string& wal_path) {
-    return Status::OK();
+    Status st;
+    // 0. if wal length is 0, delete wal and return
+    auto wal_reader = WalReader(wal_path);
+    wal_reader.init();
+    if (wal_reader.file_length() == 0) {
+        LOG(INFO) << "Wal: " << wal_path << " length is 0";
+        st = FileUtils::remove(wal_path);
+        return Status::OK();
+    }
+    // 1. begin txn
+    std::string label;
+    TUniqueId fragment_instance_id;
+    int64_t txn_id;
+    // check if this label is used and abort the previous txn
+    bool label_already_exists = false;
+    st = _begin_auto_batch_load(wal_id, label, fragment_instance_id, txn_id, label_already_exists);
+    if (!st.ok()) {
+        if (label_already_exists) {
+            // abort the previous txn and begin the new txn
+            std::string reason = "recovery wal";
+            RETURN_IF_ERROR(_abort_txn(label, reason));
+            RETURN_IF_ERROR(_begin_auto_batch_load(wal_id, label, fragment_instance_id, txn_id, label_already_exists));
+        } else {
+            LOG(ERROR) << "begin auto batch load error when recovery wal: " << st.to_string();
+            return st;
+        }
+    }
+    auto pipe = _exec_env->fragment_mgr()->get_pipe(fragment_instance_id);
+    if (pipe == nullptr) {
+        return Status::InternalError("pip is null");
+    }
+    // 2. read rows from wal_reader
+    while (true) {
+        doris::PDataRow prow;
+        st = wal_reader.read_row(prow);
+        if (st.ok()) {
+            PDataRow* row = new PDataRow();
+            row->CopyFrom(prow);
+            // 3. write row to stream load pip
+            RETURN_IF_ERROR(pipe->append_and_flush(reinterpret_cast<char*>(&row), sizeof(row),
+                                                   sizeof(row) + row->ByteSizeLong()));
+        } else if (st.is_end_of_file()) {
+            break;
+        } else {
+            LOG(WARNING) << "read wal file: " << wal_path << ", error, " << st.to_string();
+            return st;
+        }
+    }
+    // TODO handle error
+    // 4. finish pip and commit txn
+    RETURN_IF_ERROR(pipe->finish());
+    // 5. wait for tnx is commit or visible
+    st = _wait_txn_success(label, txn_id);
+    // 6. delete wal if success
+    if (st.ok()) {
+        st = FileUtils::remove(wal_path);
+    }
+    return st;
 }
 
 int64_t AutoBatchLoadTable::_next_wal_id() {
@@ -211,7 +268,7 @@ Status AutoBatchLoadTable::_commit_auto_batch_load(std::shared_ptr<StreamLoadPip
     // 1. finish pip and commit
     Status st = pipe->finish();
     // 2. wait for tnx is commit or visible
-    st = _wait_txn_success(_label);
+    st = _wait_txn_success(_label, _txn_id);
     // 3. close wal
     _wal_writer->finalize();
     // 4. delete wal if success
@@ -220,11 +277,12 @@ Status AutoBatchLoadTable::_commit_auto_batch_load(std::shared_ptr<StreamLoadPip
     return st;
 }
 
-Status AutoBatchLoadTable::_wait_txn_success(std::string& label) {
+Status AutoBatchLoadTable::_wait_txn_success(std::string& label, int64_t txn_id) {
     Status status = Status::OK();
     TWaitingTxnStatusRequest request;
     request.__set_db_id(_db_id);
     request.__set_label(label);
+    request.__set_txn_id(txn_id);
     TWaitingTxnStatusResult result;
     const TNetworkAddress& master_address = _exec_env->master_info()->network_address;
     FrontendServiceConnection client(_exec_env->frontend_client_cache(), master_address,
@@ -254,11 +312,12 @@ Status AutoBatchLoadTable::_wait_txn_success(std::string& label) {
     } else if (txn_status == TTransactionStatus::PREPARE ||
                txn_status == TTransactionStatus::PRECOMMITTED) {
         // TODO sleep and retry
-        return Status::OK();
+        return Status::InternalError("txn state is: " + to_string(txn_status) +
+                                     ", for label: " + label);
     } else if (txn_status == TTransactionStatus::ABORTED ||
                txn_status == TTransactionStatus::UNKNOWN) {
-        LOG(WARNING) << "Commit txn error, label" << label << ", status: " << status.to_string()
-                     << ", msg: " << result.status.error_msgs;
+        LOG(WARNING) << "Commit txn error, label: " << label << ", txn_state: " << txn_status
+                     << ", status: " << status.to_string() << ", msg: " << result.status.error_msgs;
         return Status::InternalError("txn state is: " + to_string(txn_status) +
                                      ", for label: " + label);
     } else {
