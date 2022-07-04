@@ -235,6 +235,7 @@ public class OperationType {
 
     public static final short OP_AUTO_BATCH_LOAD_TABLE_AND_BE = 316;
     public static final short OP_MODIFY_AUTO_BATCH_LOAD = 317;
+    public static final short OP_DROP_AUTO_BATCH_LOAD_TABLE_AND_BE = 318;
 
     // get opcode name by op codeStri
     public static String getOpName(short opCode) {
