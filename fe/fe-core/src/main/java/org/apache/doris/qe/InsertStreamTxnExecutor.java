@@ -89,6 +89,7 @@ public class InsertStreamTxnExecutor {
             }
         }
         txnConf.setFragmentInstanceId(tRequest.params.fragment_instance_id);
+        txnConf.setMaxFilterRatio(1.0);
 
         Backend backend = Catalog.getCurrentSystemInfo().getIdToBackend().get(coordinatorBeId);
         txnConf.setUserIp(backend.getHost());
