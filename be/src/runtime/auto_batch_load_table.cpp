@@ -64,16 +64,17 @@ Status AutoBatchLoadTable::auto_batch_load(const PAutoBatchLoadRequest* request,
     if (!_begin) {
         // create wal writer
         _wal_writer = std::make_shared<WalWriter>(_wal_path(_next_wal_id()));
-        RETURN_IF_ERROR(_wal_writer->init());
+        RETURN_NOT_OK_STATUS_WITH_WARN(_wal_writer->init(), "init wal failed");
         // begin a txn if needed
         bool label_already_exists = false;
-        RETURN_IF_ERROR(_begin_auto_batch_load(_wal_id, _label, _fragment_instance_id, _txn_id,
-                                               label_already_exists));
+        RETURN_NOT_OK_STATUS_WITH_WARN(_begin_auto_batch_load(_wal_id, _label, _fragment_instance_id, _txn_id,
+                                               label_already_exists), "begin auto batch load failed");
         _begin = true;
     }
     // 2. get pip
     auto pipe = _exec_env->fragment_mgr()->get_pipe(_fragment_instance_id);
     if (pipe == nullptr) {
+        // TODO if begin is true, set to false and this pip and wal commit failed, need replay
         return Status::InternalError("pip is null");
     }
     // 3. append to wal
@@ -95,17 +96,30 @@ bool AutoBatchLoadTable::need_commit() {
     return _wal_writer != nullptr ? _need_commit() : false;
 }
 
-Status AutoBatchLoadTable::commit() {
-    std::lock_guard<std::mutex> lock(_lock);
-    if (_wal_writer == nullptr || !_need_commit()) {
-        return Status::Cancelled("auto batch load does not need commit");
+Status AutoBatchLoadTable::commit(int64_t& wal_id, std::string& wal_path) {
+    std::string label;
+    int64_t txn_id;
+    std::shared_ptr<WalWriter> wal_writer;
+    std::shared_ptr<StreamLoadPipe> pipe;
+    {
+        std::lock_guard<std::mutex> lock(_lock);
+        if (_wal_writer == nullptr || !_need_commit()) {
+            return Status::Cancelled("auto batch load does not need commit");
+        }
+        wal_id = _wal_id;
+        wal_path = _wal_writer->file_name();
+        pipe = _exec_env->fragment_mgr()->get_pipe(_fragment_instance_id);
+        if (pipe == nullptr) {
+            LOG(WARNING) << "commit auto batch load failed because pip is null";
+            return Status::InternalError("pip is null");
+        }
+        label = _label;
+        txn_id = _txn_id;
+        wal_writer = std::move(_wal_writer);
+        _begin = false;
     }
-    auto pipe = _exec_env->fragment_mgr()->get_pipe(_fragment_instance_id);
-    if (pipe == nullptr) {
-        return Status::InternalError("pip is null");
-    }
-    RETURN_IF_ERROR(_commit_auto_batch_load(pipe));
-    _begin = false;
+    RETURN_NOT_OK_STATUS_WITH_WARN(_commit_auto_batch_load(pipe, label, txn_id, wal_writer),
+                                   "commit auto batch load failed");
     return Status::OK();
 }
 
@@ -257,23 +271,31 @@ Status AutoBatchLoadTable::_abort_txn(std::string& label, std::string& reason) {
 }
 
 bool AutoBatchLoadTable::_need_commit() {
+    LOG(INFO) << "c1: " << (_wal_writer->row_count() >= config::auto_batch_load_row_count)
+              << ", c2: " << (_wal_writer->file_length() >= AUTO_LOAD_BATCH_SIZE_BYTES)
+              << ", c3: " << (_wal_writer->elapsed_time() / NANOS_PER_SEC >= config::check_auto_compaction_interval_seconds);
     return _wal_writer->row_count() >= config::auto_batch_load_row_count ||
            _wal_writer->file_length() >= AUTO_LOAD_BATCH_SIZE_BYTES ||
            _wal_writer->elapsed_time() / NANOS_PER_SEC >=
                    config::check_auto_compaction_interval_seconds;
 }
 
-Status AutoBatchLoadTable::_commit_auto_batch_load(std::shared_ptr<StreamLoadPipe> pipe) {
+Status AutoBatchLoadTable::_commit_auto_batch_load(std::shared_ptr<StreamLoadPipe> pipe,
+                                                   std::string& label, int64_t& txn_id,
+                                                   std::shared_ptr<WalWriter> wal_writer) {
     // TODO error handle
     // 1. finish pip and commit
     Status st = pipe->finish();
+    if (!st.ok()) {
+        LOG(WARNING) << "finish pip failed, " << st.to_string();
+    }
     // 2. wait for tnx is commit or visible
-    st = _wait_txn_success(_label, _txn_id);
+    st = _wait_txn_success(label, txn_id);
     // 3. close wal
-    _wal_writer->finalize();
+    wal_writer->finalize();
     // 4. delete wal if success
-    st = FileUtils::remove(_wal_writer->file_name());
-    _wal_writer.reset();
+    st = FileUtils::remove(wal_writer->file_name());
+    // wal_writer.reset();
     return st;
 }
 
@@ -302,8 +324,10 @@ Status AutoBatchLoadTable::_wait_txn_success(std::string& label, int64_t txn_id)
     }
     if (result.status.status_code != TStatusCode::OK) {
         LOG(WARNING) << "failed get txn status"
-                  << ", status code=" << result.status.status_code
-                  << ", error=" << result.status.error_msgs;
+                     << ", label=" << label
+                     << ", txn=" << txn_id
+                     << ", status code=" << result.status.status_code
+                     << ", error=" << result.status.error_msgs;
         return Status::InternalError("failed get txn status");
     }
     auto txn_status = result.txn_status;
@@ -311,6 +335,8 @@ Status AutoBatchLoadTable::_wait_txn_success(std::string& label, int64_t txn_id)
         return Status::OK();
     } else if (txn_status == TTransactionStatus::PREPARE ||
                txn_status == TTransactionStatus::PRECOMMITTED) {
+        LOG(WARNING) << "Commit txn error, label: " << label << ", txn_state: " << txn_status
+                     << ", status: " << status.to_string();
         // TODO sleep and retry
         return Status::InternalError("txn state is: " + to_string(txn_status) +
                                      ", for label: " + label);

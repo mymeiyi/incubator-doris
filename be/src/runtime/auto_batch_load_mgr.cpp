@@ -127,6 +127,8 @@ void AutoBatchLoadMgr::_commit_auto_batch_load() {
                 }
             }
         }
+        // TODO commit in one thread, maybe submit to thread pool
+        //  (make sure one table is committed by order)
         for (auto& table_id : need_commit_table) {
             _commit_auto_batch_load_table(table_id);
         }
@@ -138,7 +140,12 @@ void AutoBatchLoadMgr::_commit_auto_batch_load() {
 void AutoBatchLoadMgr::_commit_auto_batch_load_table(int64_t table_id) {
     auto it = _table_map.find(table_id);
     if (it != _table_map.end()) {
-        it->second->commit();
+        int64_t wal_id;
+        std::string wal_path;
+        Status st = it->second->commit(wal_id, wal_path);
+        if (!st.ok() && !st.is_cancelled()) {
+            // TODO handle commit failed
+        }
     }
 }
 

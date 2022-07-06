@@ -48,7 +48,7 @@ public:
     Status auto_batch_load(const PAutoBatchLoadRequest* request, std::string& label,
                            int64_t& txn_id);
     bool need_commit();
-    Status commit();
+    Status commit(int64_t& wal_id, std::string& wal_path);
 
     void set_wal_id(int64_t wal_id) { if (wal_id > _wal_id) _wal_id = wal_id; }
     Status recovery_wal(const int64_t& wal_id, const std::string& wal_path);
@@ -68,7 +68,8 @@ private:
     Status _abort_txn(std::string& label, std::string& reason);
 
     bool _need_commit();
-    Status _commit_auto_batch_load(std::shared_ptr<StreamLoadPipe> pipe);
+    Status _commit_auto_batch_load(std::shared_ptr<StreamLoadPipe> pipe, std::string& label,
+                                   int64_t& txn_id, std::shared_ptr<WalWriter> wal_writer);
     Status _wait_txn_success(std::string& label, int64_t txn_id);
 
     ExecEnv* _exec_env;
