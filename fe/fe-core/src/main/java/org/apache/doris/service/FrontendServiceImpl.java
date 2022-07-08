@@ -1029,8 +1029,8 @@ public class FrontendServiceImpl implements FrontendService.Iface {
         }
         if (table == null) {
             // TODO: Maybe table is dropped or some other cases?
-            result.status.setStatusCode(TStatusCode.INTERNAL_ERROR);
-            result.status.addToErrorMsgs("Do not find table: " + table.getName());
+            result.status.setStatusCode(TStatusCode.TABLE_NOT_FOUND);
+            result.status.addToErrorMsgs("Do not find table id: " + tableId);
             return result;
         }
 

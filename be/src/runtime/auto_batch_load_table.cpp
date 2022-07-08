@@ -66,9 +66,13 @@ Status AutoBatchLoadTable::auto_batch_load(const PAutoBatchLoadRequest* request,
         _wal_writer = std::make_shared<WalWriter>(_wal_path(_next_wal_id()));
         RETURN_NOT_OK_STATUS_WITH_WARN(_wal_writer->init(), "init wal failed");
         // begin a txn if needed
-        bool label_already_exists = false;
-        RETURN_NOT_OK_STATUS_WITH_WARN(_begin_auto_batch_load(_wal_id, _label, _fragment_instance_id, _txn_id,
-                                               label_already_exists), "begin auto batch load failed");
+        RETURN_NOT_OK_STATUS_WITH_WARN(_begin_auto_batch_load(_wal_id, _label,
+                                                              _fragment_instance_id, _txn_id),
+                                       "begin auto batch load failed");
+        LOG(INFO) << "begin auto batch load, wal_id=" << _wal_id
+                  << ", label=" << _label
+                  << ", fragment id=" << _fragment_instance_id
+                  << ", txn id=" << _txn_id;
         _begin = true;
     }
     // 2. get pip
@@ -99,6 +103,7 @@ bool AutoBatchLoadTable::need_commit() {
 Status AutoBatchLoadTable::commit(int64_t& wal_id, std::string& wal_path) {
     std::string label;
     int64_t txn_id;
+    TUniqueId fragment_instance_id;
     std::shared_ptr<WalWriter> wal_writer;
     std::shared_ptr<StreamLoadPipe> pipe;
     {
@@ -108,18 +113,27 @@ Status AutoBatchLoadTable::commit(int64_t& wal_id, std::string& wal_path) {
         }
         wal_id = _wal_id;
         wal_path = _wal_writer->file_name();
+        fragment_instance_id = _fragment_instance_id;
         pipe = _exec_env->fragment_mgr()->get_pipe(_fragment_instance_id);
         if (pipe == nullptr) {
-            LOG(WARNING) << "commit auto batch load failed because pip is null";
+            LOG(WARNING) << "commit auto batch load failed because pip is null"
+                         << ", fragment id=" << fragment_instance_id
+                         << ", wal id=" << wal_id
+                         << ", wal_path=" << wal_path;
             return Status::InternalError("pip is null");
         }
         label = _label;
         txn_id = _txn_id;
         wal_writer = std::move(_wal_writer);
+        LOG(INFO) << "sout: wal_writer=" << _wal_writer;
         _begin = false;
     }
     RETURN_NOT_OK_STATUS_WITH_WARN(_commit_auto_batch_load(pipe, label, txn_id, wal_writer),
                                    "commit auto batch load failed");
+    LOG(INFO) << "commit auto batch load success"
+                 << ", fragment id=" << fragment_instance_id
+                 << ", wal id=" << wal_id
+                 << ", wal_path=" << wal_path;
     return Status::OK();
 }
 
@@ -138,14 +152,25 @@ Status AutoBatchLoadTable::recovery_wal(const int64_t& wal_id, const std::string
     TUniqueId fragment_instance_id;
     int64_t txn_id;
     // check if this label is used and abort the previous txn
-    bool label_already_exists = false;
-    st = _begin_auto_batch_load(wal_id, label, fragment_instance_id, txn_id, label_already_exists);
+    st = _begin_auto_batch_load(wal_id, label, fragment_instance_id, txn_id);
     if (!st.ok()) {
-        if (label_already_exists) {
-            // abort the previous txn and begin the new txn
-            std::string reason = "recovery wal";
-            RETURN_IF_ERROR(_abort_txn(label, reason));
-            RETURN_IF_ERROR(_begin_auto_batch_load(wal_id, label, fragment_instance_id, txn_id, label_already_exists));
+        if (st.code() == TStatusCode::LABEL_ALREADY_EXISTS) {
+            // if the previous txn is commit or visible, then skip recovery this wal
+            st = _wait_txn_success(label, -1);
+            if (st.ok()) {
+                LOG(INFO) << "wal related txn is already committed, wal_path=" << wal_path;
+                FileUtils::remove(wal_path);
+                return Status::OK();
+            } else {
+                // abort the previous txn and begin the new txn
+                std::string reason = "recovery wal";
+                RETURN_IF_ERROR(_abort_txn(label, reason));
+                RETURN_IF_ERROR(_begin_auto_batch_load(wal_id, label, fragment_instance_id, txn_id));
+            }
+        } else if (st.code() == TStatusCode::TABLE_NOT_FOUND) {
+            // If table does not exist, it means table is deleted, remove the wal file directly.
+            FileUtils::remove(wal_path);
+            return Status::OK();
         } else {
             LOG(ERROR) << "begin auto batch load error when recovery wal: " << st.to_string();
             return st;
@@ -194,8 +219,7 @@ std::string AutoBatchLoadTable::_wal_path(int64_t wal_id) {
 }
 
 Status AutoBatchLoadTable::_begin_auto_batch_load(const int64_t& wal_id, std::string& label,
-                                                  TUniqueId& fragment_instance_id, int64_t& txn_id,
-                                                  bool& label_already_exists) {
+                                                  TUniqueId& fragment_instance_id, int64_t& txn_id) {
     Status status;
     TBeginAutoBatchLoadRequest request;
     label = "auto_batch_load_" + std::to_string(_table_id) + "_" + std::to_string(wal_id);
@@ -206,6 +230,13 @@ Status AutoBatchLoadTable::_begin_auto_batch_load(const int64_t& wal_id, std::st
     const TNetworkAddress& master_address = _exec_env->master_info()->network_address;
     FrontendServiceConnection client(_exec_env->frontend_client_cache(), master_address,
                                      config::thrift_rpc_timeout_ms, &status);
+    if (!status.ok()) {
+        LOG(WARNING) << "fail to get master client from cache. "
+                     << "host=" << master_address.hostname
+                     << ", port=" << master_address.port
+                     << ", code=" << status.code();
+        return Status::InternalError("Failed to get master client");
+    }
     try {
         client->beginAutoBatchLoad(result, request);
     } catch (TTransportException& e) {
@@ -227,11 +258,15 @@ Status AutoBatchLoadTable::_begin_auto_batch_load(const int64_t& wal_id, std::st
         LOG(WARNING) << "failed begin auto batch load"
                      << ", status code=" << result.status.status_code
                      << ", error=" << result.status.error_msgs;
-        if (result.status.status_code == TStatusCode::LABEL_ALREADY_EXISTS) {
+        /*if (result.status.status_code == TStatusCode::LABEL_ALREADY_EXISTS) {
             label_already_exists = true;
             return Status::InternalError(
                     "failed auto batch load begin because label already exists");
-        }
+        } else if (result.status.status_code == TStatusCode::TABLE_NOT_FOUND) {
+            return Status::InternalError(
+                    "failed auto batch load begin because table not found");
+        }*/
+        return result.status;
     }
     fragment_instance_id = result.fragment_instance_id;
     txn_id = result.txn_id;
@@ -271,13 +306,15 @@ Status AutoBatchLoadTable::_abort_txn(std::string& label, std::string& reason) {
 }
 
 bool AutoBatchLoadTable::_need_commit() {
-    LOG(INFO) << "c1: " << (_wal_writer->row_count() >= config::auto_batch_load_row_count)
-              << ", c2: " << (_wal_writer->file_length() >= AUTO_LOAD_BATCH_SIZE_BYTES)
-              << ", c3: " << (_wal_writer->elapsed_time() / NANOS_PER_SEC >= config::check_auto_compaction_interval_seconds);
-    return _wal_writer->row_count() >= config::auto_batch_load_row_count ||
-           _wal_writer->file_length() >= AUTO_LOAD_BATCH_SIZE_BYTES ||
-           _wal_writer->elapsed_time() / NANOS_PER_SEC >=
-                   config::check_auto_compaction_interval_seconds;
+        LOG(INFO) << "c1: " << (_wal_writer->row_count() >= config::auto_batch_load_row_count)
+                  << ", c2: " << (_wal_writer->file_length() >= AUTO_LOAD_BATCH_SIZE_BYTES)
+                  << ", c3: "
+                  << (_wal_writer->elapsed_time() / NANOS_PER_SEC >=
+                      config::check_auto_compaction_interval_seconds);
+        return _wal_writer->row_count() >= config::auto_batch_load_row_count ||
+               _wal_writer->file_length() >= AUTO_LOAD_BATCH_SIZE_BYTES ||
+               _wal_writer->elapsed_time() / NANOS_PER_SEC >=
+                       config::check_auto_compaction_interval_seconds;
 }
 
 Status AutoBatchLoadTable::_commit_auto_batch_load(std::shared_ptr<StreamLoadPipe> pipe,
@@ -304,7 +341,9 @@ Status AutoBatchLoadTable::_wait_txn_success(std::string& label, int64_t txn_id)
     TWaitingTxnStatusRequest request;
     request.__set_db_id(_db_id);
     request.__set_label(label);
-    request.__set_txn_id(txn_id);
+    if (txn_id != -1) {
+        request.__set_txn_id(txn_id);
+    }
     TWaitingTxnStatusResult result;
     const TNetworkAddress& master_address = _exec_env->master_info()->network_address;
     FrontendServiceConnection client(_exec_env->frontend_client_cache(), master_address,

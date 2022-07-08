@@ -16,6 +16,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+JAVA_HOME=/mnt/hdd01/meiyi/soft/jdk-11
 set -eo pipefail
 #set -x
 

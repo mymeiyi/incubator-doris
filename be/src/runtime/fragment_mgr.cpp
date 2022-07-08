@@ -580,6 +580,10 @@ void FragmentMgr::set_pipe(const TUniqueId& fragment_instance_id,
 std::shared_ptr<StreamLoadPipe> FragmentMgr::get_pipe(const TUniqueId& fragment_instance_id) {
     {
         std::lock_guard<std::mutex> lock(_lock);
+        LOG(INFO) << "sout: fragment map size=" << _fragment_map.size();
+        for (const auto &item : _fragment_map) {
+            LOG(INFO) << "sout: fragment=" << item.first;
+        }
         auto iter = _fragment_map.find(fragment_instance_id);
         if (iter != _fragment_map.end()) {
             return _fragment_map[fragment_instance_id]->get_pipe();

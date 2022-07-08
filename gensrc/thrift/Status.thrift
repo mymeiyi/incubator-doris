@@ -57,6 +57,7 @@ enum TStatusCode {
     ES_INVALID_CONTEXTID            = 20,
     ES_INVALID_OFFSET               = 21,
     ES_REQUEST_ERROR                = 22,
+    TABLE_NOT_FOUND                 = 23,
 
     END_OF_FILE         = 30,
     NOT_FOUND           = 31,
@@ -84,7 +85,6 @@ enum TStatusCode {
     VEC_CANNOT_MUNMAP = 55,
     VEC_CANNOT_MREMAP = 56,
     VEC_BAD_ARGUMENTS = 57,
-    
 }
 
 struct TStatus {
