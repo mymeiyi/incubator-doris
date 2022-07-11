@@ -125,7 +125,7 @@ Status AutoBatchLoadTable::commit(int64_t& wal_id, std::string& wal_path) {
         label = _label;
         txn_id = _txn_id;
         wal_writer = std::move(_wal_writer);
-        LOG(INFO) << "sout: wal_writer=" << _wal_writer;
+//        LOG(INFO) << "sout: wal_writer=" << _wal_writer;
         _begin = false;
     }
     RETURN_NOT_OK_STATUS_WITH_WARN(_commit_auto_batch_load(pipe, label, txn_id, wal_writer),
