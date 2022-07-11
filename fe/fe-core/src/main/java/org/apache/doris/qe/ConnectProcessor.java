@@ -223,8 +223,8 @@ public class ConnectProcessor {
                 parsedStmt.setUserInfo(ctx.getCurrentUserIdentity());
                 executor = new StmtExecutor(ctx, parsedStmt);
                 // int length = originStmt.length() > 300 ? 300 : originStmt.length();
-                LOG.info("sout: {} statement: {}, len: {}", Thread.currentThread().getName(),
-                        parsedStmt.getOrigStmt().originStmt, originStmt.length());
+                /*LOG.info("sout: {} statement: {}, len: {}", Thread.currentThread().getName(),
+                        parsedStmt.getOrigStmt().originStmt, originStmt.length());*/
                 ctx.setExecutor(executor);
                 executor.execute();
 
