@@ -306,15 +306,17 @@ Status AutoBatchLoadTable::_abort_txn(std::string& label, std::string& reason) {
 }
 
 bool AutoBatchLoadTable::_need_commit() {
-        LOG(INFO) << "c1: " << (_wal_writer->row_count() >= config::auto_batch_load_row_count)
-                  << ", c2: " << (_wal_writer->file_length() >= AUTO_LOAD_BATCH_SIZE_BYTES)
-                  << ", c3: "
-                  << (_wal_writer->elapsed_time() / NANOS_PER_SEC >=
-                      config::check_auto_compaction_interval_seconds);
+    auto time = _wal_writer->elapsed_time() / NANOS_PER_SEC;
+    LOG(INFO) << "rowCnt: " <<  _wal_writer->row_count()
+              << ", size: " << _wal_writer->file_length()
+              << ", time: " << time
+              << ", c1: " << (_wal_writer->row_count() >= config::auto_batch_load_row_count)
+              << ", c2: " << (_wal_writer->file_length() >= AUTO_LOAD_BATCH_SIZE_BYTES)
+              << ", c3: " << (time >= config::auto_batch_load_interval_seconds);
         return _wal_writer->row_count() >= config::auto_batch_load_row_count ||
                _wal_writer->file_length() >= AUTO_LOAD_BATCH_SIZE_BYTES ||
                _wal_writer->elapsed_time() / NANOS_PER_SEC >=
-                       config::check_auto_compaction_interval_seconds;
+                       config::auto_batch_load_interval_seconds;
 }
 
 Status AutoBatchLoadTable::_commit_auto_batch_load(std::shared_ptr<StreamLoadPipe> pipe,
