@@ -1021,7 +1021,7 @@ public class FrontendServiceImpl implements FrontendService.Iface {
         Database database = null;
         Table table = null;
         // TODO: only leader fe contain the infos?
-        Optional<Database> databaseOpt = Catalog.getCurrentCatalog().getDb(dbId);
+        Optional<Database> databaseOpt = Catalog.getCurrentCatalog().getCurrentDataSource().getDb(dbId);
         Optional<Table> tableOpt = databaseOpt.flatMap(db -> db.getTable(tableId));
         if (tableOpt.isPresent()) {
             database = databaseOpt.get();
