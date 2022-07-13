@@ -572,6 +572,9 @@ void Block::clear_column_data(int column_size) noexcept {
         }
     }
     for (auto& d : data) {
+        if (d.column->use_count() != 1) {
+            LOG(INFO) << "sout: use count: " << d.column->use_count() << ", data size: " << data.size();
+        }
         DCHECK(d.column->use_count() == 1);
         (*std::move(d.column)).assume_mutable()->clear();
     }
