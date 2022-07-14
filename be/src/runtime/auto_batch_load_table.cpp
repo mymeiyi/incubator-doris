@@ -93,10 +93,41 @@ Status AutoBatchLoadTable::auto_batch_load(const PAutoBatchLoadRequest* request,
 }
 
 bool AutoBatchLoadTable::need_commit() {
-    return false;
+    std::lock_guard<std::mutex> lock(_lock);
+    return _wal_writer != nullptr ? _need_commit() : false;
 }
 
 Status AutoBatchLoadTable::commit(int64_t& wal_id, std::string& wal_path) {
+    std::string label;
+    int64_t txn_id;
+    TUniqueId fragment_instance_id;
+    std::shared_ptr<WalWriter> wal_writer;
+    std::shared_ptr<StreamLoadPipe> pipe;
+    {
+        std::lock_guard<std::mutex> lock(_lock);
+        if (_wal_writer == nullptr || !_need_commit()) {
+            return Status::Cancelled("auto batch load does not need commit");
+        }
+        wal_id = _wal_id;
+        wal_path = _wal_writer->file_name();
+        fragment_instance_id = _fragment_instance_id;
+        pipe = _exec_env->fragment_mgr()->get_pipe(_fragment_instance_id);
+        if (pipe == nullptr) {
+            LOG(WARNING) << "commit auto batch load failed because pip is null"
+                         << ", fragment id=" << fragment_instance_id << ", wal id=" << wal_id
+                         << ", wal_path=" << wal_path;
+            return Status::InternalError("pip is null");
+        }
+        label = _label;
+        txn_id = _txn_id;
+        wal_writer = std::move(_wal_writer);
+        _begin = false;
+    }
+    RETURN_NOT_OK_STATUS_WITH_WARN(_commit_auto_batch_load(pipe, label, txn_id, wal_writer),
+                                   "commit auto batch load failed");
+    LOG(INFO) << "commit auto batch load success"
+              << ", fragment id=" << fragment_instance_id << ", wal id=" << wal_id
+              << ", wal_path=" << wal_path;
     return Status::OK();
 }
 
@@ -211,4 +242,78 @@ Status AutoBatchLoadTable::_abort_txn(std::string& label, std::string& reason) {
     }
     return status;
 }
+
+bool AutoBatchLoadTable::_need_commit() {
+    return _wal_writer->row_count() >= config::auto_batch_load_row_count ||
+           _wal_writer->file_length() >= AUTO_LOAD_BATCH_SIZE_BYTES ||
+           _wal_writer->elapsed_time() / NANOS_PER_SEC >=
+                   config::check_auto_compaction_interval_seconds;
+}
+
+Status AutoBatchLoadTable::_commit_auto_batch_load(std::shared_ptr<StreamLoadPipe> pipe,
+                                                   std::string& label, int64_t& txn_id,
+                                                   std::shared_ptr<WalWriter> wal_writer) {
+    // TODO error handle
+    // 1. finish pip and commit
+    Status st = pipe->finish();
+    if (!st.ok()) {
+        LOG(WARNING) << "finish pip failed, " << st.to_string();
+    }
+    // 2. wait for tnx is commit or visible
+    st = _wait_txn_success(label, txn_id);
+    // 3. close wal
+    wal_writer->finalize();
+    // 4. delete wal if success
+    st = FileUtils::remove(wal_writer->file_name());
+    // wal_writer.reset();
+    return st;
+}
+
+Status AutoBatchLoadTable::_wait_txn_success(std::string& label) {
+    Status status = Status::OK();
+    TWaitingTxnStatusRequest request;
+    request.__set_db_id(_db_id);
+    request.__set_label(label);
+    TWaitingTxnStatusResult result;
+    const TNetworkAddress& master_address = _exec_env->master_info()->network_address;
+    FrontendServiceConnection client(_exec_env->frontend_client_cache(), master_address,
+                                     config::thrift_rpc_timeout_ms, &status);
+    try {
+        client->waitingTxnStatus(result, request);
+    } catch (TTransportException& e) {
+        // reopen the client
+        Status master_status = client.reopen(config::thrift_rpc_timeout_ms);
+        if (!master_status.ok()) {
+            return Status::InternalError(
+                    "Reopen to get frontend client failed, with address:" +
+                    _exec_env->master_info()->network_address.hostname + ":" +
+                    std::to_string(_exec_env->master_info()->network_address.port));
+        }
+        client->waitingTxnStatus(result, request);
+    }
+    if (result.status.status_code != TStatusCode::OK) {
+        LOG(WARNING) << "failed get txn status"
+                     << ", status code=" << result.status.status_code
+                     << ", error=" << result.status.error_msgs;
+        return Status::InternalError("failed get txn status");
+    }
+    auto txn_status = result.txn_status;
+    if (txn_status == TTransactionStatus::COMMITTED || txn_status == TTransactionStatus::VISIBLE) {
+        return Status::OK();
+    } else if (txn_status == TTransactionStatus::PREPARE ||
+               txn_status == TTransactionStatus::PRECOMMITTED) {
+        // TODO sleep and retry
+        return Status::OK();
+    } else if (txn_status == TTransactionStatus::ABORTED ||
+               txn_status == TTransactionStatus::UNKNOWN) {
+        LOG(WARNING) << "Commit txn error, label" << label << ", status: " << status.to_string()
+                     << ", msg: " << result.status.error_msgs;
+        return Status::InternalError("txn state is: " + to_string(txn_status) +
+                                     ", for label: " + label);
+    } else {
+        return Status::InternalError("Unknown txn state: " + to_string(txn_status) +
+                                     ", for label: " + label);
+    }
+}
+
 } // namespace doris
