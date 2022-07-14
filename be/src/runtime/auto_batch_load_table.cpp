@@ -69,7 +69,7 @@ Status AutoBatchLoadTable::auto_batch_load(const PAutoBatchLoadRequest* request,
         RETURN_NOT_OK_STATUS_WITH_WARN(
                 _begin_auto_batch_load(_wal_id, _label, _fragment_instance_id, _txn_id),
                 "begin auto batch load failed");
-        LOG(INFO) << "begin auto batch load, wal_id=" << _wal_id << ", label=" << _label
+        VLOG(1)  << "begin auto batch load, wal_id=" << _wal_id << ", label=" << _label
                   << ", fragment id=" << _fragment_instance_id << ", txn id=" << _txn_id;
         _begin = true;
     }
@@ -125,7 +125,7 @@ Status AutoBatchLoadTable::commit(int64_t& wal_id, std::string& wal_path) {
     }
     RETURN_NOT_OK_STATUS_WITH_WARN(_commit_auto_batch_load(pipe, label, txn_id, wal_writer),
                                    "commit auto batch load failed");
-    LOG(INFO) << "commit auto batch load success"
+    VLOG(1) << "commit auto batch load success"
               << ", fragment id=" << fragment_instance_id << ", wal id=" << wal_id
               << ", wal_path=" << wal_path;
     return Status::OK();
@@ -309,6 +309,12 @@ Status AutoBatchLoadTable::_abort_txn(std::string& label, std::string& reason) {
            << master_address.port << "). reason: " << e.what();
         return Status::ThriftRpcError(ss.str());
     }
+    if (result.status.status_code != TStatusCode::OK) {
+        LOG(WARNING) << "failed abort txn with label=" << label
+                     << ", status code=" << result.status.status_code
+                     << ", error=" << result.status.error_msgs;
+        return Status::InternalError("failed abort txn");
+    }
     return status;
 }
 
@@ -344,25 +350,40 @@ Status AutoBatchLoadTable::_wait_txn_success(std::string& label, int64_t txn_id)
     request.__set_db_id(_db_id);
     request.__set_label(label);
     request.__set_txn_id(txn_id);
+    if (txn_id != -1) {
+        request.__set_txn_id(txn_id);
+    }
     TWaitingTxnStatusResult result;
     const TNetworkAddress& master_address = _exec_env->master_info()->network_address;
     FrontendServiceConnection client(_exec_env->frontend_client_cache(), master_address,
                                      config::thrift_rpc_timeout_ms, &status);
     try {
-        client->waitingTxnStatus(result, request);
-    } catch (TTransportException& e) {
-        // reopen the client
-        Status master_status = client.reopen(config::thrift_rpc_timeout_ms);
-        if (!master_status.ok()) {
-            return Status::InternalError(
-                    "Reopen to get frontend client failed, with address:" +
-                    _exec_env->master_info()->network_address.hostname + ":" +
-                    std::to_string(_exec_env->master_info()->network_address.port));
+        try {
+            client->waitingTxnStatus(result, request);
+        } catch (TTransportException& e) {
+            // reopen the client
+            Status master_status = client.reopen(config::thrift_rpc_timeout_ms);
+            if (!master_status.ok()) {
+                return Status::InternalError(
+                        "Reopen to get frontend client failed, with address:" +
+                        _exec_env->master_info()->network_address.hostname + ":" +
+                        std::to_string(_exec_env->master_info()->network_address.port));
+            }
+            client->waitingTxnStatus(result, request);
         }
-        client->waitingTxnStatus(result, request);
+    } catch (apache::thrift::TException& e) {
+        // failed when retry
+        // reopen to disable this connection
+        client.reopen(config::thrift_rpc_timeout_ms);
+        std::stringstream ss;
+        ss << "Fail to get txn status to master(" << master_address.hostname << ":"
+           << master_address.port << "). reason: " << e.what();
+        return Status::ThriftRpcError(ss.str());
     }
     if (result.status.status_code != TStatusCode::OK) {
         LOG(WARNING) << "failed get txn status"
+                     << ", label=" << label
+                     << ", txn=" << txn_id
                      << ", status code=" << result.status.status_code
                      << ", error=" << result.status.error_msgs;
         return Status::InternalError("failed get txn status");
