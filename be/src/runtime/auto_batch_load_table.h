@@ -66,9 +66,10 @@ private:
     Status _abort_txn(std::string& label, std::string& reason);
 
     bool _need_commit();
+
     Status _commit_auto_batch_load(std::shared_ptr<StreamLoadPipe> pipe, std::string& label,
                                    int64_t& txn_id, std::shared_ptr<WalWriter> wal_writer);
-    Status _wait_txn_success(std::string& label);
+    Status _wait_txn_success(std::string& label, int64_t txn_id);
 
     ExecEnv* _exec_env;
     int64_t _db_id;
