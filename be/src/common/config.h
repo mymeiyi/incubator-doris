@@ -792,6 +792,11 @@ CONF_mInt64(cooldown_lag_time_sec, "10800"); // 3h
 
 CONF_Int32(s3_transfer_executor_pool_size, "2");
 
+// commit conditions for auto_batch_load
+CONF_Int64(auto_batch_load_row_count, "10000");
+CONF_Int64(auto_batch_load_size_mbytes, "256");
+CONF_Int64(auto_batch_load_interval_seconds, "10");
+CONF_Int64(auto_batch_load_commit_interval_seconds, "5");
 } // namespace config
 
 } // namespace doris
