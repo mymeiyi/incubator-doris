@@ -60,11 +60,11 @@ Status WalWriter::append_rows(const PDataRowArray& rows) {
     memset(row_binary, 0, total_size);
     size_t offset = 0;
     for (const auto& row : rows) {
-        unsigned long row_length = row.ByteSizeLong();
+        unsigned long row_length = row.GetCachedSize();
         memcpy(row_binary + offset, &row_length, ROW_LENGTH_SIZE);
         offset += ROW_LENGTH_SIZE;
-        memcpy(row_binary + offset, row.SerializeAsString().data(), row.ByteSizeLong());
-        offset += row.ByteSizeLong();
+        memcpy(row_binary + offset, row.SerializeAsString().data(), row_length);
+        offset += row_length;
     }
     // write rows
     RETURN_IF_ERROR(_file_handler.write(row_binary, total_size));
