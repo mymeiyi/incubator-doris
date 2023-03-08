@@ -461,7 +461,7 @@ public class StmtExecutor implements ProfileWriter {
 
         try {
             if (context.isTxnModel() && !(parsedStmt instanceof InsertStmt)
-                    && !(parsedStmt instanceof TransactionStmt)) {
+                    && !(parsedStmt instanceof TransactionStmt) && !(parsedStmt instanceof ExecuteStmt)) {
                 throw new TException("This is in a transaction, only insert, commit, rollback is acceptable.");
             }
             // support select hint e.g. select /*+ SET_VAR(query_timeout=1) */ sleep(3);
@@ -613,6 +613,35 @@ public class StmtExecutor implements ProfileWriter {
                 handleLockTablesStmt();
             } else if (parsedStmt instanceof UnsupportedStmt) {
                 handleUnsupportedStmt();
+            } else if (parsedStmt instanceof ExecuteStmt) {
+                ExecuteStmt execStmt = (ExecuteStmt) parsedStmt;
+                PrepareStmtContext preparedStmtCtx = context.getPreparedStmt(execStmt.getName());
+                if (preparedStmtCtx == null) {
+                    throw new UserException("Could not execute, since `" + execStmt.getName() + "` not exist");
+                }
+                if (!preparedStmtCtx.isSelect) {
+                    TransactionEntry txnEntry = context.getTxnEntry();
+                    Preconditions.checkState(preparedStmtCtx.stmt.getParmCount() == execStmt.getArgs().size());
+                    if (execStmt.getArgs().size() != preparedStmtCtx.stmt.getParmCount()) {
+                        throw new UserException("Invalid arguments size "
+                                + execStmt.getArgs().size() + ", expected " + preparedStmtCtx.stmt.getParmCount());
+                    }
+                    List<Expr> exprs = new ArrayList<>();
+                    exprs.addAll(execStmt.getArgs());
+                    InternalService.PDataRow data = getRowStringValue(exprs);
+                    List<InternalService.PDataRow> dataToSend = txnEntry.getDataToSend();
+                    dataToSend.add(data);
+                    if (dataToSend.size() >= MAX_DATA_TO_SEND_FOR_TXN) {
+                        // send data
+                        InsertStreamTxnExecutor executor = new InsertStreamTxnExecutor(txnEntry);
+                        executor.sendData();
+                    }
+                    txnEntry.setRowsInTransaction(txnEntry.getRowsInTransaction() + 1);
+                    // context.getState().setOk();
+                } else {
+                    LOG.info("sout: should handle select prepare execute exec stmt: {}, args: {}, isSelect: {}", execStmt.getName(),
+                            execStmt.getArgs(), preparedStmtCtx.isSelect);
+                }
             } else {
                 context.getState().setError(ErrorCode.ERR_NOT_SUPPORTED_YET, "Do not support this query.");
             }
@@ -726,20 +755,25 @@ public class StmtExecutor implements ProfileWriter {
             if (preparedStmtCtx == null) {
                 throw new UserException("Could not execute, since `" + execStmt.getName() + "` not exist");
             }
-            // parsedStmt may already by set when constructing this StmtExecutor();
-            preparedStmtCtx.stmt.asignValues(execStmt.getArgs());
-            parsedStmt = preparedStmtCtx.stmt.getInnerStmt();
-            planner = preparedStmtCtx.planner;
-            analyzer = preparedStmtCtx.analyzer;
-            Preconditions.checkState(parsedStmt.isAnalyzed());
-            LOG.debug("already prepared stmt: {}", preparedStmtCtx.stmtString);
-            if (!preparedStmtCtx.stmt.needReAnalyze()) {
-                // Return directly to bypass analyze and plan
-                return;
+            if (preparedStmtCtx.isSelect) {
+                // parsedStmt may already by set when constructing this StmtExecutor();
+                preparedStmtCtx.stmt.asignValues(execStmt.getArgs());
+                parsedStmt = preparedStmtCtx.stmt.getInnerStmt();
+                planner = preparedStmtCtx.planner;
+                analyzer = preparedStmtCtx.analyzer;
+                Preconditions.checkState(parsedStmt.isAnalyzed());
+                LOG.debug("already prepared stmt: {}", preparedStmtCtx.stmtString);
+                if (!preparedStmtCtx.stmt.needReAnalyze()) {
+                    // Return directly to bypass analyze and plan
+                    return;
+                }
+                // continue analyze
+                preparedStmtReanalyzed = true;
+                preparedStmtCtx.stmt.analyze(analyzer);
+            } else {
+                LOG.info("sout: should handle insert execute exec stmt: {}, args: {}, isSelect: {}", execStmt.getName(),
+                        execStmt.getArgs(), preparedStmtCtx.isSelect);
             }
-            // continue analyze
-            preparedStmtReanalyzed = true;
-            preparedStmtCtx.stmt.analyze(analyzer);
         }
 
         parse();
@@ -1432,14 +1466,31 @@ public class StmtExecutor implements ProfileWriter {
         }
     }
 
-    public int executeForTxn(InsertStmt insertStmt)
-            throws UserException, TException, InterruptedException, ExecutionException, TimeoutException {
+    public int executeForTxn(InsertStmt insertStmt) throws Exception {
         if (context.isTxnIniting()) { // first time, begin txn
             beginTxn(insertStmt.getDb(), insertStmt.getTbl());
         }
         if (!context.getTxnEntry().getTxnConf().getDb().equals(insertStmt.getDb())
                 || !context.getTxnEntry().getTxnConf().getTbl().equals(insertStmt.getTbl())) {
             throw new TException("Only one table can be inserted in one transaction.");
+        }
+
+        if (insertStmt.isPrepare()) {
+            if (parsedStmt instanceof PrepareStmt || context.getCommand() == MysqlCommand.COM_STMT_PREPARE) {
+                if (context.getCommand() == MysqlCommand.COM_STMT_PREPARE) {
+                    prepareStmt = new PrepareStmt(parsedStmt,
+                            String.valueOf(context.getEnv().getNextStmtId()), true /*binary protocol*/);
+                } else {
+                    prepareStmt = (PrepareStmt) parsedStmt;
+                }
+                prepareStmt.setContext(context);
+                prepareStmt.analyze(analyzer);
+                // prepareStmt.analyze(analyzer);
+                // Need analyze inner statement
+                // parsedStmt = prepareStmt.getInnerStmt();
+                handlePrepareStmt();
+            }
+            return 0;
         }
 
         QueryStmt queryStmt = insertStmt.getQueryStmt();
@@ -1729,8 +1780,8 @@ public class StmtExecutor implements ProfileWriter {
         LOG.debug("add prepared statement {}, isBinaryProtocol {}",
                         prepareStmt.getName(), prepareStmt.isBinaryProtocol());
         context.addPreparedStmt(prepareStmt.getName(),
-                new PrepareStmtContext(prepareStmt,
-                            context, planner, analyzer, prepareStmt.getName()));
+                new PrepareStmtContext(prepareStmt, context, planner, analyzer, prepareStmt.getName(),
+                        parsedStmt instanceof SelectStmt));
         if (prepareStmt.isBinaryProtocol()) {
             sendStmtPrepareOK();
         }

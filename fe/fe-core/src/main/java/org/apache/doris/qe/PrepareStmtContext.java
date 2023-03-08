@@ -30,15 +30,17 @@ public class PrepareStmtContext {
     public Planner planner;
     public Analyzer analyzer;
     public String stmtString;
+    public boolean isSelect;
 
     public PrepareStmtContext(PrepareStmt stmt, ConnectContext ctx, Planner planner,
-                                    Analyzer analyzer, String stmtString) {
+                                    Analyzer analyzer, String stmtString, boolean isSelect) {
         this.stmt = stmt;
         this.ctx = ctx;
         this.planner = planner;
         // Only support OriginalPlanner for now
-        Preconditions.checkState(planner instanceof OriginalPlanner);
+        // Preconditions.checkState(planner instanceof OriginalPlanner);
         this.analyzer = analyzer;
         this.stmtString = stmtString;
+        this.isSelect = isSelect;
     }
 }

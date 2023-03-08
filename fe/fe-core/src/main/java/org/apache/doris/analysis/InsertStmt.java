@@ -134,6 +134,8 @@ public class InsertStmt extends DdlStmt {
 
     private boolean isValuesOrConstantSelect = false;
 
+    boolean isPrepare = false;
+
     public boolean isValuesOrConstantSelect() {
         return isValuesOrConstantSelect;
     }
@@ -297,6 +299,7 @@ public class InsertStmt extends DdlStmt {
         analyzePlanHints(analyzer);
 
         if (analyzer.getContext().isTxnModel()) {
+            checkAndSetPrepare();
             return;
         }
 
@@ -327,6 +330,26 @@ public class InsertStmt extends DdlStmt {
             int sendBatchParallelism = analyzer.getContext().getSessionVariable().getSendBatchParallelism();
             sink.init(loadId, transactionId, db.getId(), timeoutSecond, sendBatchParallelism, false);
         }
+    }
+
+    public boolean isPrepare() {
+        return isPrepare;
+    }
+
+    private boolean checkAndSetPrepare() {
+        if (queryStmt != null && queryStmt instanceof SelectStmt) {
+            SelectStmt selectStmt = (SelectStmt) queryStmt;
+            if (selectStmt.getValueList() != null && selectStmt.getValueList().getRows().size() == 1) {
+                for (Expr col : selectStmt.getValueList().getRows().get(0)) {
+                    if (!(col instanceof PlaceHolderExpr)) {
+                        return false;
+                    }
+                }
+                isPrepare = true;
+                return true;
+            }
+        }
+        return false;
     }
 
     private void analyzeTargetTable(Analyzer analyzer) throws AnalysisException {
@@ -792,6 +815,10 @@ public class InsertStmt extends DdlStmt {
         dataSink = null;
         dataPartition = null;
         targetColumns.clear();
+    }
+
+    public List<Column> getTargetColumns() {
+        return targetColumns;
     }
 
     @Override

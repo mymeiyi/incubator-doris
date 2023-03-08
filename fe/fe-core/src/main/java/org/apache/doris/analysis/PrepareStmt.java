@@ -19,6 +19,7 @@ package org.apache.doris.analysis;
 
 import org.apache.doris.catalog.Column;
 import org.apache.doris.catalog.OlapTable;
+import org.apache.doris.common.TreeNode;
 import org.apache.doris.common.UserException;
 import org.apache.doris.qe.ConnectContext;
 import org.apache.doris.thrift.TDescriptorTable;
@@ -146,6 +147,18 @@ public class PrepareStmt extends StatementBase {
                 }
             }
             return slots;
+        } else if (inner instanceof InsertStmt) {
+            InsertStmt insert = (InsertStmt) inner;
+            for (String pexpr : getColLabelsOfPlaceHolders()) {
+                for (SlotDescriptor slot : insert.getOlapTuple().getSlots()) {
+                    if (slot.getColumn().getName().equalsIgnoreCase(pexpr)) {
+                        slots.add(new SlotRef(slot));
+                        break;
+                    }
+                }
+            }
+            Preconditions.checkState(slots.size() == placeholders.size());
+            return slots;
         }
         return null;
     }
@@ -163,33 +176,54 @@ public class PrepareStmt extends StatementBase {
                 lables.add("");
             }
             return lables;
+        } else if (inner instanceof InsertStmt) {
+            InsertStmt insert = (InsertStmt) inner;
+            for (Column column : insert.getTargetColumns()) {
+                lables.add(column.getName());
+            }
+            return lables;
         }
         return null;
     }
 
     @Override
     public void analyze(Analyzer analyzer) throws UserException {
-        if (!(inner instanceof SelectStmt)) {
-            throw new UserException("Only support prepare SelectStmt now");
+        if (inner instanceof SelectStmt) {
+            // Use tmpAnalyzer since selectStmt will be reAnalyzed
+            Analyzer tmpAnalyzer = new Analyzer(context.getEnv(), context);
+            // collect placeholders from stmt exprs tree
+            SelectStmt selectStmt = (SelectStmt) inner;
+            // TODO(lhy) support more clauses
+            if (selectStmt.getWhereClause() != null) {
+                selectStmt.getWhereClause().collect(PlaceHolderExpr.class, placeholders);
+            }
+            inner.analyze(tmpAnalyzer);
+            if (!selectStmt.checkAndSetPointQuery()) {
+                throw new UserException("Only support prepare SelectStmt point query now");
+            }
+            tbl = (OlapTable) selectStmt.getTableRefs().get(0).getTable();
+            schemaVersion = tbl.getBaseSchemaVersion();
+            // reset will be reAnalyzed
+            selectStmt.reset();
+            analyzer.setPrepareStmt(this);
+            // tmpAnalyzer.setPrepareStmt(this);
+        } else if (inner instanceof InsertStmt) {
+            // Analyzer tmpAnalyzer = new Analyzer(context.getEnv(), context);
+            InsertStmt insertStmt = (InsertStmt) inner;
+            // inner.analyze(tmpAnalyzer);
+            if (!insertStmt.isPrepare()) {
+                throw new UserException("InsertStmt only support prepare with values now");
+            }
+            SelectStmt selectStmt = (SelectStmt) insertStmt.getQueryStmt();
+            TreeNode.collect(selectStmt.getValueList().getRows().get(0), PlaceHolderExpr.class, placeholders);
+            tbl = (OlapTable) insertStmt.getTargetTable();
+            schemaVersion = tbl.getBaseSchemaVersion();
+            // reset will be reAnalyzed
+            // insertStmt.reset();
+            analyzer.setPrepareStmt(this);
+        } else {
+            throw new UserException("Only support prepare SelectStmt or InsertStmt now");
         }
-        // Use tmpAnalyzer since selectStmt will be reAnalyzed
-        Analyzer tmpAnalyzer = new Analyzer(context.getEnv(), context);
-        // collect placeholders from stmt exprs tree
-        SelectStmt selectStmt = (SelectStmt) inner;
-        // TODO(lhy) support more clauses
-        if (selectStmt.getWhereClause() != null) {
-            selectStmt.getWhereClause().collect(PlaceHolderExpr.class, placeholders);
-        }
-        inner.analyze(tmpAnalyzer);
-        if (!selectStmt.checkAndSetPointQuery()) {
-            throw new UserException("Only support prepare SelectStmt point query now");
-        }
-        tbl = (OlapTable) selectStmt.getTableRefs().get(0).getTable();
-        schemaVersion = tbl.getBaseSchemaVersion();
-        // reset will be reAnalyzed
-        selectStmt.reset();
-        analyzer.setPrepareStmt(this);
-        // tmpAnalyzer.setPrepareStmt(this);
     }
 
     public String getName() {
@@ -198,6 +232,9 @@ public class PrepareStmt extends StatementBase {
 
     @Override
     public RedirectStatus getRedirectStatus() {
+        if (inner instanceof InsertStmt) {
+            return RedirectStatus.FORWARD_WITH_SYNC;
+        }
         return RedirectStatus.NO_FORWARD;
     }
 
