@@ -233,6 +233,7 @@ Status NewPlainTextLineReader::read_line(const uint8_t** ptr, size_t* size, bool
                     IOContext io_ctx;
                     RETURN_IF_ERROR(
                             _file_reader->read_at(_current_offset, file_slice, io_ctx, &read_len));
+                    *read_bytes += read_len;
                     _current_offset += read_len;
                     if (read_len == 0) {
                         _file_eof = true;
@@ -337,8 +338,9 @@ Status NewPlainTextLineReader::read_line(const uint8_t** ptr, size_t* size, bool
 
     // update total read bytes
     _total_read_bytes += *size + found_line_delimiter;
-    *read_bytes = *size + found_line_delimiter;
-    LOG(INFO) << "sout: total read bytes=" << _total_read_bytes << ", size=" << *size;
+    // *read_bytes = *size + found_line_delimiter;
+    LOG(INFO) << "sout: total read bytes=" << _total_read_bytes << ", read_bytes=" << *read_bytes
+              << ", size=" << *size;
 
     return Status::OK();
 }
