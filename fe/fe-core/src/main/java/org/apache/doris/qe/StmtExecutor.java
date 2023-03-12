@@ -1513,12 +1513,19 @@ public class StmtExecutor implements ProfileWriter {
             MasterTxnExecutor masterTxnExecutor = new MasterTxnExecutor(context);
             TLoadTxnBeginRequest request = new TLoadTxnBeginRequest();
             request.setDb(txnConf.getDb()).setTbl(txnConf.getTbl()).setToken(token)
-                    .setCluster(dbObj.getClusterName()).setLabel(label).setUser("").setUserIp("").setPasswd("");
+                    .setCluster(dbObj.getClusterName()).setLabel(label).setUser("").setUserIp("").setPasswd("")
+                    .setTimeout(timeoutSecond);
             TLoadTxnBeginResult result = masterTxnExecutor.beginTxn(request);
             txnConf.setTxnId(result.getTxnId());
             txnConf.setToken(token);
         }
 
+        SessionVariable sessionVariable = ConnectContext.get().getSessionVariable();
+        int queryTimeoutS = sessionVariable.getQueryTimeoutS();
+        int sendBatchParallelism = sessionVariable.getSendBatchParallelism();
+        String timeZone = sessionVariable.getTimeZone();
+        LOG.info("sout: begin txn, txnId: {}, queryTimeoutS: {}, sendBatchParallelism: {}, time={}, timezone={}",
+                txnConf.getTxnId(), queryTimeoutS, sendBatchParallelism, timeoutSecond, timeZone);
         TStreamLoadPutRequest request = new TStreamLoadPutRequest();
         request.setTxnId(txnConf.getTxnId()).setDb(txnConf.getDb())
                 .setTbl(txnConf.getTbl())

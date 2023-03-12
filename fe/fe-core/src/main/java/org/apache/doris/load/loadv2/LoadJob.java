@@ -146,6 +146,7 @@ public abstract class LoadJob extends AbstractTxnStateChangeCallback implements 
 
         // load task id -> fragment id -> load bytes
         private Table<TUniqueId, TUniqueId, Long> loadBytes = HashBasedTable.create();
+        private Table<TUniqueId, TUniqueId, Long> readBytes = HashBasedTable.create();
 
         // load task id -> unfinished backend id list
         private Map<TUniqueId, List<Long>> unfinishedBackendIds = Maps.newHashMap();
@@ -163,8 +164,10 @@ public abstract class LoadJob extends AbstractTxnStateChangeCallback implements 
                 counterTbl.put(loadId, fragId, 0L);
             }
             loadBytes.rowMap().remove(loadId);
+            readBytes.rowMap().remove(loadId);
             for (TUniqueId fragId : fragmentIds) {
                 loadBytes.put(loadId, fragId, 0L);
+                readBytes.put(loadId, fragId, 0L);
             }
             allBackendIds.put(loadId, relatedBackendIds);
             // need to get a copy of relatedBackendIds, so that when we modify the "relatedBackendIds" in
@@ -175,18 +178,22 @@ public abstract class LoadJob extends AbstractTxnStateChangeCallback implements 
         public synchronized void removeLoad(TUniqueId loadId) {
             counterTbl.rowMap().remove(loadId);
             loadBytes.rowMap().remove(loadId);
+            readBytes.rowMap().remove(loadId);
             unfinishedBackendIds.remove(loadId);
             allBackendIds.remove(loadId);
         }
 
         public synchronized void updateLoadProgress(long backendId, TUniqueId loadId, TUniqueId fragmentId,
-                                                    long rows, long bytes, boolean isDone) {
+                                                    long rows, long bytes, long readByte, boolean isDone) {
             if (counterTbl.contains(loadId, fragmentId)) {
                 counterTbl.put(loadId, fragmentId, rows);
             }
 
             if (loadBytes.contains(loadId, fragmentId)) {
                 loadBytes.put(loadId, fragmentId, bytes);
+            }
+            if (readBytes.contains(loadId, fragmentId)) {
+                readBytes.put(loadId, fragmentId, readByte);
             }
             if (isDone && unfinishedBackendIds.containsKey(loadId)) {
                 unfinishedBackendIds.get(loadId).remove(backendId);
@@ -209,6 +216,14 @@ public abstract class LoadJob extends AbstractTxnStateChangeCallback implements 
             return total;
         }
 
+        public synchronized long getReadBytes() {
+            long total = 0;
+            for (long bytes : readBytes.values()) {
+                total += bytes;
+            }
+            return total;
+        }
+
         public synchronized String toJson() {
             long total = 0;
             for (long rows : counterTbl.values()) {
@@ -218,10 +233,14 @@ public abstract class LoadJob extends AbstractTxnStateChangeCallback implements 
             for (long bytes : loadBytes.values()) {
                 totalBytes += bytes;
             }
-
+            long totalReadBytes = 0;
+            for (long bytes : readBytes.values()) {
+                totalReadBytes += bytes;
+            }
             Map<String, Object> details = Maps.newHashMap();
             details.put("ScannedRows", total);
             details.put("LoadBytes", totalBytes);
+            details.put("ReadBytes", totalReadBytes);
             details.put("FileNumber", fileNum);
             details.put("FileSize", totalFileSizeB);
             details.put("TaskNumber", counterTbl.rowMap().size());
@@ -317,8 +336,8 @@ public abstract class LoadJob extends AbstractTxnStateChangeCallback implements 
     }
 
     public void updateProgress(Long beId, TUniqueId loadId, TUniqueId fragmentId, long scannedRows,
-                               long scannedBytes, boolean isDone) {
-        loadStatistic.updateLoadProgress(beId, loadId, fragmentId, scannedRows, scannedBytes, isDone);
+                               long scannedBytes, long readBytes, boolean isDone) {
+        loadStatistic.updateLoadProgress(beId, loadId, fragmentId, scannedRows, scannedBytes, readBytes, isDone);
     }
 
     public void setLoadFileInfo(int fileNum, long fileSize) {

@@ -364,9 +364,16 @@ public class BrokerLoadJob extends BulkLoadJob {
 
     @Override
     public void updateProgress(Long beId, TUniqueId loadId, TUniqueId fragmentId, long scannedRows,
-                               long scannedBytes, boolean isDone) {
-        super.updateProgress(beId, loadId, fragmentId, scannedRows, scannedBytes, isDone);
-        progress = (int) ((double) loadStatistic.getLoadBytes() / loadStatistic.totalFileSizeB * 100);
+                               long scannedBytes, long readBytes, boolean isDone) {
+        super.updateProgress(beId, loadId, fragmentId, scannedRows, scannedBytes, readBytes, isDone);
+        readBytes = loadStatistic.getReadBytes();
+        LOG.info("sout: readBytes: {}, loadBytes: {}, totalFileSizeB: {}", readBytes, loadStatistic.getLoadBytes(),
+                loadStatistic.totalFileSizeB);
+        if (readBytes != 0) {
+            progress = (int) ((double) readBytes / loadStatistic.totalFileSizeB * 100);
+        } else {
+            progress = (int) ((double) loadStatistic.getLoadBytes() / loadStatistic.totalFileSizeB * 100);
+        }
         if (progress >= 100) {
             progress = 99;
         }

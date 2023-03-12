@@ -226,11 +226,14 @@ Status CsvReader::get_next_block(Block* block, size_t* read_rows, bool* eof) {
 
     const int batch_size = std::max(_state->batch_size(), (int)_MIN_BATCH_SIZE);
     size_t rows = 0;
+    size_t read_bytes = 0;
     auto columns = block->mutate_columns();
     while (rows < batch_size && !_line_reader_eof) {
         const uint8_t* ptr = nullptr;
         size_t size = 0;
-        RETURN_IF_ERROR(_line_reader->read_line(&ptr, &size, &_line_reader_eof));
+        size_t per_read_bytes = 0;
+        RETURN_IF_ERROR(_line_reader->read_line(&ptr, &size, &_line_reader_eof, &per_read_bytes));
+        read_bytes += per_read_bytes;
         if (_skip_lines > 0) {
             _skip_lines--;
             continue;
@@ -243,6 +246,8 @@ Status CsvReader::get_next_block(Block* block, size_t* read_rows, bool* eof) {
         RETURN_IF_ERROR(_fill_dest_columns(Slice(ptr, size), block, columns, &rows));
     }
 
+    _state->update_num_bytes_read_total(read_bytes);
+    LOG(INFO) << "sout: read bytes=" << read_bytes;
     *eof = (rows == 0);
     *read_rows = rows;
 
@@ -651,7 +656,8 @@ Status CsvReader::_prepare_parse(size_t* read_line, bool* is_parse_name) {
 Status CsvReader::_parse_col_nums(size_t* col_nums) {
     const uint8_t* ptr = nullptr;
     size_t size = 0;
-    RETURN_IF_ERROR(_line_reader->read_line(&ptr, &size, &_line_reader_eof));
+    size_t read_bytes = 0;
+    RETURN_IF_ERROR(_line_reader->read_line(&ptr, &size, &_line_reader_eof, &read_bytes));
     if (size == 0) {
         return Status::InternalError("The first line is empty, can not parse column numbers");
     }
@@ -667,7 +673,8 @@ Status CsvReader::_parse_col_names(std::vector<std::string>* col_names) {
     const uint8_t* ptr = nullptr;
     size_t size = 0;
     // no use of _line_reader_eof
-    RETURN_IF_ERROR(_line_reader->read_line(&ptr, &size, &_line_reader_eof));
+    size_t read_bytes;
+    RETURN_IF_ERROR(_line_reader->read_line(&ptr, &size, &_line_reader_eof, &read_bytes));
     if (size == 0) {
         return Status::InternalError("The first line is empty, can not parse column names");
     }

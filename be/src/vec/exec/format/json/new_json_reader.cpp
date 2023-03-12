@@ -153,7 +153,8 @@ Status NewJsonReader::get_next_block(Block* block, size_t* read_rows, bool* eof)
         if (UNLIKELY(_read_json_by_line && _skip_first_line)) {
             size_t size = 0;
             const uint8_t* line_ptr = nullptr;
-            RETURN_IF_ERROR(_line_reader->read_line(&line_ptr, &size, &_reader_eof));
+            size_t read_bytes;
+            RETURN_IF_ERROR(_line_reader->read_line(&line_ptr, &size, &_reader_eof, &read_bytes));
             _skip_first_line = false;
             continue;
         }
@@ -197,7 +198,8 @@ Status NewJsonReader::get_parsed_schema(std::vector<std::string>* col_names,
     std::unique_ptr<uint8_t[]> json_str_ptr;
     size_t size = 0;
     if (_line_reader != nullptr) {
-        RETURN_IF_ERROR(_line_reader->read_line(&json_str, &size, &eof));
+        size_t read_bytes;
+        RETURN_IF_ERROR(_line_reader->read_line(&json_str, &size, &eof, &read_bytes));
     } else {
         size_t read_size = 0;
         RETURN_IF_ERROR(_read_one_message(&json_str_ptr, &read_size));
@@ -398,7 +400,8 @@ Status NewJsonReader::_parse_dynamic_json(bool* is_empty_row, bool* eof,
     const uint8_t* json_str = nullptr;
     std::unique_ptr<uint8_t[]> json_str_ptr;
     if (_line_reader != nullptr) {
-        RETURN_IF_ERROR(_line_reader->read_line(&json_str, &size, eof));
+        size_t read_bytes;
+        RETURN_IF_ERROR(_line_reader->read_line(&json_str, &size, eof, &read_bytes));
     } else {
         size_t length = 0;
         RETURN_IF_ERROR(_read_one_message(&json_str_ptr, &length));
@@ -628,7 +631,8 @@ Status NewJsonReader::_parse_json_doc(size_t* size, bool* eof) {
     const uint8_t* json_str = nullptr;
     std::unique_ptr<uint8_t[]> json_str_ptr;
     if (_line_reader != nullptr) {
-        RETURN_IF_ERROR(_line_reader->read_line(&json_str, size, eof));
+        size_t read_bytes = 0;
+        RETURN_IF_ERROR(_line_reader->read_line(&json_str, size, eof, &read_bytes));
     } else {
         RETURN_IF_ERROR(_read_one_message(&json_str_ptr, size));
         json_str = json_str_ptr.release();
@@ -1503,7 +1507,8 @@ Status NewJsonReader::_simdjson_parse_json_doc(size_t* size, bool* eof) {
     const uint8_t* json_str = nullptr;
     std::unique_ptr<uint8_t[]> json_str_ptr;
     if (_line_reader != nullptr) {
-        RETURN_IF_ERROR(_line_reader->read_line(&json_str, size, eof));
+        size_t read_bytes;
+        RETURN_IF_ERROR(_line_reader->read_line(&json_str, size, eof, &read_bytes));
     } else {
         size_t length = 0;
         RETURN_IF_ERROR(_read_one_message(&json_str_ptr, &length));

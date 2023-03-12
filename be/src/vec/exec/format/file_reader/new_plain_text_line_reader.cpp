@@ -174,7 +174,8 @@ void NewPlainTextLineReader::extend_output_buf() {
     } while (false);
 }
 
-Status NewPlainTextLineReader::read_line(const uint8_t** ptr, size_t* size, bool* eof) {
+Status NewPlainTextLineReader::read_line(const uint8_t** ptr, size_t* size, bool* eof,
+                                         size_t* read_bytes) {
     if (_eof || update_eof()) {
         *size = 0;
         *eof = true;
@@ -336,6 +337,8 @@ Status NewPlainTextLineReader::read_line(const uint8_t** ptr, size_t* size, bool
 
     // update total read bytes
     _total_read_bytes += *size + found_line_delimiter;
+    *read_bytes = *size + found_line_delimiter;
+    LOG(INFO) << "sout: total read bytes=" << _total_read_bytes << ", size=" << *size;
 
     return Status::OK();
 }

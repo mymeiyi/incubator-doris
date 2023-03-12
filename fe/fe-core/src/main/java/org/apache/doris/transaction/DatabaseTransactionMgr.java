@@ -299,11 +299,14 @@ public class DatabaseTransactionMgr {
              * 3. if there is a non-aborted transaction, throw label already used exception.
              */
             Set<Long> existingTxnIds = unprotectedGetTxnIdsByLabel(label);
+            LOG.info("sout: existingTxnIds: {}, label: {}, requestId={}", existingTxnIds, label,
+                    DebugUtil.printId(requestId));
             if (existingTxnIds != null && !existingTxnIds.isEmpty()) {
                 List<TransactionState> notAbortedTxns = Lists.newArrayList();
                 for (long txnId : existingTxnIds) {
                     TransactionState txn = unprotectedGetTransactionState(txnId);
                     Preconditions.checkNotNull(txn);
+                    LOG.info("sout: txn: {}", txn.getTransactionStatus());
                     if (txn.getTransactionStatus() != TransactionStatus.ABORTED) {
                         notAbortedTxns.add(txn);
                     }

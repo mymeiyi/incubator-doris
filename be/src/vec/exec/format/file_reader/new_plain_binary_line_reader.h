@@ -33,10 +33,11 @@ public:
 
     ~NewPlainBinaryLineReader() override;
 
-    Status read_line(const uint8_t** ptr, size_t* size, bool* eof) override;
+    Status read_line(const uint8_t** ptr, size_t* size, bool* eof, size_t* read_bytes) override;
 
     void close() override;
 
+    size_t get_total_read_bytes() override { return 0; }
 private:
     io::FileReaderSPtr _file_reader;
 

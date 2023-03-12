@@ -25,9 +25,10 @@ namespace doris {
 class LineReader {
 public:
     virtual ~LineReader() = default;
-    virtual Status read_line(const uint8_t** ptr, size_t* size, bool* eof) = 0;
+    virtual Status read_line(const uint8_t** ptr, size_t* size, bool* eof, size_t* read_bytes) = 0;
 
     virtual void close() = 0;
+    virtual size_t get_total_read_bytes() = 0;
 };
 
 } // namespace doris

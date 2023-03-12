@@ -359,6 +359,9 @@ void FragmentMgr::coordinator_callback(const ReportStatusRequest& req) {
         // this is a load plan, and load is not finished, just make a brief report
         params.__set_loaded_rows(req.runtime_state->num_rows_load_total());
         params.__set_loaded_bytes(req.runtime_state->num_bytes_load_total());
+        params.__set_read_bytes(req.runtime_state->num_bytes_read_total());
+        LOG(INFO) << "sout: load bytes=" << req.runtime_state->num_bytes_load_total()
+                  << ", read bytes=" << req.runtime_state->num_bytes_read_total();
     } else {
         if (req.runtime_state->query_type() == TQueryType::LOAD) {
             params.__set_loaded_rows(req.runtime_state->num_rows_load_total());

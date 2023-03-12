@@ -184,6 +184,8 @@ public class LoadLoadingTask extends LoadTask {
                 // Create profile of this task and add to the job profile.
                 createProfile(curCoordinator);
             } else {
+                LOG.info("sout: load failed: {}, loadId={}, queryId={}", status.getErrorMsg(),
+                        DebugUtil.printId(loadId), DebugUtil.printId(curCoordinator.getQueryId()));
                 throw new LoadException(status.getErrorMsg());
             }
         } else {

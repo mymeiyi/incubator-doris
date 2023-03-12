@@ -119,6 +119,7 @@ Status PlanFragmentExecutor::prepare(const TExecPlanFragmentParams& request,
 
     if (request.query_options.__isset.is_report_success) {
         _is_report_success = request.query_options.is_report_success;
+        LOG(INFO) << "sout: _is_report_success=" << _is_report_success;
     }
 
     // set up desc tbl
