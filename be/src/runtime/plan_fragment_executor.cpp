@@ -112,7 +112,6 @@ Status PlanFragmentExecutor::prepare(const TExecPlanFragmentParams& request,
     const TPlanFragmentExecParams& params = request.params;
     _query_id = params.query_id;
     _group_commit = params.group_commit;
-    LOG(INFO) << "sout: group commit: " << _group_commit;
 
     LOG_INFO("PlanFragmentExecutor::prepare")
             .tag("query_id", _query_id)
@@ -367,7 +366,6 @@ Status PlanFragmentExecutor::open_vectorized_internal() {
 
 Status PlanFragmentExecutor::get_vectorized_internal(::doris::vectorized::Block* block, bool* eos) {
     while (!_done) {
-        LOG(INFO) << "sout: block type=" << typeid(*block).name();
         block->clear_column_data(_plan->row_desc().num_materialized_slots());
         RETURN_IF_ERROR(_plan->get_next_after_projects(
                 _runtime_state.get(), block, &_done,

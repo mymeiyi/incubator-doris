@@ -278,7 +278,7 @@ Status GroupCommitTable::_exe_plan_fragment(int64_t db_id, int64_t table_id, int
                     std::lock_guard<doris::Mutex> l(_lock);
                     load_instance_infos.erase(instance_id);
                 }
-                // Status status = executor->status();
+                // status = executor->status();
                 /*if (!status.ok()) {
                     LOG(WARNING) << "group commit error, executor status=" << status.to_string()
                                  << ", add wal to recover, wal=" << wal_id;
