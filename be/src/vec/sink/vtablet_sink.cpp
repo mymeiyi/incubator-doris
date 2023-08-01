@@ -1268,6 +1268,15 @@ Status VOlapTableSink::send(RuntimeState* state, vectorized::Block* input_block,
                     block.get(), filter_col, block->columns()));
         }
     }
+    if (typeid(*input_block) == typeid(doris::vectorized::FutureBlock)) {
+        auto* future_block = dynamic_cast<vectorized::FutureBlock*>(input_block);
+        auto block_status = std::make_tuple<bool, Status, int64_t, int64_t>(
+                true, Status::OK(), rows, 0);
+        // TODO filter rows: rows - _number_filtered_rows + previous_number_filtered_rows
+        std::unique_lock<doris::Mutex> l(*(future_block->lock));
+        block_status.swap(*(future_block->block_status));
+        future_block->cv->notify_all();
+    }
     // Add block to node channel
     for (size_t i = 0; i < _channels.size(); i++) {
         for (const auto& entry : channel_to_payload[i]) {
@@ -1282,7 +1291,6 @@ Status VOlapTableSink::send(RuntimeState* state, vectorized::Block* input_block,
             }
         }
     }
-
     // check intolerable failure
     for (const auto& index_channel : _channels) {
         RETURN_IF_ERROR(index_channel->check_intolerable_failure());

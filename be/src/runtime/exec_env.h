@@ -71,6 +71,7 @@ class ClientCache;
 class HeartbeatFlags;
 class FrontendServiceClient;
 class FileMetaCache;
+class GroupCommitMgr;
 
 // Execution environment for queries/plan fragments.
 // Contains all required global structures, and handles to
@@ -166,6 +167,7 @@ public:
     std::shared_ptr<NewLoadStreamMgr> new_load_stream_mgr() { return _new_load_stream_mgr; }
     SmallFileMgr* small_file_mgr() { return _small_file_mgr; }
     BlockSpillManager* block_spill_mgr() { return _block_spill_mgr; }
+    GroupCommitMgr* group_commit_mgr() { return _group_commit_mgr; }
 
     const std::vector<StorePath>& store_paths() const { return _store_paths; }
     size_t store_path_to_index(const std::string& path) { return _store_path_map[path]; }
@@ -264,6 +266,7 @@ private:
     // To save meta info of external file, such as parquet footer.
     FileMetaCache* _file_meta_cache = nullptr;
     std::unique_ptr<MemTableMemoryLimiter> _memtable_memory_limiter;
+    GroupCommitMgr* _group_commit_mgr = nullptr;
 };
 
 template <>

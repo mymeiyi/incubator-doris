@@ -40,6 +40,7 @@ import org.apache.doris.plugin.AuditEvent.AuditEventBuilder;
 import org.apache.doris.resource.Tag;
 import org.apache.doris.statistics.ColumnStatistic;
 import org.apache.doris.statistics.Histogram;
+import org.apache.doris.system.Backend;
 import org.apache.doris.thrift.TUniqueId;
 import org.apache.doris.transaction.TransactionEntry;
 import org.apache.doris.transaction.TransactionStatus;
@@ -165,6 +166,8 @@ public class ConnectContext {
     private StatsErrorEstimator statsErrorEstimator;
 
     private Map<String, String> resultAttachedInfo;
+
+    private Map<Long, Backend> insertGroupCommitTableToBeMap = new HashMap<>();
 
     public void setUserQueryTimeout(int queryTimeout) {
         if (queryTimeout > 0) {
@@ -779,6 +782,26 @@ public class ConnectContext {
 
     public void setStatsErrorEstimator(StatsErrorEstimator statsErrorEstimator) {
         this.statsErrorEstimator = statsErrorEstimator;
+    }
+
+    public void setInsertGroupCommit(long tableId, Backend backend) {
+        insertGroupCommitTableToBeMap.put(tableId, backend);
+    }
+
+    public Map<Long, Backend> getInsertGroupCommit() {
+        return insertGroupCommitTableToBeMap;
+    }
+
+    public Backend getInsertGroupCommit(long tableId) {
+        return insertGroupCommitTableToBeMap.containsKey(tableId) ? insertGroupCommitTableToBeMap.get(tableId) : null;
+    }
+
+    public void removeInsertGroupCommit(long tableId) {
+        insertGroupCommitTableToBeMap.remove(tableId);
+    }
+
+    public void clearInsertGroupCommit() {
+        insertGroupCommitTableToBeMap.clear();
     }
 }
 

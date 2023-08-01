@@ -111,6 +111,8 @@ Status PlanFragmentExecutor::prepare(const TExecPlanFragmentParams& request,
 
     const TPlanFragmentExecParams& params = request.params;
     _query_id = params.query_id;
+    _group_commit = params.group_commit;
+    LOG(INFO) << "sout: group commit: " << _group_commit;
 
     LOG_INFO("PlanFragmentExecutor::prepare")
             .tag("query_id", _query_id)
@@ -311,7 +313,11 @@ Status PlanFragmentExecutor::open_vectorized_internal() {
             return Status::OK();
         }
         RETURN_IF_ERROR(_sink->open(runtime_state()));
-        doris::vectorized::Block block;
+        // doris::vectorized::Block block;
+        // auto block = _group_commit ? doris::vectorized::FutureBlock() : doris::vectorized::Block();
+        doris::vectorized::FutureBlock block;
+        LOG(INFO) << "sout: block type=" << typeid(block).name()
+                  << ", group commit=" << _group_commit;
         bool eos = false;
 
         while (!eos) {
@@ -325,6 +331,18 @@ Status PlanFragmentExecutor::open_vectorized_internal() {
 
             if (!eos || block.rows() > 0) {
                 auto st = _sink->send(runtime_state(), &block);
+                if (UNLIKELY(!st.ok() || block.rows() == 0)) {
+                    if (typeid(block) == typeid(doris::vectorized::FutureBlock)) {
+                        auto* future_block = dynamic_cast<vectorized::FutureBlock*>(&block);
+                        std::unique_lock<doris::Mutex> l(*(future_block->lock));
+                        if (!std::get<0>(*(future_block->block_status))) {
+                            auto block_status = std::make_tuple<bool, Status, int64_t, int64_t>(
+                                    true, Status(st), 0, 0);
+                            block_status.swap(*(future_block->block_status));
+                            future_block->cv->notify_all();
+                        }
+                    }
+                }
                 if (st.is<END_OF_FILE>()) {
                     break;
                 }
@@ -350,6 +368,7 @@ Status PlanFragmentExecutor::open_vectorized_internal() {
 
 Status PlanFragmentExecutor::get_vectorized_internal(::doris::vectorized::Block* block, bool* eos) {
     while (!_done) {
+        LOG(INFO) << "sout: block type=" << typeid(*block).name();
         block->clear_column_data(_plan->row_desc().num_materialized_slots());
         RETURN_IF_ERROR(_plan->get_next_after_projects(
                 _runtime_state.get(), block, &_done,

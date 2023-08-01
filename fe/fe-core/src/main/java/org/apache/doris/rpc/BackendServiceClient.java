@@ -142,6 +142,11 @@ public class BackendServiceClient {
         return stub.getColumnIdsByTabletIds(request);
     }
 
+    public Future<InternalService.PGroupCommitInsertResponse> groupCommitInsert(
+            InternalService.PGroupCommitInsertRequest request) {
+        return stub.groupCommitInsert(request);
+    }
+
     public void shutdown() {
         if (!channel.isShutdown()) {
             channel.shutdown();

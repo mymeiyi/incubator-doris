@@ -53,11 +53,13 @@ import org.apache.doris.common.MetaNotFoundException;
 import org.apache.doris.common.Pair;
 import org.apache.doris.common.PatternMatcher;
 import org.apache.doris.common.PatternMatcherException;
+import org.apache.doris.common.Status;
 import org.apache.doris.common.ThriftServerContext;
 import org.apache.doris.common.ThriftServerEventProcessor;
 import org.apache.doris.common.UserException;
 import org.apache.doris.common.Version;
 import org.apache.doris.common.annotation.LogException;
+import org.apache.doris.common.util.DebugUtil;
 import org.apache.doris.common.util.Util;
 import org.apache.doris.cooldown.CooldownDelete;
 import org.apache.doris.datasource.CatalogIf;
@@ -67,6 +69,7 @@ import org.apache.doris.master.MasterImpl;
 import org.apache.doris.mysql.privilege.AccessControllerManager;
 import org.apache.doris.mysql.privilege.PrivPredicate;
 import org.apache.doris.persist.gson.GsonUtils;
+import org.apache.doris.planner.GroupCommitLoadPlanner;
 import org.apache.doris.planner.StreamLoadPlanner;
 import org.apache.doris.qe.ConnectContext;
 import org.apache.doris.qe.ConnectProcessor;
@@ -82,99 +85,9 @@ import org.apache.doris.system.Backend;
 import org.apache.doris.system.Frontend;
 import org.apache.doris.system.SystemInfoService;
 import org.apache.doris.tablefunction.MetadataGenerator;
+import org.apache.doris.task.LoadTaskInfo;
 import org.apache.doris.task.StreamLoadTask;
-import org.apache.doris.thrift.FrontendService;
-import org.apache.doris.thrift.FrontendServiceVersion;
-import org.apache.doris.thrift.TAddColumnsRequest;
-import org.apache.doris.thrift.TAddColumnsResult;
-import org.apache.doris.thrift.TAutoIncrementRangeRequest;
-import org.apache.doris.thrift.TAutoIncrementRangeResult;
-import org.apache.doris.thrift.TBeginTxnRequest;
-import org.apache.doris.thrift.TBeginTxnResult;
-import org.apache.doris.thrift.TBinlog;
-import org.apache.doris.thrift.TCheckAuthRequest;
-import org.apache.doris.thrift.TCheckAuthResult;
-import org.apache.doris.thrift.TColumn;
-import org.apache.doris.thrift.TColumnDef;
-import org.apache.doris.thrift.TColumnDesc;
-import org.apache.doris.thrift.TCommitTxnRequest;
-import org.apache.doris.thrift.TCommitTxnResult;
-import org.apache.doris.thrift.TConfirmUnusedRemoteFilesRequest;
-import org.apache.doris.thrift.TConfirmUnusedRemoteFilesResult;
-import org.apache.doris.thrift.TDescribeTableParams;
-import org.apache.doris.thrift.TDescribeTableResult;
-import org.apache.doris.thrift.TDescribeTablesParams;
-import org.apache.doris.thrift.TDescribeTablesResult;
-import org.apache.doris.thrift.TExecPlanFragmentParams;
-import org.apache.doris.thrift.TFeResult;
-import org.apache.doris.thrift.TFetchResourceResult;
-import org.apache.doris.thrift.TFetchSchemaTableDataRequest;
-import org.apache.doris.thrift.TFetchSchemaTableDataResult;
-import org.apache.doris.thrift.TFinishTaskRequest;
-import org.apache.doris.thrift.TFrontendPingFrontendRequest;
-import org.apache.doris.thrift.TFrontendPingFrontendResult;
-import org.apache.doris.thrift.TFrontendPingFrontendStatusCode;
-import org.apache.doris.thrift.TGetBinlogLagResult;
-import org.apache.doris.thrift.TGetBinlogRequest;
-import org.apache.doris.thrift.TGetBinlogResult;
-import org.apache.doris.thrift.TGetDbsParams;
-import org.apache.doris.thrift.TGetDbsResult;
-import org.apache.doris.thrift.TGetMasterTokenRequest;
-import org.apache.doris.thrift.TGetMasterTokenResult;
-import org.apache.doris.thrift.TGetQueryStatsRequest;
-import org.apache.doris.thrift.TGetSnapshotRequest;
-import org.apache.doris.thrift.TGetSnapshotResult;
-import org.apache.doris.thrift.TGetTablesParams;
-import org.apache.doris.thrift.TGetTablesResult;
-import org.apache.doris.thrift.TGetTabletReplicaInfosRequest;
-import org.apache.doris.thrift.TGetTabletReplicaInfosResult;
-import org.apache.doris.thrift.TInitExternalCtlMetaRequest;
-import org.apache.doris.thrift.TInitExternalCtlMetaResult;
-import org.apache.doris.thrift.TListPrivilegesResult;
-import org.apache.doris.thrift.TListTableStatusResult;
-import org.apache.doris.thrift.TLoadTxn2PCRequest;
-import org.apache.doris.thrift.TLoadTxn2PCResult;
-import org.apache.doris.thrift.TLoadTxnBeginRequest;
-import org.apache.doris.thrift.TLoadTxnBeginResult;
-import org.apache.doris.thrift.TLoadTxnCommitRequest;
-import org.apache.doris.thrift.TLoadTxnCommitResult;
-import org.apache.doris.thrift.TLoadTxnRollbackRequest;
-import org.apache.doris.thrift.TLoadTxnRollbackResult;
-import org.apache.doris.thrift.TMasterOpRequest;
-import org.apache.doris.thrift.TMasterOpResult;
-import org.apache.doris.thrift.TMasterResult;
-import org.apache.doris.thrift.TMySqlLoadAcquireTokenResult;
-import org.apache.doris.thrift.TNetworkAddress;
-import org.apache.doris.thrift.TPipelineFragmentParams;
-import org.apache.doris.thrift.TPrivilegeCtrl;
-import org.apache.doris.thrift.TPrivilegeHier;
-import org.apache.doris.thrift.TPrivilegeStatus;
-import org.apache.doris.thrift.TPrivilegeType;
-import org.apache.doris.thrift.TQueryStatsResult;
-import org.apache.doris.thrift.TReplicaInfo;
-import org.apache.doris.thrift.TReportExecStatusParams;
-import org.apache.doris.thrift.TReportExecStatusResult;
-import org.apache.doris.thrift.TReportRequest;
-import org.apache.doris.thrift.TRestoreSnapshotRequest;
-import org.apache.doris.thrift.TRestoreSnapshotResult;
-import org.apache.doris.thrift.TRollbackTxnRequest;
-import org.apache.doris.thrift.TRollbackTxnResult;
-import org.apache.doris.thrift.TShowVariableRequest;
-import org.apache.doris.thrift.TShowVariableResult;
-import org.apache.doris.thrift.TSnapshotLoaderReportRequest;
-import org.apache.doris.thrift.TSnapshotType;
-import org.apache.doris.thrift.TStatus;
-import org.apache.doris.thrift.TStatusCode;
-import org.apache.doris.thrift.TStreamLoadMultiTablePutResult;
-import org.apache.doris.thrift.TStreamLoadPutRequest;
-import org.apache.doris.thrift.TStreamLoadPutResult;
-import org.apache.doris.thrift.TTableIndexQueryStats;
-import org.apache.doris.thrift.TTableQueryStats;
-import org.apache.doris.thrift.TTableStatus;
-import org.apache.doris.thrift.TUpdateExportTaskStatusRequest;
-import org.apache.doris.thrift.TUpdateFollowerStatsCacheRequest;
-import org.apache.doris.thrift.TWaitingTxnStatusRequest;
-import org.apache.doris.thrift.TWaitingTxnStatusResult;
+import org.apache.doris.thrift.*;
 import org.apache.doris.transaction.DatabaseTransactionMgr;
 import org.apache.doris.transaction.TabletCommitInfo;
 import org.apache.doris.transaction.TransactionState;
@@ -187,6 +100,7 @@ import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.lang3.tuple.Triple;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.thrift.TException;
@@ -201,6 +115,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -2761,5 +2676,94 @@ public class FrontendServiceImpl implements FrontendService.Iface {
         ColumnStatistic columnStatistic = GsonUtils.GSON.fromJson(request.colStats, ColumnStatistic.class);
         Env.getCurrentEnv().getStatisticsCache().putCache(key, columnStatistic);
         return new TStatus(TStatusCode.OK);
+    }
+
+    @Override
+    public TRequestGroupCommitFragmentResult requestGroupCommitFragment(TRequestGroupCommitFragmentRequest request)
+            throws TException {
+        String clientAddr = getClientAddrAsString();
+        LOG.debug("request group commit fragment request: {}, backend: {}", request, clientAddr);
+        TRequestGroupCommitFragmentResult result = new TRequestGroupCommitFragmentResult();
+        TStatus status = new TStatus(TStatusCode.OK);
+        result.setStatus(status);
+        try {
+            requestGroupCommitFragmentImpl(request, result);
+        } catch (UserException e) {
+            LOG.warn("failed to get group commit fragment", e);
+            status.setStatusCode(TStatusCode.ANALYSIS_ERROR);
+            status.addToErrorMsgs(e.getMessage());
+        } catch (Throwable e) {
+            LOG.warn("catch unknown result.", e);
+            status.setStatusCode(TStatusCode.INTERNAL_ERROR);
+            status.addToErrorMsgs(e.getClass().getSimpleName() + ": " + Strings.nullToEmpty(e.getMessage()));
+            return result;
+        }
+        return result;
+    }
+
+    private void requestGroupCommitFragmentImpl(TRequestGroupCommitFragmentRequest request,
+            TRequestGroupCommitFragmentResult result) throws UserException {
+        // ConnectContext ctx = new ConnectContext();
+        // ctx.setThreadLocalInfo();
+        // ctx.setCloudCluster(Env.getCurrentSystemInfo().getBackend(request.getBeId()).getCloudClusterName());
+        Database db = Env.getCurrentEnv().getInternalCatalog().getDbOrAnalysisException(request.getDbId());
+        Table table = db.getTableOrAnalysisException(request.getTableId());
+        table.readLock();
+        try {
+            OlapTable olapTable = (OlapTable) table;
+            UUID uuid = UUID.randomUUID();
+            TUniqueId loadId = new TUniqueId(uuid.getMostSignificantBits(), uuid.getLeastSignificantBits());
+            LabelName label = new LabelName(db.getFullName(),
+                    "group_commit_" + DebugUtil.printId(loadId).replace("-", "_"));
+            long txnId = Env.getCurrentGlobalTransactionMgr().beginTransaction(db.getId(),
+                    Lists.newArrayList(olapTable.getId()), label.getLabelName(),
+                    new TxnCoordinator(TxnSourceType.FE, FrontendOptions.getLocalHostAddress()),
+                    TransactionState.LoadJobSourceType.INSERT_STREAMING, 3600L);
+            LoadTaskInfo taskInfo = new StreamLoadTask(loadId, txnId, TFileType.FILE_STREAM,
+                    TFileFormatType.FORMAT_CSV_PLAIN, TFileCompressType.PLAIN);
+            GroupCommitLoadPlanner planner = new GroupCommitLoadPlanner(db, olapTable, taskInfo);
+            TExecPlanFragmentParams execPlanFragmentParams = planner.plan(loadId);
+            execPlanFragmentParams.params.setGroupCommit(true);
+            execPlanFragmentParams.setTxnConf(new TTxnParams());
+            execPlanFragmentParams.txn_conf.setTxnId(txnId);
+            /*Env.getCurrentEnv().getGroupCommitManager().addTableInstance(request.table_id, request.getBeId(),
+                    plan.getLeft(), plan.getRight().getParams().getFragmentInstanceId(), db.getId(), false,
+                    plan.getMiddle());*/
+            // <wal_id, label, TExecPlanFragmentParams>, now wal_id is the same as txn_id
+            result.setParams(execPlanFragmentParams);
+            result.setWalId(taskInfo.getTxnId());
+            result.setBaseSchemaVersion(olapTable.getBaseSchemaVersion());
+            // result.setBaseSchemaHash(olapTable.getBaseSchemaHash());
+        } finally {
+            table.readUnlock();
+        }
+    }
+
+    @Override
+    public TFinishGroupCommitResult finishGroupCommit(TFinishGroupCommitRequest request) {
+        String clientAddr = getClientAddrAsString();
+        LOG.debug(
+                "receive finish group commit request: {}, backend: {}, status: {}, db_id: {}, table_id: {}, txn_id: {}",
+                request, clientAddr, request.status, request.getDbId(), request.getTableId(), request.getTxnId());
+        TFinishGroupCommitResult result = new TFinishGroupCommitResult();
+        TStatus status = new TStatus(TStatusCode.OK);
+        result.setStatus(status);
+        try {
+            long txnId = request.getTxnId();
+            Database db = Env.getCurrentEnv().getInternalCatalog().getDbOrAnalysisException(request.getDbId());
+            Table table = db.getTableOrAnalysisException(request.getTableId());
+            if ((new Status(request.getStatus())).ok()) {
+                Env.getCurrentGlobalTransactionMgr()
+                        .commitTransaction(request.getDbId(), Lists.newArrayList(table), txnId,
+                                TabletCommitInfo.fromThrift(request.getCommitInfos()));
+            } else {
+                // abort txn
+            }
+        } catch (UserException e) {
+            LOG.warn("failed to finish group commit", e);
+            status.setStatusCode(TStatusCode.ANALYSIS_ERROR);
+            status.addToErrorMsgs(e.getMessage());
+        }
+        return result;
     }
 }

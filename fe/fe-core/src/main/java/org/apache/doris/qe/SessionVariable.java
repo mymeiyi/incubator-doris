@@ -358,6 +358,7 @@ public class SessionVariable implements Serializable, Writable {
     public static final String EXTERNAL_TABLE_ANALYZE_PART_NUM = "external_table_analyze_part_num";
 
     public static final String ENABLE_STRONG_CONSISTENCY = "enable_strong_consistency_read";
+    public static final String ENABLE_INSERT_GROUP_COMMIT = "enable_insert_group_commit";
 
     public static final String CBO_CPU_WEIGHT = "cbo_cpu_weight";
 
@@ -1058,6 +1059,9 @@ public class SessionVariable implements Serializable, Writable {
                     + "real time. If you want strong consistent reads between sessions, set this variable to true. "
     })
     public boolean enableStrongConsistencyRead = false;
+
+    @VariableMgr.VarAttr(name = ENABLE_INSERT_GROUP_COMMIT)
+    public boolean enableInsertGroupCommit = false;
 
     // If this fe is in fuzzy mode, then will use initFuzzyModeVariables to generate some variables,
     // not the default value set in the code.

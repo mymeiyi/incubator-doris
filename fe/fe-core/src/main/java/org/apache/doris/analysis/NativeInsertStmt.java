@@ -48,11 +48,22 @@ import org.apache.doris.planner.DataPartition;
 import org.apache.doris.planner.DataSink;
 import org.apache.doris.planner.ExportSink;
 import org.apache.doris.planner.OlapTableSink;
+import org.apache.doris.planner.StreamLoadPlanner;
 import org.apache.doris.planner.external.jdbc.JdbcTableSink;
 import org.apache.doris.qe.ConnectContext;
 import org.apache.doris.rewrite.ExprRewriter;
 import org.apache.doris.service.FrontendOptions;
+import org.apache.doris.task.StreamLoadTask;
+import org.apache.doris.thrift.TExecPlanFragmentParams;
+import org.apache.doris.thrift.TFileCompressType;
+import org.apache.doris.thrift.TFileFormatType;
+import org.apache.doris.thrift.TFileType;
+import org.apache.doris.thrift.TMergeType;
+import org.apache.doris.thrift.TPlan;
+import org.apache.doris.thrift.TPlanFragment;
 import org.apache.doris.thrift.TQueryOptions;
+import org.apache.doris.thrift.TScanRangeParams;
+import org.apache.doris.thrift.TStreamLoadPutRequest;
 import org.apache.doris.thrift.TUniqueId;
 import org.apache.doris.transaction.TransactionState;
 import org.apache.doris.transaction.TransactionState.LoadJobSourceType;
@@ -64,11 +75,15 @@ import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.google.protobuf.ByteString;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.thrift.TException;
+import org.apache.thrift.TSerializer;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -137,6 +152,14 @@ public class NativeInsertStmt extends InsertStmt {
     private boolean isPartialUpdate = false;
 
     private HashSet<String> partialUpdateCols = new HashSet<String>();
+    // Used for group commit insert
+    private boolean isGroupCommit = false;
+    private int baseSchemaVersion = -1;
+    private int baseSchemaHash = -1;
+    private TUniqueId pipeId = null;
+    private ByteString planBytes = null;
+    private ByteString tableBytes = null;
+    private ByteString rangeBytes = null;
 
     public NativeInsertStmt(InsertTarget target, String label, List<String> cols, InsertSource source,
             List<String> hints) {
@@ -295,6 +318,12 @@ public class NativeInsertStmt extends InsertStmt {
 
         // set target table and
         analyzeTargetTable(analyzer);
+        db = analyzer.getEnv().getCatalogMgr().getCatalog(tblName.getCtl()).getDbOrAnalysisException(tblName.getDb());
+
+        analyzeGroupCommit();
+        if (isGroupCommit()) {
+            return;
+        }
 
         analyzeSubquery(analyzer);
 
@@ -307,7 +336,6 @@ public class NativeInsertStmt extends InsertStmt {
         // create data sink
         createDataSink();
 
-        db = analyzer.getEnv().getCatalogMgr().getCatalog(tblName.getCtl()).getDbOrAnalysisException(tblName.getDb());
         // create label and begin transaction
         long timeoutSecond = ConnectContext.get().getExecTimeout();
         if (label == null || Strings.isNullOrEmpty(label.getLabelName())) {
@@ -927,5 +955,86 @@ public class NativeInsertStmt extends InsertStmt {
         } else {
             return RedirectStatus.FORWARD_WITH_SYNC;
         }
+    }
+
+    private void analyzeGroupCommit() {
+        LOG.debug("sout: session enableInsertGroupCommit={}",
+                ConnectContext.get().getSessionVariable().enableInsertGroupCommit);
+        if (ConnectContext.get().getSessionVariable().enableInsertGroupCommit && targetTable instanceof OlapTable
+                && !ConnectContext.get().isTxnModel()
+                && getQueryStmt() instanceof SelectStmt
+                && ((SelectStmt) getQueryStmt()).getTableRefs().isEmpty() && targetPartitionNames == null) {
+            isGroupCommit = true;
+        }
+    }
+
+    public boolean isGroupCommit() {
+        return isGroupCommit;
+    }
+
+    public void planForGroupCommit(TUniqueId queryId) throws UserException, TException {
+        OlapTable olapTable = (OlapTable) getTargetTable();
+        if (planBytes != null && olapTable.getBaseSchemaVersion() == baseSchemaVersion) {
+            return;
+        }
+        if (!targetColumns.isEmpty()) {
+            Analyzer analyzerTmp = analyzer;
+            reset();
+            this.analyzer = analyzerTmp;
+        }
+        // analyzeSubquery(analyzer, true);
+        analyzeSubquery(analyzer);
+        TStreamLoadPutRequest streamLoadPutRequest = new TStreamLoadPutRequest();
+        if (targetColumnNames != null) {
+            streamLoadPutRequest.setColumns(String.join(",", targetColumnNames));
+        }
+        streamLoadPutRequest.setDb(db.getFullName()).setMaxFilterRatio(1)
+                .setTbl(getTbl())
+                .setFileType(TFileType.FILE_STREAM).setFormatType(TFileFormatType.FORMAT_CSV_PLAIN)
+                .setMergeType(TMergeType.APPEND).setThriftRpcTimeoutMs(5000).setLoadId(queryId);
+        StreamLoadTask streamLoadTask = StreamLoadTask.fromTStreamLoadPutRequest(streamLoadPutRequest);
+        StreamLoadPlanner planner = new StreamLoadPlanner((Database) getDbObj(), olapTable, streamLoadTask);
+        // Will using load id as query id in fragment
+        TExecPlanFragmentParams tRequest = planner.plan(streamLoadTask.getId());
+        DescriptorTable descTable = planner.getDescTable();
+        TPlanFragment fragment = tRequest.getFragment();
+        TPlan plan = fragment.getPlan();
+        for (Map.Entry<Integer, List<TScanRangeParams>> entry : tRequest.params.per_node_scan_ranges.entrySet()) {
+            for (TScanRangeParams scanRangeParams : entry.getValue()) {
+                scanRangeParams.scan_range.ext_scan_range.file_scan_range.params.setFormatType(
+                        TFileFormatType.FORMAT_PROTO);
+                scanRangeParams.scan_range.ext_scan_range.file_scan_range.params.setCompressType(
+                        TFileCompressType.PLAIN);
+            }
+        }
+        List<TScanRangeParams> scanRangeParams = tRequest.params.per_node_scan_ranges.values().stream()
+                .flatMap(Collection::stream).collect(Collectors.toList());
+        Preconditions.checkState(scanRangeParams.size() == 1);
+        pipeId = queryId;
+        planBytes = ByteString.copyFrom(new TSerializer().serialize(plan));
+        tableBytes = ByteString.copyFrom(new TSerializer().serialize(descTable.toThrift()));
+        rangeBytes = ByteString.copyFrom(new TSerializer().serialize(scanRangeParams.get(0)));
+        baseSchemaVersion = olapTable.getBaseSchemaVersion();
+        // baseSchemaHash = olapTable.getBaseSchemaHash();
+    }
+
+    public TUniqueId getPipeId() {
+        return pipeId;
+    }
+
+    public ByteString getPlanBytes() {
+        return planBytes;
+    }
+
+    public ByteString getTableBytes() {
+        return tableBytes;
+    }
+
+    public ByteString getRangeBytes() {
+        return rangeBytes;
+    }
+
+    public int getBaseSchemaVersion() {
+        return baseSchemaVersion;
     }
 }
