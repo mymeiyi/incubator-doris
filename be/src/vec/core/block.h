@@ -648,10 +648,11 @@ using BlockView = std::vector<IteratorRowRef>;
 using BlockUPtr = std::unique_ptr<Block>;
 
 class FutureBlock : public Block {
+    ENABLE_FACTORY_CREATOR(FutureBlock);
+
 public:
-    FutureBlock(): Block() {
-        LOG(INFO) << "sout: init future block";
-    };
+    FutureBlock(): Block() {};
+    // ~FutureBlock() override = default;
     void swap_future_block(std::shared_ptr<FutureBlock> other);
     void set_info(int64_t block_schema_version, int64_t block_schema_hash,
                   const TUniqueId& block_unique_id, bool first, bool block_eos);

@@ -313,27 +313,26 @@ Status PlanFragmentExecutor::open_vectorized_internal() {
             return Status::OK();
         }
         RETURN_IF_ERROR(_sink->open(runtime_state()));
-        // doris::vectorized::Block block;
-        // auto block = _group_commit ? doris::vectorized::FutureBlock() : doris::vectorized::Block();
-        doris::vectorized::FutureBlock block;
-        LOG(INFO) << "sout: block type=" << typeid(block).name()
-                  << ", group commit=" << _group_commit;
+        std::unique_ptr<doris::vectorized::Block> block =
+                _group_commit ? doris::vectorized::FutureBlock::create_unique()
+                              : doris::vectorized::Block::create_unique();
         bool eos = false;
 
         while (!eos) {
             RETURN_IF_CANCELLED(_runtime_state);
-            RETURN_IF_ERROR(get_vectorized_internal(&block, &eos));
+            RETURN_IF_ERROR(get_vectorized_internal(block.get(), &eos));
 
             // Collect this plan and sub plan statistics, and send to parent plan.
             if (_collect_query_statistics_with_every_batch) {
                 _collect_query_statistics();
             }
 
-            if (!eos || block.rows() > 0) {
-                auto st = _sink->send(runtime_state(), &block);
-                if (UNLIKELY(!st.ok() || block.rows() == 0)) {
-                    if (typeid(block) == typeid(doris::vectorized::FutureBlock)) {
-                        auto* future_block = dynamic_cast<vectorized::FutureBlock*>(&block);
+            if (!eos || block->rows() > 0) {
+                auto st = _sink->send(runtime_state(), block.get());
+                if (UNLIKELY(!st.ok() || block->rows() == 0)) {
+                    auto block_ptr = block.get();
+                    if (typeid(*block_ptr) == typeid(doris::vectorized::FutureBlock)) {
+                        auto* future_block = dynamic_cast<vectorized::FutureBlock*>(block.get());
                         std::unique_lock<doris::Mutex> l(*(future_block->lock));
                         if (!std::get<0>(*(future_block->block_status))) {
                             auto block_status = std::make_tuple<bool, Status, int64_t, int64_t>(
