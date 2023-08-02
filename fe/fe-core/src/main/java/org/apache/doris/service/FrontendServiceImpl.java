@@ -2758,6 +2758,8 @@ public class FrontendServiceImpl implements FrontendService.Iface {
                                 TabletCommitInfo.fromThrift(request.getCommitInfos()));
             } else {
                 // abort txn
+                Env.getCurrentGlobalTransactionMgr()
+                        .abortTransaction(request.getDbId(), txnId, request.getStatus().toString());
             }
         } catch (UserException e) {
             LOG.warn("failed to finish group commit", e);

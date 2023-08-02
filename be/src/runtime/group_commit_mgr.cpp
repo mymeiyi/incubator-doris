@@ -305,11 +305,17 @@ Status GroupCommitTable::_exe_plan_fragment(int64_t db_id, int64_t table_id, int
                             client->finishGroupCommit(result, request);
                         },
                         10000L);
+                LOG(INFO) << "request commit for table_id=" << table_id
+                          << ", executor status=" << status->to_string()
+                          << ", request commit status=" << st.to_string()
+                          << ", instance_id=" << print_id(instance_id)
+                          << ", rows=" << state->num_rows_load_total();
                 if (!st.ok()) {
                     LOG(WARNING) << "request commit error, table_id=" << table_id
                                  << ", executor status=" << status->to_string()
                                  << ", request commit status=" << st.to_string()
-                                 << ", instance_id=" << print_id(instance_id);
+                                 << ", instance_id=" << print_id(instance_id)
+                                 << ", rows=" << state->num_rows_load_total();
                     /*_exec_env->wal_mgr()->add_recover_wal(
                             std::to_string(db_id), std::to_string(table_id),
                             std::vector<std::string> {std::to_string(wal_id)});*/
