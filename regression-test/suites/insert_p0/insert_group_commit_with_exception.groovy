@@ -119,11 +119,13 @@ suite("insert_group_commit_with_exception") {
 
 
         // prepare insert
-        def db = context.config.defaultDb + "_cloud_realtime_load"
-        def url = context.config.jdbcUrl + "&useServerPrepStmts=true"
+        def db = context.config.defaultDb + "_insert_p0"
+        String url = getServerPrepareJdbcUrl(context.config.jdbcUrl, db)
+
         try (Connection connection = DriverManager.getConnection(url, context.config.jdbcUser, context.config.jdbcPassword)) {
             Statement statement = connection.createStatement();
             statement.execute("use ${db}");
+            statement.execute("set enable_insert_group_commit = true;");
             // without column
             try (PreparedStatement ps = connection.prepareStatement("insert into ${table} values(?, ?, ?, ?)")) {
                 ps.setObject(1, 8);
