@@ -493,6 +493,7 @@ class Suite implements GroovyInterceptable {
     }
 
     PreparedStatement prepareStatement(String sql) {
+        logger.info("Execute sql: ${sql}".toString())
         return JdbcUtils.prepareStatement(context.getConnection(), sql)
     } 
 
