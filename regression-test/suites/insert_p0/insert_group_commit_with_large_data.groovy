@@ -59,11 +59,11 @@ suite("insert_group_commit_with_large_data") {
         logger.info("insert result: " + result)
         assertTrue(result.size() == 1)
         assertTrue(result[0].size() == 1)
-        assertEquals(result[0][0], 5000)
+        assertEquals(5000, result[0][0])
         getRowCount(5000)
 
-        // data size is large than 4MB
-        def name_value = ""
+        // data size is large than 4MB, need " set global max_allowed_packet = 5508950 "
+        /*def name_value = ""
         for (def i in 0..1024) {
             name_value += 'a'
         }
@@ -75,6 +75,8 @@ suite("insert_group_commit_with_large_data") {
         logger.info("insert result: " + result)
         assertTrue(result.size() == 1)
         assertTrue(result[0].size() == 1)
+        assertEquals(5000, result[0][0])
+        getRowCount(10000)*/
     } finally {
         // try_sql("DROP TABLE ${table}")
     }
