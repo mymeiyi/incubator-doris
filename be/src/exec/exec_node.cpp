@@ -571,7 +571,7 @@ Status ExecNode::get_next_after_projects(
         RuntimeState* state, vectorized::Block* block, bool* eos,
         const std::function<Status(RuntimeState*, vectorized::Block*, bool*)>& func,
         bool clear_data) {
-    LOG(INFO) << "sout: block type=" << typeid(block).name();
+    // LOG(INFO) << "sout: block type=" << typeid(block).name();
     if (_output_row_descriptor) {
         if (clear_data) {
             clear_origin_block();

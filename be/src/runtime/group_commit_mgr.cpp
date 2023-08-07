@@ -105,7 +105,7 @@ Status LoadInstanceInfo::get_block(vectorized::Block* block, bool* find_block, b
 #endif
     }
     if (!_block_queue.empty()) {
-        LOG(INFO) << "sout: block type=" << typeid(*block).name();
+        // LOG(INFO) << "sout: block type=" << typeid(*block).name();
         auto& future_block = _block_queue.front();
         auto* fblock = static_cast<vectorized::FutureBlock*>(block);
         fblock->swap_future_block(future_block);
@@ -309,7 +309,8 @@ Status GroupCommitTable::_exe_plan_fragment(int64_t db_id, int64_t table_id, int
                           << ", executor status=" << status->to_string()
                           << ", request commit status=" << st.to_string()
                           << ", instance_id=" << print_id(instance_id)
-                          << ", rows=" << state->num_rows_load_total();
+                          << ", rows=" << state->num_rows_load_total()
+                          << ", url=" << state->get_error_log_file_path();
                 if (!st.ok()) {
                     LOG(WARNING) << "request commit error, table_id=" << table_id
                                  << ", executor status=" << status->to_string()
@@ -403,6 +404,10 @@ Status GroupCommitMgr::group_commit_insert(int64_t table_id, const TPlan& plan,
                 std::bind<void>(&GroupCommitMgr::_append_row, this, pipe, request));
 
         std::unique_ptr<RuntimeState> runtime_state = RuntimeState::create_unique();
+        TQueryOptions query_options;
+        query_options.query_type = TQueryType::LOAD;
+        TQueryGlobals query_globals;
+        runtime_state->init(pipe_id, query_options, query_globals, _exec_env);
         runtime_state->set_query_mem_tracker(std::make_shared<MemTrackerLimiter>(
                 MemTrackerLimiter::Type::LOAD, fmt::format("Load#Id={}", print_id(pipe_id)), -1));
         DescriptorTbl* desc_tbl = nullptr;
@@ -426,11 +431,11 @@ Status GroupCommitMgr::group_commit_insert(int64_t table_id, const TPlan& plan,
         bool eof = false;
         bool first = true;
         while (!eof) {
-            // LOG(INFO) << "sout: start get block, thread_id=" << std::this_thread::get_id();
+            LOG(INFO) << "sout: start get block, thread_id=" << std::this_thread::get_id();
             // TODO what to do if read one block error
             RETURN_IF_ERROR(file_scan_node.get_next(runtime_state.get(), _block.get(), &eof));
-            /*LOG(INFO) << "sout: finish get block, thread_id=" << std::this_thread::get_id()
-                      << ", rows=" << _block->rows() << ", eof=" << eof;*/
+            LOG(INFO) << "sout: finish get block, thread_id="
+                      << ", rows=" << _block->rows() << ", eof=" << eof;
             /*if (UNLIKELY(_block->rows() == 0)) {
                 continue;
             }*/
@@ -445,13 +450,17 @@ Status GroupCommitMgr::group_commit_insert(int64_t table_id, const TPlan& plan,
                 RETURN_IF_ERROR(_get_block_load_instance_info(request->db_id(), table_id,
                                                               future_block, load_instance_info));
             }
-            // RETURN_IF_ERROR(_add_block(table_id, future_block));
             RETURN_IF_ERROR(load_instance_info->add_block(future_block));
             if (future_block->rows() > 0) {
                 future_blocks.emplace_back(future_block);
             }
             first = false;
         }
+        LOG(INFO) << "sout: url=" << runtime_state->get_error_log_file_path()
+                  << ", load rows=" << runtime_state->num_rows_load_total()
+                  << ", filter rows=" << runtime_state->num_rows_load_filtered()
+                  << ", unselect rows=" << runtime_state->num_rows_load_unselected()
+                  << ", success rows=" << runtime_state->num_rows_load_success();
     }
 
     for (const auto& future_block : future_blocks) {
@@ -462,7 +471,11 @@ Status GroupCommitMgr::group_commit_insert(int64_t table_id, const TPlan& plan,
         auto st = std::get<1>(*(future_block->block_status));
         *total_rows += std::get<2>(*(future_block->block_status));
         *loaded_rows += std::get<3>(*(future_block->block_status));
+        LOG(INFO) << "sout: rows 0=" << request->data().size() << ", total=" << *total_rows
+                  << ", loaded=" << *loaded_rows;
     }
+    LOG(INFO) << "sout: rows=" << request->data().size() << ", total=" << *total_rows
+              << ", loaded=" << *loaded_rows << ", block.size=" << future_blocks.size();
     // TODO
     return Status::OK();
 }
@@ -471,7 +484,7 @@ Status GroupCommitMgr::_append_row(std::shared_ptr<io::StreamLoadPipe> pipe,
                                    const PGroupCommitInsertRequest* request) {
     /*LOG(INFO) << "sout: start add row num=" << request->data_size()
               << ", thread_id=" << std::this_thread::get_id();*/
-    for (int i = 0; i < request->data_size(); ++i) {
+    for (int i = 0; i < request->data().size(); ++i) {
         std::unique_ptr<PDataRow> row(new PDataRow());
         row->CopyFrom(request->data(i));
         // TODO append may error when pipe is cancelled

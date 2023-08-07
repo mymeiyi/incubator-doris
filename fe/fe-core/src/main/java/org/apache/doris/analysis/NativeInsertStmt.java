@@ -50,6 +50,7 @@ import org.apache.doris.planner.ExportSink;
 import org.apache.doris.planner.OlapTableSink;
 import org.apache.doris.planner.StreamLoadPlanner;
 import org.apache.doris.planner.external.jdbc.JdbcTableSink;
+import org.apache.doris.proto.InternalService;
 import org.apache.doris.qe.ConnectContext;
 import org.apache.doris.rewrite.ExprRewriter;
 import org.apache.doris.service.FrontendOptions;
@@ -325,7 +326,7 @@ public class NativeInsertStmt extends InsertStmt {
             return;
         }
 
-        analyzeSubquery(analyzer);
+        analyzeSubquery(analyzer, false);
 
         analyzePlanHints();
 
@@ -459,7 +460,7 @@ public class NativeInsertStmt extends InsertStmt {
         }
     }
 
-    private void analyzeSubquery(Analyzer analyzer) throws UserException {
+    private void analyzeSubquery(Analyzer analyzer, boolean skipCheck) throws UserException {
         // Analyze columns mentioned in the statement.
         Set<String> mentionedColumns = Sets.newTreeSet(String.CASE_INSENSITIVE_ORDER);
         List<String> realTargetColumnNames;
@@ -601,7 +602,7 @@ public class NativeInsertStmt extends InsertStmt {
                 // INSERT INTO VALUES(...)
                 List<ArrayList<Expr>> rows = selectStmt.getValueList().getRows();
                 for (int rowIdx = 0; rowIdx < rows.size(); ++rowIdx) {
-                    analyzeRow(analyzer, targetColumns, rows, rowIdx, origColIdxsForExtendCols, slotToIndex);
+                    analyzeRow(analyzer, targetColumns, rows, rowIdx, origColIdxsForExtendCols, slotToIndex, skipCheck);
                 }
 
                 // clear these 2 structures, rebuild them using VALUES exprs
@@ -619,7 +620,7 @@ public class NativeInsertStmt extends InsertStmt {
                 // `selectStmt.getResultExprs().clear();` will clear the `rows` too, causing
                 // error.
                 rows.add(Lists.newArrayList(selectStmt.getResultExprs()));
-                analyzeRow(analyzer, targetColumns, rows, 0, origColIdxsForExtendCols, slotToIndex);
+                analyzeRow(analyzer, targetColumns, rows, 0, origColIdxsForExtendCols, slotToIndex, skipCheck);
                 // rows may be changed in analyzeRow(), so rebuild the result exprs
                 selectStmt.getResultExprs().clear();
                 for (Expr expr : rows.get(0)) {
@@ -698,13 +699,16 @@ public class NativeInsertStmt extends InsertStmt {
     }
 
     private void analyzeRow(Analyzer analyzer, List<Column> targetColumns, List<ArrayList<Expr>> rows,
-            int rowIdx, List<Pair<Integer, Column>> origColIdxsForExtendCols, Map<String, Expr> slotToIndex)
-            throws AnalysisException {
+            int rowIdx, List<Pair<Integer, Column>> origColIdxsForExtendCols, Map<String, Expr> slotToIndex,
+            boolean skipCheck) throws AnalysisException {
         // 1. check number of fields if equal with first row
         // targetColumns contains some shadow columns, which is added by system,
         // so we should minus this
         if (rows.get(rowIdx).size() != targetColumns.size() - origColIdxsForExtendCols.size()) {
             throw new AnalysisException("Column count doesn't match value count at row " + (rowIdx + 1));
+        }
+        if (skipCheck) {
+            return;
         }
 
         ArrayList<Expr> row = rows.get(rowIdx);
@@ -983,7 +987,14 @@ public class NativeInsertStmt extends InsertStmt {
             this.analyzer = analyzerTmp;
         }
         // analyzeSubquery(analyzer, true);
-        analyzeSubquery(analyzer);
+        /*SelectStmt selectStmt = (SelectStmt) getQueryStmt();
+        for (List<Expr> row : selectStmt.getValueList().getRows()) {
+            LOG.info("sout: before row: {}", row);
+        }*/
+        analyzeSubquery(analyzer, true);
+        /*for (List<Expr> row : selectStmt.getValueList().getRows()) {
+            LOG.info("sout: after row: {}", row);
+        }*/
         TStreamLoadPutRequest streamLoadPutRequest = new TStreamLoadPutRequest();
         if (targetColumnNames != null) {
             streamLoadPutRequest.setColumns(String.join(",", targetColumnNames));

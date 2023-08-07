@@ -1847,6 +1847,9 @@ public class StmtExecutor {
                 txnId = response.getTxnId();
                 loadedRows = response.getLoadedRows();
                 filteredRows = (int) response.getFilteredRows();
+                LOG.info("sout: stmt={}, rows={}, total={}, filter={}, values={}, retry={}, st={}",
+                        parsedStmt.getOrigStmt().originStmt, rows.size(), loadedRows, filteredRows,
+                        parsedStmt.getPlaceHolders().toString(), i, code);
                 break;
             }
         } else {

@@ -466,6 +466,7 @@ Status VFileScanner::_convert_to_output_block(Block* block) {
     size_t rows = _src_block.rows();
     auto filter_column = vectorized::ColumnUInt8::create(rows, 1);
     auto& filter_map = filter_column->get_data();
+    LOG(INFO) << "sout: block 0 = " << _src_block.dump_data(0);
 
     for (auto slot_desc : _output_tuple_desc->slots()) {
         if (!slot_desc->is_materialized()) {
@@ -512,6 +513,7 @@ Status VFileScanner::_convert_to_output_block(Block* block) {
                                 },
                                 &_scanner_eof));
                         filter_map[i] = false;
+                        LOG(INFO) << "sout: filter 1 row=" << i;
                     } else if (!slot_desc->is_nullable()) {
                         RETURN_IF_ERROR(_state->append_error_msg_to_file(
                                 [&]() -> std::string {
@@ -527,6 +529,10 @@ Status VFileScanner::_convert_to_output_block(Block* block) {
                                 },
                                 &_scanner_eof));
                         filter_map[i] = false;
+                        LOG(INFO) << "sout: filter 2 row=" << i
+                                  << ", slot=" << slot_desc->col_name()
+                                  << ", is nullable=" << slot_desc->is_nullable()
+                                  << ", url=" << _state->get_error_log_file_path();
                     }
                 }
             }
@@ -545,6 +551,7 @@ Status VFileScanner::_convert_to_output_block(Block* block) {
     // after do the dest block insert operation, clear _src_block to remove the reference of origin column
     _src_block.clear();
 
+    LOG(INFO) << "sout: block 1 = " << block->dump_data(0);
     size_t dest_size = block->columns();
     // do filter
     block->insert(vectorized::ColumnWithTypeAndName(std::move(filter_column),
@@ -553,6 +560,7 @@ Status VFileScanner::_convert_to_output_block(Block* block) {
     RETURN_IF_ERROR(vectorized::Block::filter_block(block, dest_size, dest_size));
 
     _counter.num_rows_filtered += rows - block->rows();
+    LOG(INFO) << "sout: filter rows, " << (rows - block->rows());
     return Status::OK();
 }
 

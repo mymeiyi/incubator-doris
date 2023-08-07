@@ -18,7 +18,6 @@
 suite("insert_group_commit_with_prepare_stmt") {
     def user = context.config.jdbcUser
     def password = context.config.jdbcPassword
-    def url = context.config.jdbcUrl + "&useServerPrepStmts=true"
     def table = "insert_group_commit_with_prepare_stmt"
 
     def getRowCount = { expectedRowCount ->
@@ -48,9 +47,9 @@ suite("insert_group_commit_with_prepare_stmt") {
 
     // name, id, delete_sign
     def insert_prepared_partial = { stmt, k1, k2, k3 ->
-        stmt.setString(1, k1)
-        stmt.setInt(2, k2)
-        stmt.setInt(3, k3)
+        stmt.setObject(1, k1)
+        stmt.setObject(2, k2)
+        stmt.setObject(3, k3)
         stmt.addBatch()
     }
 
@@ -61,8 +60,11 @@ suite("insert_group_commit_with_prepare_stmt") {
         stmt.addBatch()
     }
 
+    def db = context.config.defaultDb + "_insert_p0"
+    def url = getServerPrepareJdbcUrl(context.config.jdbcUrl, db)
     def result1 = connect(user=user, password=password, url=url) {
         try {
+            sql """ use ${db} """
             // create table
             sql """ drop table if exists ${table}; """
 
@@ -87,18 +89,18 @@ suite("insert_group_commit_with_prepare_stmt") {
 
             insert_prepared insert_stmt, 1, "a", 10
             def result = insert_stmt.executeBatch()
-            logger.info("execute result: " + result)
+            logger.info("execute result: ${result}")
 
             insert_prepared insert_stmt, 2, null, 20
             insert_prepared insert_stmt, 3, "c", null
             insert_prepared insert_stmt, 4, "d", 40
             result = insert_stmt.executeBatch()
-            logger.info("execute result: " + result)
+            logger.info("execute result: ${result}")
 
             insert_prepared insert_stmt, 5, "e", null
             insert_prepared insert_stmt, 6, "f", 40
             result = insert_stmt.executeBatch()
-            logger.info("execute result: " + result)
+            logger.info("execute result: ${result}")
 
             getRowCount(6)
             qt_sql """ select * from ${table} order by id asc; """
@@ -109,15 +111,15 @@ suite("insert_group_commit_with_prepare_stmt") {
 
             insert_prepared_partial insert_stmt, 'a', 1, 1
             result = insert_stmt.executeBatch()
-            logger.info("execute result: " + result)
+            logger.info("execute result: ${result}")
 
             insert_prepared_partial insert_stmt, 'e', 7, 0
             insert_prepared_partial insert_stmt, null, 8, 0
             result = insert_stmt.executeBatch()
-            logger.info("execute result: " + result)
+            logger.info("execute result: ${result}")
 
             getRowCount(7)
-            qt_sql """ select * from ${table} order by id asc; """
+            qt_sql """ select * from ${table} order by id, name, score asc; """
 
         } finally {
             // try_sql("DROP TABLE ${table}")
@@ -127,6 +129,7 @@ suite("insert_group_commit_with_prepare_stmt") {
     table = "test_prepared_stmt_duplicate"
     result1 = connect(user=user, password=password, url=url) {
         try {
+            sql """ use ${db} """
             // create table
             sql """ drop table if exists ${table}; """
 
