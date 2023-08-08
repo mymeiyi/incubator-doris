@@ -327,7 +327,6 @@ Status RuntimeState::append_error_msg_to_file(std::function<std::string()> line,
                                               bool* stop_processing, bool is_summary) {
     *stop_processing = false;
     if (query_type() != TQueryType::LOAD) {
-        LOG(INFO) << "sout: skip append error msg";
         return Status::OK();
     }
     // If file haven't been opened, open it here
