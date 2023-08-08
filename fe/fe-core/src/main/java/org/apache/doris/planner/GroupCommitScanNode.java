@@ -39,7 +39,7 @@ public class GroupCommitScanNode extends FileScanNode {
 
     long tableId = -1;
 
-    public GroupCommitScanNode(PlanNodeId id, TupleDescriptor desc, long dbId, long tableId, long walId, long txnId) {
+    public GroupCommitScanNode(PlanNodeId id, TupleDescriptor desc, long dbId, long tableId, long txnId) {
         super(id, desc, "GROUP_COMMIT_SCAN_NODE",
                 StatisticalType.GROUP_COMMIT_SCAN_NODE, false);
         this.tableId = tableId;
@@ -74,7 +74,6 @@ public class GroupCommitScanNode extends FileScanNode {
         planNode.setNodeType(TPlanNodeType.GROUP_COMMIT_SCAN_NODE);
         TGroupCommitScanNode scanNode = new TGroupCommitScanNode();
         scanNode.setTableId(tableId);
-        // scanNode.setTupleId(desc.getId().asInt());
         planNode.setGroupCommitScanNode(scanNode);
     }
 

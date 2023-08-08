@@ -2779,10 +2779,9 @@ public class FrontendServiceImpl implements FrontendService.Iface {
     }
 
     @Override
-    public TRequestGroupCommitFragmentResult requestGroupCommitFragment(TRequestGroupCommitFragmentRequest request)
-            throws TException {
+    public TRequestGroupCommitFragmentResult requestGroupCommitFragment(TRequestGroupCommitFragmentRequest request) {
         String clientAddr = getClientAddrAsString();
-        LOG.debug("request group commit fragment request: {}, backend: {}", request, clientAddr);
+        LOG.debug("receive request group commit fragment request: {}, backend: {}", request, clientAddr);
         TRequestGroupCommitFragmentResult result = new TRequestGroupCommitFragmentResult();
         TStatus status = new TStatus(TStatusCode.OK);
         result.setStatus(status);
@@ -2803,9 +2802,6 @@ public class FrontendServiceImpl implements FrontendService.Iface {
 
     private void requestGroupCommitFragmentImpl(TRequestGroupCommitFragmentRequest request,
             TRequestGroupCommitFragmentResult result) throws UserException {
-        // ConnectContext ctx = new ConnectContext();
-        // ctx.setThreadLocalInfo();
-        // ctx.setCloudCluster(Env.getCurrentSystemInfo().getBackend(request.getBeId()).getCloudClusterName());
         Database db = Env.getCurrentEnv().getInternalCatalog().getDbOrAnalysisException(request.getDbId());
         Table table = db.getTableOrAnalysisException(request.getTableId());
         table.readLock();
@@ -2826,14 +2822,8 @@ public class FrontendServiceImpl implements FrontendService.Iface {
             execPlanFragmentParams.params.setGroupCommit(true);
             execPlanFragmentParams.setTxnConf(new TTxnParams());
             execPlanFragmentParams.txn_conf.setTxnId(txnId);
-            /*Env.getCurrentEnv().getGroupCommitManager().addTableInstance(request.table_id, request.getBeId(),
-                    plan.getLeft(), plan.getRight().getParams().getFragmentInstanceId(), db.getId(), false,
-                    plan.getMiddle());*/
-            // <wal_id, label, TExecPlanFragmentParams>, now wal_id is the same as txn_id
             result.setParams(execPlanFragmentParams);
-            // result.setWalId(taskInfo.getTxnId());
             result.setBaseSchemaVersion(olapTable.getBaseSchemaVersion());
-            // result.setBaseSchemaHash(olapTable.getBaseSchemaHash());
         } finally {
             table.readUnlock();
         }
@@ -2842,9 +2832,7 @@ public class FrontendServiceImpl implements FrontendService.Iface {
     @Override
     public TFinishGroupCommitResult finishGroupCommit(TFinishGroupCommitRequest request) {
         String clientAddr = getClientAddrAsString();
-        LOG.debug(
-                "receive finish group commit request: {}, backend: {}, status: {}, db_id: {}, table_id: {}, txn_id: {}",
-                request, clientAddr, request.status, request.getDbId(), request.getTableId(), request.getTxnId());
+        LOG.debug("receive finish group commit request: {}, backend: {}", request, clientAddr);
         TFinishGroupCommitResult result = new TFinishGroupCommitResult();
         TStatus status = new TStatus(TStatusCode.OK);
         result.setStatus(status);
@@ -2857,14 +2845,18 @@ public class FrontendServiceImpl implements FrontendService.Iface {
                         .commitTransaction(request.getDbId(), Lists.newArrayList(table), txnId,
                                 TabletCommitInfo.fromThrift(request.getCommitInfos()));
             } else {
-                // abort txn
                 Env.getCurrentGlobalTransactionMgr()
                         .abortTransaction(request.getDbId(), txnId, request.getStatus().toString());
             }
         } catch (UserException e) {
-            LOG.warn("failed to finish group commit", e);
+            LOG.warn("failed to finish group commit, txn_id: {}", request.getTxnId(), e);
             status.setStatusCode(TStatusCode.ANALYSIS_ERROR);
             status.addToErrorMsgs(e.getMessage());
+        } catch (Throwable e) {
+            LOG.warn("catch unknown result.", e);
+            status.setStatusCode(TStatusCode.INTERNAL_ERROR);
+            status.addToErrorMsgs(e.getClass().getSimpleName() + ": " + Strings.nullToEmpty(e.getMessage()));
+            return result;
         }
         return result;
     }

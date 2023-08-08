@@ -44,7 +44,7 @@ public class GroupCommitLoadPlanner extends StreamLoadPlanner {
     protected ScanNode createScanNode(TUniqueId loadId, TupleDescriptor scanTupleDesc)
             throws AnalysisException, DdlException {
         return new GroupCommitScanNode(new PlanNodeId(0), scanTupleDesc, db.getId(), destTable.getId(),
-                taskInfo.getTxnId(), taskInfo.getTxnId());
+                taskInfo.getTxnId());
     }
 }
 

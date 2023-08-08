@@ -1057,7 +1057,7 @@ public class StmtExecutor {
         parsedStmt.analyze(analyzer);
         if (parsedStmt instanceof QueryStmt || parsedStmt instanceof InsertStmt) {
             if (parsedStmt instanceof NativeInsertStmt && ((NativeInsertStmt) parsedStmt).isGroupCommit()) {
-                LOG.debug("skip generateQueryPlan for group commit insert");
+                LOG.debug("skip generate query plan for group commit insert");
                 return;
             }
             ExprRewriter rewriter = analyzer.getExprRewriter();
@@ -1803,9 +1803,8 @@ public class StmtExecutor {
                 PGroupCommitInsertRequest request = PGroupCommitInsertRequest.newBuilder()
                         .setDbId(insertStmt.getTargetTable().getDatabase().getId())
                         .setTableId(insertStmt.getTargetTable().getId())
-                        .setBaseSchemaVersion(nativeInsertStmt.getBaseSchemaVersion())
-                        //.setBaseSchemaHash(insertStmt.getBaseSchemaHash())
                         .setDescTbl(nativeInsertStmt.getTableBytes())
+                        .setBaseSchemaVersion(nativeInsertStmt.getBaseSchemaVersion())
                         .setPlanNode(nativeInsertStmt.getPlanBytes())
                         .setScanRangeParams(nativeInsertStmt.getRangeBytes())
                         .setPipeId(Types.PUniqueId.newBuilder().setHi(pipeId.hi).setLo(pipeId.lo)
@@ -1816,9 +1815,9 @@ public class StmtExecutor {
                 PGroupCommitInsertResponse response = future.get();
                 TStatusCode code = TStatusCode.findByValue(response.getStatus().getStatusCode());
                 if (code == TStatusCode.DATA_QUALITY_ERROR) {
-                    LOG.info("insert failed. stmt: {}, backend id: {}, error: {}, schema version: {}, retry: {}",
-                            insertStmt.getOrigStmt().originStmt, backend.getId(), code.name(),
-                            nativeInsertStmt.getBaseSchemaVersion(), i);
+                    LOG.info("group commit insert failed. stmt: {}, backend id: {}, status: {}, "
+                                    + "schema version: {}, retry: {}", insertStmt.getOrigStmt().originStmt,
+                            backend.getId(), response.getStatus(), nativeInsertStmt.getBaseSchemaVersion(), i);
                     if (i < maxRetry) {
                         List<TableIf> tables = Lists.newArrayList(insertStmt.getTargetTable());
                         MetaLockUtils.readLockTables(tables);
@@ -1831,25 +1830,19 @@ public class StmtExecutor {
                         }
                         continue;
                     } else {
-                        errMsg = "insert failed. backend id: " + backend.getId() + ", status: " + code.toString();
+                        errMsg = "group commit insert failed. backend id: " + backend.getId() + ", status: "
+                                + response.getStatus();
                     }
                 } else if (code != TStatusCode.OK) {
-                    if (!response.getStatus().getErrorMsgsList().isEmpty()) {
-                        errMsg = response.getStatus().getErrorMsgsList().get(0) + ", status: " + code.toString();
-                    } else {
-                        errMsg = "insert failed. backend id: " + backend.getId() + ", status: " + code.toString();
-                    }
+                    errMsg = "group commit insert failed. backend id: " + backend.getId() + ", status: "
+                            + response.getStatus();
                     ErrorReport.reportDdlException(errMsg, ErrorCode.ERR_FAILED_WHEN_INSERT);
                 }
-                // label, txnStatus, txnId, errMsg, loadedRows, filteredRows
                 label = response.getLabel();
                 txnStatus = TransactionStatus.PREPARE;
                 txnId = response.getTxnId();
                 loadedRows = response.getLoadedRows();
                 filteredRows = (int) response.getFilteredRows();
-                LOG.info("sout: stmt={}, rows={}, total={}, filter={}, values={}, retry={}, st={}",
-                        parsedStmt.getOrigStmt().originStmt, rows.size(), loadedRows, filteredRows,
-                        parsedStmt.getPlaceHolders().toString(), i, code);
                 break;
             }
         } else {

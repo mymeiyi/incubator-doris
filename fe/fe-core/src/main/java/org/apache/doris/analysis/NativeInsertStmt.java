@@ -153,10 +153,10 @@ public class NativeInsertStmt extends InsertStmt {
     private boolean isPartialUpdate = false;
 
     private HashSet<String> partialUpdateCols = new HashSet<String>();
+
     // Used for group commit insert
     private boolean isGroupCommit = false;
     private int baseSchemaVersion = -1;
-    private int baseSchemaHash = -1;
     private TUniqueId pipeId = null;
     private ByteString planBytes = null;
     private ByteString tableBytes = null;
@@ -962,8 +962,6 @@ public class NativeInsertStmt extends InsertStmt {
     }
 
     private void analyzeGroupCommit() {
-        LOG.debug("sout: session enableInsertGroupCommit={}",
-                ConnectContext.get().getSessionVariable().enableInsertGroupCommit);
         if (ConnectContext.get().getSessionVariable().enableInsertGroupCommit && targetTable instanceof OlapTable
                 && !ConnectContext.get().isTxnModel()
                 && getQueryStmt() instanceof SelectStmt
@@ -1013,12 +1011,12 @@ public class NativeInsertStmt extends InsertStmt {
         List<TScanRangeParams> scanRangeParams = tRequest.params.per_node_scan_ranges.values().stream()
                 .flatMap(Collection::stream).collect(Collectors.toList());
         Preconditions.checkState(scanRangeParams.size() == 1);
+        // save plan message to be reused for prepare stmt
         pipeId = queryId;
         planBytes = ByteString.copyFrom(new TSerializer().serialize(plan));
         tableBytes = ByteString.copyFrom(new TSerializer().serialize(descTable.toThrift()));
         rangeBytes = ByteString.copyFrom(new TSerializer().serialize(scanRangeParams.get(0)));
         baseSchemaVersion = olapTable.getBaseSchemaVersion();
-        // baseSchemaHash = olapTable.getBaseSchemaHash();
     }
 
     public TUniqueId getPipeId() {
@@ -1033,11 +1031,11 @@ public class NativeInsertStmt extends InsertStmt {
         return tableBytes;
     }
 
-    public ByteString getRangeBytes() {
-        return rangeBytes;
-    }
-
     public int getBaseSchemaVersion() {
         return baseSchemaVersion;
+    }
+
+    public ByteString getRangeBytes() {
+        return rangeBytes;
     }
 }

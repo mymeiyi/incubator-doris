@@ -389,14 +389,14 @@ public class BackendServiceProxy {
         }
     }
 
-    public Future<PGroupCommitInsertResponse> groupCommitInsert(
-            TNetworkAddress address, PGroupCommitInsertRequest request) throws RpcException {
+    public Future<PGroupCommitInsertResponse> groupCommitInsert(TNetworkAddress address,
+            PGroupCommitInsertRequest request) throws RpcException {
         try {
             final BackendServiceClient client = getProxy(address);
             return client.groupCommitInsert(request);
         } catch (Throwable e) {
-            LOG.warn("failed to group commit insert from address={}:{}",
-                    address.getHostname(), address.getPort(), e);
+            LOG.warn("failed to group commit insert from address={}:{}", address.getHostname(),
+                    address.getPort(), e);
             throw new RpcException(address.hostname, e.getMessage());
         }
     }

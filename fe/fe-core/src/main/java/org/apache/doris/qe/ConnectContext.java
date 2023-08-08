@@ -788,20 +788,8 @@ public class ConnectContext {
         insertGroupCommitTableToBeMap.put(tableId, backend);
     }
 
-    public Map<Long, Backend> getInsertGroupCommit() {
-        return insertGroupCommitTableToBeMap;
-    }
-
     public Backend getInsertGroupCommit(long tableId) {
-        return insertGroupCommitTableToBeMap.containsKey(tableId) ? insertGroupCommitTableToBeMap.get(tableId) : null;
-    }
-
-    public void removeInsertGroupCommit(long tableId) {
-        insertGroupCommitTableToBeMap.remove(tableId);
-    }
-
-    public void clearInsertGroupCommit() {
-        insertGroupCommitTableToBeMap.clear();
+        return insertGroupCommitTableToBeMap.get(tableId);
     }
 }
 
