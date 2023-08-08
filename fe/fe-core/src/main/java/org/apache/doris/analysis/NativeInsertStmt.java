@@ -986,15 +986,7 @@ public class NativeInsertStmt extends InsertStmt {
             reset();
             this.analyzer = analyzerTmp;
         }
-        // analyzeSubquery(analyzer, true);
-        /*SelectStmt selectStmt = (SelectStmt) getQueryStmt();
-        for (List<Expr> row : selectStmt.getValueList().getRows()) {
-            LOG.info("sout: before row: {}", row);
-        }*/
         analyzeSubquery(analyzer, true);
-        /*for (List<Expr> row : selectStmt.getValueList().getRows()) {
-            LOG.info("sout: after row: {}", row);
-        }*/
         TStreamLoadPutRequest streamLoadPutRequest = new TStreamLoadPutRequest();
         if (targetColumnNames != null) {
             streamLoadPutRequest.setColumns(String.join(",", targetColumnNames));

@@ -676,7 +676,6 @@ message PGroupCommitInsertRequest {
     //  Descriptors.TDescriptorTable
     optional bytes desc_tbl = 3;
     optional int64 base_schema_version = 4;
-    // optional int64 base_schema_hash = 4;
 
     // TExecPlanFragmentParams -> TPlanFragment -> PlanNodes.TPlan
     optional bytes plan_node = 5;

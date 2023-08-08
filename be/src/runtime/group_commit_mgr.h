@@ -39,10 +39,9 @@ class StreamLoadPipe;
 
 class LoadInstanceInfo {
 public:
-    LoadInstanceInfo(const UniqueId& load_instance_id, int64_t schema_version, int64_t schema_hash)
+    LoadInstanceInfo(const UniqueId& load_instance_id, int64_t schema_version)
             : load_instance_id(load_instance_id),
               schema_version(schema_version),
-              schema_hash(schema_hash),
               _start_time(std::chrono::steady_clock::now()) {
         _mutex = std::make_shared<doris::Mutex>();
         _cv = std::make_shared<doris::ConditionVariable>();
@@ -55,7 +54,7 @@ public:
 
     UniqueId load_instance_id;
     int64_t schema_version;
-    int64_t schema_hash;
+    // int64_t schema_hash;
     bool need_commit = false;
 private:
     std::chrono::steady_clock::time_point _start_time;
@@ -81,7 +80,7 @@ public:
 private:
     Status _create_group_commit_load(int64_t table_id,
                                      std::shared_ptr<LoadInstanceInfo>& load_instance_info);
-    Status _exe_plan_fragment(int64_t db_id, int64_t table_id, int64_t wal_id,
+    Status _exe_plan_fragment(int64_t db_id, int64_t table_id,
                               const TExecPlanFragmentParams& params);
 
     ExecEnv* _exec_env;

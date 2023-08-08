@@ -1085,24 +1085,19 @@ struct TAutoIncrementRangeResult {
 struct TRequestGroupCommitFragmentRequest {
     1: optional i64 db_id
     2: optional i64 table_id
-    // 3: optional i64 be_id
 }
 
 struct TRequestGroupCommitFragmentResult {
     1: optional Status.TStatus status
     // valid when status is OK
     2: optional PaloInternalService.TExecPlanFragmentParams params
-    3: i64 wal_id
-    4: i64 base_schema_version
-    5: i64 base_schema_hash
+    3: i64 base_schema_version
 }
 
 struct TFinishGroupCommitRequest {
     1: optional i64 db_id
     2: optional i64 table_id
     3: optional i64 txn_id
-    // 2: optional i64 be_id
-    // 3: optional Types.TUniqueId instance_id
     4: optional Status.TStatus status
     5: optional list<Types.TTabletCommitInfo> commit_infos
 }

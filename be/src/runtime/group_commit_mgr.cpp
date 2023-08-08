@@ -46,7 +46,7 @@ class FragmentExecState;
 Status LoadInstanceInfo::add_block(std::shared_ptr<vectorized::FutureBlock> block) {
     // LOG(INFO) << "sout: LoadInstanceInfo::_add_block, instance=" << load_instance_id.to_string();
     DCHECK(block->schema_version == schema_version);
-    DCHECK(block->schema_hash == schema_hash);
+    // DCHECK(block->schema_hash == schema_hash);
     std::unique_lock l(*_mutex);
     RETURN_IF_ERROR(_status);
     if (block->rows() > 0) {
@@ -240,25 +240,23 @@ Status GroupCommitTable::_create_group_commit_load(
     }
     RETURN_IF_ERROR(st);
     auto& params = result.params;
-    auto wal_id = result.wal_id;
     auto db_id = result.params.fragment.output_sink.olap_table_sink.db_id;
     auto instance_id = params.params.fragment_instance_id;
     auto schema_version = result.base_schema_version;
-    auto schema_hash = result.base_schema_hash;
-    VLOG_DEBUG << "create plan fragment, wal_id=" << wal_id << ", table=" << table_id
-               << ", instance_id=" << print_id(instance_id) << ", schema version=" << schema_version
-               << ", schema_hash=" << schema_hash;
+    // auto schema_hash = result.base_schema_hash;
+    VLOG_DEBUG << "create plan fragment, table=" << table_id
+               << ", instance_id=" << print_id(instance_id) << ", schema version=" << schema_version;
     // LOG(INFO) << "sout: start _exe_plan_fragment";
     {
         load_instance_info =
-                std::make_shared<LoadInstanceInfo>(instance_id, schema_version, schema_hash);
+                std::make_shared<LoadInstanceInfo>(instance_id, schema_version);
         std::unique_lock l(_lock);
         load_instance_infos.emplace(instance_id, load_instance_info);
         // LOG(INFO) << "sout: add a new load instance info=" << print_id(instance_id);
     }
-    st = _exe_plan_fragment(db_id, table_id, wal_id, params);
+    st = _exe_plan_fragment(db_id, table_id, params);
     if (!st.ok()) {
-        LOG(WARNING) << "execute plan fragment error, st=" << st << ", wal_id=" << wal_id
+        LOG(WARNING) << "execute plan fragment error, st=" << st
                      << ", instance_id=" << print_id(instance_id);
         std::unique_lock l(_lock);
         load_instance_infos.erase(instance_id);
@@ -269,7 +267,7 @@ Status GroupCommitTable::_create_group_commit_load(
     return st;
 }
 
-Status GroupCommitTable::_exe_plan_fragment(int64_t db_id, int64_t table_id, int64_t wal_id,
+Status GroupCommitTable::_exe_plan_fragment(int64_t db_id, int64_t table_id,
                                             const TExecPlanFragmentParams& params) {
     auto st = _exec_env->fragment_mgr()->exec_plan_fragment(
             params, [db_id, table_id, params, this](RuntimeState* state, Status* status) {
