@@ -34,7 +34,6 @@ GroupCommitScanNode::GroupCommitScanNode(ObjectPool* pool, const TPlanNode& tnod
 
 Status GroupCommitScanNode::get_next(RuntimeState* state, vectorized::Block* block, bool* eos) {
     bool find_node = false;
-    // LOG(INFO) << "sout: block type=" << typeid(block).name();
     while (!find_node && !*eos) {
         RETURN_IF_ERROR(load_instance_info->get_block(block, &find_node, eos));
     }
@@ -48,16 +47,14 @@ Status GroupCommitScanNode::init(const TPlanNode& tnode, RuntimeState* state) {
 }
 
 Status GroupCommitScanNode::prepare(RuntimeState* state) {
-    RETURN_IF_ERROR(VScanNode::prepare(state));
-    return Status::OK();
+    return VScanNode::prepare(state));
 }
 
 void GroupCommitScanNode::set_scan_ranges(const std::vector<TScanRangeParams>& scan_ranges) {
 }
 
 Status GroupCommitScanNode::_init_profile() {
-    RETURN_IF_ERROR(VScanNode::_init_profile());
-    return Status::OK();
+    return VScanNode::_init_profile();
 }
 
 Status GroupCommitScanNode::_process_conjuncts() {
@@ -68,10 +65,6 @@ Status GroupCommitScanNode::_process_conjuncts() {
     // TODO: Push conjuncts down to reader.
     return Status::OK();
 }
-
-/*Status GroupCommitScanNode::_init_scanners(std::list<VScannerSPtr*>* scanners) {
-    return Status::OK();
-}*/
 
 std::string GroupCommitScanNode::get_name() {
     return fmt::format("GROUP_COMMIT_SCAN_NODE({0})", _table_id);

@@ -39,7 +39,6 @@ public:
 protected:
     Status _init_profile() override;
     Status _process_conjuncts() override;
-    // Status _init_scanners(std::list<VScannerSPtr>* scanners) override;
 private:
     int64_t _table_id;
     std::shared_ptr<LoadInstanceInfo> load_instance_info;
