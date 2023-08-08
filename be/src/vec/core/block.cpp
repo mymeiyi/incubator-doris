@@ -700,11 +700,6 @@ void Block::update_hash(SipHash& hash) const {
 void Block::filter_block_internal(Block* block, const std::vector<uint32_t>& columns_to_filter,
                                   const IColumn::Filter& filter) {
     size_t count = filter.size() - simd::count_zero_num((int8_t*)filter.data(), filter.size());
-    LOG(INFO) << "sout: columns_to_filter size=" << columns_to_filter.size()
-              << ", filter size=" << filter.size() << ", count=" << count;
-    for (const auto& item : columns_to_filter) {
-        LOG(INFO) << "sout: column to filter=" << item;
-    }
     if (count == 0) {
         for (auto& col : columns_to_filter) {
             std::move(*block->get_by_position(col).column).assume_mutable()->clear();
@@ -758,10 +753,8 @@ void Block::append_block_by_selector(MutableBlock* dst, const IColumn::Selector&
 
 Status Block::filter_block(Block* block, const std::vector<uint32_t>& columns_to_filter,
                            int filter_column_id, int column_to_keep) {
-    LOG(INFO) << "sout: before filter block, rows=" << block->rows();
     const auto& filter_column = block->get_by_position(filter_column_id).column;
     if (auto* nullable_column = check_and_get_column<ColumnNullable>(*filter_column)) {
-        LOG(INFO) << "sout: filter 1";
         const auto& nested_column = nullable_column->get_nested_column_ptr();
 
         MutableColumnPtr mutable_holder =
@@ -780,7 +773,6 @@ Status Block::filter_block(Block* block, const std::vector<uint32_t>& columns_to
         }
         RETURN_IF_CATCH_EXCEPTION(filter_block_internal(block, columns_to_filter, filter));
     } else if (auto* const_column = check_and_get_column<ColumnConst>(*filter_column)) {
-        LOG(INFO) << "sout: filter 2";
         bool ret = const_column->get_bool(0);
         if (!ret) {
             for (auto& col : columns_to_filter) {
@@ -788,15 +780,12 @@ Status Block::filter_block(Block* block, const std::vector<uint32_t>& columns_to
             }
         }
     } else {
-        LOG(INFO) << "sout: filter 3, block=" << block->dump_data(0);
         const IColumn::Filter& filter =
                 assert_cast<const doris::vectorized::ColumnVector<UInt8>&>(*filter_column)
                         .get_data();
         RETURN_IF_CATCH_EXCEPTION(filter_block_internal(block, columns_to_filter, filter));
     }
-    LOG(INFO) << "sout: after filter block 1, rows=" << block->rows();
     erase_useless_column(block, column_to_keep);
-    LOG(INFO) << "sout: after filter block 2, rows=" << block->rows();
     return Status::OK();
 }
 

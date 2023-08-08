@@ -448,7 +448,6 @@ Status CsvReader::_line_split_to_values(const Slice& line, bool* success) {
                     },
                     &_line_reader_eof));
             _counter->num_rows_filtered++;
-            LOG(INFO) << "sout: filter one row, " << _counter->num_rows_filtered;
             *success = false;
             return Status::OK();
         }
@@ -483,7 +482,6 @@ Status CsvReader::_line_split_to_values(const Slice& line, bool* success) {
                     },
                     &_line_reader_eof));
             _counter->num_rows_filtered++;
-            LOG(INFO) << "sout: filter one row, " << _counter->num_rows_filtered;
             *success = false;
             return Status::OK();
         }
@@ -631,7 +629,6 @@ Status CsvReader::_check_array_format(std::vector<Slice>& split_values, bool* is
                     },
                     &_line_reader_eof));
             _counter->num_rows_filtered++;
-            LOG(INFO) << "sout: filter one row, " << _counter->num_rows_filtered;
             *is_success = false;
             return Status::OK();
         }
