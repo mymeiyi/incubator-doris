@@ -1294,6 +1294,7 @@ Status VOlapTableSink::send(RuntimeState* state, vectorized::Block* input_block,
             }
         }
     }
+
     // check intolerable failure
     for (const auto& index_channel : _channels) {
         RETURN_IF_ERROR(index_channel->check_intolerable_failure());
