@@ -663,7 +663,7 @@ public:
 
     std::shared_ptr<doris::Mutex> lock = std::make_shared<doris::Mutex>();
     std::shared_ptr<doris::ConditionVariable> cv = std::make_shared<doris::ConditionVariable>();
-    // status, total_rows, loaded_rows
+    // if_handled, status, total_rows, loaded_rows
     std::shared_ptr<std::tuple<bool, Status, int64_t, int64_t>> block_status =
             std::make_shared<std::tuple<bool, Status, int64_t, int64_t>>(false, Status::OK(), 0, 0);
 };

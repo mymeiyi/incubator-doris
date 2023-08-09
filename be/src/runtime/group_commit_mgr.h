@@ -118,7 +118,7 @@ private:
 
     doris::Mutex _lock;
     // TODO remove table when unused
-    std::map<int64_t, std::shared_ptr<GroupCommitTable>> _table_map;
+    std::unordered_map<int64_t, std::shared_ptr<GroupCommitTable>> _table_map;
 
     // thread pool to handle insert into: append data to pipe
     std::unique_ptr<doris::ThreadPool> _insert_into_thread_pool;
