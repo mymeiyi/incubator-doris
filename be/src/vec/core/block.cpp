@@ -1097,10 +1097,9 @@ std::string MutableBlock::dump_names() const {
     return out;
 }
 
-void FutureBlock::set_info(int64_t block_schema_version, int64_t block_schema_hash,
-                           const TUniqueId& block_unique_id, bool first, bool block_eos) {
+void FutureBlock::set_info(int64_t block_schema_version, const TUniqueId& block_unique_id,
+                           bool first, bool block_eos) {
     this->schema_version = block_schema_version;
-    this->schema_hash = block_schema_hash;
     this->unique_id = block_unique_id;
     this->first = first;
     this->eos = block_eos;
@@ -1111,7 +1110,6 @@ void FutureBlock::swap_future_block(std::shared_ptr<FutureBlock> other) {
     index_by_name.swap(other->index_by_name);
     row_same_bit.swap(other->row_same_bit);
     schema_version = other->schema_version;
-    schema_hash = other->schema_hash;
     unique_id = other->unique_id;
     first = other->first;
     eos = other->eos;

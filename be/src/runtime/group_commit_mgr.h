@@ -20,7 +20,6 @@
 #include <gen_cpp/PaloInternalService_types.h>
 
 #include "common/status.h"
-// #include "gen_cpp/internal_service.pb.h"
 #include "io/fs/stream_load_pipe.h"
 #include "util/lock.h"
 #include "util/threadpool.h"

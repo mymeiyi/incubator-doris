@@ -652,13 +652,11 @@ class FutureBlock : public Block {
 
 public:
     FutureBlock(): Block() {};
-    // ~FutureBlock() override = default;
     void swap_future_block(std::shared_ptr<FutureBlock> other);
-    void set_info(int64_t block_schema_version, int64_t block_schema_hash,
-                  const TUniqueId& block_unique_id, bool first, bool block_eos);
+    void set_info(int64_t block_schema_version, const TUniqueId& block_unique_id, bool first,
+                  bool block_eos);
 
     int64_t schema_version;
-    int64_t schema_hash;
     TUniqueId unique_id;
     bool first = false;
     bool eos = false;
