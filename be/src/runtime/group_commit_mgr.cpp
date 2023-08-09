@@ -44,9 +44,7 @@ class TPlan;
 class FragmentExecState;
 
 Status LoadInstanceInfo::add_block(std::shared_ptr<vectorized::FutureBlock> block) {
-    // LOG(INFO) << "sout: LoadInstanceInfo::_add_block, instance=" << load_instance_id.to_string();
     DCHECK(block->schema_version == schema_version);
-    // DCHECK(block->schema_hash == schema_hash);
     std::unique_lock l(*_mutex);
     RETURN_IF_ERROR(_status);
     if (block->rows() > 0) {
@@ -243,7 +241,6 @@ Status GroupCommitTable::_create_group_commit_load(
     auto db_id = result.params.fragment.output_sink.olap_table_sink.db_id;
     auto instance_id = params.params.fragment_instance_id;
     auto schema_version = result.base_schema_version;
-    // auto schema_hash = result.base_schema_hash;
     VLOG_DEBUG << "create plan fragment, table=" << table_id
                << ", instance_id=" << print_id(instance_id) << ", schema version=" << schema_version;
     // LOG(INFO) << "sout: start _exe_plan_fragment";

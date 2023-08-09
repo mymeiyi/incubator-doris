@@ -54,7 +54,6 @@ public:
 
     UniqueId load_instance_id;
     int64_t schema_version;
-    // int64_t schema_hash;
     bool need_commit = false;
 private:
     std::chrono::steady_clock::time_point _start_time;
