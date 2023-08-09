@@ -440,17 +440,14 @@ if [[ "${BUILD_FE}" -eq 1 ]]; then
     modules+=("fe-core")
     BUILD_DOCS='ON'
 fi
-
 if [[ "${BUILD_SPARK_DPP}" -eq 1 ]]; then
     modules+=("fe-common")
     modules+=("spark-dpp")
 fi
-
 if [[ "${BUILD_HIVE_UDF}" -eq 1 ]]; then
     modules+=("fe-common")
     modules+=("hive-udf")
 fi
-
 if [[ "${BUILD_BE_JAVA_EXTENSIONS}" -eq 1 ]]; then
     modules+=("fe-common")
     modules+=("be-java-extensions/hudi-scanner")
