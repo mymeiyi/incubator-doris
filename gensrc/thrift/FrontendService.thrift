@@ -1145,6 +1145,30 @@ struct TCreatePartitionResult {
     4: optional list<Descriptors.TNodeInfo> nodes
 }
 
+struct TRequestGroupCommitFragmentRequest {
+    1: optional i64 db_id
+    2: optional i64 table_id
+}
+
+struct TRequestGroupCommitFragmentResult {
+    1: optional Status.TStatus status
+    // valid when status is OK
+    2: optional PaloInternalService.TExecPlanFragmentParams params
+    3: i64 base_schema_version
+}
+
+struct TFinishGroupCommitRequest {
+    1: optional i64 db_id
+    2: optional i64 table_id
+    3: optional i64 txn_id
+    4: optional Status.TStatus status
+    5: optional list<Types.TTabletCommitInfo> commit_infos
+}
+
+struct TFinishGroupCommitResult {
+    1: optional Status.TStatus status
+}
+
 service FrontendService {
     TGetDbsResult getDbNames(1: TGetDbsParams params)
     TGetTablesResult getTableNames(1: TGetTablesParams params)
@@ -1216,4 +1240,7 @@ service FrontendService {
     TAutoIncrementRangeResult getAutoIncrementRange(1: TAutoIncrementRangeRequest request)
 
     TCreatePartitionResult createPartition(1: TCreatePartitionRequest request)
+
+    TRequestGroupCommitFragmentResult requestGroupCommitFragment(1: TRequestGroupCommitFragmentRequest request)
+    TFinishGroupCommitResult finishGroupCommit(1: TFinishGroupCommitRequest request)
 }
