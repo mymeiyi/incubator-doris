@@ -3004,6 +3004,7 @@ public class FrontendServiceImpl implements FrontendService.Iface {
             execPlanFragmentParams.params.setGroupCommit(true);
             execPlanFragmentParams.setTxnConf(new TTxnParams());
             execPlanFragmentParams.txn_conf.setTxnId(txnId);
+            execPlanFragmentParams.setImportLabel(label.getLabelName());
             result.setParams(execPlanFragmentParams);
             result.setBaseSchemaVersion(olapTable.getBaseSchemaVersion());
         } finally {

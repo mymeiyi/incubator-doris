@@ -38,8 +38,11 @@ class StreamLoadPipe;
 
 class LoadInstanceInfo {
 public:
-    LoadInstanceInfo(const UniqueId& load_instance_id, int64_t schema_version)
+    LoadInstanceInfo(const UniqueId& load_instance_id, std::string& label, int64_t txn_id,
+                     int64_t schema_version)
             : load_instance_id(load_instance_id),
+              label(label),
+              txn_id(txn_id),
               schema_version(schema_version),
               _start_time(std::chrono::steady_clock::now()) {
         _mutex = std::make_shared<doris::Mutex>();
@@ -52,6 +55,8 @@ public:
     void cancel(const Status& st);
 
     UniqueId load_instance_id;
+    std::string label;
+    int64_t txn_id;
     int64_t schema_version;
     bool need_commit = false;
 
@@ -100,8 +105,8 @@ public:
     Status group_commit_insert(int64_t table_id, const TPlan& plan,
                                const TDescriptorTable& desc_tbl,
                                const TScanRangeParams& scan_range_params,
-                               const PGroupCommitInsertRequest* request, int64_t* loaded_rows,
-                               int64_t* total_rows);
+                               const PGroupCommitInsertRequest* request,
+                               PGroupCommitInsertResponse* response);
 
     // used when init group_commit_scan_node
     Status get_load_instance_info(int64_t table_id, const TUniqueId& instance_id,

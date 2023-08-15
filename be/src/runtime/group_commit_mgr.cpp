@@ -203,13 +203,16 @@ Status GroupCommitTable::_create_group_commit_load(
     RETURN_IF_ERROR(st);
     auto& params = result.params;
     auto db_id = result.params.fragment.output_sink.olap_table_sink.db_id;
-    auto instance_id = params.params.fragment_instance_id;
+    auto& instance_id = params.params.fragment_instance_id;
+    auto& label = params.import_label;
+    auto txn_id = params.txn_conf.txn_id;
     auto schema_version = result.base_schema_version;
     VLOG_DEBUG << "create plan fragment, table=" << table_id
-               << ", instance_id=" << print_id(instance_id)
-               << ", schema version=" << schema_version;
+               << ", instance_id=" << print_id(instance_id) << ", label=" << label
+               << ", txn_id=" << txn_id << ", schema version=" << schema_version;
     {
-        load_instance_info = std::make_shared<LoadInstanceInfo>(instance_id, schema_version);
+        load_instance_info =
+                std::make_shared<LoadInstanceInfo>(instance_id, label, txn_id, schema_version);
         std::unique_lock l(_lock);
         load_instance_infos.emplace(instance_id, load_instance_info);
     }
@@ -294,7 +297,7 @@ Status GroupCommitMgr::group_commit_insert(int64_t table_id, const TPlan& plan,
                                            const TDescriptorTable& tdesc_tbl,
                                            const TScanRangeParams& scan_range_params,
                                            const PGroupCommitInsertRequest* request,
-                                           int64_t* loaded_rows, int64_t* total_rows) {
+                                           PGroupCommitInsertResponse* response) {
     auto& nodes = plan.nodes;
     DCHECK(nodes.size() > 0);
     auto& plan_node = nodes.at(0);
@@ -359,6 +362,8 @@ Status GroupCommitMgr::group_commit_insert(int64_t table_id, const TPlan& plan,
             if (load_instance_info == nullptr) {
                 RETURN_IF_ERROR(_get_block_load_instance_info(request->db_id(), table_id,
                                                               future_block, load_instance_info));
+                response->set_label(load_instance_info->label);
+                response->set_txn_id(load_instance_info->txn_id);
             }
             RETURN_IF_ERROR(load_instance_info->add_block(future_block));
             if (future_block->rows() > 0) {
@@ -375,17 +380,20 @@ Status GroupCommitMgr::group_commit_insert(int64_t table_id, const TPlan& plan,
                       << ", success rows=" << runtime_state->num_rows_load_success();
         }
     }
-
+    int64_t total_rows = 0;
+    int64_t loaded_rows = 0;
     for (const auto& future_block : future_blocks) {
         std::unique_lock<doris::Mutex> l(*(future_block->lock));
         if (!std::get<0>(*(future_block->block_status))) {
             future_block->cv->wait(l);
         }
         auto st = std::get<1>(*(future_block->block_status));
-        *total_rows += std::get<2>(*(future_block->block_status));
-        *loaded_rows += std::get<3>(*(future_block->block_status));
+        total_rows += std::get<2>(*(future_block->block_status));
+        loaded_rows += std::get<3>(*(future_block->block_status));
     }
     // TODO
+    response->set_loaded_rows(0);
+    response->set_filtered_rows(total_rows - loaded_rows);
     return Status::OK();
 }
 
