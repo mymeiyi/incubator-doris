@@ -95,7 +95,11 @@ void MemTable::_init_columns_offset_by_slot_descs(const std::vector<SlotDescript
 }
 
 void MemTable::_init_agg_functions(const vectorized::Block* block) {
-    for (uint32_t cid = _tablet_schema->num_key_columns(); cid < _num_columns; ++cid) {
+    // for (uint32_t cid = _tablet_schema->num_key_columns(); cid < _num_columns; ++cid) {
+    for (auto cid : _tablet_schema->value_column_index()) {
+        if (cid >= _num_columns) {
+            continue;
+        }
         vectorized::AggregateFunctionPtr function;
         if (_keys_type == KeysType::UNIQUE_KEYS && _enable_unique_key_mow) {
             // In such table, non-key column's aggregation type is NONE, so we need to construct
@@ -116,13 +120,19 @@ void MemTable::_init_agg_functions(const vectorized::Block* block) {
         _agg_functions[cid] = function;
     }
 
-    for (uint32_t cid = _tablet_schema->num_key_columns(); cid < _num_columns; ++cid) {
+    // for (uint32_t cid = _tablet_schema->num_key_columns(); cid < _num_columns; ++cid) {
+    for (auto i = 0; i < _tablet_schema->value_column_index().size(); ++i) {
+        auto cid = _tablet_schema->value_column_index()[i];
+        // for (auto cid : _tablet_schema->value_column_index()) {
+        if (cid >= _num_columns) {
+            continue;
+        }
         _offsets_of_aggregate_states[cid] = _total_size_of_aggregate_states;
         _total_size_of_aggregate_states += _agg_functions[cid]->size_of_data();
 
         // If not the last aggregate_state, we need pad it so that next aggregate_state will be aligned.
-        if (cid + 1 < _num_columns) {
-            size_t alignment_of_next_state = _agg_functions[cid + 1]->align_of_data();
+        if (i + 1 < _tablet_schema->value_column_index().size()) {
+            size_t alignment_of_next_state = _agg_functions[i + 1]->align_of_data();
 
             /// Extend total_size to next alignment requirement
             /// Add padding by rounding up 'total_size_of_aggregate_states' to be a multiplier of alignment_of_next_state.
@@ -142,7 +152,11 @@ MemTable::~MemTable() {
             }
             // We should release agg_places here, because they are not released when a
             // load is canceled.
-            for (size_t i = _tablet_schema->num_key_columns(); i < _num_columns; ++i) {
+            // for (size_t i = _tablet_schema->num_key_columns(); i < _num_columns; ++i) {
+            for (auto [column_id, i] : _tablet_schema->value_column_id_to_index()) {
+                if (i >= _num_columns) {
+                    continue;
+                }
                 auto function = _agg_functions[i];
                 DCHECK(function != nullptr);
                 function->destroy((*it)->agg_places(i));
@@ -160,7 +174,7 @@ MemTable::~MemTable() {
 
 int RowInBlockComparator::operator()(const RowInBlock* left, const RowInBlock* right) const {
     return _pblock->compare_at(left->_row_pos, right->_row_pos, _tablet_schema->num_key_columns(),
-                               *_pblock, -1);
+                               *_pblock, -1, _tablet_schema->key_column_id_to_index());
 }
 
 void MemTable::insert(const vectorized::Block* input_block, const std::vector<int>& row_idxs,
@@ -232,7 +246,11 @@ void MemTable::_aggregate_two_row_in_block(vectorized::MutableBlock& mutable_blo
         dst_row->_row_pos = src_row->_row_pos;
     }
     // dst is non-sequence row, or dst sequence is smaller
-    for (uint32_t cid = _tablet_schema->num_key_columns(); cid < _num_columns; ++cid) {
+    // for (uint32_t cid = _tablet_schema->num_key_columns(); cid < _num_columns; ++cid) {
+    for (auto [column_id, cid] : _tablet_schema->value_column_id_to_index()) {
+        if (cid >= _num_columns) {
+            continue;
+        }
         auto col_ptr = mutable_block.mutable_columns()[cid].get();
         _agg_functions[cid]->add(dst_row->agg_places(cid),
                                  const_cast<const doris::vectorized::IColumn**>(&col_ptr),
@@ -257,7 +275,8 @@ size_t MemTable::_sort() {
     size_t same_keys_num = 0;
     // sort new rows
     Tie tie = Tie(_last_sorted_pos, _row_in_blocks.size());
-    for (size_t i = 0; i < _tablet_schema->num_key_columns(); i++) {
+    // for (size_t i = 0; i < _tablet_schema->num_key_columns(); i++) {
+    for (auto [column_id, i] : _tablet_schema->key_column_id_to_index()) {
         auto cmp = [&](const RowInBlock* lhs, const RowInBlock* rhs) -> int {
             return _input_mutable_block.compare_one_column(lhs->_row_pos, rhs->_row_pos, i, -1);
         };
@@ -311,13 +330,18 @@ void MemTable::_finalize_one_row(RowInBlock* row,
                                  const vectorized::ColumnsWithTypeAndName& block_data,
                                  int row_pos) {
     // move key columns
-    for (size_t i = 0; i < _tablet_schema->num_key_columns(); ++i) {
+    // for (size_t i = 0; i < _tablet_schema->num_key_columns(); ++i) {
+    for (auto [column_id, i] : _tablet_schema->key_column_id_to_index()) {
         _output_mutable_block.get_column_by_position(i)->insert_from(*block_data[i].column.get(),
                                                                      row->_row_pos);
     }
     if (row->has_init_agg()) {
         // get value columns from agg_places
-        for (size_t i = _tablet_schema->num_key_columns(); i < _num_columns; ++i) {
+        // for (size_t i = _tablet_schema->num_key_columns(); i < _num_columns; ++i) {
+        for (auto [column_id, i] : _tablet_schema->value_column_id_to_index()) {
+            if (i >= _num_columns) {
+                continue;
+            }
             auto function = _agg_functions[i];
             auto agg_place = row->agg_places(i);
             auto col_ptr = _output_mutable_block.get_column_by_position(i).get();
@@ -335,7 +359,11 @@ void MemTable::_finalize_one_row(RowInBlock* row,
         }
     } else {
         // move columns for rows do not need agg
-        for (size_t i = _tablet_schema->num_key_columns(); i < _num_columns; ++i) {
+        // for (size_t i = _tablet_schema->num_key_columns(); i < _num_columns; ++i) {
+        for (auto [column_id, i] : _tablet_schema->value_column_id_to_index()) {
+            if (i >= _num_columns) {
+                continue;
+            }
             _output_mutable_block.get_column_by_position(i)->insert_from(
                     *block_data[i].column.get(), row->_row_pos);
         }
@@ -366,7 +394,11 @@ void MemTable::_aggregate() {
                 prev_row->init_agg_places(
                         _arena->aligned_alloc(_total_size_of_aggregate_states, 16),
                         _offsets_of_aggregate_states.data());
-                for (auto cid = _tablet_schema->num_key_columns(); cid < _num_columns; cid++) {
+                // for (auto cid = _tablet_schema->num_key_columns(); cid < _num_columns; cid++) {
+                for (auto [column_id, cid] : _tablet_schema->value_column_id_to_index()) {
+                    if (cid >= _num_columns) {
+                        continue;
+                    }
                     auto col_ptr = mutable_block.mutable_columns()[cid].get();
                     auto data = prev_row->agg_places(cid);
                     _agg_functions[cid]->create(data);

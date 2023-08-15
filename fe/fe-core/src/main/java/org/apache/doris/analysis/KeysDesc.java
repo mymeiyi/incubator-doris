@@ -27,11 +27,14 @@ import com.google.common.collect.Lists;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class KeysDesc implements Writable {
     private KeysType type;
     private List<String> keysColumnNames;
+    private Set<Integer> keysColumnIds = new HashSet<>();
 
     public KeysDesc() {
         this.type = KeysType.AGG_KEYS;
@@ -49,6 +52,10 @@ public class KeysDesc implements Writable {
 
     public int keysColumnSize() {
         return keysColumnNames.size();
+    }
+
+    public Set<Integer> getKeysColumnIds() {
+        return keysColumnIds;
     }
 
     public boolean containsCol(String colName) {
@@ -69,7 +76,26 @@ public class KeysDesc implements Writable {
         }
 
         for (int i = 0; i < keysColumnNames.size(); ++i) {
-            String name = cols.get(i).getName();
+            String name = keysColumnNames.get(i);
+            for (int j = 0; j < i; j++) {
+                if (keysColumnNames.get(j).equals(name)) {
+                    throw new AnalysisException("Duplicate key column[" + name + "].");
+                }
+            }
+            for (int j = 0; j < cols.size(); j++) {
+                if (cols.get(j).getName().equalsIgnoreCase(name)) {
+                    if (cols.get(j).getAggregateType() != null) {
+                        throw new AnalysisException("Key column[" + name + "] should not specify aggregate type.");
+                    }
+                    keysColumnIds.add(j);
+                    break;
+                }
+                if (j == cols.size() - 1) {
+                    throw new AnalysisException("Key column[" + name + "] doesn't exist.");
+                }
+            }
+            // TODO
+            /*String name = cols.get(i).getName();
             if (!keysColumnNames.get(i).equalsIgnoreCase(name)) {
                 String keyName = keysColumnNames.get(i);
                 if (cols.stream().noneMatch(col -> col.getName().equalsIgnoreCase(keyName))) {
@@ -83,11 +109,13 @@ public class KeysDesc implements Writable {
 
             if (cols.get(i).getAggregateType() != null) {
                 throw new AnalysisException("Key column[" + name + "] should not specify aggregate type.");
-            }
+            }*/
         }
 
-        // for olap table
-        for (int i = keysColumnNames.size(); i < cols.size(); ++i) {
+        for (int i = 0; i < cols.size(); i++) {
+            if (keysColumnIds.contains(i)) {
+                continue;
+            }
             if (type == KeysType.AGG_KEYS) {
                 if (cols.get(i).getAggregateType() == null) {
                     throw new AnalysisException(type.name() + " table should specify aggregate type for "
@@ -100,6 +128,21 @@ public class KeysDesc implements Writable {
                 }
             }
         }
+
+        // for olap table
+        /*for (int i = keysColumnNames.size(); i < cols.size(); ++i) {
+            if (type == KeysType.AGG_KEYS) {
+                if (cols.get(i).getAggregateType() == null) {
+                    throw new AnalysisException(type.name() + " table should specify aggregate type for "
+                            + "non-key column[" + cols.get(i).getName() + "]");
+                }
+            } else {
+                if (cols.get(i).getAggregateType() != null) {
+                    throw new AnalysisException(type.name() + " table should not specify aggregate type for "
+                            + "non-key column[" + cols.get(i).getName() + "]");
+                }
+            }
+        }*/
     }
 
     public String toSql() {

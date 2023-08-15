@@ -2324,7 +2324,7 @@ RowsetSharedPtr Tablet::pick_cooldown_rowset() {
 bool Tablet::need_cooldown(int64_t* cooldown_timestamp, size_t* file_size) {
     int64_t id = storage_policy_id();
     if (id <= 0) {
-        VLOG_DEBUG << "tablet does not need cooldown, tablet id: " << tablet_id();
+        // VLOG_DEBUG << "tablet does not need cooldown, tablet id: " << tablet_id();
         return false;
     }
     auto storage_policy = get_storage_policy(id);

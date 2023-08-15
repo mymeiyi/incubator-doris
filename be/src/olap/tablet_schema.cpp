@@ -616,7 +616,12 @@ void TabletIndex::to_schema_pb(TabletIndexPB* index) const {
 
 void TabletSchema::append_column(TabletColumn column, bool is_dropped_column) {
     if (column.is_key()) {
+        _key_column_id_to_index[column.unique_id()] = _num_columns;
         _num_key_columns++;
+        _key_column_index.push_back(_num_columns);
+    } else {
+        _value_column_id_to_index[column.unique_id()] = _num_columns;
+        _value_column_index.push_back(_num_columns);
     }
     if (column.is_nullable()) {
         _num_null_columns++;
@@ -676,10 +681,17 @@ void TabletSchema::init_from_pb(const TabletSchemaPB& schema) {
     _missing_cids.clear();
     _update_cids.clear();
     for (auto& column_pb : schema.column()) {
+    // for (auto i = 0; i < schema.column().size(); ++i) {
+        // auto& column_pb = schema.column().at(i);
         TabletColumn column;
         column.init_from_pb(column_pb);
         if (column.is_key()) {
+            _key_column_id_to_index[column.unique_id()] = _num_columns;
+            _key_column_index.push_back(_num_columns);
             _num_key_columns++;
+        } else {
+            _value_column_id_to_index[column.unique_id()] = _num_columns;
+            _value_column_index.push_back(_num_columns);
         }
         if (column.is_nullable()) {
             _num_null_columns++;
@@ -780,8 +792,15 @@ void TabletSchema::build_current_tablet_schema(int64_t index_id, int32_t version
     _field_id_to_index.clear();
 
     for (auto& column : index->columns) {
+    // for (auto i = 0; i < index->columns.size(); ++i) {
+        // auto& column = index->columns.at(i);
         if (column->is_key()) {
+            _key_column_id_to_index[column->unique_id()] = _num_columns;
+            _key_column_index.push_back(_num_columns);
             _num_key_columns++;
+        } else {
+            _value_column_id_to_index[column->unique_id()] = _num_columns;
+            _value_column_index.push_back(_num_columns);
         }
         if (column->is_nullable()) {
             _num_null_columns++;

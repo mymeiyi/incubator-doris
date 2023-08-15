@@ -266,6 +266,7 @@ Status TabletManager::create_tablet(const TCreateTabletReq& request, std::vector
     DorisMetrics::instance()->create_tablet_requests_total->increment(1);
 
     int64_t tablet_id = request.tablet_id;
+    // TODO different replica id and tablet id
     LOG(INFO) << "begin to create tablet. tablet_id=" << tablet_id;
 
     // when we create rollup tablet A(assume on shard-1) from tablet B(assume on shard-2)

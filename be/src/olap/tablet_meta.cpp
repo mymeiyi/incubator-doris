@@ -668,6 +668,10 @@ void TabletMeta::to_meta_pb(TabletMetaPB* tablet_meta_pb) {
             time_series_compaction_file_count_threshold());
     tablet_meta_pb->set_time_series_compaction_time_threshold_seconds(
             time_series_compaction_time_threshold_seconds());
+    LOG(INFO) << "sout: table_id=" << table_id() << ", tablet_id=" << tablet_id()
+              << ", replica_id=" << replica_id() << ", schema_hash=" << schema_hash()
+              << ", shard_id=" << shard_id() << ", uid=" << tablet_uid().to_string()
+              << ", tablet_schema=" << tablet_meta_pb->DebugString();
 }
 
 uint32_t TabletMeta::mem_size() const {

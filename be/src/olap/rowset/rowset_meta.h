@@ -254,6 +254,12 @@ public:
         *rs_meta_pb = _rowset_meta_pb;
         if (_schema) {
             _schema->to_schema_pb(rs_meta_pb->mutable_tablet_schema());
+            LOG(INFO) << "sout: tablet_id=" << tablet_id()
+                      << ", rowset_id=" << rowset_id().to_string()
+                      << ", schema=" << rs_meta_pb->tablet_schema().ShortDebugString()
+                      << ", start_version" << rs_meta_pb->start_version()
+                      << ", end_version=" << rs_meta_pb->end_version()
+                      << ", rows=" << rs_meta_pb->num_rows();
         }
     }
 
