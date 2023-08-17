@@ -1120,6 +1120,9 @@ DECLARE_mString(user_files_secure_path);
 // and if this threshold is exceeded, the remaining data will be pass through to other node directly.
 DECLARE_Int32(partition_topn_partition_threshold);
 
+// This config can be set to limit thread number in group commit insert thread pool.
+DECLARE_mInt32(group_commit_insert_threads);
+
 #ifdef BE_TEST
 // test s3
 DECLARE_String(test_s3_resource);
