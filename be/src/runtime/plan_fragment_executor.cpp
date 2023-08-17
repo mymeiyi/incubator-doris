@@ -342,6 +342,7 @@ Status PlanFragmentExecutor::open_vectorized_internal() {
                 }
                 if (UNLIKELY(!st.ok() || block->rows() == 0)) {
                     auto block_ptr = block.get();
+                    // Used for group commit insert
                     if (typeid(*block_ptr) == typeid(doris::vectorized::FutureBlock)) {
                         auto* future_block = dynamic_cast<vectorized::FutureBlock*>(block.get());
                         std::unique_lock<doris::Mutex> l(*(future_block->lock));
