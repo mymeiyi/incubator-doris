@@ -41,16 +41,16 @@ class TPlan;
 class FragmentExecState;
 
 Status LoadBlockQueue::add_block(std::shared_ptr<vectorized::FutureBlock> block) {
-    DCHECK(block->schema_version == schema_version);
+    DCHECK(block->get_schema_version() == schema_version);
     std::unique_lock l(*_mutex);
     RETURN_IF_ERROR(_status);
     if (block->rows() > 0) {
         _block_queue.push_back(block);
     }
-    if (block->eos) {
-        _block_unique_ids.erase(block->unique_id);
-    } else if (block->first) {
-        _block_unique_ids.emplace(block->unique_id);
+    if (block->is_eos()) {
+        _block_unique_ids.erase(block->get_unique_id());
+    } else if (block->is_first()) {
+        _block_unique_ids.emplace(block->get_unique_id());
     }
     _cv->notify_one();
     return Status::OK();
@@ -119,10 +119,8 @@ void LoadBlockQueue::cancel(const Status& st) {
     while (!_block_queue.empty()) {
         {
             auto& future_block = _block_queue.front();
-            auto block_status = std::make_tuple<bool, Status, int64_t, int64_t>(
-                    true, Status(st), future_block->rows(), 0);
             std::unique_lock<doris::Mutex> l0(*(future_block->lock));
-            block_status.swap(*(future_block->block_status));
+            future_block->set_result(st, future_block->rows(), 0);
             future_block->cv->notify_all();
         }
         _block_queue.pop_front();
@@ -133,16 +131,17 @@ Status GroupCommitTable::_get_first_block_load_queue(
         int64_t table_id, std::shared_ptr<vectorized::FutureBlock> block,
         std::shared_ptr<LoadBlockQueue>& load_block_queue) {
     DCHECK(table_id == _table_id);
-    DCHECK(block->first == true);
+    DCHECK(block->is_first() == true);
     {
         std::unique_lock l(_lock);
         for (auto it = load_block_queues.begin(); it != load_block_queues.end(); ++it) {
             // TODO if block schema version is less than fragment schema version, return error
-            if (!it->second->need_commit && it->second->schema_version == block->schema_version) {
-                if (block->schema_version == it->second->schema_version) {
+            if (!it->second->need_commit &&
+                it->second->schema_version == block->get_schema_version()) {
+                if (block->get_schema_version() == it->second->schema_version) {
                     load_block_queue = it->second;
                     break;
-                } else if (block->schema_version < it->second->schema_version) {
+                } else if (block->get_schema_version() < it->second->schema_version) {
                     return Status::DataQualityError("schema version not match");
                 }
             }
@@ -158,10 +157,10 @@ Status GroupCommitTable::_get_first_block_load_queue(
                 for (auto it = load_block_queues.begin(); it != load_block_queues.end(); ++it) {
                     // TODO if block schema version is less than fragment schema version, return error
                     if (!it->second->need_commit) {
-                        if (block->schema_version == it->second->schema_version) {
+                        if (block->get_schema_version() == it->second->schema_version) {
                             load_block_queue = it->second;
                             break;
-                        } else if (block->schema_version < it->second->schema_version) {
+                        } else if (block->get_schema_version() < it->second->schema_version) {
                             return Status::DataQualityError("schema version not match");
                         }
                     }
@@ -175,7 +174,7 @@ Status GroupCommitTable::_get_first_block_load_queue(
             }
         }
         RETURN_IF_ERROR(st);
-        if (load_block_queue->schema_version != block->schema_version) {
+        if (load_block_queue->schema_version != block->get_schema_version()) {
             // TODO check this is the first block
             return Status::DataQualityError("schema version not match");
         }
@@ -424,12 +423,14 @@ Status GroupCommitMgr::group_commit_insert(int64_t table_id, const TPlan& plan,
     int64_t loaded_rows = 0;
     for (const auto& future_block : future_blocks) {
         std::unique_lock<doris::Mutex> l(*(future_block->lock));
-        if (!std::get<0>(*(future_block->block_status))) {
+        if (!future_block->is_handled()) {
+            LOG(INFO) << "sout: wait fb, id=" << print_id(future_block->get_unique_id())
+                      << ", handle=" << future_block->is_handled();
             future_block->cv->wait(l);
         }
-        auto st = std::get<1>(*(future_block->block_status));
-        total_rows += std::get<2>(*(future_block->block_status));
-        loaded_rows += std::get<3>(*(future_block->block_status));
+        // future_block->get_status()
+        total_rows += future_block->get_total_rows();
+        loaded_rows += future_block->get_loaded_rows();
     }
     response->set_loaded_rows(loaded_rows);
     response->set_filtered_rows(total_rows - loaded_rows);

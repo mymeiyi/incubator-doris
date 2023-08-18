@@ -25,6 +25,7 @@
 #include "util/threadpool.h"
 #include "util/thrift_util.h"
 #include "vec/core/block.h"
+#include "vec/core/future_block.h"
 
 namespace doris {
 class ExecEnv;

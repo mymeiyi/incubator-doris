@@ -88,6 +88,7 @@
 #include "vec/common/string_ref.h"
 #include "vec/core/block.h"
 #include "vec/core/column_with_type_and_name.h"
+#include "vec/core/future_block.h"
 #include "vec/core/types.h"
 #include "vec/data_types/data_type_decimal.h"
 #include "vec/data_types/data_type_nullable.h"
@@ -1373,10 +1374,8 @@ Status VOlapTableSink::send(RuntimeState* state, vectorized::Block* input_block,
         auto* future_block = dynamic_cast<vectorized::FutureBlock*>(input_block);
         int64_t filtered_rows1 =
                 _block_convertor->num_filtered_rows() + _tablet_finder->num_filtered_rows();
-        auto block_status = std::make_tuple<bool, Status, int64_t, int64_t>(
-                true, Status::OK(), rows, rows - filtered_rows1 + filtered_rows);
         std::unique_lock<doris::Mutex> l(*(future_block->lock));
-        block_status.swap(*(future_block->block_status));
+        future_block->set_result(Status::OK(), rows, rows - filtered_rows1 + filtered_rows);
         future_block->cv->notify_all();
     }
     // Add block to node channel
