@@ -33,6 +33,7 @@
 #include "task_queue.h"
 #include "util/defer_op.h"
 #include "util/runtime_profile.h"
+#include "vec/core/future_block.h"
 
 namespace doris {
 class RuntimeState;
@@ -280,13 +281,11 @@ Status PipelineTask::execute(bool* eos) {
             auto status = _sink->sink(_state, block, _data_state);
             // Used for group commit insert
             if (UNLIKELY(!status.ok() || block->rows() == 0)) {
-                if (typeid(*block) == typeid(doris::vectorized::FutureBlock)) {
+                if (_fragment_context->is_group_commit()) {
                     auto* future_block = dynamic_cast<vectorized::FutureBlock*>(block);
                     std::unique_lock<doris::Mutex> l(*(future_block->lock));
-                    if (!std::get<0>(*(future_block->block_status))) {
-                        auto block_status = std::make_tuple<bool, Status, int64_t, int64_t>(
-                                true, Status(status), 0, 0);
-                        block_status.swap(*(future_block->block_status));
+                    if (!future_block->is_handled()) {
+                        future_block->set_result(status, 0, 0);
                         future_block->cv->notify_all();
                     }
                 }
