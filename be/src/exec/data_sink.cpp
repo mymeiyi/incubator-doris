@@ -158,7 +158,8 @@ Status DataSink::create_data_sink(ObjectPool* pool, const TDataSink& thrift_sink
     case TDataSinkType::GROUP_COMMIT_OLAP_TABLE_SINK: {
         Status status;
         DCHECK(thrift_sink.__isset.olap_table_sink);
-        sink->reset(new stream_load::GroupCommitVOlapTableSink(pool, row_desc, output_exprs, &status));
+        sink->reset(
+                new stream_load::GroupCommitVOlapTableSink(pool, row_desc, output_exprs, &status));
         RETURN_IF_ERROR(status);
         break;
     }
@@ -310,7 +311,8 @@ Status DataSink::create_data_sink(ObjectPool* pool, const TDataSink& thrift_sink
     case TDataSinkType::GROUP_COMMIT_OLAP_TABLE_SINK: {
         Status status;
         DCHECK(thrift_sink.__isset.olap_table_sink);
-        sink->reset(new stream_load::GroupCommitVOlapTableSink(pool, row_desc, output_exprs, &status));
+        sink->reset(
+                new stream_load::GroupCommitVOlapTableSink(pool, row_desc, output_exprs, &status));
         RETURN_IF_ERROR(status);
         break;
     }
