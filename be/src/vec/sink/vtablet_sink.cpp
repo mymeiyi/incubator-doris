@@ -1370,14 +1370,9 @@ Status VOlapTableSink::send(RuntimeState* state, vectorized::Block* input_block,
                     block.get(), filter_col, block->columns()));
         }
     }
-    if (typeid(*input_block) == typeid(doris::vectorized::FutureBlock)) {
-        auto* future_block = dynamic_cast<vectorized::FutureBlock*>(input_block);
-        int64_t filtered_rows1 =
-                _block_convertor->num_filtered_rows() + _tablet_finder->num_filtered_rows();
-        std::unique_lock<doris::Mutex> l(*(future_block->lock));
-        future_block->set_result(Status::OK(), rows, rows - filtered_rows1 + filtered_rows);
-        future_block->cv->notify_all();
-    }
+    handle_block(input_block, rows,
+                       _block_convertor->num_filtered_rows() + _tablet_finder->num_filtered_rows() -
+                               filtered_rows);
     // Add block to node channel
     for (size_t i = 0; i < _channels.size(); i++) {
         for (const auto& entry : channel_to_payload[i]) {
