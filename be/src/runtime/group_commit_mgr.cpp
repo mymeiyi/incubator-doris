@@ -48,9 +48,9 @@ Status LoadBlockQueue::add_block(std::shared_ptr<vectorized::FutureBlock> block)
         _block_queue.push_back(block);
     }
     if (block->is_eos()) {
-        _block_unique_ids.erase(block->get_unique_id());
+        _load_ids.erase(block->get_load_id());
     } else if (block->is_first()) {
-        _block_unique_ids.emplace(block->get_unique_id());
+        _load_ids.emplace(block->get_load_id());
     }
     _cv->notify_one();
     return Status::OK();
@@ -69,7 +69,7 @@ Status LoadBlockQueue::get_block(vectorized::Block* block, bool* find_block, boo
         }
     }
     while (_status.ok() && _block_queue.empty() &&
-           (!need_commit || (need_commit && !_block_unique_ids.empty()))) {
+           (!need_commit || (need_commit && !_load_ids.empty()))) {
         // TODO make 10s as a config
         auto left_seconds = 10;
         if (!need_commit) {
@@ -95,7 +95,7 @@ Status LoadBlockQueue::get_block(vectorized::Block* block, bool* find_block, boo
         _block_queue.pop_front();
     }
     if (_block_queue.empty()) {
-        if (need_commit && _block_unique_ids.empty()) {
+        if (need_commit && _load_ids.empty()) {
             *eos = true;
         } else {
             *eos = false;
@@ -104,10 +104,10 @@ Status LoadBlockQueue::get_block(vectorized::Block* block, bool* find_block, boo
     return Status::OK();
 }
 
-void LoadBlockQueue::remove_block_id(const UniqueId& unique_id) {
+void LoadBlockQueue::remove_load_id(const UniqueId& load_id) {
     std::unique_lock l(*_mutex);
-    if (_block_unique_ids.find(unique_id) != _block_unique_ids.end()) {
-        _block_unique_ids.erase(unique_id);
+    if (_load_ids.find(load_id) != _load_ids.end()) {
+        _load_ids.erase(load_id);
         _cv->notify_one();
     }
 }
@@ -127,14 +127,14 @@ void LoadBlockQueue::cancel(const Status& st) {
     }
 }
 
-Status GroupCommitTable::_get_first_block_load_queue(
+Status GroupCommitTable::get_first_block_load_queue(
         int64_t table_id, std::shared_ptr<vectorized::FutureBlock> block,
         std::shared_ptr<LoadBlockQueue>& load_block_queue) {
     DCHECK(table_id == _table_id);
     DCHECK(block->is_first() == true);
     {
         std::unique_lock l(_lock);
-        for (auto it = load_block_queues.begin(); it != load_block_queues.end(); ++it) {
+        for (auto it = _load_block_queues.begin(); it != _load_block_queues.end(); ++it) {
             // TODO if block schema version is less than fragment schema version, return error
             if (!it->second->need_commit &&
                 it->second->schema_version == block->get_schema_version()) {
@@ -154,7 +154,7 @@ Status GroupCommitTable::_get_first_block_load_queue(
             // check if there is a re-usefully fragment
             {
                 std::unique_lock l1(_lock);
-                for (auto it = load_block_queues.begin(); it != load_block_queues.end(); ++it) {
+                for (auto it = _load_block_queues.begin(); it != _load_block_queues.end(); ++it) {
                     // TODO if block schema version is less than fragment schema version, return error
                     if (!it->second->need_commit) {
                         if (block->get_schema_version() == it->second->schema_version) {
@@ -228,7 +228,7 @@ Status GroupCommitTable::_create_group_commit_load(
         load_block_queue =
                 std::make_shared<LoadBlockQueue>(instance_id, label, txn_id, schema_version);
         std::unique_lock l(_lock);
-        load_block_queues.emplace(instance_id, load_block_queue);
+        _load_block_queues.emplace(instance_id, load_block_queue);
     }
     st = _exec_plan_fragment(db_id, table_id, label, txn_id, is_pipeline, params, pipeline_params);
     if (!st.ok()) {
@@ -244,12 +244,12 @@ Status GroupCommitTable::_finish_group_commit_load(int64_t db_id, int64_t table_
     {
         std::lock_guard<doris::Mutex> l(_lock);
         if (prepare_failed) {
-            auto it = load_block_queues.find(instance_id);
-            if (it != load_block_queues.end()) {
+            auto it = _load_block_queues.find(instance_id);
+            if (it != _load_block_queues.end()) {
                 it->second->cancel(status);
             }
         }
-        load_block_queues.erase(instance_id);
+        _load_block_queues.erase(instance_id);
     }
     TFinishGroupCommitRequest request;
     request.__set_db_id(db_id);
@@ -314,8 +314,8 @@ Status GroupCommitTable::_exec_plan_fragment(int64_t db_id, int64_t table_id,
 Status GroupCommitTable::get_load_block_queue(const TUniqueId& instance_id,
                                               std::shared_ptr<LoadBlockQueue>& load_block_queue) {
     std::unique_lock l(_lock);
-    auto it = load_block_queues.find(instance_id);
-    if (it == load_block_queues.end()) {
+    auto it = _load_block_queues.find(instance_id);
+    if (it == _load_block_queues.end()) {
         return Status::InternalError("group commit load instance " + print_id(instance_id) +
                                      " not found");
     }
@@ -341,9 +341,9 @@ Status GroupCommitMgr::group_commit_insert(int64_t table_id, const TPlan& plan,
     DCHECK(nodes.size() > 0);
     auto& plan_node = nodes.at(0);
 
-    TUniqueId pipe_id;
-    pipe_id.__set_hi(request->pipe_id().hi());
-    pipe_id.__set_lo(request->pipe_id().lo());
+    TUniqueId load_id;
+    load_id.__set_hi(request->pipe_id().hi());
+    load_id.__set_lo(request->pipe_id().lo());
 
     std::vector<std::shared_ptr<doris::vectorized::FutureBlock>> future_blocks;
     {
@@ -354,12 +354,12 @@ Status GroupCommitMgr::group_commit_insert(int64_t table_id, const TPlan& plan,
                 -1 /* total_length */, true /* use_proto */);
         std::shared_ptr<StreamLoadContext> ctx = std::make_shared<StreamLoadContext>(_exec_env);
         ctx->pipe = pipe;
-        RETURN_IF_ERROR(_exec_env->new_load_stream_mgr()->put(pipe_id, ctx));
+        RETURN_IF_ERROR(_exec_env->new_load_stream_mgr()->put(load_id, ctx));
         std::unique_ptr<int, std::function<void(int*)>> remove_pipe_func((int*)0x01, [&](int*) {
             if (load_block_queue != nullptr) {
-                load_block_queue->remove_block_id(pipe_id);
+                load_block_queue->remove_load_id(load_id);
             }
-            _exec_env->new_load_stream_mgr()->remove(pipe_id);
+            _exec_env->new_load_stream_mgr()->remove(load_id);
         });
         _insert_into_thread_pool->submit_func(
                 std::bind<void>(&GroupCommitMgr::_append_row, this, pipe, request));
@@ -368,9 +368,9 @@ Status GroupCommitMgr::group_commit_insert(int64_t table_id, const TPlan& plan,
         TQueryOptions query_options;
         query_options.query_type = TQueryType::LOAD;
         TQueryGlobals query_globals;
-        runtime_state->init(pipe_id, query_options, query_globals, _exec_env);
+        runtime_state->init(load_id, query_options, query_globals, _exec_env);
         runtime_state->set_query_mem_tracker(std::make_shared<MemTrackerLimiter>(
-                MemTrackerLimiter::Type::LOAD, fmt::format("Load#Id={}", print_id(pipe_id)), -1));
+                MemTrackerLimiter::Type::LOAD, fmt::format("Load#Id={}", print_id(load_id)), -1));
         DescriptorTbl* desc_tbl = nullptr;
         RETURN_IF_ERROR(DescriptorTbl::create(runtime_state->obj_pool(), tdesc_tbl, &desc_tbl));
         runtime_state->set_desc_tbl(desc_tbl);
@@ -396,7 +396,7 @@ Status GroupCommitMgr::group_commit_insert(int64_t table_id, const TPlan& plan,
             std::shared_ptr<doris::vectorized::FutureBlock> future_block =
                     std::make_shared<doris::vectorized::FutureBlock>();
             future_block->swap(*(_block.get()));
-            future_block->set_info(request->base_schema_version(), pipe_id, first, eof);
+            future_block->set_info(request->base_schema_version(), load_id, first, eof);
             // TODO what to do if add one block error
             if (load_block_queue == nullptr) {
                 RETURN_IF_ERROR(_get_first_block_load_queue(request->db_id(), table_id,
@@ -411,7 +411,7 @@ Status GroupCommitMgr::group_commit_insert(int64_t table_id, const TPlan& plan,
             first = false;
         }
         if (!runtime_state->get_error_log_file_path().empty()) {
-            LOG(INFO) << "id=" << print_id(pipe_id)
+            LOG(INFO) << "id=" << print_id(load_id)
                       << ", url=" << runtime_state->get_error_log_file_path()
                       << ", load rows=" << runtime_state->num_rows_load_total()
                       << ", filter rows=" << runtime_state->num_rows_load_filtered()
@@ -424,7 +424,7 @@ Status GroupCommitMgr::group_commit_insert(int64_t table_id, const TPlan& plan,
     for (const auto& future_block : future_blocks) {
         std::unique_lock<doris::Mutex> l(*(future_block->lock));
         if (!future_block->is_handled()) {
-            LOG(INFO) << "sout: wait fb, id=" << print_id(future_block->get_unique_id())
+            LOG(INFO) << "sout: wait fb, id=" << print_id(future_block->get_load_id())
                       << ", handle=" << future_block->is_handled();
             future_block->cv->wait(l);
         }
@@ -461,7 +461,7 @@ Status GroupCommitMgr::_get_first_block_load_queue(
         }
         group_commit_table = _table_map[table_id];
     }
-    return group_commit_table->_get_first_block_load_queue(table_id, block, load_block_queue);
+    return group_commit_table->get_first_block_load_queue(table_id, block, load_block_queue);
 }
 
 Status GroupCommitMgr::get_load_block_queue(int64_t table_id, const TUniqueId& instance_id,
