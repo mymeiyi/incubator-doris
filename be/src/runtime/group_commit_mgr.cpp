@@ -342,8 +342,8 @@ Status GroupCommitMgr::group_commit_insert(int64_t table_id, const TPlan& plan,
     auto& plan_node = nodes.at(0);
 
     TUniqueId load_id;
-    load_id.__set_hi(request->pipe_id().hi());
-    load_id.__set_lo(request->pipe_id().lo());
+    load_id.__set_hi(request->load_id().hi());
+    load_id.__set_lo(request->load_id().lo());
 
     std::vector<std::shared_ptr<doris::vectorized::FutureBlock>> future_blocks;
     {
