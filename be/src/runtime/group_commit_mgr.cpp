@@ -347,8 +347,9 @@ Status GroupCommitMgr::group_commit_insert(int64_t table_id, const TPlan& plan,
 
     std::vector<std::shared_ptr<doris::vectorized::FutureBlock>> future_blocks;
     {
+        // 1. Prepare a pipe, then append rows to pipe,
+        // then scan node scans from the pipe, like stream load.
         std::shared_ptr<LoadBlockQueue> load_block_queue;
-        // new a stream load pipe, put it into stream load mgr, append row in thread pool
         auto pipe = std::make_shared<io::StreamLoadPipe>(
                 io::kMaxPipeBufferedBytes /* max_buffered_bytes */, 64 * 1024 /* min_chunk_size */,
                 -1 /* total_length */, true /* use_proto */);
@@ -364,6 +365,7 @@ Status GroupCommitMgr::group_commit_insert(int64_t table_id, const TPlan& plan,
         _insert_into_thread_pool->submit_func(
                 std::bind<void>(&GroupCommitMgr::_append_row, this, pipe, request));
 
+        // 2. FileScanNode consumes data from the pipe.
         std::unique_ptr<RuntimeState> runtime_state = RuntimeState::create_unique();
         TQueryOptions query_options;
         query_options.query_type = TQueryType::LOAD;
@@ -386,6 +388,7 @@ Status GroupCommitMgr::group_commit_insert(int64_t table_id, const TPlan& plan,
         file_scan_node.set_scan_ranges(params_vector);
         RETURN_IF_ERROR(file_scan_node.open(runtime_state.get()));
 
+        // 3. Put the block into block queue.
         std::unique_ptr<doris::vectorized::Block> _block =
                 doris::vectorized::Block::create_unique();
         bool eof = false;
@@ -397,13 +400,13 @@ Status GroupCommitMgr::group_commit_insert(int64_t table_id, const TPlan& plan,
                     std::make_shared<doris::vectorized::FutureBlock>();
             future_block->swap(*(_block.get()));
             future_block->set_info(request->base_schema_version(), load_id, first, eof);
-            // TODO what to do if add one block error
             if (load_block_queue == nullptr) {
                 RETURN_IF_ERROR(_get_first_block_load_queue(request->db_id(), table_id,
                                                             future_block, load_block_queue));
                 response->set_label(load_block_queue->label);
                 response->set_txn_id(load_block_queue->txn_id);
             }
+            // TODO what to do if add one block error
             RETURN_IF_ERROR(load_block_queue->add_block(future_block));
             if (future_block->rows() > 0) {
                 future_blocks.emplace_back(future_block);
@@ -421,11 +424,10 @@ Status GroupCommitMgr::group_commit_insert(int64_t table_id, const TPlan& plan,
     }
     int64_t total_rows = 0;
     int64_t loaded_rows = 0;
+    // 4. wait to wal
     for (const auto& future_block : future_blocks) {
         std::unique_lock<doris::Mutex> l(*(future_block->lock));
         if (!future_block->is_handled()) {
-            LOG(INFO) << "sout: wait fb, id=" << print_id(future_block->get_load_id())
-                      << ", handle=" << future_block->is_handled();
             future_block->cv->wait(l);
         }
         // future_block->get_status()
