@@ -1376,8 +1376,8 @@ Status VOlapTableSink::send(RuntimeState* state, vectorized::Block* input_block,
         }
     }
     handle_block(input_block, rows,
-                       _block_convertor->num_filtered_rows() + _tablet_finder->num_filtered_rows() -
-                               filtered_rows);
+                 _block_convertor->num_filtered_rows() + _tablet_finder->num_filtered_rows() -
+                         filtered_rows);
     // Add block to node channel
     for (size_t i = 0; i < _channels.size(); i++) {
         for (const auto& entry : channel_to_payload[i]) {
