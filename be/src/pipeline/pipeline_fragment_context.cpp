@@ -754,7 +754,8 @@ Status PipelineFragmentContext::_create_sink(int sender_id, const TDataSink& thr
                                                             _sink.get());
         break;
     }
-    case TDataSinkType::OLAP_TABLE_SINK: {
+    case TDataSinkType::OLAP_TABLE_SINK:
+    case TDataSinkType::GROUP_COMMIT_OLAP_TABLE_SINK: {
         sink_ = std::make_shared<OlapTableSinkOperatorBuilder>(next_operator_builder_id(),
                                                                _sink.get());
         break;
