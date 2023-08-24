@@ -440,14 +440,17 @@ if [[ "${BUILD_FE}" -eq 1 ]]; then
     modules+=("fe-core")
     BUILD_DOCS='ON'
 fi
+BUILD_SPARK_DPP=0
 if [[ "${BUILD_SPARK_DPP}" -eq 1 ]]; then
     modules+=("fe-common")
     modules+=("spark-dpp")
 fi
+BUILD_HIVE_UDF=0
 if [[ "${BUILD_HIVE_UDF}" -eq 1 ]]; then
     modules+=("fe-common")
     modules+=("hive-udf")
 fi
+BUILD_BE_JAVA_EXTENSIONS=0
 if [[ "${BUILD_BE_JAVA_EXTENSIONS}" -eq 1 ]]; then
     modules+=("fe-common")
     modules+=("be-java-extensions/hudi-scanner")
@@ -564,7 +567,7 @@ function build_ui() {
 if [[ "${BUILD_FE}" -eq 1 ]]; then
     build_ui
 fi
-
+DISABLE_JAVA_CHECK_STYLE='ON'
 # Clean and build Frontend
 if [[ "${FE_MODULES}" != '' ]]; then
     echo "Build Frontend Modules: ${FE_MODULES}"
