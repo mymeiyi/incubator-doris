@@ -689,6 +689,10 @@ void TabletSchema::init_from_pb(const TabletSchemaPB& schema) {
         }
         _value_column_index.push_back(i);
     }
+    _cluster_key_idxes.clear();
+    for (const auto& i : schema.cluster_key_idxes()) {
+        _cluster_key_idxes.push_back(i);
+    }
     for (auto& column_pb : schema.column()) {
         TabletColumn column;
         column.init_from_pb(column_pb);
@@ -803,6 +807,10 @@ void TabletSchema::build_current_tablet_schema(int64_t index_id, int32_t version
         }
         _value_column_index.push_back(i);
     }
+    _cluster_key_idxes.clear();
+    for (const auto& i : ori_tablet_schema._cluster_key_idxes) {
+        _cluster_key_idxes.push_back(i);
+    }
     for (auto& column : index->columns) {
         if (column->is_key()) {
             _num_key_columns++;
@@ -870,6 +878,9 @@ bool TabletSchema::is_dropped_column(const TabletColumn& col) const {
 void TabletSchema::to_schema_pb(TabletSchemaPB* tablet_schema_pb) const {
     for (const auto& i : _sort_key_idxes) {
         tablet_schema_pb->add_sort_key_idxes(i);
+    }
+    for (const auto& i : _cluster_key_idxes) {
+        tablet_schema_pb->add_cluster_key_idxes(i);
     }
     tablet_schema_pb->set_keys_type(_keys_type);
     for (auto& col : _cols) {

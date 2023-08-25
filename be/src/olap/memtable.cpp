@@ -81,6 +81,27 @@ MemTable::MemTable(int64_t tablet_id, const TabletSchema* tablet_schema,
         _num_columns = _tablet_schema->partial_input_column_size();
     }
 }
+
+[[maybe_unused]]static std::string show(std::vector<uint32_t> v) {
+    std::stringstream ss;
+    ss << "[";
+    for (auto i : v) {
+        ss << i << ", ";
+    }
+    ss << "]";
+    return ss.str();
+}
+
+[[maybe_unused]]static std::string show(std::vector<int32_t> v) {
+    std::stringstream ss;
+    ss << "[";
+    for (auto i : v) {
+        ss << i << ", ";
+    }
+    ss << "]";
+    return ss.str();
+}
+
 void MemTable::_init_columns_offset_by_slot_descs(const std::vector<SlotDescriptor*>* slot_descs,
                                                   const TupleDescriptor* tuple_desc) {
     for (auto slot_desc : *slot_descs) {
@@ -131,7 +152,8 @@ void MemTable::_init_agg_functions(const vectorized::Block* block) {
 
         // If not the last aggregate_state, we need pad it so that next aggregate_state will be aligned.
         if (i + 1 < _tablet_schema->value_column_index().size()) {
-            size_t alignment_of_next_state = _agg_functions[i + 1]->align_of_data();
+            size_t next_cid = _tablet_schema->value_column_index()[i + 1];
+            size_t alignment_of_next_state = _agg_functions[next_cid]->align_of_data();
 
             /// Extend total_size to next alignment requirement
             /// Add padding by rounding up 'total_size_of_aggregate_states' to be a multiplier of alignment_of_next_state.
@@ -485,6 +507,9 @@ std::unique_ptr<vectorized::Block> MemTable::to_block() {
         }
     } else {
         _aggregate<true>();
+    }
+    if (_keys_type == KeysType::UNIQUE_KEYS && _enable_unique_key_mow) {
+        LOG(INFO) << "sout: cluster keys=" << show(_tablet_schema->cluster_key_idxes());
     }
     return vectorized::Block::create_unique(_output_mutable_block.to_block());
 }

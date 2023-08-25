@@ -2957,12 +2957,14 @@ public class Env {
                                 : keySql.substring("DUPLICATE ".length()))
                         .append("(");
                 List<String> keysColumnNames = Lists.newArrayList();
+                // TODO the following key column maybe not in the create order
                 for (Column column : olapTable.getBaseSchema()) {
                     if (column.isKey()) {
                         keysColumnNames.add("`" + column.getName() + "`");
                     }
                 }
                 sb.append(Joiner.on(", ").join(keysColumnNames)).append(")");
+                // TODO show cluster keys
             }
 
             if (specificVersion != -1) {

@@ -27,14 +27,14 @@ import com.google.common.collect.Lists;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 public class KeysDesc implements Writable {
     private KeysType type;
     private List<String> keysColumnNames;
-    private Set<Integer> keysColumnIds = new HashSet<>();
+    private List<String> clusterKeysColumnNames;
+    private List<Integer> keysColumnIds = Lists.newArrayList();
+    private List<Integer> clusterKeysColumnIds = null;
 
     public KeysDesc() {
         this.type = KeysType.AGG_KEYS;
@@ -46,6 +46,12 @@ public class KeysDesc implements Writable {
         this.keysColumnNames = keysColumnNames;
     }
 
+    public KeysDesc(KeysType type, List<String> keysColumnNames, List<String> clusterKeyColumnNames) {
+        this.type = type;
+        this.keysColumnNames = keysColumnNames;
+        this.clusterKeysColumnNames = clusterKeyColumnNames;
+    }
+
     public KeysType getKeysType() {
         return type;
     }
@@ -54,8 +60,16 @@ public class KeysDesc implements Writable {
         return keysColumnNames.size();
     }
 
-    public Set<Integer> getKeysColumnIds() {
+    public List<Integer> getKeysColumnIds() {
         return keysColumnIds;
+    }
+
+    public List<String> getClusterKeysColumnNames() {
+        return clusterKeysColumnNames;
+    }
+
+    public List<Integer> getClusterKeysColumnIds() {
+        return clusterKeysColumnIds;
     }
 
     public boolean containsCol(String colName) {
@@ -75,23 +89,24 @@ public class KeysDesc implements Writable {
             throw new AnalysisException("The number of key columns should be less than the number of columns.");
         }
 
+        if (clusterKeysColumnNames != null && type != KeysType.UNIQUE_KEYS) {
+            throw new AnalysisException("Cluster keys only support unique keys table.");
+        }
+
+        checkKeys(keysColumnNames, cols, keysColumnIds);
+        if (clusterKeysColumnNames != null) {
+            clusterKeysColumnIds = Lists.newArrayList();
+            checkKeys(clusterKeysColumnNames, cols, clusterKeysColumnIds);
+        }
+
         for (int i = 0; i < keysColumnNames.size(); ++i) {
             String name = keysColumnNames.get(i);
-            for (int j = 0; j < i; j++) {
-                if (keysColumnNames.get(j).equalsIgnoreCase(name)) {
-                    throw new AnalysisException("Duplicate key column[" + name + "].");
-                }
-            }
             for (int j = 0; j < cols.size(); j++) {
                 if (cols.get(j).getName().equalsIgnoreCase(name)) {
                     if (cols.get(j).getAggregateType() != null) {
                         throw new AnalysisException("Key column[" + name + "] should not specify aggregate type.");
                     }
-                    keysColumnIds.add(j);
                     break;
-                }
-                if (j == cols.size() - 1) {
-                    throw new AnalysisException("Key column[" + name + "] doesn't exist.");
                 }
             }
         }
@@ -114,6 +129,28 @@ public class KeysDesc implements Writable {
         }
     }
 
+    private void checkKeys(List<String> keys, List<ColumnDef> cols, List<Integer> keyIds) throws AnalysisException {
+        for (int i = 0; i < keys.size(); ++i) {
+            String name = keys.get(i);
+            // check if key is duplicate
+            for (int j = 0; j < i; j++) {
+                if (keys.get(j).equalsIgnoreCase(name)) {
+                    throw new AnalysisException("Duplicate key column[" + name + "].");
+                }
+            }
+            // check if key exists and generate key column ids
+            for (int j = 0; j < cols.size(); j++) {
+                if (cols.get(j).getName().equalsIgnoreCase(name)) {
+                    keyIds.add(j);
+                    break;
+                }
+                if (j == cols.size() - 1) {
+                    throw new AnalysisException("Key column[" + name + "] doesn't exist.");
+                }
+            }
+        }
+    }
+
     public String toSql() {
         StringBuilder stringBuilder = new StringBuilder();
         stringBuilder.append(type.toSql()).append("(");
@@ -126,6 +163,18 @@ public class KeysDesc implements Writable {
             i++;
         }
         stringBuilder.append(")");
+        if (clusterKeysColumnNames != null) {
+            stringBuilder.append("\nCLUSTER BY (");
+            i = 0;
+            for (String columnName : clusterKeysColumnNames) {
+                if (i != 0) {
+                    stringBuilder.append(", ");
+                }
+                stringBuilder.append("`").append(columnName).append("`");
+                i++;
+            }
+            stringBuilder.append(")");
+        }
         return stringBuilder.toString();
     }
 
@@ -144,6 +193,15 @@ public class KeysDesc implements Writable {
         for (String colName : keysColumnNames) {
             Text.writeString(out, colName);
         }
+        if (clusterKeysColumnNames == null) {
+            out.writeInt(0);
+        } else {
+            count = clusterKeysColumnNames.size();
+            out.writeInt(count);
+            for (String colName : clusterKeysColumnNames) {
+                Text.writeString(out, colName);
+            }
+        }
     }
 
     public void readFields(DataInput in) throws IOException {
@@ -152,6 +210,13 @@ public class KeysDesc implements Writable {
         int count = in.readInt();
         for (int i = 0; i < count; i++) {
             keysColumnNames.add(Text.readString(in));
+        }
+        count = in.readInt();
+        if (count > 0) {
+            clusterKeysColumnNames = Lists.newArrayList();
+            for (int i = 0; i < count; i++) {
+                clusterKeysColumnNames.add(Text.readString(in));
+            }
         }
     }
 }

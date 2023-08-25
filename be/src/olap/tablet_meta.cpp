@@ -172,6 +172,9 @@ TabletMeta::TabletMeta(int64_t table_id, int64_t partition_id, int64_t tablet_id
     for (const auto& i : tablet_schema.sort_key_idxes) {
         schema->add_sort_key_idxes(i);
     }
+    for (const auto& i : tablet_schema.cluster_key_idxes) {
+        schema->add_cluster_key_idxes(i);
+    }
     tablet_meta_pb.set_in_restore_mode(false);
 
     // set column information
