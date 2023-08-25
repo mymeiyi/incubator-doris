@@ -660,6 +660,9 @@ void TabletSchema::clear_columns() {
     _num_null_columns = 0;
     _num_key_columns = 0;
     _cols.clear();
+    // TODO
+    /*_sort_key_idxes.clear();
+    _value_column_index.clear();*/
 }
 
 void TabletSchema::init_from_pb(const TabletSchemaPB& schema) {
@@ -675,6 +678,17 @@ void TabletSchema::init_from_pb(const TabletSchemaPB& schema) {
     _partial_update_input_columns.clear();
     _missing_cids.clear();
     _update_cids.clear();
+    _sort_key_idxes.clear();
+    for (const auto& i : schema.sort_key_idxes()) {
+        _sort_key_idxes.push_back(i);
+    }
+    _value_column_index.clear();
+    for (auto i = 0; i < schema.column().size(); i++) {
+        if (std::find(_sort_key_idxes.begin(), _sort_key_idxes.end(), i) != _sort_key_idxes.end()) {
+            continue;
+        }
+        _value_column_index.push_back(i);
+    }
     for (auto& column_pb : schema.column()) {
         TabletColumn column;
         column.init_from_pb(column_pb);
@@ -778,7 +792,17 @@ void TabletSchema::build_current_tablet_schema(int64_t index_id, int32_t version
     _indexes.clear();
     _field_name_to_index.clear();
     _field_id_to_index.clear();
-
+    _sort_key_idxes.clear();
+    for (const auto& i : ori_tablet_schema._sort_key_idxes) {
+        _sort_key_idxes.push_back(i);
+    }
+    _value_column_index.clear();
+    for (auto i = 0; i < index->columns.size(); i++) {
+        if (std::find(_sort_key_idxes.begin(), _sort_key_idxes.end(), i) != _sort_key_idxes.end()) {
+            continue;
+        }
+        _value_column_index.push_back(i);
+    }
     for (auto& column : index->columns) {
         if (column->is_key()) {
             _num_key_columns++;
@@ -844,6 +868,9 @@ bool TabletSchema::is_dropped_column(const TabletColumn& col) const {
 }
 
 void TabletSchema::to_schema_pb(TabletSchemaPB* tablet_schema_pb) const {
+    for (const auto& i : _sort_key_idxes) {
+        tablet_schema_pb->add_sort_key_idxes(i);
+    }
     tablet_schema_pb->set_keys_type(_keys_type);
     for (auto& col : _cols) {
         ColumnPB* column = tablet_schema_pb->add_column();

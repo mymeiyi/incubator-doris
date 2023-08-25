@@ -2767,6 +2767,7 @@ public class InternalCatalog implements CatalogIf<Database> {
             for (List<Long> backendIds : chosenBackendIds.values()) {
                 for (long backendId : backendIds) {
                     long replicaId = idGeneratorBuffer.getNextId();
+                    // create replica
                     Replica replica = new Replica(replicaId, backendId, replicaState, version,
                             tabletMeta.getOldSchemaHash());
                     tablet.addReplica(replica);
@@ -2792,20 +2793,13 @@ public class InternalCatalog implements CatalogIf<Database> {
             ErrorReport.reportDdlException(ErrorCode.ERR_TABLE_MUST_HAVE_COLUMNS);
         }
 
-        boolean encounterValue = false;
-        boolean hasKey = false;
         for (Column column : columns) {
             if (column.isKey()) {
-                if (encounterValue) {
-                    ErrorReport.reportDdlException(ErrorCode.ERR_OLAP_KEY_MUST_BEFORE_VALUE);
-                }
-                hasKey = true;
-            } else {
-                encounterValue = true;
+                return;
             }
         }
 
-        if (!hasKey && isKeysRequired) {
+        if (isKeysRequired) {
             ErrorReport.reportDdlException(ErrorCode.ERR_TABLE_MUST_HAVE_KEYS);
         }
     }

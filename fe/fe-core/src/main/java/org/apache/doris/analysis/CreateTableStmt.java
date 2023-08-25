@@ -427,7 +427,7 @@ public class CreateTableStmt extends DdlStmt {
             }
 
             keysDesc.analyze(columnDefs);
-            for (int i = 0; i < keysDesc.keysColumnSize(); ++i) {
+            for (int i : keysDesc.getKeysColumnIds()) {
                 columnDefs.get(i).setIsKey(true);
             }
             if (keysDesc.getKeysType() != KeysType.AGG_KEYS) {
@@ -438,8 +438,10 @@ public class CreateTableStmt extends DdlStmt {
                 if (keysDesc.getKeysType() == KeysType.UNIQUE_KEYS && enableUniqueKeyMergeOnWrite) {
                     type = AggregateType.NONE;
                 }
-                for (int i = keysDesc.keysColumnSize(); i < columnDefs.size(); ++i) {
-                    columnDefs.get(i).setAggregateType(type);
+                for (int i = 0; i < columnDefs.size(); ++i) {
+                    if (!columnDefs.get(i).isKey()) {
+                        columnDefs.get(i).setAggregateType(type);
+                    }
                 }
             }
         } else {

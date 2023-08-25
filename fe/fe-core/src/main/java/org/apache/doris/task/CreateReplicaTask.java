@@ -241,6 +241,7 @@ public class CreateReplicaTask extends AgentTask {
         int sequenceCol = -1;
         int versionCol = -1;
         List<TColumn> tColumns = new ArrayList<TColumn>();
+        List<Integer> sortKeyIdxes = new ArrayList<>();
         for (int i = 0; i < columns.size(); i++) {
             Column column = columns.get(i);
             TColumn tColumn = column.toThrift();
@@ -264,11 +265,16 @@ public class CreateReplicaTask extends AgentTask {
             if (column.isVersionColumn()) {
                 versionCol = i;
             }
+            if (column.isKey()) {
+                sortKeyIdxes.add(i);
+            }
         }
         tSchema.setColumns(tColumns);
         tSchema.setDeleteSignIdx(deleteSign);
         tSchema.setSequenceColIdx(sequenceCol);
         tSchema.setVersionColIdx(versionCol);
+        LOG.info("sout: sort key index = {}", sortKeyIdxes);
+        tSchema.setSortKeyIdxes(sortKeyIdxes);
 
         if (CollectionUtils.isNotEmpty(indexes)) {
             List<TOlapTableIndex> tIndexes = new ArrayList<>();
