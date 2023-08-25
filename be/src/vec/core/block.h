@@ -474,13 +474,14 @@ public:
     }
 
     int compare_at(size_t n, size_t m, size_t num_columns, const MutableBlock& rhs,
-                   int nan_direction_hint) const {
+                   int nan_direction_hint, std::vector<int32_t> sort_key_idxes) const {
         DCHECK_GE(columns(), num_columns);
         DCHECK_GE(rhs.columns(), num_columns);
 
         DCHECK_LE(n, rows());
         DCHECK_LE(m, rhs.rows());
-        for (size_t i = 0; i < num_columns; ++i) {
+        // for (size_t i = 0; i < num_columns; ++i) {
+        for (auto i : sort_key_idxes) {
             DCHECK(get_datatype_by_position(i)->equals(*rhs.get_datatype_by_position(i)));
             auto res = get_column_by_position(i)->compare_at(n, m, *(rhs.get_column_by_position(i)),
                                                              nan_direction_hint);
