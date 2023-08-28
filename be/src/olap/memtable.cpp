@@ -194,8 +194,8 @@ MemTable::~MemTable() {
 }
 
 int RowInBlockComparator::operator()(const RowInBlock* left, const RowInBlock* right) const {
-    return _pblock->compare_at(left->_row_pos, right->_row_pos, _tablet_schema->num_key_columns(),
-                               *_pblock, -1, _tablet_schema->sort_key_idxes());
+    auto sort_key_idxes = _tablet_schema->sort_key_idxes();
+    return _pblock->compare_at(left->_row_pos, right->_row_pos, &sort_key_idxes, *_pblock, -1);
 }
 
 void MemTable::insert(const vectorized::Block* input_block, const std::vector<int>& row_idxs,

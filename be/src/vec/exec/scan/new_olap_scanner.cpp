@@ -241,6 +241,26 @@ void NewOlapScanner::set_compound_filters(const std::vector<TCondition>& compoun
     _compound_filters = compound_filters;
 }
 
+[[maybe_unused]] static std::string show(std::vector<uint32_t> v) {
+    std::stringstream ss;
+    ss << "[";
+    for (auto i : v) {
+        ss << i << ", ";
+    }
+    ss << "]";
+    return ss.str();
+}
+
+[[maybe_unused]] static std::string show(std::vector<int32_t> v) {
+    std::stringstream ss;
+    ss << "[";
+    for (auto i : v) {
+        ss << i << ", ";
+    }
+    ss << "]";
+    return ss.str();
+}
+
 // it will be called under tablet read lock because capture rs readers need
 Status NewOlapScanner::_init_tablet_reader_params(
         const std::vector<OlapScanRange*>& key_ranges, const std::vector<TCondition>& filters,
@@ -339,10 +359,14 @@ Status NewOlapScanner::_init_tablet_reader_params(
     if (_tablet_reader_params.direct_mode) {
         _tablet_reader_params.return_columns = _return_columns;
     } else {
+        LOG(INFO) << "sout: return_columns 0: " << show(_return_columns)
+                  << ", _tablet_schema->sort_key_idxes=" << show(_tablet_schema->sort_key_idxes());
         // we need to fetch all key columns to do the right aggregation on storage engine side.
-        for (size_t i = 0; i < _tablet_schema->num_key_columns(); ++i) {
+        for (auto i : _tablet_schema->sort_key_idxes()) {
             _tablet_reader_params.return_columns.push_back(i);
         }
+        LOG(INFO) << "sout: _tablet_reader_params.return_columns 1: "
+                  << show(_tablet_reader_params.return_columns);
         for (auto index : _return_columns) {
             if (_tablet_schema->column(index).is_key()) {
                 continue;
@@ -350,6 +374,11 @@ Status NewOlapScanner::_init_tablet_reader_params(
                 _tablet_reader_params.return_columns.push_back(index);
             }
         }
+        std::sort(_tablet_reader_params.return_columns.begin(),
+                  _tablet_reader_params.return_columns.end());
+        LOG(INFO) << "sout: _tablet_reader_params.return_columns 2: "
+                  << show(_tablet_reader_params.return_columns)
+                  << ", return column size=" << show(_return_columns);
         // expand the sequence column
         if (_tablet_schema->has_sequence_col()) {
             bool has_replace_col = false;

@@ -200,9 +200,10 @@ bool VCollectIterator::LevelIteratorComparator::operator()(LevelIterator* lhs, L
     const IteratorRowRef& lhs_ref = *lhs->current_row_ref();
     const IteratorRowRef& rhs_ref = *rhs->current_row_ref();
 
+    const auto sort_key_idxes = lhs->tablet_schema().sort_key_idxes();
     int cmp_res = UNLIKELY(lhs->compare_columns())
                           ? lhs_ref.compare(rhs_ref, lhs->compare_columns())
-                          : lhs_ref.compare(rhs_ref, lhs->tablet_schema().num_key_columns());
+                          : lhs_ref.compare(rhs_ref, &sort_key_idxes);
     if (cmp_res != 0) {
         return UNLIKELY(_is_reverse) ? cmp_res < 0 : cmp_res > 0;
     }

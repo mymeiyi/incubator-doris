@@ -154,6 +154,26 @@ Status BlockReader::_init_collect_iter(const ReaderParams& read_params) {
     return Status::OK();
 }
 
+static std::string show(std::vector<uint32_t> v) {
+    std::stringstream ss;
+    ss << "[";
+    for (auto i : v) {
+        ss << i << ", ";
+    }
+    ss << "]";
+    return ss.str();
+}
+
+static std::string show(std::vector<int32_t> v) {
+    std::stringstream ss;
+    ss << "[";
+    for (auto i : v) {
+        ss << i << ", ";
+    }
+    ss << "]";
+    return ss.str();
+}
+
 void BlockReader::_init_agg_state(const ReaderParams& read_params) {
     if (_eof) {
         return;
@@ -197,11 +217,15 @@ Status BlockReader::init(const ReaderParams& read_params) {
 
     int32_t return_column_size = read_params.origin_return_columns->size();
     _return_columns_loc.resize(read_params.return_columns.size());
+    LOG(INFO) << "sout: return_column=" << show(read_params.return_columns)
+              << ", origin_return_columns=" << show(*read_params.origin_return_columns);
+
     for (int i = 0; i < return_column_size; ++i) {
         auto cid = read_params.origin_return_columns->at(i);
+        LOG(INFO) << "sout: i=" << i << ", cid=" << cid;
         for (int j = 0; j < read_params.return_columns.size(); ++j) {
             if (read_params.return_columns[j] == cid) {
-                if (j < _tablet->num_key_columns() || _tablet->keys_type() != AGG_KEYS) {
+                if (_tablet_schema->column(j).is_key() || _tablet->keys_type() != AGG_KEYS) {
                     _normal_columns_idx.emplace_back(j);
                 } else {
                     _agg_columns_idx.emplace_back(j);
@@ -211,6 +235,11 @@ Status BlockReader::init(const ReaderParams& read_params) {
             }
         }
     }
+    LOG(INFO) << "sout: return_column=" << show(read_params.return_columns)
+              << ", origin_return_columns=" << show(*read_params.origin_return_columns)
+              << ", _normal_columns_idx=" << show(_normal_columns_idx)
+              << ", _agg_columns_idx=" << show(_agg_columns_idx)
+              << ", _return_columns_loc=" << show(_return_columns_loc);
 
     auto status = _init_collect_iter(read_params);
     if (!status.ok()) {
