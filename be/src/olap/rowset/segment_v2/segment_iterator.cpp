@@ -158,6 +158,36 @@ private:
     bool _eof = false;
 };
 
+[[maybe_unused]]static std::string show(std::set<int32_t> v) {
+    std::stringstream ss;
+    ss << "[";
+    for (auto i : v) {
+        ss << i << ", ";
+    }
+    ss << "]";
+    return ss.str();
+}
+
+[[maybe_unused]]static std::string show(std::vector<uint32_t> v) {
+    std::stringstream ss;
+    ss << "[";
+    for (auto i : v) {
+        ss << i << ", ";
+    }
+    ss << "]";
+    return ss.str();
+}
+
+[[maybe_unused]]static std::string show(std::vector<int32_t> v) {
+    std::stringstream ss;
+    ss << "[";
+    for (auto i : v) {
+        ss << i << ", ";
+    }
+    ss << "]";
+    return ss.str();
+}
+
 // A backward range iterator for roaring bitmap. Output ranges use closed-open form, like [from, to).
 // Example:
 //   input bitmap:  [0 1 4 5 6 7 10 15 16 17 18 19]
@@ -366,6 +396,7 @@ Status SegmentIterator::_prepare_seek(const StorageReadOptions::KeyRange& key_ra
         }
     }
 
+    LOG(INFO) << "sout: seek schema column ids=" << show(_seek_schema->column_ids());
     // create used column iterator
     for (auto cid : _seek_schema->column_ids()) {
         int32_t unique_id = _opts.tablet_schema->column(cid).unique_id();
@@ -432,6 +463,7 @@ Status SegmentIterator::_get_row_ranges_from_conditions(RowRanges* condition_row
     for (auto& entry : _opts.col_id_to_predicates) {
         cids.insert(entry.first);
     }
+    LOG(INFO) << "sout: cids=" << show(cids);
 
     // first filter data by bloom filter index
     // bloom filter index only use CondColumn
@@ -441,6 +473,11 @@ Status SegmentIterator::_get_row_ranges_from_conditions(RowRanges* condition_row
         RowRanges column_bf_row_ranges = RowRanges::create_single(num_rows());
         DCHECK(_opts.col_id_to_predicates.count(cid) > 0);
         uint32_t unique_cid = _schema->unique_id(cid);
+        LOG(INFO) << "sout: cid=" << cid << ", unique_id=" << unique_cid
+                  << ", _column_iterators=" << _column_iterators.size()
+                  << ", col_id_to_predicates=" << _opts.col_id_to_predicates.size()
+                  << ", is null=" << (_column_iterators[unique_cid] == nullptr)
+                  << ", is predicate null=" << (_opts.col_id_to_predicates.at(cid) == nullptr);
         RETURN_IF_ERROR(_column_iterators[unique_cid]->get_row_ranges_by_bloom_filter(
                 _opts.col_id_to_predicates.at(cid).get(), &column_bf_row_ranges));
         RowRanges::ranges_intersection(bf_row_ranges, column_bf_row_ranges, &bf_row_ranges);
