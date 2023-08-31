@@ -157,6 +157,7 @@ private:
     // used for unique-key with merge on write
     void _encode_seq_column(const vectorized::IOlapColumnDataAccessor* seq_column, size_t pos,
                             string* encoded_keys);
+    void _encode_rowid(const uint32_t rowid, string* encoded_keys);
     void set_min_max_key(const Slice& key);
     void set_min_key(const Slice& key);
     void set_max_key(const Slice& key);
@@ -186,7 +187,9 @@ private:
     std::unique_ptr<vectorized::OlapBlockDataConvertor> _olap_data_convertor;
     // used for building short key index or primary key index during vectorized write.
     std::vector<const KeyCoder*> _key_coders;
+    std::vector<const KeyCoder*> _cluster_key_coders;
     const KeyCoder* _seq_coder = nullptr;
+    const KeyCoder* _rowid_coder = nullptr;
     std::vector<uint16_t> _key_index_size;
     size_t _short_key_row_pos = 0;
 

@@ -357,16 +357,24 @@ Status Segment::new_inverted_index_iterator(const TabletColumn& tablet_column,
 Status Segment::lookup_row_key(const Slice& key, bool with_seq_col, RowLocation* row_location) {
     RETURN_IF_ERROR(load_pk_index_and_bf());
     bool has_seq_col = _tablet_schema->has_sequence_col();
+    bool has_rowid = !_tablet_schema->cluster_key_idxes().empty();
     size_t seq_col_length = 0;
     if (has_seq_col) {
         seq_col_length = _tablet_schema->column(_tablet_schema->sequence_col_idx()).length() + 1;
     }
+    size_t rowid_length = 0;
+    if (has_rowid) {
+        rowid_length = sizeof(uint32_t) + 1;
+    }
 
-    Slice key_without_seq =
-            Slice(key.get_data(), key.get_size() - (with_seq_col ? seq_col_length : 0));
+    Slice key_without_seq = Slice(
+            key.get_data(), key.get_size() - (with_seq_col ? seq_col_length : 0) - rowid_length);
+    LOG(INFO) << "sout: Segment::lookup_row_key, seq_col_len=" << seq_col_length
+              << ", rowid_len=" << rowid_length << ", len=" << key_without_seq.get_size();
 
     DCHECK(_pk_index_reader != nullptr);
     if (!_pk_index_reader->check_present(key_without_seq)) {
+        LOG(INFO) << "sout: Segment::lookup_row_key: Can't find key in the segment";
         return Status::NotFound("Can't find key in the segment");
     }
     bool exact_match = false;
@@ -380,7 +388,7 @@ Status Segment::lookup_row_key(const Slice& key, bool with_seq_col, RowLocation*
     row_location->segment_id = _segment_id;
     row_location->rowset_id = _rowset_id;
 
-    if (has_seq_col) {
+    auto get_sought_key = [&](Slice& sought_key) {
         size_t num_to_read = 1;
         auto index_type = vectorized::DataTypeFactory::instance().create_data_type(
                 _pk_index_reader->type_info()->type(), 1, 0);
@@ -389,10 +397,15 @@ Status Segment::lookup_row_key(const Slice& key, bool with_seq_col, RowLocation*
         RETURN_IF_ERROR(index_iterator->next_batch(&num_read, index_column));
         DCHECK(num_to_read == num_read);
 
-        Slice sought_key =
-                Slice(index_column->get_data_at(0).data, index_column->get_data_at(0).size);
+        sought_key = Slice(index_column->get_data_at(0).data, index_column->get_data_at(0).size);
+        return Status::OK();
+    };
+
+    if (has_seq_col) {
+        Slice sought_key;
+        RETURN_IF_ERROR(get_sought_key(sought_key));
         Slice sought_key_without_seq =
-                Slice(sought_key.get_data(), sought_key.get_size() - seq_col_length);
+                Slice(sought_key.get_data(), sought_key.get_size() - seq_col_length - rowid_length);
 
         // compare key
         if (key_without_seq.compare(sought_key_without_seq) != 0) {
@@ -411,6 +424,34 @@ Status Segment::lookup_row_key(const Slice& key, bool with_seq_col, RowLocation*
         if (sequence_id.compare(previous_sequence_id) < 0) {
             return Status::AlreadyExist("key with higher sequence id exists");
         }
+        if (has_rowid) {
+            Slice row_id = Slice(
+                    sought_key.get_data() + sought_key_without_seq.get_size() + seq_col_length + 2,
+                    rowid_length - 1);
+            row_location->row_id =
+                    *reinterpret_cast<const uint32_t*>(row_id.get_data(), row_id.get_size());
+            LOG(INFO) << "sout: rowset_id=" << row_location->rowset_id
+                      << ", segment_id=" << row_location->segment_id
+                      << ", row_id=" << row_location->row_id;
+        }
+    }
+    if (!has_seq_col && has_rowid) {
+        Slice sought_key;
+        RETURN_IF_ERROR(get_sought_key(sought_key));
+        Slice sought_key_without_rowid =
+                Slice(sought_key.get_data(), sought_key.get_size() - rowid_length);
+        // compare key
+        if (key_without_seq.compare(sought_key_without_rowid) != 0) {
+            return Status::NotFound("Can't find key in the segment");
+        }
+        Slice row_id =
+                Slice(sought_key.get_data() + sought_key_without_rowid.get_size() + 1,
+                      rowid_length - 1);
+        row_location->row_id =
+                *reinterpret_cast<const uint32_t*>(row_id.get_data(), row_id.get_size());
+        LOG(INFO) << "sout: rowset_id=" << row_location->rowset_id
+                  << ", segment_id=" << row_location->segment_id
+                  << ", row_id=" << row_location->row_id;
     }
 
     return Status::OK();

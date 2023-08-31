@@ -217,6 +217,20 @@ TEST_F(KeyCoderTest, test_decimal) {
     }
 }
 
+TEST_F(KeyCoderTest, test_int2) {
+    auto key_coder = get_key_coder(FieldType::OLAP_FIELD_TYPE_UNSIGNED_INT);
+
+    uint32_t val1 = 1;
+
+    std::string buf1;
+    key_coder->encode_ascending(&val1, sizeof(uint32_t), &buf1);
+
+    uint32_t check_val;
+    Slice slice1(buf1);
+    key_coder->decode_ascending(&slice1, sizeof(uint32_t), (uint8_t*)&check_val);
+    EXPECT_EQ(check_val, val1);
+}
+
 TEST_F(KeyCoderTest, test_char) {
     auto key_coder = get_key_coder(FieldType::OLAP_FIELD_TYPE_CHAR);
 
