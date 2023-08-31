@@ -476,7 +476,7 @@ Status SegmentIterator::_get_row_ranges_from_conditions(RowRanges* condition_row
         // get row ranges by bf index of this column,
         RowRanges column_bf_row_ranges = RowRanges::create_single(num_rows());
         DCHECK(_opts.col_id_to_predicates.count(cid) > 0);
-        uint32_t unique_cid = _schema->unique_id(cid);
+        // uint32_t unique_cid = _schema->unique_id(cid);
         /*LOG(INFO) << "sout: cid=" << cid << ", unique_id=" << unique_cid
                   << ", _column_iterators=" << _column_iterators.size()
                   << ", col_id_to_predicates=" << _opts.col_id_to_predicates.size()
