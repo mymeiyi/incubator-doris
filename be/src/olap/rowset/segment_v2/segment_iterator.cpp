@@ -481,11 +481,8 @@ Status SegmentIterator::_get_row_ranges_from_conditions(RowRanges* condition_row
                   << ", _column_iterators=" << _column_iterators.size()
                   << ", col_id_to_predicates=" << _opts.col_id_to_predicates.size()
                   << ", is null=" << (_column_iterators[unique_cid] == nullptr)
-                  << ", is predicate null=" << (_opts.col_id_to_predicates.at(cid) == nullptr);
-        // TODO unique id or cid
-        RETURN_IF_ERROR(_column_iterators[cid]->get_row_ranges_by_bloom_filter(
                   << ", is predicate null=" << (_opts.col_id_to_predicates.at(cid) == nullptr);*/
-        RETURN_IF_ERROR(_column_iterators[unique_cid]->get_row_ranges_by_bloom_filter(
+        RETURN_IF_ERROR(_column_iterators[cid]->get_row_ranges_by_bloom_filter(
                 _opts.col_id_to_predicates.at(cid).get(), &column_bf_row_ranges));
         RowRanges::ranges_intersection(bf_row_ranges, column_bf_row_ranges, &bf_row_ranges);
     }
