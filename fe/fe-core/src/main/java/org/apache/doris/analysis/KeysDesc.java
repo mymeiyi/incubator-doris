@@ -89,12 +89,10 @@ public class KeysDesc implements Writable {
             throw new AnalysisException("Cluster keys only support unique keys table.");
         }
 
-        checkKeys(keysColumnNames, cols, keysColumnIds);
         if (clusterKeysColumnNames != null) {
             clusterKeysColumnIds = Lists.newArrayList();
             checkKeys(clusterKeysColumnNames, cols, clusterKeysColumnIds);
         }
-
         for (int i = 0; i < keysColumnNames.size(); ++i) {
             String name = cols.get(i).getName();
             if (!keysColumnNames.get(i).equalsIgnoreCase(name)) {
@@ -110,16 +108,6 @@ public class KeysDesc implements Writable {
 
             if (cols.get(i).getAggregateType() != null) {
                 throw new AnalysisException("Key column[" + name + "] should not specify aggregate type.");
-=======
-            String name = keysColumnNames.get(i);
-            for (int j = 0; j < cols.size(); j++) {
-                if (cols.get(j).getName().equalsIgnoreCase(name)) {
-                    if (cols.get(j).getAggregateType() != null) {
-                        throw new AnalysisException("Key column[" + name + "] should not specify aggregate type.");
-                    }
-                    break;
-                }
->>>>>>> a26222880e (create MOW table support cluster keyt)
             }
         }
 
