@@ -184,6 +184,19 @@ public:
     /// @return A string that contains a copy of the referenced data.
     std::string to_string() const { return std::string(data, size); }
 
+    std::string to_int_array() const {
+        std::stringstream ss;
+        ss << "{size=" << size << ", data=[";
+        for (int i = 0; i < size; i++) {
+            ss << (int)(data[i]);
+            if (i != size - 1) {
+                ss << ", ";
+            }
+        }
+        ss << "]}";
+        return ss.str();
+    }
+
     /// Do a three-way comparison of the slice's data.
     int compare(const Slice& b) const;
 
