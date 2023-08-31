@@ -370,18 +370,24 @@ Status Segment::lookup_row_key(const Slice& key, bool with_seq_col, RowLocation*
     Slice key_without_seq = Slice(
             key.get_data(), key.get_size() - (with_seq_col ? seq_col_length : 0) - rowid_length);
     LOG(INFO) << "sout: Segment::lookup_row_key, seq_col_len=" << seq_col_length
-              << ", rowid_len=" << rowid_length << ", len=" << key_without_seq.get_size();
+              << ", rowid_len=" << rowid_length << ", len=" << key_without_seq.get_size()
+              << ", key_without_seq=" << key_without_seq.to_int_array();
 
     DCHECK(_pk_index_reader != nullptr);
     if (!_pk_index_reader->check_present(key_without_seq)) {
-        LOG(INFO) << "sout: Segment::lookup_row_key: Can't find key in the segment";
+        LOG(INFO) << "sout: Segment::lookup_row_key: Can't find key in the segment, rowset="
+                  << rowset_id() << ", segment_id=" << _segment_id;
         return Status::NotFound("Can't find key in the segment");
     }
     bool exact_match = false;
     std::unique_ptr<segment_v2::IndexedColumnIterator> index_iterator;
     RETURN_IF_ERROR(_pk_index_reader->new_iterator(&index_iterator));
     RETURN_IF_ERROR(index_iterator->seek_at_or_after(&key_without_seq, &exact_match));
-    if (!has_seq_col && !exact_match) {
+    LOG(INFO) << "sout: seek or after, key_without_seq=" << key_without_seq.to_int_array()
+              << ", exact_match=" << exact_match << ", has_seq_col=" << has_seq_col;
+    if (!has_seq_col && !has_rowid && !exact_match) {
+        LOG(INFO) << "sout: Segment::lookup_row_key: Can't find key in the segment, rowset="
+                  << rowset_id() << ", segment_id=" << _segment_id;
         return Status::NotFound("Can't find key in the segment");
     }
     row_location->row_id = index_iterator->get_current_ordinal();
@@ -442,13 +448,17 @@ Status Segment::lookup_row_key(const Slice& key, bool with_seq_col, RowLocation*
                 Slice(sought_key.get_data(), sought_key.get_size() - rowid_length);
         // compare key
         if (key_without_seq.compare(sought_key_without_rowid) != 0) {
+            LOG(INFO) << "sout: Segment::lookup_row_key: Can't find key in the segment, rowset="
+                      << rowset_id() << ", segment_id=" << _segment_id;
             return Status::NotFound("Can't find key in the segment");
         }
-        Slice row_id =
-                Slice(sought_key.get_data() + sought_key_without_rowid.get_size() + 1,
-                      rowid_length - 1);
-        row_location->row_id =
-                *reinterpret_cast<const uint32_t*>(row_id.get_data(), row_id.get_size());
+
+        Slice rowid_slice = Slice(sought_key.get_data() + sought_key_without_rowid.get_size() + 1,
+                                  rowid_length - 1);
+        // TODO decode rowid
+        const auto* type_info = get_scalar_type_info<FieldType::OLAP_FIELD_TYPE_UNSIGNED_INT>();
+        auto rowid_coder = get_key_coder(type_info->type());
+        rowid_coder->decode_ascending(&rowid_slice, rowid_length, (uint8_t*)&row_location->row_id);
         LOG(INFO) << "sout: rowset_id=" << row_location->rowset_id
                   << ", segment_id=" << row_location->segment_id
                   << ", row_id=" << row_location->row_id;
