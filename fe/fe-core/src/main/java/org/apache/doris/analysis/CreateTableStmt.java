@@ -420,6 +420,10 @@ public class CreateTableStmt extends DdlStmt {
             }
 
             keysDesc.analyze(columnDefs);
+            if (keysDesc.getClusterKeysColumnNames() != null && !enableUniqueKeyMergeOnWrite) {
+                throw new AnalysisException("Cluster keys only support unique keys table which enabled "
+                        + PropertyAnalyzer.ENABLE_UNIQUE_KEY_MERGE_ON_WRITE);
+            }
             for (int i = 0; i < keysDesc.keysColumnSize(); ++i) {
                 columnDefs.get(i).setIsKey(true);
             }
