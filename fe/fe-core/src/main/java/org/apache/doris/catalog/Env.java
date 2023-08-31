@@ -3902,6 +3902,7 @@ public class Env {
 
     public static short calcShortKeyColumnCount(List<Column> columns, Map<String, String> properties,
                                                 boolean isKeysRequired) throws DdlException {
+        // TODO calculate by cluster keys
         List<Column> indexColumns = new ArrayList<Column>();
         for (Column column : columns) {
             if (column.isKey()) {
