@@ -2770,17 +2770,19 @@ Status Tablet::lookup_row_key(const Slice& encoded_key, bool with_seq_col,
     if (!_schema->cluster_key_idxes().empty()) {
         rowid_length = sizeof(uint32_t) + 1;
     }
-    LOG(INFO) << "sout: call Tablet::lookup_row_key, specified_rowsets.size()="
-              << specified_rowsets.size() << ", seq_col_length=" << seq_col_length
-              << ", rowid_length=" << rowid_length;
     Slice key_without_seq =
             Slice(encoded_key.get_data(), encoded_key.get_size() - seq_col_length - rowid_length);
+    LOG(INFO) << "sout: call Tablet::lookup_row_key, specified_rowsets.size()="
+              << specified_rowsets.size() << ", seq_col_length=" << seq_col_length
+              << ", rowid_length=" << rowid_length << ", key=" << key_without_seq.to_string()
+              << ", key=" << key_without_seq.to_int_array();
     RowLocation loc;
 
     for (size_t i = 0; i < specified_rowsets.size(); i++) {
         auto& rs = specified_rowsets[i];
         auto& segments_key_bounds = rs->rowset_meta()->get_segments_key_bounds();
         int num_segments = rs->num_segments();
+        LOG(INFO) << "sout: i=" << i << ", num_segments=" << num_segments;
         DCHECK_EQ(segments_key_bounds.size(), num_segments);
         std::vector<uint32_t> picked_segments;
         for (int i = num_segments - 1; i >= 0; i--) {

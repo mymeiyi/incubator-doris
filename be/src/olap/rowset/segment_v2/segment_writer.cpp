@@ -87,10 +87,15 @@ SegmentWriter::SegmentWriter(io::FileWriter* file_writer, uint32_t segment_id,
     _num_key_columns = _tablet_schema->num_key_columns();
     _num_short_key_columns = _tablet_schema->num_short_key_columns();
     DCHECK(_num_key_columns >= _num_short_key_columns);
-    for (size_t cid = 0; cid < _num_key_columns; ++cid) {
+    for (const auto& cid : _tablet_schema->sort_key_idxes()) {
         const auto& column = _tablet_schema->column(cid);
         _key_coders.push_back(get_key_coder(column.type()));
         _key_index_size.push_back(column.index_length());
+    }
+    for (size_t cid = 0; cid < _num_key_columns; ++cid) {
+        /*const auto& column = _tablet_schema->column(cid);
+        _key_coders.push_back(get_key_coder(column.type()));
+        _key_index_size.push_back(column.index_length());*/
     }
     if (_tablet_schema->keys_type() == UNIQUE_KEYS && _opts.enable_unique_key_merge_on_write) {
         // encode the sequence id into the primary key index
@@ -716,7 +721,7 @@ Status SegmentWriter::append_block(const vectorized::Block* block, size_t row_po
         RETURN_IF_ERROR(_column_writers[id]->append(converted_result.second->get_nullmap(),
                                                     converted_result.second->get_data(), num_rows));
     }
-    LOG(INFO) << "sout: key column is=" << show(key_columns);
+    LOG(INFO) << "sout: key column is=" << show(key_columns) << ", size=" << key_columns.size();
     if (_has_key) {
         bool need_primary_key_indexes = (_tablet_schema->keys_type() == UNIQUE_KEYS &&
                                          _opts.enable_unique_key_merge_on_write);
@@ -747,6 +752,8 @@ Status SegmentWriter::append_block(const vectorized::Block* block, size_t row_po
                 // keep primary keys in memory
                 for (uint32_t pos = 0; pos < num_rows; pos++) {
                     std::string key = _full_encode_keys(key_columns, pos);
+                    Slice slice(key);
+                    LOG(INFO) << "sout: encode rowid=" << pos << ", key=" << slice.to_int_array();
                     if (_tablet_schema->has_sequence_col()) {
                         _encode_seq_column(seq_column, pos, &key);
                     }
@@ -785,6 +792,23 @@ Status SegmentWriter::append_block(const vectorized::Block* block, size_t row_po
             }
         }
         if (need_short_key_indexes) {
+            if (need_primary_key_indexes) {
+                // short key is cluster key, key columns should be cluster key + min_max key
+                key_columns.clear();
+                for (auto cid : _tablet_schema->cluster_key_idxes()) {
+                    /*auto converted_result = _olap_data_convertor->convert_column_data(cid);
+                    key_columns.push_back(converted_result.second);*/
+                    for (size_t id = 0; id < _column_writers.size(); ++id) {
+                        // olap data convertor alway start from id = 0
+                        auto converted_result = _olap_data_convertor->convert_column_data(id);
+                        if (cid == _column_ids[id]) {
+                            key_columns.push_back(converted_result.second);
+                        }
+                    }
+                }
+            }
+            // TODO use cluster keys
+            LOG(INFO) << "sout: start construct short key indexes";
             // create short key indexes'
             // for min_max key
             set_min_key(_full_encode_keys(key_columns, 0));
@@ -814,6 +838,11 @@ int64_t SegmentWriter::max_row_to_add(size_t row_avg_size_in_bytes) {
     return std::min(size_rows, count_rows);
 }
 
+[[maybe_unused]] static std::string show_char(const void* field) {
+    std::stringstream ss;
+    return ss.str();
+}
+
 std::string SegmentWriter::_full_encode_keys(
         const std::vector<vectorized::IOlapColumnDataAccessor*>& key_columns, size_t pos,
         bool null_first) {
@@ -824,7 +853,9 @@ std::string SegmentWriter::_full_encode_keys(
     size_t cid = 0;
     for (const auto& column : key_columns) {
         auto field = column->get_data_at(pos);
+        // LOG(INFO) << "sout: cid=" << cid << ", field is null=" << (field == nullptr);
         if (UNLIKELY(!field)) {
+            LOG(INFO) << "sout: cid=" << cid << ", filed is null, null_first=" << null_first;
             if (null_first) {
                 encoded_keys.push_back(KEY_NULL_FIRST_MARKER);
             } else {
@@ -833,8 +864,17 @@ std::string SegmentWriter::_full_encode_keys(
             ++cid;
             continue;
         }
+        /*LOG(INFO) << "sout: before cid=" << cid << ", field=" << field
+                  << ", field=" << show_char(field)
+                  << ", column=" << typeid(*column).name()
+                  << ", encoded_key len=" << encoded_keys.size();*/
         encoded_keys.push_back(KEY_NORMAL_MARKER);
         _key_coders[cid]->full_encode_ascending(field, &encoded_keys);
+        Slice s1(encoded_keys);
+        LOG(INFO) << "sout: after cid=" << cid << ", field=" << field
+                  << ", column=" << typeid(*column).name()
+                  << ", encoded_key len=" << encoded_keys.size()
+                  << ", encoded_key=" << s1.to_int_array();
         ++cid;
     }
     return encoded_keys;

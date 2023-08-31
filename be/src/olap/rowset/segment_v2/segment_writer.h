@@ -187,6 +187,7 @@ private:
     std::unique_ptr<vectorized::OlapBlockDataConvertor> _olap_data_convertor;
     // used for building short key index or primary key index during vectorized write.
     std::vector<const KeyCoder*> _key_coders;
+    std::vector<const KeyCoder*> _cluster_key_coders;
     const KeyCoder* _seq_coder = nullptr;
     const KeyCoder* _rowid_coder = nullptr;
     std::vector<uint16_t> _key_index_size;
