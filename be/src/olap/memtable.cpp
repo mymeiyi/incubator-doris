@@ -81,6 +81,27 @@ MemTable::MemTable(int64_t tablet_id, const TabletSchema* tablet_schema,
         _num_columns = _tablet_schema->partial_input_column_size();
     }
 }
+
+[[maybe_unused]]static std::string show(std::vector<uint32_t> v) {
+    std::stringstream ss;
+    ss << "[";
+    for (auto i : v) {
+        ss << i << ", ";
+    }
+    ss << "]";
+    return ss.str();
+}
+
+[[maybe_unused]]static std::string show(std::vector<int32_t> v) {
+    std::stringstream ss;
+    ss << "[";
+    for (auto i : v) {
+        ss << i << ", ";
+    }
+    ss << "]";
+    return ss.str();
+}
+
 void MemTable::_init_columns_offset_by_slot_descs(const std::vector<SlotDescriptor*>* slot_descs,
                                                   const TupleDescriptor* tuple_desc) {
     for (auto slot_desc : *slot_descs) {
@@ -454,6 +475,9 @@ std::unique_ptr<vectorized::Block> MemTable::to_block() {
         }
     } else {
         _aggregate<true>();
+    }
+    if (_keys_type == KeysType::UNIQUE_KEYS && _enable_unique_key_mow) {
+        LOG(INFO) << "sout: cluster keys=" << show(_tablet_schema->cluster_key_idxes());
     }
     return vectorized::Block::create_unique(_output_mutable_block.to_block());
 }

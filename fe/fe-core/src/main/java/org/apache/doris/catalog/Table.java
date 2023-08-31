@@ -19,6 +19,7 @@ package org.apache.doris.catalog;
 
 import org.apache.doris.alter.AlterCancelException;
 import org.apache.doris.analysis.CreateTableStmt;
+import org.apache.doris.analysis.KeysDesc;
 import org.apache.doris.common.DdlException;
 import org.apache.doris.common.MetaNotFoundException;
 import org.apache.doris.common.io.Text;
@@ -114,6 +115,8 @@ public abstract class Table extends MetaObject implements Writable, TableIf {
     protected String comment = "";
     // sql for creating this table, default is "";
     protected String ddlSql = "";
+    @SerializedName(value = "KeysDesc")
+    private KeysDesc keysDesc;
 
     public Table(TableType type) {
         this.type = type;
