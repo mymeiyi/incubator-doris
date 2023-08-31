@@ -154,6 +154,11 @@ private:
     std::string _full_encode_keys(
             const std::vector<vectorized::IOlapColumnDataAccessor*>& key_columns, size_t pos,
             bool null_first = true);
+
+    std::string _full_encode_keys(
+            std::vector<const KeyCoder*>& key_coders,
+            const std::vector<vectorized::IOlapColumnDataAccessor*>& key_columns, size_t pos,
+            bool null_first = true);
     // used for unique-key with merge on write
     void _encode_seq_column(const vectorized::IOlapColumnDataAccessor* seq_column, size_t pos,
                             string* encoded_keys);
@@ -186,8 +191,10 @@ private:
 
     std::unique_ptr<vectorized::OlapBlockDataConvertor> _olap_data_convertor;
     // used for building short key index or primary key index during vectorized write.
+    // for mow table with cluster keys, this is cluster keys
     std::vector<const KeyCoder*> _key_coders;
-    std::vector<const KeyCoder*> _cluster_key_coders;
+    // for mow table with cluster keys, this is primary keys
+    std::vector<const KeyCoder*> _primary_key_coders;
     const KeyCoder* _seq_coder = nullptr;
     const KeyCoder* _rowid_coder = nullptr;
     std::vector<uint16_t> _key_index_size;

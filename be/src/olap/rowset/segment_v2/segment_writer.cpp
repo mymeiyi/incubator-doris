@@ -85,17 +85,13 @@ SegmentWriter::SegmentWriter(io::FileWriter* file_writer, uint32_t segment_id,
           _mow_context(mow_context) {
     CHECK_NOTNULL(file_writer);
     _num_key_columns = _tablet_schema->num_key_columns();
+    // TODO recaculate in fe by cluster keys
     _num_short_key_columns = _tablet_schema->num_short_key_columns();
     DCHECK(_num_key_columns >= _num_short_key_columns);
     for (size_t cid = 0; cid < _num_key_columns; ++cid) {
         const auto& column = _tablet_schema->column(cid);
         _key_coders.push_back(get_key_coder(column.type()));
         _key_index_size.push_back(column.index_length());
-    }
-    for (size_t cid = 0; cid < _num_key_columns; ++cid) {
-        /*const auto& column = _tablet_schema->column(cid);
-        _key_coders.push_back(get_key_coder(column.type()));
-        _key_index_size.push_back(column.index_length());*/
     }
     if (_tablet_schema->keys_type() == UNIQUE_KEYS && _opts.enable_unique_key_merge_on_write) {
         // encode the sequence id into the primary key index
@@ -107,6 +103,18 @@ SegmentWriter::SegmentWriter(io::FileWriter* file_writer, uint32_t segment_id,
         if (!_tablet_schema->cluster_key_idxes().empty()) {
             const auto* type_info = get_scalar_type_info<FieldType::OLAP_FIELD_TYPE_UNSIGNED_INT>();
             _rowid_coder = get_key_coder(type_info->type());
+            // primary keys
+            _primary_key_coders.swap(_key_coders);
+            // cluster keys
+            _key_coders.clear();
+            _key_index_size.clear();
+            _num_key_columns = _tablet_schema->cluster_key_idxes().size();
+            for (auto cid : _tablet_schema->cluster_key_idxes()) {
+                const auto& column = _tablet_schema->column(cid);
+                LOG(INFO) << "sout: cid=" << cid << ", name=" << column.name();
+                _key_coders.push_back(get_key_coder(column.type()));
+                _key_index_size.push_back(column.index_length());
+            }
         }
     }
 }
@@ -750,10 +758,29 @@ Status SegmentWriter::append_block(const vectorized::Block* block, size_t row_po
                     last_key = std::move(key);
                 }
             } else {
+                std::vector<vectorized::IOlapColumnDataAccessor*> primary_key_columns;
+                primary_key_columns.swap(key_columns);
+                key_columns.clear();
+                for (const auto& cid : _tablet_schema->cluster_key_idxes()) {
+                    for (size_t id = 0; id < _column_writers.size(); ++id) {
+                        // olap data convertor alway start from id = 0
+                        auto converted_result = _olap_data_convertor->convert_column_data(id);
+                        if (cid == _column_ids[id]) {
+                            key_columns.push_back(converted_result.second);
+                            break;
+                        }
+                    }
+                }
+                LOG(INFO) << "sout: primary key column is=" << show(primary_key_columns)
+                          << ", size=" << primary_key_columns.size();
+                LOG(INFO) << "sout: key column is=" << show(key_columns)
+                          << ", size=" << key_columns.size();
+
                 std::vector<std::string> primary_keys;
                 // keep primary keys in memory
                 for (uint32_t pos = 0; pos < num_rows; pos++) {
-                    std::string key = _full_encode_keys(key_columns, pos);
+                    std::string key =
+                            _full_encode_keys(_primary_key_coders, primary_key_columns, pos);
                     Slice slice(key);
                     LOG(INFO) << "sout: encode rowid=" << pos << ", key=" << slice.to_int_array();
                     if (_tablet_schema->has_sequence_col()) {
@@ -882,6 +909,42 @@ std::string SegmentWriter::_full_encode_keys(
     return encoded_keys;
 }
 
+std::string SegmentWriter::_full_encode_keys(
+        std::vector<const KeyCoder*>& key_coders,
+        const std::vector<vectorized::IOlapColumnDataAccessor*>& key_columns, size_t pos,
+        bool null_first) {
+    assert(key_columns.size() == key_coders.size());
+
+    std::string encoded_keys;
+    size_t cid = 0;
+    for (const auto& column : key_columns) {
+        auto field = column->get_data_at(pos);
+        if (UNLIKELY(!field)) {
+            if (null_first) {
+                encoded_keys.push_back(KEY_NULL_FIRST_MARKER);
+            } else {
+                encoded_keys.push_back(KEY_NULL_LAST_MARKER);
+            }
+            ++cid;
+            continue;
+        }
+        encoded_keys.push_back(KEY_NORMAL_MARKER);
+        DCHECK(key_coders[cid] != nullptr);
+        LOG(INFO) << "sout: before cid=" << cid << ", field=" << field
+                  /*<< ", field=" << show_char(field)*/
+                  << ", column=" << typeid(*column).name()
+                  << ", encoded_key len=" << encoded_keys.size();
+        key_coders[cid]->full_encode_ascending(field, &encoded_keys);
+        Slice s1(encoded_keys);
+        LOG(INFO) << "sout: after cid=" << cid << ", field=" << field
+                  << ", column=" << typeid(*column).name()
+                  << ", encoded_key len=" << encoded_keys.size()
+                  << ", encoded_key=" << s1.to_int_array();
+        ++cid;
+    }
+    return encoded_keys;
+}
+
 void SegmentWriter::_encode_seq_column(const vectorized::IOlapColumnDataAccessor* seq_column,
                                        size_t pos, string* encoded_keys) {
     auto field = seq_column->get_data_at(pos);
@@ -900,26 +963,7 @@ void SegmentWriter::_encode_seq_column(const vectorized::IOlapColumnDataAccessor
 
 void SegmentWriter::_encode_rowid(const uint32_t rowid, string* encoded_keys) {
     encoded_keys->push_back(KEY_NORMAL_MARKER);
-    // LOG(INFO) << "sout: encode row=" << rowid;
-    /*auto len = encoded_keys->length();
-    auto len2 = encoded_keys->size();*/
-    // _rowid_coder->encode_ascending(&rowid, sizeof(uint32_t), encoded_keys);
     _rowid_coder->full_encode_ascending(&rowid, encoded_keys);
-    {
-        /*LOG(INFO) << "sout: before len=" << len << ", after len=" << encoded_keys->length()
-                  << ", before size=" << len2 << ", after size=" << encoded_keys->size();
-        uint32_t check_val;
-        Slice s1(encoded_keys->data(), encoded_keys->size());
-        Slice s2(encoded_keys->data() - sizeof(uint32_t), sizeof(uint32_t));
-        _rowid_coder->decode_ascending(&s2, sizeof(uint32_t), (uint8_t*)&check_val);*/
-
-        /*std::string buf1;
-        _rowid_coder->encode_ascending(&rowid, sizeof(uint32_t), &buf1);
-
-        Slice slice1(buf1);
-        _rowid_coder->decode_ascending(&slice1, sizeof(uint32_t), (uint8_t*)&check_val);
-        LOG(INFO) << "sout: decode value=" << check_val;*/
-    }
 }
 
 std::string SegmentWriter::_encode_keys(
