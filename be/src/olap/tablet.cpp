@@ -2810,8 +2810,7 @@ Status Tablet::lookup_row_key(const Slice& encoded_key, bool with_seq_col,
             Slice(encoded_key.get_data(), encoded_key.get_size() - seq_col_length - rowid_length);
     LOG(INFO) << "sout: call Tablet::lookup_row_key, specified_rowsets.size()="
               << specified_rowsets.size() << ", seq_col_length=" << seq_col_length
-              << ", rowid_length=" << rowid_length << ", key=" << key_without_seq.to_string()
-              << ", key=" << key_without_seq.to_int_array();
+              << ", rowid_length=" << rowid_length << ", key=" << key_without_seq.to_int_array();
     RowLocation loc;
 
     for (size_t i = 0; i < specified_rowsets.size(); i++) {

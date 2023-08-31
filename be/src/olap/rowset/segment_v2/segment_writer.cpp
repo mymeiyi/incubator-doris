@@ -731,7 +731,7 @@ Status SegmentWriter::append_block(const vectorized::Block* block, size_t row_po
         RETURN_IF_ERROR(_column_writers[id]->append(converted_result.second->get_nullmap(),
                                                     converted_result.second->get_data(), num_rows));
     }
-    LOG(INFO) << "sout: key column is=" << show(key_columns) << ", size=" << key_columns.size();
+    // LOG(INFO) << "sout: key column is=" << show(key_columns) << ", size=" << key_columns.size();
     if (_has_key) {
         bool need_primary_key_indexes = (_tablet_schema->keys_type() == UNIQUE_KEYS &&
                                          _opts.enable_unique_key_merge_on_write);
@@ -776,6 +776,7 @@ Status SegmentWriter::append_block(const vectorized::Block* block, size_t row_po
                 LOG(INFO) << "sout: key column is=" << show(key_columns)
                           << ", size=" << key_columns.size();
 
+                LOG(INFO) << "sout: start construct primary key indexes";
                 std::vector<std::string> primary_keys;
                 // keep primary keys in memory
                 for (uint32_t pos = 0; pos < num_rows; pos++) {
@@ -930,10 +931,9 @@ std::string SegmentWriter::_full_encode_keys(
         }
         encoded_keys.push_back(KEY_NORMAL_MARKER);
         DCHECK(key_coders[cid] != nullptr);
-        LOG(INFO) << "sout: before cid=" << cid << ", field=" << field
-                  /*<< ", field=" << show_char(field)*/
+        /*LOG(INFO) << "sout: before cid=" << cid << ", field=" << field
                   << ", column=" << typeid(*column).name()
-                  << ", encoded_key len=" << encoded_keys.size();
+                  << ", encoded_key len=" << encoded_keys.size();*/
         key_coders[cid]->full_encode_ascending(field, &encoded_keys);
         Slice s1(encoded_keys);
         LOG(INFO) << "sout: after cid=" << cid << ", field=" << field
