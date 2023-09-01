@@ -272,7 +272,7 @@ public class CreateReplicaTask extends AgentTask {
         tSchema.setVersionColIdx(versionCol);
         if (!CollectionUtils.isEmpty(clusterKeyIndexes)) {
             tSchema.setClusterKeyIdxes(clusterKeyIndexes);
-            LOG.info("sout: cluster key index = {}", clusterKeyIndexes);
+            LOG.debug("cluster key index={}", clusterKeyIndexes);
         }
         if (CollectionUtils.isNotEmpty(indexes)) {
             List<TOlapTableIndex> tIndexes = new ArrayList<>();
