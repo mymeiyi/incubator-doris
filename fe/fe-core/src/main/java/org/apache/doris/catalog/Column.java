@@ -862,13 +862,11 @@ public class Column implements Writable, GsonPostProcessable {
     @Override
     public void write(DataOutput out) throws IOException {
         String json = GsonUtils.GSON.toJson(this);
-        LOG.info("sout: call Column.write(), name={}, clusterKeyId={}", this.name, this.clusterKeyId);
         Text.writeString(out, json);
     }
 
     @Deprecated
     private void readFields(DataInput in) throws IOException {
-        LOG.info("sout: call Column.readFields()");
         name = Text.readString(in);
         type = ColumnType.read(in);
         boolean notNull = in.readBoolean();
@@ -891,7 +889,6 @@ public class Column implements Writable, GsonPostProcessable {
     public static Column read(DataInput in) throws IOException {
         String json = Text.readString(in);
         Column column = GsonUtils.GSON.fromJson(json, Column.class);
-        LOG.info("sout: call Column.read(), name={}, clusterKeyId={}", column.name, column.clusterKeyId);
         return column;
     }
 
