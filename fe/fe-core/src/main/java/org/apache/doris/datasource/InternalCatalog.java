@@ -2115,7 +2115,7 @@ public class InternalCatalog implements CatalogIf<Database> {
         }
         olapTable.setCompressionType(compressionType);
 
-        // check data sort properties
+        // check data sort properties, TODO: handle cluster keys
         DataSortInfo dataSortInfo = PropertyAnalyzer.analyzeDataSortInfo(properties, keysType,
                 keysDesc.keysColumnSize(), storageFormat);
         olapTable.setDataSortInfo(dataSortInfo);
