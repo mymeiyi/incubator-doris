@@ -91,7 +91,7 @@ public class KeysDesc implements Writable {
 
         if (clusterKeysColumnNames != null) {
             clusterKeysColumnIds = Lists.newArrayList();
-            checkKeys(clusterKeysColumnNames, cols, clusterKeysColumnIds);
+            checkClusterKeys(clusterKeysColumnNames, cols, clusterKeysColumnIds);
         }
         for (int i = 0; i < keysColumnNames.size(); ++i) {
             String name = cols.get(i).getName();
@@ -127,7 +127,8 @@ public class KeysDesc implements Writable {
         }
     }
 
-    private void checkKeys(List<String> keys, List<ColumnDef> cols, List<Integer> keyIds) throws AnalysisException {
+    private void checkClusterKeys(List<String> keys, List<ColumnDef> cols, List<Integer> keyIds)
+            throws AnalysisException {
         for (int i = 0; i < keys.size(); ++i) {
             String name = keys.get(i);
             // check if key is duplicate
@@ -139,6 +140,7 @@ public class KeysDesc implements Writable {
             // check if key exists and generate key column ids
             for (int j = 0; j < cols.size(); j++) {
                 if (cols.get(j).getName().equalsIgnoreCase(name)) {
+                    cols.get(j).setClusterKeyId(keyIds.size());
                     keyIds.add(j);
                     break;
                 }

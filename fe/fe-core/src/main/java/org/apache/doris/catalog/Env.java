@@ -270,12 +270,14 @@ import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
@@ -2983,14 +2985,21 @@ public class Env {
                                 : keySql.substring("DUPLICATE ".length()))
                         .append("(");
                 List<String> keysColumnNames = Lists.newArrayList();
-                // TODO the following key column maybe not in the create order
+                Map<Integer, String> clusterKeysColumnNamesToId = new TreeMap<>();
                 for (Column column : olapTable.getBaseSchema()) {
                     if (column.isKey()) {
                         keysColumnNames.add("`" + column.getName() + "`");
                     }
+                    if (column.isClusterKey()) {
+                        clusterKeysColumnNamesToId.put(column.getClusterKeyId(), column.getName());
+                    }
                 }
                 sb.append(Joiner.on(", ").join(keysColumnNames)).append(")");
-                // TODO show cluster keys
+                // show cluster keys
+                if (!clusterKeysColumnNamesToId.isEmpty()) {
+                    sb.append("\n").append("CLUSTER BY (`");
+                    sb.append(Joiner.on("`, `").join(clusterKeysColumnNamesToId.values())).append("`)");
+                }
             }
 
             if (specificVersion != -1) {
