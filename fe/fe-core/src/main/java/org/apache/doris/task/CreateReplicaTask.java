@@ -177,6 +177,9 @@ public class CreateReplicaTask extends AgentTask {
         this.timeSeriesCompactionTimeThresholdSeconds = timeSeriesCompactionTimeThresholdSeconds;
         this.storeRowColumn = storeRowColumn;
         this.binlogConfig = binlogConfig;
+        /*for (int i = 0; i < columns.size(); i++) {
+
+        }*/
     }
 
     public void setIsRecoverTask(boolean isRecoverTask) {

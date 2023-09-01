@@ -123,6 +123,21 @@ public class KeysDesc implements Writable {
                 }
             }
         }
+
+        if (clusterKeysColumnNames != null) {
+            int minKeySize = keysColumnNames.size() < clusterKeysColumnNames.size() ? keysColumnNames.size()
+                    : clusterKeysColumnNames.size();
+            boolean sameKey = true;
+            for (int i = 0; i < minKeySize; ++i) {
+                if (!keysColumnNames.get(i).equalsIgnoreCase(clusterKeysColumnNames.get(i))) {
+                    sameKey = false;
+                    break;
+                }
+            }
+            if (sameKey) {
+                throw new AnalysisException("Unique keys and cluster keys should be different.");
+            }
+        }
     }
 
     private void analyzeClusterKeys(List<ColumnDef> cols) throws AnalysisException {
