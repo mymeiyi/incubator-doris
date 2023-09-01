@@ -4033,6 +4033,18 @@ public class Env {
 
         } // end calc shortKeyColumnCount
 
+        if (clusterColumns.size() > 0 && shortKeyColumnCount < clusterColumns.size()) {
+            boolean sameKey = true;
+            for (int i = 0; i < shortKeyColumnCount; i++) {
+                if (!clusterColumns.get(i).getName().equals(indexColumns.get(i).getName())) {
+                    sameKey = false;
+                    break;
+                }
+            }
+            if (sameKey) {
+                throw new DdlException(shortKeyColumnCount + " short keys is a part of unique keys");
+            }
+        }
         return shortKeyColumnCount;
     }
 
