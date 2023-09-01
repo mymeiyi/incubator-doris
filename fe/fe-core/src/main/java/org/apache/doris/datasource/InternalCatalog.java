@@ -1574,7 +1574,8 @@ public class InternalCatalog implements CatalogIf<Database> {
                     olapTable.getTimeSeriesCompactionFileCountThreshold(),
                     olapTable.getTimeSeriesCompactionTimeThresholdSeconds(),
                     olapTable.storeRowColumn(),
-                    binlogConfig, dataProperty.isStorageMediumSpecified());
+                    binlogConfig, dataProperty.isStorageMediumSpecified(), null);
+            // TODO cluster key ids
 
             // check again
             olapTable = db.getOlapTableOrDdlException(tableName);
@@ -1806,7 +1807,7 @@ public class InternalCatalog implements CatalogIf<Database> {
             String compactionPolicy, Long timeSeriesCompactionGoalSizeMbytes,
             Long timeSeriesCompactionFileCountThreshold, Long timeSeriesCompactionTimeThresholdSeconds,
             boolean storeRowColumn, BinlogConfig binlogConfig,
-            boolean isStorageMediumSpecified) throws DdlException {
+            boolean isStorageMediumSpecified, List<Integer> clusterKeyIndexes) throws DdlException {
         // create base index first.
         Preconditions.checkArgument(baseIndexId != -1);
         MaterializedIndex baseIndex = new MaterializedIndex(baseIndexId, IndexState.NORMAL);
@@ -1874,6 +1875,7 @@ public class InternalCatalog implements CatalogIf<Database> {
                             storeRowColumn, binlogConfig);
 
                     task.setStorageFormat(storageFormat);
+                    task.setClusterKeyIndexes(clusterKeyIndexes);
                     batchTask.addTask(task);
                     // add to AgentTaskQueue for handling finish report.
                     // not for resending task
@@ -2441,7 +2443,8 @@ public class InternalCatalog implements CatalogIf<Database> {
                         olapTable.getTimeSeriesCompactionFileCountThreshold(),
                         olapTable.getTimeSeriesCompactionTimeThresholdSeconds(),
                         storeRowColumn, binlogConfigForTask,
-                        partitionInfo.getDataProperty(partitionId).isStorageMediumSpecified());
+                        partitionInfo.getDataProperty(partitionId).isStorageMediumSpecified(),
+                        keysDesc.getClusterKeysColumnIds());
                 olapTable.addPartition(partition);
             } else if (partitionInfo.getType() == PartitionType.RANGE
                     || partitionInfo.getType() == PartitionType.LIST) {
@@ -2511,7 +2514,7 @@ public class InternalCatalog implements CatalogIf<Database> {
                             olapTable.getTimeSeriesCompactionFileCountThreshold(),
                             olapTable.getTimeSeriesCompactionTimeThresholdSeconds(),
                             storeRowColumn, binlogConfigForTask,
-                            dataProperty.isStorageMediumSpecified());
+                            dataProperty.isStorageMediumSpecified(), keysDesc.getClusterKeysColumnIds());
                     olapTable.addPartition(partition);
                 }
             } else {
@@ -2941,7 +2944,7 @@ public class InternalCatalog implements CatalogIf<Database> {
                         olapTable.getTimeSeriesCompactionFileCountThreshold(),
                         olapTable.getTimeSeriesCompactionTimeThresholdSeconds(),
                         olapTable.storeRowColumn(), binlogConfig,
-                        copiedTbl.getPartitionInfo().getDataProperty(oldPartitionId).isStorageMediumSpecified());
+                        copiedTbl.getPartitionInfo().getDataProperty(oldPartitionId).isStorageMediumSpecified(), null);
                 newPartitions.add(newPartition);
             }
         } catch (DdlException e) {
