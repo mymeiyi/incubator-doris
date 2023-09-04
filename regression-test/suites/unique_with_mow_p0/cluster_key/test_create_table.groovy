@@ -18,6 +18,9 @@
 suite("test_create_table") {
     def tableName = "cluster_key_test_create_table"
     sql """ DROP TABLE IF EXISTS ${tableName} """
+    onFinish {
+        try_sql("DROP TABLE IF EXISTS ${tableName}")
+    }
 
     // duplicate table with cluster keys
     test {
@@ -196,5 +199,4 @@ suite("test_create_table") {
             "enable_unique_key_merge_on_write" = "true"
         );
     """
-    sql """ DROP TABLE IF EXISTS ${tableName} """
 }
