@@ -241,6 +241,11 @@ public class NativeInsertStmt extends InsertStmt {
             OlapTable olapTable = (OlapTable) table;
             tblName.setDb(olapTable.getDatabase().getFullName());
             tblName.setTbl(olapTable.getName());
+            if (olapTable.getDeleteSignColumn() != null) {
+                List<Column> columns = olapTable.getBaseSchema(false);
+                columns.add(olapTable.getDeleteSignColumn());
+                targetColumnNames = columns.stream().map(c -> c.getName()).collect(Collectors.toList());
+            }
         }
 
         // get dbs of statement

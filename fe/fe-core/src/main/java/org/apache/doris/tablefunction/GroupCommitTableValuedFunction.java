@@ -22,6 +22,8 @@ import org.apache.doris.analysis.StorageBackend.StorageType;
 import org.apache.doris.analysis.TupleDescriptor;
 import org.apache.doris.catalog.Column;
 import org.apache.doris.catalog.Env;
+import org.apache.doris.catalog.OlapTable;
+import org.apache.doris.catalog.Table;
 import org.apache.doris.common.AnalysisException;
 import org.apache.doris.planner.GroupCommitScanNode;
 import org.apache.doris.planner.PlanNodeId;
@@ -31,6 +33,7 @@ import org.apache.doris.thrift.TFileType;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -51,7 +54,17 @@ public class GroupCommitTableValuedFunction extends ExternalFileTableValuedFunct
 
     @Override
     public List<Column> getTableColumns() throws AnalysisException {
-        return Env.getCurrentInternalCatalog().getTableByTableId(tableId).getColumns();
+        List<Column> fileColumns = new ArrayList<>();
+        Table table = Env.getCurrentInternalCatalog().getTableByTableId(tableId);
+        List<Column> tableColumns = table.getBaseSchema(false);
+        for (int i = 1; i <= tableColumns.size(); i++) {
+            fileColumns.add(new Column("c" + i, tableColumns.get(i - 1).getDataType(), true));
+        }
+        Column deleteSignColumn = ((OlapTable) table).getDeleteSignColumn();
+        if (deleteSignColumn != null) {
+            fileColumns.add(new Column("c" + (tableColumns.size() + 1), deleteSignColumn.getDataType(), true));
+        }
+        return fileColumns;
     }
 
     @Override
