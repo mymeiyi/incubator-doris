@@ -1836,7 +1836,7 @@ public class FrontendServiceImpl implements FrontendService.Iface {
                 if (Config.enable_pipeline_load) {
                     result.setPipelineParams(pipelineStreamLoadPutImpl(request));
                 } else {
-                    result.setParams(streamLoadPutImpl(request));
+                    result.setParams(streamLoadPutImpl(request, result));
                 }
             }
         } catch (UserException e) {
@@ -2020,7 +2020,8 @@ public class FrontendServiceImpl implements FrontendService.Iface {
         }
     }
 
-    private TExecPlanFragmentParams streamLoadPutImpl(TStreamLoadPutRequest request) throws UserException {
+    private TExecPlanFragmentParams streamLoadPutImpl(TStreamLoadPutRequest request, TStreamLoadPutResult result)
+            throws UserException {
         String cluster = request.getCluster();
         if (Strings.isNullOrEmpty(cluster)) {
             cluster = SystemInfoService.DEFAULT_CLUSTER;
@@ -2038,6 +2039,9 @@ public class FrontendServiceImpl implements FrontendService.Iface {
         }
         long timeoutMs = request.isSetThriftRpcTimeoutMs() ? request.getThriftRpcTimeoutMs() : 5000;
         Table table = db.getTableOrMetaException(request.getTbl(), TableType.OLAP);
+        result.setDbId(db.getId());
+        result.setTableId(table.getId());
+        result.setBaseSchemaVersion(((OlapTable) table).getBaseSchemaVersion());
         return generatePlanFragmentParams(request, db, fullDbName, (OlapTable) table, timeoutMs);
     }
 
@@ -2063,13 +2067,15 @@ public class FrontendServiceImpl implements FrontendService.Iface {
             }
             StreamLoadPlanner planner = new StreamLoadPlanner(db, table, streamLoadTask);
             TExecPlanFragmentParams plan = planner.plan(streamLoadTask.getId(), multiTableFragmentInstanceIdIndex);
-            // add table indexes to transaction state
-            TransactionState txnState = Env.getCurrentGlobalTransactionMgr()
-                    .getTransactionState(db.getId(), request.getTxnId());
-            if (txnState == null) {
-                throw new UserException("txn does not exist: " + request.getTxnId());
+            if (!request.isGroupCommit()) {
+                // add table indexes to transaction state
+                TransactionState txnState = Env.getCurrentGlobalTransactionMgr()
+                        .getTransactionState(db.getId(), request.getTxnId());
+                if (txnState == null) {
+                    throw new UserException("txn does not exist: " + request.getTxnId());
+                }
+                txnState.addTableIndexes(table);
             }
-            txnState.addTableIndexes(table);
             plan.setTableName(table.getName());
             plan.query_options.setFeProcessUuid(ExecuteEnv.getInstance().getProcessUUID());
             return plan;

@@ -52,6 +52,7 @@
 #include "olap/storage_engine.h"
 #include "runtime/client_cache.h"
 #include "runtime/exec_env.h"
+#include "runtime/group_commit_mgr.h"
 #include "runtime/load_path_mgr.h"
 #include "runtime/message_body_sink.h"
 #include "runtime/stream_load/new_load_stream_mgr.h"
@@ -153,6 +154,12 @@ Status StreamLoadAction::_handle(std::shared_ptr<StreamLoadContext> ctx) {
     // wait stream load finish
     RETURN_IF_ERROR(ctx->future.get());
 
+    if (ctx->group_commit) {
+        LOG(INFO) << "skip commit because this is group commit, pipe_id="
+                  << ctx->id.to_string();
+        return Status::OK();
+    }
+
     if (ctx->two_phase_commit) {
         int64_t pre_commit_start_time = MonotonicNanos();
         RETURN_IF_ERROR(_exec_env->stream_load_executor()->pre_commit_txn(ctx.get()));
@@ -178,7 +185,13 @@ int StreamLoadAction::on_header(HttpRequest* req) {
     url_decode(req->param(HTTP_DB_KEY), &ctx->db);
     url_decode(req->param(HTTP_TABLE_KEY), &ctx->table);
     ctx->label = req->header(HTTP_LABEL_KEY);
+    Status st = Status::OK();
+    if (!ctx->label.empty() && !req->header(HTTP_GROUP_COMMIT).empty() &&
+        iequal(req->header(HTTP_GROUP_COMMIT), "true")) {
+        st = Status::InternalError("label and group_commit can't be set at the same time");
+    }
     if (ctx->label.empty()) {
+        // TODO
         ctx->label = generate_uuid_string();
     }
 
@@ -187,7 +200,9 @@ int StreamLoadAction::on_header(HttpRequest* req) {
     LOG(INFO) << "new income streaming load request." << ctx->brief() << ", db=" << ctx->db
               << ", tbl=" << ctx->table;
 
-    auto st = _on_header(req, ctx);
+    if (st.ok()) {
+        st = _on_header(req, ctx);
+    }
     if (!st.ok()) {
         ctx->status = std::move(st);
         if (ctx->need_rollback) {
@@ -287,9 +302,12 @@ Status StreamLoadAction::_on_header(HttpRequest* http_req, std::shared_ptr<Strea
         ctx->load_comment = http_req->header(HTTP_COMMENT);
     }
     // begin transaction
-    int64_t begin_txn_start_time = MonotonicNanos();
-    RETURN_IF_ERROR(_exec_env->stream_load_executor()->begin_txn(ctx.get()));
-    ctx->begin_txn_cost_nanos = MonotonicNanos() - begin_txn_start_time;
+    if (http_req->header(HTTP_GROUP_COMMIT).empty() ||
+        iequal(http_req->header(HTTP_GROUP_COMMIT), "false")) {
+        int64_t begin_txn_start_time = MonotonicNanos();
+        RETURN_IF_ERROR(_exec_env->stream_load_executor()->begin_txn(ctx.get()));
+        ctx->begin_txn_cost_nanos = MonotonicNanos() - begin_txn_start_time;
+    }
 
     // process put file
     return _process_put(http_req, ctx);
@@ -555,6 +573,13 @@ Status StreamLoadAction::_process_put(HttpRequest* http_req,
         bool value = iequal(http_req->header(HTTP_MEMTABLE_ON_SINKNODE), "true");
         request.__set_memtable_on_sink_node(value);
     }
+    if (!http_req->header(HTTP_GROUP_COMMIT).empty()) {
+        if (iequal(http_req->header(HTTP_GROUP_COMMIT), "true")) {
+            request.__set_group_commit(true);
+        } else {
+            request.__set_group_commit(false);
+        }
+    }
 
 #ifndef BE_TEST
     // plan this load
@@ -582,6 +607,14 @@ Status StreamLoadAction::_process_put(HttpRequest* http_req,
         return Status::OK();
     }
 
+    if (request.group_commit) {
+        ctx->group_commit = true;
+        ctx->table_id = ctx->put_result.table_id;
+        ctx->schema_version = ctx->put_result.base_schema_version;
+        ctx->db_id = ctx->put_result.db_id;
+        return _exec_env->group_commit_mgr()->group_commit_stream_load(ctx);
+    }
+
     return _exec_env->stream_load_executor()->execute_plan_fragment(ctx);
 }
 
@@ -603,6 +636,10 @@ Status StreamLoadAction::_data_saved_path(HttpRequest* req, std::string* file_pa
 
 void StreamLoadAction::_save_stream_load_record(std::shared_ptr<StreamLoadContext> ctx,
                                                 const std::string& str) {
+    if (ctx->group_commit) {
+        LOG(INFO) << "skip save stream load record because this is group commit";
+        return;
+    }
     auto stream_load_recorder = StorageEngine::instance()->get_stream_load_recorder();
     if (stream_load_recorder != nullptr) {
         std::string key =
