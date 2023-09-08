@@ -552,10 +552,9 @@ Status GroupCommitMgr::_group_commit_stream_load(std::shared_ptr<StreamLoadConte
             if (load_block_queue == nullptr) {
                 RETURN_IF_ERROR(_get_first_block_load_queue(ctx->db_id, ctx->table_id, future_block,
                                                             load_block_queue));
-                /*response->set_label(load_block_queue->label);
-                response->set_txn_id(load_block_queue->txn_id);*/
+                ctx->label = load_block_queue->label;
+                ctx->txn_id = load_block_queue->txn_id;
             }
-            //RETURN_IF_ERROR(_add_block(ctx->table_id, future_block));
             RETURN_IF_ERROR(load_block_queue->add_block(future_block));
             if (future_block->rows() > 0) {
                 future_blocks.emplace_back(future_block);
