@@ -186,13 +186,15 @@ int StreamLoadAction::on_header(HttpRequest* req) {
     url_decode(req->param(HTTP_TABLE_KEY), &ctx->table);
     ctx->label = req->header(HTTP_LABEL_KEY);
     Status st = Status::OK();
-    if (!ctx->label.empty() && !req->header(HTTP_GROUP_COMMIT).empty() &&
-        iequal(req->header(HTTP_GROUP_COMMIT), "true")) {
-        st = Status::InternalError("label and group_commit can't be set at the same time");
-    }
-    if (ctx->label.empty()) {
-        // TODO
-        ctx->label = generate_uuid_string();
+    if (!req->header(HTTP_GROUP_COMMIT).empty() && iequal(req->header(HTTP_GROUP_COMMIT), "true")) {
+        if (!ctx->label.empty()) {
+            st = Status::InternalError("label and group_commit can't be set at the same time");
+        }
+        ctx->group_commit = true;
+    } else {
+        if (ctx->label.empty()) {
+            ctx->label = generate_uuid_string();
+        }
     }
 
     ctx->two_phase_commit = req->header(HTTP_TWO_PHASE_COMMIT) == "true" ? true : false;
@@ -302,8 +304,7 @@ Status StreamLoadAction::_on_header(HttpRequest* http_req, std::shared_ptr<Strea
         ctx->load_comment = http_req->header(HTTP_COMMENT);
     }
     // begin transaction
-    if (http_req->header(HTTP_GROUP_COMMIT).empty() ||
-        iequal(http_req->header(HTTP_GROUP_COMMIT), "false")) {
+    if (!ctx->group_commit) {
         int64_t begin_txn_start_time = MonotonicNanos();
         RETURN_IF_ERROR(_exec_env->stream_load_executor()->begin_txn(ctx.get()));
         ctx->begin_txn_cost_nanos = MonotonicNanos() - begin_txn_start_time;
@@ -573,13 +574,7 @@ Status StreamLoadAction::_process_put(HttpRequest* http_req,
         bool value = iequal(http_req->header(HTTP_MEMTABLE_ON_SINKNODE), "true");
         request.__set_memtable_on_sink_node(value);
     }
-    if (!http_req->header(HTTP_GROUP_COMMIT).empty()) {
-        if (iequal(http_req->header(HTTP_GROUP_COMMIT), "true")) {
-            request.__set_group_commit(true);
-        } else {
-            request.__set_group_commit(false);
-        }
-    }
+    request.__set_group_commit(ctx->group_commit);
 
 #ifndef BE_TEST
     // plan this load
@@ -607,11 +602,10 @@ Status StreamLoadAction::_process_put(HttpRequest* http_req,
         return Status::OK();
     }
 
-    if (request.group_commit) {
-        ctx->group_commit = true;
+    if (ctx->group_commit) {
+        ctx->db_id = ctx->put_result.db_id;
         ctx->table_id = ctx->put_result.table_id;
         ctx->schema_version = ctx->put_result.base_schema_version;
-        ctx->db_id = ctx->put_result.db_id;
         return _exec_env->group_commit_mgr()->group_commit_stream_load(ctx);
     }
 
