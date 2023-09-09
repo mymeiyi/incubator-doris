@@ -1298,6 +1298,7 @@ Status VOlapTableSink::_single_partition_generate(RuntimeState* state, vectorize
 }
 
 Status VOlapTableSink::send(RuntimeState* state, vectorized::Block* input_block, bool eos) {
+    LOG(INFO) << "sout: block=\n" << input_block->dump_data(0);
     SCOPED_CONSUME_MEM_TRACKER(_mem_tracker.get());
     Status status = Status::OK();
 

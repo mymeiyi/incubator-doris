@@ -38,6 +38,7 @@ namespace stream_load {
 Status OlapTabletFinder::find_tablet(RuntimeState* state, vectorized::Block* block, int row_index,
                                      const VOlapTablePartition** partition, uint32_t& tablet_index,
                                      bool& stop_processing, bool& is_continue) {
+    LOG(INFO) << "sout: block=\n" << block->dump_data(0);
     Status status = Status::OK();
     *partition = nullptr;
     tablet_index = 0;

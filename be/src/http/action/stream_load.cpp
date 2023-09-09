@@ -155,8 +155,7 @@ Status StreamLoadAction::_handle(std::shared_ptr<StreamLoadContext> ctx) {
     RETURN_IF_ERROR(ctx->future.get());
 
     if (ctx->group_commit) {
-        LOG(INFO) << "skip commit because this is group commit, pipe_id="
-                  << ctx->id.to_string();
+        LOG(INFO) << "skip commit because this is group commit, pipe_id=" << ctx->id.to_string();
         return Status::OK();
     }
 

@@ -23,6 +23,7 @@ import org.apache.doris.analysis.TupleDescriptor;
 import org.apache.doris.catalog.Column;
 import org.apache.doris.catalog.Env;
 import org.apache.doris.catalog.OlapTable;
+import org.apache.doris.catalog.PrimitiveType;
 import org.apache.doris.catalog.Table;
 import org.apache.doris.common.AnalysisException;
 import org.apache.doris.planner.GroupCommitScanNode;
@@ -59,10 +60,12 @@ public class GroupCommitTableValuedFunction extends ExternalFileTableValuedFunct
         List<Column> tableColumns = table.getBaseSchema(false);
         for (int i = 1; i <= tableColumns.size(); i++) {
             fileColumns.add(new Column("c" + i, tableColumns.get(i - 1).getDataType(), true));
+            // fileColumns.add(new Column("c" + i, PrimitiveType.STRING, true));
         }
         Column deleteSignColumn = ((OlapTable) table).getDeleteSignColumn();
         if (deleteSignColumn != null) {
             fileColumns.add(new Column("c" + (tableColumns.size() + 1), deleteSignColumn.getDataType(), true));
+            // fileColumns.add(new Column("c" + (tableColumns.size() + 1), PrimitiveType.STRING, true));
         }
         return fileColumns;
     }

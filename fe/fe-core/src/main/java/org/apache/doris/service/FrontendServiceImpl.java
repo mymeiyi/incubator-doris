@@ -2008,9 +2008,11 @@ public class FrontendServiceImpl implements FrontendService.Iface {
             // The txn_id here is obtained from the NativeInsertStmt
             result.getParams().setTxnConf(new TTxnParams().setTxnId(txn_id));
             if (parsedStmt.isInnerGroupCommit) {
-                result.setBaseSchemaVersion(((OlapTable) parsedStmt.getTargetTable()).getBaseSchemaVersion());
                 result.getParams().params.setGroupCommit(true);
             }
+            result.setDbId(parsedStmt.getTargetTable().getDatabase().getId());
+            result.setTableId(parsedStmt.getTargetTable().getId());
+            result.setBaseSchemaVersion(((OlapTable) parsedStmt.getTargetTable()).getBaseSchemaVersion());
         } catch (UserException e) {
             LOG.warn("exec sql error", e);
             throw new UserException("exec sql error" + e);
