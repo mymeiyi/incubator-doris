@@ -256,7 +256,7 @@ Status GroupCommitTable::_finish_group_commit_load(int64_t db_id, int64_t table_
                                                    bool prepare_failed, RuntimeState* state) {
     {
         std::lock_guard<doris::Mutex> l(_lock);
-        if (prepare_failed) {
+        if (prepare_failed || !status.ok()) {
             auto it = _load_block_queues.find(instance_id);
             if (it != _load_block_queues.end()) {
                 it->second->cancel(status);
