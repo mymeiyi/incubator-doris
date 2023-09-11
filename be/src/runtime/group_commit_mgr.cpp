@@ -544,6 +544,7 @@ Status GroupCommitMgr::_group_commit_stream_load(std::shared_ptr<StreamLoadConte
         while (!eof) {
             // TODO what to do if scan one block error
             RETURN_IF_ERROR(file_scan_node.get_next(runtime_state.get(), _block.get(), &eof));
+            LOG(INFO) << "sout: block=\n" << _block->dump_data(0);
             std::shared_ptr<doris::vectorized::FutureBlock> future_block =
                     std::make_shared<doris::vectorized::FutureBlock>();
             future_block->swap(*(_block.get()));
