@@ -481,6 +481,9 @@ Status CsvReader::get_next_block(Block* block, size_t* read_rows, bool* eof) {
             }
             RETURN_IF_ERROR(_fill_dest_columns(Slice(ptr, size), block, columns, &rows));
         }
+        if (rows > 0) {
+            LOG(INFO) << "sout: block=\n" << block->dump_data(0);
+        }
     }
 
     *eof = (rows == 0);

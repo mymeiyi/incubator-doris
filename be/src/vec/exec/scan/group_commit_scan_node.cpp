@@ -35,7 +35,12 @@ GroupCommitScanNode::GroupCommitScanNode(ObjectPool* pool, const TPlanNode& tnod
 Status GroupCommitScanNode::get_next(RuntimeState* state, vectorized::Block* block, bool* eos) {
     bool find_node = false;
     while (!find_node && !*eos) {
+        LOG(INFO) << "sout: start get_next";
         RETURN_IF_ERROR(load_block_queue->get_block(block, &find_node, eos));
+        LOG(INFO) << "sout: finish get_next, find=" << find_node << ", eos=" << eos;
+    }
+    if (find_node) {
+        LOG(INFO) << "sout: get block=" << block->dump_data(0);
     }
     return Status::OK();
 }

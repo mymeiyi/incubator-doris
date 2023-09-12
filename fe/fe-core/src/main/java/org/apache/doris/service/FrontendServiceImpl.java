@@ -2007,7 +2007,7 @@ public class FrontendServiceImpl implements FrontendService.Iface {
             result.getParams().setTableName(parsedStmt.getTbl());
             // The txn_id here is obtained from the NativeInsertStmt
             result.getParams().setTxnConf(new TTxnParams().setTxnId(txn_id));
-            if (parsedStmt.isInnerGroupCommit) {
+            if (parsedStmt.isGroupCommitTvf) {
                 result.getParams().params.setGroupCommit(true);
             }
             result.setDbId(parsedStmt.getTargetTable().getDatabase().getId());

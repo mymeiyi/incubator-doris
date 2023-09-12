@@ -47,6 +47,7 @@ import org.apache.doris.mysql.privilege.PrivPredicate;
 import org.apache.doris.planner.DataPartition;
 import org.apache.doris.planner.DataSink;
 import org.apache.doris.planner.ExportSink;
+import org.apache.doris.planner.GroupCommitBlockSink;
 import org.apache.doris.planner.GroupCommitOlapTableSink;
 import org.apache.doris.planner.OlapTableSink;
 import org.apache.doris.planner.StreamLoadPlanner;
@@ -55,6 +56,7 @@ import org.apache.doris.qe.ConnectContext;
 import org.apache.doris.rewrite.ExprRewriter;
 import org.apache.doris.service.FrontendOptions;
 import org.apache.doris.tablefunction.GroupCommitTableValuedFunction;
+import org.apache.doris.tablefunction.HttpStreamTableValuedFunction;
 import org.apache.doris.task.StreamLoadTask;
 import org.apache.doris.thrift.TExecPlanFragmentParams;
 import org.apache.doris.thrift.TFileCompressType;
@@ -164,7 +166,8 @@ public class NativeInsertStmt extends InsertStmt {
     private ByteString rangeBytes = null;
     private long tableId = -1;
     // true if be generates an insert from group commit tvf stmt and executes to load data
-    public boolean isInnerGroupCommit = false;
+    public boolean isGroupCommitTvf = false;
+    public boolean isGroupCommitStreamLoad = false;
 
     public NativeInsertStmt(InsertTarget target, String label, List<String> cols, InsertSource source,
             List<String> hints) {
@@ -870,10 +873,17 @@ public class NativeInsertStmt extends InsertStmt {
         }
         if (targetTable instanceof OlapTable) {
             checkInnerGroupCommit();
-            OlapTableSink sink = isInnerGroupCommit ? new GroupCommitOlapTableSink((OlapTable) targetTable, olapTuple,
-                    targetPartitionIds, analyzer.getContext().getSessionVariable().isEnableSingleReplicaInsert())
-                    : new OlapTableSink((OlapTable) targetTable, olapTuple, targetPartitionIds,
-                            analyzer.getContext().getSessionVariable().isEnableSingleReplicaInsert());
+            OlapTableSink sink;
+            if (isGroupCommitTvf) {
+                sink = new GroupCommitOlapTableSink((OlapTable) targetTable, olapTuple,
+                        targetPartitionIds, analyzer.getContext().getSessionVariable().isEnableSingleReplicaInsert());
+            } else if (isGroupCommitStreamLoad) {
+                sink = new GroupCommitBlockSink((OlapTable) targetTable, olapTuple, targetPartitionIds,
+                        analyzer.getContext().getSessionVariable().isEnableSingleReplicaInsert());
+            } else {
+                sink = new OlapTableSink((OlapTable) targetTable, olapTuple, targetPartitionIds,
+                        analyzer.getContext().getSessionVariable().isEnableSingleReplicaInsert());
+            }
             dataSink = sink;
             sink.setPartialUpdateInputColumns(isPartialUpdate, partialUpdateCols);
             dataPartition = dataSink.getOutputPartition();
@@ -908,10 +918,16 @@ public class NativeInsertStmt extends InsertStmt {
     private void checkInnerGroupCommit() {
         List<TableRef> tableRefs = new ArrayList<>();
         queryStmt.collectTableRefs(tableRefs);
-        if (tableRefs.size() == 1 && tableRefs.get(0) instanceof TableValuedFunctionRef
-                && ((TableValuedFunctionRef) tableRefs.get(
-                0)).getTableFunction() instanceof GroupCommitTableValuedFunction) {
-            isInnerGroupCommit = true;
+        if (tableRefs.size() == 1 && tableRefs.get(0) instanceof TableValuedFunctionRef) {
+            TableValuedFunctionRef tvfRef = (TableValuedFunctionRef) tableRefs.get(0);
+            if (tvfRef.getTableFunction() instanceof GroupCommitTableValuedFunction) {
+                isGroupCommitTvf = true;
+            } else if (tvfRef.getTableFunction() instanceof HttpStreamTableValuedFunction) {
+                HttpStreamTableValuedFunction httpStreamTvf = (HttpStreamTableValuedFunction) tvfRef.getTableFunction();
+                if (httpStreamTvf.isGroupCommit()) {
+                    isGroupCommitStreamLoad = true;
+                }
+            }
         }
     }
 

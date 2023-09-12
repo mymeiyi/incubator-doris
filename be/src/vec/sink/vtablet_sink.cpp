@@ -564,6 +564,8 @@ Status VNodeChannel::open_wait() {
 }
 
 Status VNodeChannel::add_block(vectorized::Block* block, const Payload* payload, bool is_append) {
+    LOG(INFO) << "sout: payload size=" << payload->second.size()
+              << ", VNodeChannel::add_block=" << block->dump_data(0);
     SCOPED_CONSUME_MEM_TRACKER(_node_channel_tracker.get());
     if (payload->second.empty()) {
         return Status::OK();
@@ -596,6 +598,7 @@ Status VNodeChannel::add_block(vectorized::Block* block, const Payload* payload,
 
     std::unique_ptr<Payload> temp_payload = nullptr;
     if (_index_channel != nullptr && _index_channel->get_where_clause() != nullptr) {
+        LOG(INFO) << "sout: where clause is not null";
         SCOPED_RAW_TIMER(&_stat.where_clause_ns);
         temp_payload.reset(new Payload(
                 std::unique_ptr<vectorized::IColumn::Selector>(new vectorized::IColumn::Selector()),
@@ -657,7 +660,9 @@ Status VNodeChannel::add_block(vectorized::Block* block, const Payload* payload,
         *_cur_add_block_request.mutable_tablet_ids() = {tablets.begin(), tablets.end()};
         _cur_add_block_request.set_is_single_tablet_block(true);
     } else {
+        LOG(INFO) << "sout: cur block 1=" << _cur_mutable_block->dump_data(_cur_mutable_block->rows());
         block->append_block_by_selector(_cur_mutable_block.get(), *(payload->first));
+        LOG(INFO) << "sout: cur block 2=" << _cur_mutable_block->dump_data(_cur_mutable_block->rows());
         for (auto tablet_id : payload->second) {
             _cur_add_block_request.add_tablet_ids(tablet_id);
         }
@@ -1297,6 +1302,26 @@ Status VOlapTableSink::_single_partition_generate(RuntimeState* state, vectorize
     return Status::OK();
 }
 
+Status VOlapTableSink::validate_and_convert_block(RuntimeState* state,
+                                                  vectorized::Block* input_block, bool eos,
+                                                  std::shared_ptr<vectorized::Block>& block,
+                                                  bool& has_filtered_rows) {
+    auto rows = input_block->rows();
+    auto bytes = input_block->bytes();
+    SCOPED_TIMER(_profile->total_time_counter());
+    _number_input_rows += rows;
+    // update incrementally so that FE can get the progress.
+    // the real 'num_rows_load_total' will be set when sink being closed.
+    state->update_num_rows_load_total(rows);
+    state->update_num_bytes_load_total(bytes);
+    DorisMetrics::instance()->load_rows->increment(rows);
+    DorisMetrics::instance()->load_bytes->increment(bytes);
+
+    LOG(INFO) << "sout: sink before convert=\n" << input_block->dump_data(0);
+    return _block_convertor->validate_and_convert_block(
+            state, input_block, block, _output_vexpr_ctxs, rows, eos, has_filtered_rows);
+}
+
 Status VOlapTableSink::send(RuntimeState* state, vectorized::Block* input_block, bool eos) {
     LOG(INFO) << "sout: block=\n" << input_block->dump_data(0);
     SCOPED_CONSUME_MEM_TRACKER(_mem_tracker.get());
@@ -1307,25 +1332,15 @@ Status VOlapTableSink::send(RuntimeState* state, vectorized::Block* input_block,
     }
 
     auto rows = input_block->rows();
-    auto bytes = input_block->bytes();
     if (UNLIKELY(rows == 0)) {
         return status;
     }
-    SCOPED_TIMER(_profile->total_time_counter());
-    _number_input_rows += rows;
-    // update incrementally so that FE can get the progress.
-    // the real 'num_rows_load_total' will be set when sink being closed.
-    state->update_num_rows_load_total(rows);
-    state->update_num_bytes_load_total(bytes);
-    DorisMetrics::instance()->load_rows->increment(rows);
-    DorisMetrics::instance()->load_bytes->increment(bytes);
-
     std::shared_ptr<vectorized::Block> block;
     bool has_filtered_rows = false;
     int64_t filtered_rows =
             _block_convertor->num_filtered_rows() + _tablet_finder->num_filtered_rows();
-    RETURN_IF_ERROR(_block_convertor->validate_and_convert_block(
-            state, input_block, block, _output_vexpr_ctxs, rows, eos, has_filtered_rows));
+    RETURN_IF_ERROR(validate_and_convert_block(state, input_block, eos, block, has_filtered_rows));
+    LOG(INFO) << "sout: after convert block=" << block->dump_data(0);
 
     // clear and release the references of columns
     input_block->clear();

@@ -275,8 +275,10 @@ Status VFileScanner::_get_block_impl(RuntimeState* state, Block* block, bool* eo
                 }
                 // Apply _pre_conjunct_ctxs to filter src block.
                 RETURN_IF_ERROR(_pre_filter_src_block());
+                // LOG(INFO) << "sout: before convert=\n" << _src_block_ptr->dump_data(0);
                 // Convert src block to output block (dest block), string to dest data type and apply filters.
                 RETURN_IF_ERROR(_convert_to_output_block(block));
+                // LOG(INFO) << "sout: after convert=\n" << block->dump_data(0);
                 // Truncate char columns or varchar columns if size is smaller than file columns
                 // or not found in the file column schema.
                 RETURN_IF_ERROR(_truncate_char_or_varchar_columns(block));

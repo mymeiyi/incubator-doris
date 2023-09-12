@@ -404,6 +404,9 @@ public:
     // if true, all node channels rpc done, can start close().
     bool is_close_done() override;
     Status close(RuntimeState* state, Status close_status) override;
+    Status validate_and_convert_block(RuntimeState* state, vectorized::Block* input_block, bool eos,
+                                      std::shared_ptr<vectorized::Block>& block,
+                                      bool& has_filtered_rows);
     Status send(RuntimeState* state, vectorized::Block* block, bool eos = false) override;
 
     size_t get_pending_bytes() const;
@@ -435,13 +438,14 @@ private:
                                                          const std::shared_ptr<VNodeChannel> nch);
 
     void _cancel_all_channel(Status status);
-
+protected:
     std::shared_ptr<MemTracker> _mem_tracker;
-
+private:
     ObjectPool* _pool;
-
+public:
     // unique load id
     PUniqueId _load_id;
+private:
     int64_t _txn_id = -1;
     int _num_replicas = -1;
     int _tuple_desc_id = -1;
@@ -463,8 +467,9 @@ private:
     bool _write_single_replica = false;
     OlapTableLocationParam* _slave_location = nullptr;
     DorisNodesInfo* _nodes_info = nullptr;
-
+protected:
     std::unique_ptr<OlapTabletFinder> _tablet_finder;
+private:
 
     // index_channel
     std::vector<std::shared_ptr<IndexChannel>> _channels;
@@ -472,7 +477,9 @@ private:
     bthread_t _sender_thread = 0;
     std::unique_ptr<ThreadPoolToken> _send_batch_thread_pool_token;
 
+protected:
     std::unique_ptr<OlapTableBlockConvertor> _block_convertor;
+private:
     // Stats for this
     int64_t _send_data_ns = 0;
     int64_t _number_input_rows = 0;

@@ -35,10 +35,16 @@ import java.util.Map;
 public class HttpStreamTableValuedFunction extends ExternalFileTableValuedFunction {
     private static final Logger LOG = LogManager.getLogger(HttpStreamTableValuedFunction.class);
     public static final String NAME = "http_stream";
+    private static final String GROUP_COMMIT = "group_commit";
+    private boolean groupCommit = false;
 
     public HttpStreamTableValuedFunction(Map<String, String> params) throws AnalysisException {
         Map<String, String> validParams = new CaseInsensitiveMap();
         for (String key : params.keySet()) {
+            if (key.toLowerCase().equals(GROUP_COMMIT)) {
+                groupCommit = Boolean.parseBoolean(params.get(key));
+                continue;
+            }
             if (!FILE_FORMAT_PROPERTIES.contains(key.toLowerCase())) {
                 throw new AnalysisException(key + " is invalid property");
             }
@@ -67,5 +73,9 @@ public class HttpStreamTableValuedFunction extends ExternalFileTableValuedFuncti
     @Override
     public String getTableName() {
         return "HttpStreamTableValuedFunction";
+    }
+
+    public boolean isGroupCommit() {
+        return groupCommit;
     }
 }

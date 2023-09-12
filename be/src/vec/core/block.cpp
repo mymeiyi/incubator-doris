@@ -491,6 +491,15 @@ std::string Block::dump_data(size_t begin, size_t row_limit) const {
     // content
     for (size_t row_num = begin; row_num < rows() && row_num < row_limit + begin; ++row_num) {
         for (size_t i = 0; i < columns(); ++i) {
+            if (i == 1) {
+                LOG(INFO) << "sout: empty=" << data[i].column->empty()
+                          << ", data column=" << data[i].column.get()
+                          << ", header size=" << headers_size[i];
+                if (!data[i].column->empty()) {
+                    LOG(INFO) << "sout: data=" << data[i].to_string(row_num)
+                              << ", data len=" << data[i].to_string(row_num).length();
+                }
+            }
             if (data[i].column->empty()) {
                 out << std::setfill(' ') << std::setw(1) << "|" << std::setw(headers_size[i])
                     << std::right;
@@ -760,6 +769,7 @@ Block Block::copy_block(const std::vector<int>& column_offset) const {
 void Block::append_block_by_selector(MutableBlock* dst, const IColumn::Selector& selector) const {
     DCHECK_EQ(data.size(), dst->mutable_columns().size());
     for (size_t i = 0; i < data.size(); i++) {
+        LOG(INFO) << "sout: selector size=" << selector.size();
         data[i].column->append_data_by_selector(dst->mutable_columns()[i], selector);
     }
 }

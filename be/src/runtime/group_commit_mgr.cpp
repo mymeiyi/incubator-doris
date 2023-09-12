@@ -34,22 +34,26 @@
 #include "runtime/stream_load/stream_load_context.h"
 #include "util/thrift_rpc_helper.h"
 #include "vec/exec/scan/new_file_scan_node.h"
+#include "vec/sink/group_commit_block_sink.h"
 
 namespace doris {
 
 class TPlan;
-class FragmentExecState;
+// class FragmentExecState;
 
 Status LoadBlockQueue::add_block(std::shared_ptr<vectorized::FutureBlock> block) {
     DCHECK(block->get_schema_version() == schema_version);
     std::unique_lock l(*_mutex);
     RETURN_IF_ERROR(_status);
     if (block->rows() > 0) {
+        LOG(INFO) << "sout: add block=" << block.get() << ", data=" << block->dump_data(0);
         _block_queue.push_back(block);
     }
     if (block->is_eos()) {
+        LOG(INFO) << "sout: eos block, remove load id=" << print_id(block->get_load_id());
         _load_ids.erase(block->get_load_id());
     } else if (block->is_first()) {
+        LOG(INFO) << "sout: first block, add load id=" << print_id(block->get_load_id());
         _load_ids.emplace(block->get_load_id());
     }
     _cv->notify_one();
@@ -60,7 +64,7 @@ Status LoadBlockQueue::get_block(vectorized::Block* block, bool* find_block, boo
     *find_block = false;
     *eos = false;
     std::unique_lock l(*_mutex);
-    if (!need_commit) {
+    if (!need_commit) {;
         auto left_seconds = 10 - std::chrono::duration_cast<std::chrono::seconds>(
                                          std::chrono::steady_clock::now() - _start_time)
                                          .count();
@@ -72,7 +76,9 @@ Status LoadBlockQueue::get_block(vectorized::Block* block, bool* find_block, boo
            (!need_commit || (need_commit && !_load_ids.empty()))) {
         // TODO make 10s as a config
         auto left_seconds = 10;
+        LOG(INFO) << "sout: need_commit=" << need_commit << ", load_ids=" << _load_ids.size();
         if (!need_commit) {
+            LOG(INFO) << "sout: calculate left seconds";
             left_seconds = 10 - std::chrono::duration_cast<std::chrono::seconds>(
                                         std::chrono::steady_clock::now() - _start_time)
                                         .count();
@@ -82,15 +88,21 @@ Status LoadBlockQueue::get_block(vectorized::Block* block, bool* find_block, boo
             }
         }
 #if !defined(USE_BTHREAD_SCANNER)
+        LOG(INFO) << "sout: start wait for " << left_seconds << " seconds";
         _cv->wait_for(l, std::chrono::seconds(left_seconds));
+        LOG(INFO) << "sout: finish wait for " << left_seconds << " seconds";
 #else
+        LOG(INFO) << "sout: start wait for 2 " << left_seconds << " seconds";
         _cv->wait_for(l, left_seconds * 1000000);
+        LOG(INFO) << "sout: finish wait for 2 " << left_seconds << " seconds";
 #endif
     }
     if (!_block_queue.empty()) {
         auto& future_block = _block_queue.front();
+        LOG(INFO) << "sout: get future block=" << future_block.get() << ", data=\n" << future_block->dump_data(0);
         auto* fblock = static_cast<vectorized::FutureBlock*>(block);
         fblock->swap_future_block(future_block);
+        LOG(INFO) << "sout: cast future block to block=\n" << fblock->dump_data(0);
         *find_block = true;
         _block_queue.pop_front();
     }
@@ -437,7 +449,7 @@ Status GroupCommitMgr::group_commit_insert(int64_t table_id, const TPlan& plan,
             future_block->swap(*(_block.get()));
             future_block->set_info(request->base_schema_version(), load_id, first, eof);
             if (load_block_queue == nullptr) {
-                RETURN_IF_ERROR(_get_first_block_load_queue(request->db_id(), table_id,
+                RETURN_IF_ERROR(get_first_block_load_queue(request->db_id(), table_id,
                                                             future_block, load_block_queue));
                 response->set_label(load_block_queue->label);
                 response->set_txn_id(load_block_queue->txn_id);
@@ -523,12 +535,21 @@ Status GroupCommitMgr::_group_commit_stream_load(std::shared_ptr<StreamLoadConte
         runtime_state->set_desc_tbl(desc_tbl);
         auto file_scan_node =
                 vectorized::NewFileScanNode(runtime_state->obj_pool(), plan_node, *desc_tbl);
+        Status status = Status::OK();
+        auto sink = stream_load::GroupCommitBlockSink(
+                runtime_state->obj_pool(), file_scan_node.row_desc(),
+                fragment_params.fragment.output_exprs, &status);
+        RETURN_IF_ERROR(status);
+        RETURN_IF_ERROR(sink.init(fragment_params.fragment.output_sink));
+        RETURN_IF_ERROR_OR_CATCH_EXCEPTION(sink.prepare(runtime_state.get()));
+        RETURN_IF_ERROR(sink.open(runtime_state.get()));
         std::shared_ptr<LoadBlockQueue> load_block_queue;
         std::unique_ptr<int, std::function<void(int*)>> close_scan_node_func((int*)0x01, [&](int*) {
             if (load_block_queue != nullptr) {
                 load_block_queue->remove_load_id(load_id);
             }
             file_scan_node.close(runtime_state.get());
+            sink.close(runtime_state.get(), status);
         });
         RETURN_IF_ERROR(file_scan_node.init(plan_node, runtime_state.get()));
         RETURN_IF_ERROR(file_scan_node.prepare(runtime_state.get()));
@@ -544,14 +565,17 @@ Status GroupCommitMgr::_group_commit_stream_load(std::shared_ptr<StreamLoadConte
         while (!eof) {
             // TODO what to do if scan one block error
             RETURN_IF_ERROR(file_scan_node.get_next(runtime_state.get(), _block.get(), &eof));
-            LOG(INFO) << "sout: block=\n" << _block->dump_data(0);
+            if (!_block->empty()) {
+                LOG(INFO) << "sout: add block=\n" << _block->dump_data(0);
+            }
+            RETURN_IF_ERROR(sink.send(runtime_state.get(), _block.get());
             std::shared_ptr<doris::vectorized::FutureBlock> future_block =
                     std::make_shared<doris::vectorized::FutureBlock>();
             future_block->swap(*(_block.get()));
             future_block->set_info(ctx->schema_version, load_id, first, eof);
             // TODO what to do if add one block error
             if (load_block_queue == nullptr) {
-                RETURN_IF_ERROR(_get_first_block_load_queue(ctx->db_id, ctx->table_id, future_block,
+                RETURN_IF_ERROR(get_first_block_load_queue(ctx->db_id, ctx->table_id, future_block,
                                                             load_block_queue));
                 ctx->label = load_block_queue->label;
                 ctx->txn_id = load_block_queue->txn_id;
@@ -590,7 +614,7 @@ Status GroupCommitMgr::_group_commit_stream_load(std::shared_ptr<StreamLoadConte
     return Status::OK();
 }
 
-Status GroupCommitMgr::_get_first_block_load_queue(
+Status GroupCommitMgr::get_first_block_load_queue(
         int64_t db_id, int64_t table_id, std::shared_ptr<vectorized::FutureBlock> block,
         std::shared_ptr<LoadBlockQueue>& load_block_queue) {
     std::shared_ptr<GroupCommitTable> group_commit_table;
