@@ -27,7 +27,7 @@ namespace doris {
 // class LoadBlockQueue;
 // class FutureBlock;
 class OlapTableSchemaParam;
-//class MemTracker;
+class MemTracker;
 
 namespace stream_load {
 
@@ -58,7 +58,7 @@ private:
     vectorized::VExprContextSPtrs _output_vexpr_ctxs;
     std::unique_ptr<OlapTableBlockConvertor> _block_convertor;
     RuntimeState* _state = nullptr;
-    // std::shared_ptr<MemTracker> _mem_tracker;
+    std::shared_ptr<MemTracker> _mem_tracker;
     int _tuple_desc_id = -1;
 
     // this is tuple descriptor of destination OLAP table

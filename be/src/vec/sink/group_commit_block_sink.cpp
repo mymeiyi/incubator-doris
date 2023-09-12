@@ -77,10 +77,10 @@ Status GroupCommitBlockSink::prepare(RuntimeState* state) {
 
     // profile must add to state's object pool
     _profile = state->obj_pool()->add(new RuntimeProfile("OlapTableSink"));
-    /*_mem_tracker =
-            std::make_shared<MemTracker>("OlapTableSink:" + std::to_string(state->load_job_id()));*/
+    _mem_tracker =
+            std::make_shared<MemTracker>("OlapTableSink:" + std::to_string(state->load_job_id()));
     SCOPED_TIMER(_profile->total_time_counter());
-    // SCOPED_CONSUME_MEM_TRACKER(_mem_tracker.get());
+    SCOPED_CONSUME_MEM_TRACKER(_mem_tracker.get());
 
     // get table's tuple descriptor
     _output_tuple_desc = state->desc_tbl().get_tuple_descriptor(_tuple_desc_id);
@@ -106,7 +106,7 @@ Status GroupCommitBlockSink::open(RuntimeState* state) {
 
 Status GroupCommitBlockSink::send(RuntimeState* state, vectorized::Block* input_block, bool eos) {
     LOG(INFO) << "sout: call GroupCommitBlockSink::send";
-    // SCOPED_CONSUME_MEM_TRACKER(_mem_tracker.get());
+    SCOPED_CONSUME_MEM_TRACKER(_mem_tracker.get());
     Status status = Status::OK();
     auto rows = input_block->rows();
     if (UNLIKELY(rows == 0)) {
