@@ -45,9 +45,10 @@ Status GroupCommitBlockSink::send(RuntimeState* state, vectorized::Block* input_
     RETURN_IF_ERROR(VOlapTableSink::validate_and_convert_block(state, input_block, eos, block,
                                                                has_filtered_rows));
     LOG(INFO) << "sout: after convert block=" << block->dump_data(0);
+    block->swap(*input_block);
     // add block into block queue
-    return add_block(state, block, eos);
-    // return Status::OK();
+    // return add_block(state, block, eos);
+    return Status::OK();
 }
 
 Status GroupCommitBlockSink::close(RuntimeState* state, Status close_status) {
