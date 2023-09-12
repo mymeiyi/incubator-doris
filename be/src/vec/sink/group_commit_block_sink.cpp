@@ -19,12 +19,13 @@
 
 #include "runtime/group_commit_mgr.h"
 #include "runtime/runtime_state.h"
-#include "vec/core/future_block.h"
+#include "util/doris_metrics.h"
+#include "vec/sink/vtablet_sink.h"
+// #include "vec/core/future_block.h"
 #include "vec/exprs/vexpr.h"
 #include "vec/sink/vtablet_block_convertor.h"
 #include "vec/sink/vtablet_finder.h"
-#include "vec/sink/vtablet_sink.h"
-#include "exec/data_sink.h"
+// #include "vec/sink/vtablet_sink.h"
 
 namespace doris {
 
@@ -32,18 +33,80 @@ namespace stream_load {
 
 GroupCommitBlockSink::GroupCommitBlockSink(ObjectPool* pool, const RowDescriptor& row_desc,
                                            const std::vector<TExpr>& texprs, Status* status)
-        : VOlapTableSink(pool, row_desc, texprs, status) {}
+        : DataSink(row_desc)/*, _pool(pool)*/ {
+    // From the thrift expressions create the real exprs.
+    *status = vectorized::VExpr::create_expr_trees(texprs, _output_vexpr_ctxs);
+    _name = "GroupCommitBlockSink";
+}
+
+GroupCommitBlockSink::~GroupCommitBlockSink() = default;
+
+Status GroupCommitBlockSink::init(const TDataSink& t_sink) {
+    DCHECK(t_sink.__isset.olap_table_sink);
+    auto& table_sink = t_sink.olap_table_sink;
+    _tuple_desc_id = table_sink.tuple_id;
+    _schema.reset(new OlapTableSchemaParam());
+    RETURN_IF_ERROR(_schema->init(table_sink.schema));
+    return Status::OK();
+}
+
+Status GroupCommitBlockSink::validate_and_convert_block(RuntimeState* state,
+                                                        vectorized::Block* input_block, bool eos,
+                                                        std::shared_ptr<vectorized::Block>& block,
+                                                        bool& has_filtered_rows) {
+    auto rows = input_block->rows();
+    auto bytes = input_block->bytes();
+    SCOPED_TIMER(_profile->total_time_counter());
+    // _number_input_rows += rows;
+    // update incrementally so that FE can get the progress.
+    // the real 'num_rows_load_total' will be set when sink being closed.
+    state->update_num_rows_load_total(rows);
+    state->update_num_bytes_load_total(bytes);
+    DorisMetrics::instance()->load_rows->increment(rows);
+    DorisMetrics::instance()->load_bytes->increment(bytes);
+
+    LOG(INFO) << "sout: sink before convert=\n" << input_block->dump_data(0);
+    return _block_convertor->validate_and_convert_block(
+            state, input_block, block, _output_vexpr_ctxs, rows, eos, has_filtered_rows);
+}
+
+
+Status GroupCommitBlockSink::prepare(RuntimeState* state) {
+    RETURN_IF_ERROR(DataSink::prepare(state));
+    _state = state;
+
+    // profile must add to state's object pool
+    _profile = state->obj_pool()->add(new RuntimeProfile("OlapTableSink"));
+    /*_mem_tracker =
+            std::make_shared<MemTracker>("OlapTableSink:" + std::to_string(state->load_job_id()));*/
+    SCOPED_TIMER(_profile->total_time_counter());
+    // SCOPED_CONSUME_MEM_TRACKER(_mem_tracker.get());
+
+    // get table's tuple descriptor
+    _output_tuple_desc = state->desc_tbl().get_tuple_descriptor(_tuple_desc_id);
+    if (_output_tuple_desc == nullptr) {
+        LOG(WARNING) << "unknown destination tuple descriptor, id=" << _tuple_desc_id;
+        return Status::InternalError("unknown destination tuple descriptor");
+    }
+
+    _block_convertor = std::make_unique<stream_load::OlapTableBlockConvertor>(_output_tuple_desc);
+    _block_convertor->init_autoinc_info(_schema->db_id(), _schema->table_id(),
+                                        _state->batch_size());
+    RETURN_IF_ERROR(vectorized::VExpr::prepare(_output_vexpr_ctxs, state, _row_desc));
+    // _prepare = true;
+    return Status::OK();
+}
 
 Status GroupCommitBlockSink::open(RuntimeState* state) {
     RETURN_IF_ERROR(vectorized::VExpr::open(_output_vexpr_ctxs, state));
     SCOPED_TIMER(_profile->total_time_counter());
-    SCOPED_CONSUME_MEM_TRACKER(_mem_tracker.get());
+    // SCOPED_CONSUME_MEM_TRACKER(_mem_tracker.get());
     return Status::OK();
 }
 
 Status GroupCommitBlockSink::send(RuntimeState* state, vectorized::Block* input_block, bool eos) {
     LOG(INFO) << "sout: call GroupCommitBlockSink::send";
-    SCOPED_CONSUME_MEM_TRACKER(_mem_tracker.get());
+    // SCOPED_CONSUME_MEM_TRACKER(_mem_tracker.get());
     Status status = Status::OK();
     auto rows = input_block->rows();
     if (UNLIKELY(rows == 0)) {
@@ -51,7 +114,7 @@ Status GroupCommitBlockSink::send(RuntimeState* state, vectorized::Block* input_
     }
     std::shared_ptr<vectorized::Block> block;
     bool has_filtered_rows = false;
-    RETURN_IF_ERROR(VOlapTableSink::validate_and_convert_block(state, input_block, eos, block,
+    RETURN_IF_ERROR(validate_and_convert_block(state, input_block, eos, block,
                                                                has_filtered_rows));
     LOG(INFO) << "sout: after convert block=" << block->dump_data(0);
     block->swap(*input_block);
@@ -60,45 +123,16 @@ Status GroupCommitBlockSink::send(RuntimeState* state, vectorized::Block* input_
     return Status::OK();
 }
 
-Status GroupCommitBlockSink::close(RuntimeState* state, Status close_status) {
-    DataSink::close(state, close_status);
+Status GroupCommitBlockSink::close(RuntimeState* state, Status exec_status) {
+    DataSink::close(state, exec_status);
     // VOlapTableSink::close(state, close_status);
     // std::shared_ptr<vectorized::Block> block = std::make_shared<vectorized::Block>();
     LOG(INFO) << "sout: add a eos block";
     // return add_block(state, block, true);
+        // DCHECK(!exec_status.ok());
+        // DataSink::close(state, exec_status);
+        // return exec_status;
     return Status::OK();
-}
-
-Status GroupCommitBlockSink::add_block(RuntimeState* state,
-                                       std::shared_ptr<vectorized::Block> block, bool eos) {
-    auto cloneBlock = block->clone_without_columns();
-    auto res_block = vectorized::MutableBlock::build_mutable_block(&cloneBlock);
-    for (int i = 0; i < block->rows(); ++i) {
-        res_block.add_row(block.get(), i);
-    }
-    std::shared_ptr<doris::vectorized::FutureBlock> future_block =
-            std::make_shared<doris::vectorized::FutureBlock>();
-
-    future_block->swap(*(block.get()));
-    int64_t schema_version = 0;
-    int64_t db_id = 12230;
-    int64_t table_id = 32043; // 12241;
-    TUniqueId load_id;
-    load_id.__set_hi(load_id.hi);
-    load_id.__set_lo(load_id.lo);
-    future_block->set_info(schema_version, load_id, _first_block, eos);
-    _first_block = false;
-    // TODO what to do if add one block error
-    if (_load_block_queue == nullptr) {
-        RETURN_IF_ERROR(state->exec_env()->group_commit_mgr()->get_first_block_load_queue(
-                db_id, table_id, future_block, _load_block_queue));
-        /*ctx->label = _load_block_queue->label;
-        ctx->txn_id = _load_block_queue->txn_id;*/
-        state->set_import_label(_load_block_queue->label);
-    }
-    LOG(INFO) << "sout: add block to queue=\n" << future_block->dump_data(0);
-    _future_blocks.emplace_back(future_block);
-    return _load_block_queue->add_block(future_block);
 }
 
 } // namespace stream_load

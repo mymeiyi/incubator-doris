@@ -16,20 +16,33 @@
 // under the License.
 
 #pragma once
-#include "vtablet_sink.h"
-#include "vec/core/future_block.h"
+// #include "vtablet_sink.h"
+#include "exec/data_sink.h"
+// #include "vec/core/future_block.h"
+#include "vec/exprs/vexpr_fwd.h"
+// #include "vec/sink/vtablet_sink.h"
 
 namespace doris {
 
-class LoadBlockQueue;
+// class LoadBlockQueue;
 // class FutureBlock;
+class OlapTableSchemaParam;
+//class MemTracker;
 
 namespace stream_load {
 
-class GroupCommitBlockSink : public VOlapTableSink {
+class OlapTableBlockConvertor;
+
+class GroupCommitBlockSink : public DataSink {
 public:
     GroupCommitBlockSink(ObjectPool* pool, const RowDescriptor& row_desc,
-                              const std::vector<TExpr>& texprs, Status* status);
+                         const std::vector<TExpr>& texprs, Status* status);
+
+    ~GroupCommitBlockSink() override;
+
+    Status init(const TDataSink& sink) override;
+
+    Status prepare(RuntimeState* state) override;
 
     Status open(RuntimeState* state) override;
 
@@ -37,11 +50,20 @@ public:
 
     Status close(RuntimeState* state, Status close_status) override;
 private:
-    Status add_block(RuntimeState* state,
-                     std::shared_ptr<vectorized::Block> block, bool eos);
-    std::shared_ptr<doris::LoadBlockQueue> _load_block_queue;
-    bool _first_block = true;
-    std::vector<std::shared_ptr<vectorized::FutureBlock>> _future_blocks;
+    Status validate_and_convert_block(RuntimeState* state, vectorized::Block* input_block, bool eos,
+                                      std::shared_ptr<vectorized::Block>& block,
+                                      bool& has_filtered_rows);
+
+    // ObjectPool* _pool;
+    vectorized::VExprContextSPtrs _output_vexpr_ctxs;
+    std::unique_ptr<OlapTableBlockConvertor> _block_convertor;
+    RuntimeState* _state = nullptr;
+    // std::shared_ptr<MemTracker> _mem_tracker;
+    int _tuple_desc_id = -1;
+
+    // this is tuple descriptor of destination OLAP table
+    TupleDescriptor* _output_tuple_desc = nullptr;
+    std::shared_ptr<OlapTableSchemaParam> _schema;
 };
 
 } // namespace stream_load
