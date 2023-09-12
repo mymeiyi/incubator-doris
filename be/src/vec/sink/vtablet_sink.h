@@ -526,8 +526,9 @@ private:
     bool _transfer_large_data_by_brpc = false;
 
     VOlapTablePartitionParam* _vpartition = nullptr;
+protected:
     vectorized::VExprContextSPtrs _output_vexpr_ctxs;
-
+private:
     RuntimeState* _state = nullptr;
 };
 

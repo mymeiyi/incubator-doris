@@ -31,6 +31,8 @@ public:
     GroupCommitBlockSink(ObjectPool* pool, const RowDescriptor& row_desc,
                               const std::vector<TExpr>& texprs, Status* status);
 
+    Status open(RuntimeState* state) override;
+
     Status send(RuntimeState* state, vectorized::Block* block, bool eos = false) override;
 
     Status close(RuntimeState* state, Status close_status) override;

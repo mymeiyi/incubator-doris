@@ -20,9 +20,11 @@
 #include "runtime/group_commit_mgr.h"
 #include "runtime/runtime_state.h"
 #include "vec/core/future_block.h"
+#include "vec/exprs/vexpr.h"
 #include "vec/sink/vtablet_block_convertor.h"
 #include "vec/sink/vtablet_finder.h"
 #include "vec/sink/vtablet_sink.h"
+#include "exec/data_sink.h"
 
 namespace doris {
 
@@ -31,6 +33,13 @@ namespace stream_load {
 GroupCommitBlockSink::GroupCommitBlockSink(ObjectPool* pool, const RowDescriptor& row_desc,
                                            const std::vector<TExpr>& texprs, Status* status)
         : VOlapTableSink(pool, row_desc, texprs, status) {}
+
+Status GroupCommitBlockSink::open(RuntimeState* state) {
+    RETURN_IF_ERROR(vectorized::VExpr::open(_output_vexpr_ctxs, state));
+    SCOPED_TIMER(_profile->total_time_counter());
+    SCOPED_CONSUME_MEM_TRACKER(_mem_tracker.get());
+    return Status::OK();
+}
 
 Status GroupCommitBlockSink::send(RuntimeState* state, vectorized::Block* input_block, bool eos) {
     LOG(INFO) << "sout: call GroupCommitBlockSink::send";
@@ -52,10 +61,12 @@ Status GroupCommitBlockSink::send(RuntimeState* state, vectorized::Block* input_
 }
 
 Status GroupCommitBlockSink::close(RuntimeState* state, Status close_status) {
-    VOlapTableSink::close(state, close_status);
-    std::shared_ptr<vectorized::Block> block = std::make_shared<vectorized::Block>();
+    DataSink::close(state, close_status);
+    // VOlapTableSink::close(state, close_status);
+    // std::shared_ptr<vectorized::Block> block = std::make_shared<vectorized::Block>();
     LOG(INFO) << "sout: add a eos block";
-    return add_block(state, block, true);
+    // return add_block(state, block, true);
+    return Status::OK();
 }
 
 Status GroupCommitBlockSink::add_block(RuntimeState* state,

@@ -746,6 +746,7 @@ Status VNodeChannel::none_of(std::initializer_list<bool> vars) {
 }
 
 void VNodeChannel::try_send_block(RuntimeState* state) {
+    LOG(INFO) << "sout: call try_send_block, load_id=" << print_id(state->fragment_instance_id());
     SCOPED_ATTACH_TASK(state);
     SCOPED_CONSUME_MEM_TRACKER(_node_channel_tracker);
     SCOPED_ATOMIC_TIMER(&_actual_consume_ns);
