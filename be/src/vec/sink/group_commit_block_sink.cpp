@@ -31,7 +31,7 @@ namespace stream_load {
 
 GroupCommitBlockSink::GroupCommitBlockSink(ObjectPool* pool, const RowDescriptor& row_desc,
                                            const std::vector<TExpr>& texprs, Status* status)
-        : DataSink(row_desc)/*, _pool(pool)*/ {
+        : DataSink(row_desc) {
     // From the thrift expressions create the real exprs.
     *status = vectorized::VExpr::create_expr_trees(texprs, _output_vexpr_ctxs);
     _name = "GroupCommitBlockSink";
@@ -47,25 +47,6 @@ Status GroupCommitBlockSink::init(const TDataSink& t_sink) {
     RETURN_IF_ERROR(_schema->init(table_sink.schema));
     return Status::OK();
 }
-
-Status GroupCommitBlockSink::validate_and_convert_block(RuntimeState* state,
-                                                        vectorized::Block* input_block, bool eos,
-                                                        std::shared_ptr<vectorized::Block>& block,
-                                                        bool& has_filtered_rows) {
-    auto rows = input_block->rows();
-    auto bytes = input_block->bytes();
-    SCOPED_TIMER(_profile->total_time_counter());
-    // _number_input_rows += rows;
-    // update incrementally so that FE can get the progress.
-    // the real 'num_rows_load_total' will be set when sink being closed.
-    state->update_num_rows_load_total(rows);
-    state->update_num_bytes_load_total(bytes);
-    DorisMetrics::instance()->load_rows->increment(rows);
-    DorisMetrics::instance()->load_bytes->increment(bytes);
-    return _block_convertor->validate_and_convert_block(
-            state, input_block, block, _output_vexpr_ctxs, rows, eos, has_filtered_rows);
-}
-
 
 Status GroupCommitBlockSink::prepare(RuntimeState* state) {
     RETURN_IF_ERROR(DataSink::prepare(state));
@@ -88,29 +69,35 @@ Status GroupCommitBlockSink::prepare(RuntimeState* state) {
     _block_convertor = std::make_unique<stream_load::OlapTableBlockConvertor>(_output_tuple_desc);
     _block_convertor->init_autoinc_info(_schema->db_id(), _schema->table_id(),
                                         _state->batch_size());
-    RETURN_IF_ERROR(vectorized::VExpr::prepare(_output_vexpr_ctxs, state, _row_desc));
-    // _prepare = true;
-    return Status::OK();
+    // Prepare the exprs to run.
+    return vectorized::VExpr::prepare(_output_vexpr_ctxs, state, _row_desc);
 }
 
 Status GroupCommitBlockSink::open(RuntimeState* state) {
-    RETURN_IF_ERROR(vectorized::VExpr::open(_output_vexpr_ctxs, state));
-    SCOPED_TIMER(_profile->total_time_counter());
-    // SCOPED_CONSUME_MEM_TRACKER(_mem_tracker.get());
-    return Status::OK();
+    // Prepare the exprs to run.
+    return vectorized::VExpr::open(_output_vexpr_ctxs, state);
 }
 
 Status GroupCommitBlockSink::send(RuntimeState* state, vectorized::Block* input_block, bool eos) {
     SCOPED_CONSUME_MEM_TRACKER(_mem_tracker.get());
     Status status = Status::OK();
     auto rows = input_block->rows();
+    auto bytes = input_block->bytes();
     if (UNLIKELY(rows == 0)) {
         return status;
     }
+    SCOPED_TIMER(_profile->total_time_counter());
+    // update incrementally so that FE can get the progress.
+    // the real 'num_rows_load_total' will be set when sink being closed.
+    state->update_num_rows_load_total(rows);
+    state->update_num_bytes_load_total(bytes);
+    DorisMetrics::instance()->load_rows->increment(rows);
+    DorisMetrics::instance()->load_bytes->increment(bytes);
+
     std::shared_ptr<vectorized::Block> block;
     bool has_filtered_rows = false;
-    RETURN_IF_ERROR(validate_and_convert_block(state, input_block, eos, block,
-                                                               has_filtered_rows));
+    RETURN_IF_ERROR(_block_convertor->validate_and_convert_block(
+            state, input_block, block, _output_vexpr_ctxs, rows, eos, has_filtered_rows));
     block->swap(*input_block);
     return Status::OK();
 }

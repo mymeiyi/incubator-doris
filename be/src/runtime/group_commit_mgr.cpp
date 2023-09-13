@@ -515,6 +515,8 @@ Status GroupCommitMgr::_group_commit_stream_load(std::shared_ptr<StreamLoadConte
 
     std::vector<std::shared_ptr<doris::vectorized::FutureBlock>> future_blocks;
     {
+        std::shared_ptr<LoadBlockQueue> load_block_queue;
+        // 1. FileScanNode consumes data from the pipe.
         std::unique_ptr<RuntimeState> runtime_state = RuntimeState::create_unique();
         TUniqueId load_id;
         load_id.hi = ctx->id.hi;
@@ -534,11 +536,6 @@ Status GroupCommitMgr::_group_commit_stream_load(std::shared_ptr<StreamLoadConte
         auto sink = stream_load::GroupCommitBlockSink(
                 runtime_state->obj_pool(), file_scan_node.row_desc(),
                 fragment_params.fragment.output_exprs, &status);
-        RETURN_IF_ERROR(status);
-        RETURN_IF_ERROR(sink.init(fragment_params.fragment.output_sink));
-        RETURN_IF_ERROR_OR_CATCH_EXCEPTION(sink.prepare(runtime_state.get()));
-        RETURN_IF_ERROR(sink.open(runtime_state.get()));
-        std::shared_ptr<LoadBlockQueue> load_block_queue;
         std::unique_ptr<int, std::function<void(int*)>> close_scan_node_func((int*)0x01, [&](int*) {
             if (load_block_queue != nullptr) {
                 load_block_queue->remove_load_id(load_id);
@@ -553,6 +550,12 @@ Status GroupCommitMgr::_group_commit_stream_load(std::shared_ptr<StreamLoadConte
         file_scan_node.set_scan_ranges(params_vector);
         RETURN_IF_ERROR(file_scan_node.open(runtime_state.get()));
 
+        RETURN_IF_ERROR(status);
+        RETURN_IF_ERROR(sink.init(fragment_params.fragment.output_sink));
+        RETURN_IF_ERROR_OR_CATCH_EXCEPTION(sink.prepare(runtime_state.get()));
+        RETURN_IF_ERROR(sink.open(runtime_state.get()));
+
+        // 2. Put the block into block queue.
         std::unique_ptr<doris::vectorized::Block> _block =
                 doris::vectorized::Block::create_unique();
         bool first = true;
@@ -581,10 +584,19 @@ Status GroupCommitMgr::_group_commit_stream_load(std::shared_ptr<StreamLoadConte
         ctx->number_unselected_rows = runtime_state->num_rows_load_unselected();
         ctx->number_filtered_rows = runtime_state->num_rows_load_filtered();
         ctx->error_url = runtime_state->get_error_log_file_path();
+        if (!runtime_state->get_error_log_file_path().empty()) {
+            LOG(INFO) << "id=" << print_id(load_id)
+                      << ", url=" << runtime_state->get_error_log_file_path()
+                      << ", load rows=" << runtime_state->num_rows_load_total()
+                      << ", filter rows=" << runtime_state->num_rows_load_filtered()
+                      << ", unselect rows=" << runtime_state->num_rows_load_unselected()
+                      << ", success rows=" << runtime_state->num_rows_load_success();
+        }
     }
 
     int64_t total_rows = 0;
     int64_t loaded_rows = 0;
+    // 3. wait to wal
     for (const auto& future_block : future_blocks) {
         std::unique_lock<doris::Mutex> l(*(future_block->lock));
         if (!future_block->is_handled()) {
@@ -594,10 +606,10 @@ Status GroupCommitMgr::_group_commit_stream_load(std::shared_ptr<StreamLoadConte
         total_rows += future_block->get_total_rows();
         loaded_rows += future_block->get_loaded_rows();
     }
-    ctx->promise.set_value(Status::OK());
     ctx->number_total_rows = total_rows + ctx->number_unselected_rows + ctx->number_filtered_rows;
     ctx->number_loaded_rows = loaded_rows;
     ctx->number_filtered_rows += total_rows - ctx->number_loaded_rows;
+    ctx->promise.set_value(Status::OK());
     VLOG_DEBUG << "finish read all block of pipe=" << ctx->id.to_string()
                << ", total rows=" << ctx->number_total_rows
                << ", loaded rows=" << ctx->number_loaded_rows

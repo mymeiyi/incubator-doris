@@ -42,20 +42,18 @@ public:
     Status open(RuntimeState* state) override;
 
     Status send(RuntimeState* state, vectorized::Block* block, bool eos = false) override;
-private:
-    Status validate_and_convert_block(RuntimeState* state, vectorized::Block* input_block, bool eos,
-                                      std::shared_ptr<vectorized::Block>& block,
-                                      bool& has_filtered_rows);
 
+private:
     vectorized::VExprContextSPtrs _output_vexpr_ctxs;
-    std::unique_ptr<OlapTableBlockConvertor> _block_convertor;
+
+    int _tuple_desc_id = -1;
+    std::shared_ptr<OlapTableSchemaParam> _schema;
+
     RuntimeState* _state = nullptr;
     std::shared_ptr<MemTracker> _mem_tracker;
-    int _tuple_desc_id = -1;
-
     // this is tuple descriptor of destination OLAP table
     TupleDescriptor* _output_tuple_desc = nullptr;
-    std::shared_ptr<OlapTableSchemaParam> _schema;
+    std::unique_ptr<OlapTableBlockConvertor> _block_convertor;
 };
 
 } // namespace stream_load
