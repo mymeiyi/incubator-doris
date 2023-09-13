@@ -49,6 +49,7 @@
 #include "runtime/client_cache.h"
 #include "runtime/exec_env.h"
 #include "runtime/fragment_mgr.h"
+#include "runtime/group_commit_mgr.h"
 #include "runtime/load_path_mgr.h"
 #include "runtime/plan_fragment_executor.h"
 #include "runtime/stream_load/new_load_stream_mgr.h"
@@ -139,6 +140,11 @@ Status HttpStreamAction::_handle(HttpRequest* http_req, std::shared_ptr<StreamLo
     // wait stream load finish
     RETURN_IF_ERROR(ctx->future.get());
 
+    if (ctx->group_commit) {
+        LOG(INFO) << "skip commit because this is group commit, pipe_id=" << ctx->id.to_string();
+        return Status::OK();
+    }
+
     int64_t commit_and_publish_start_time = MonotonicNanos();
     RETURN_IF_ERROR(_exec_env->stream_load_executor()->commit_txn(ctx.get()));
     ctx->commit_and_publish_txn_cost_nanos = MonotonicNanos() - commit_and_publish_start_time;
@@ -155,14 +161,22 @@ int HttpStreamAction::on_header(HttpRequest* req) {
     ctx->load_src_type = TLoadSourceType::RAW;
 
     ctx->label = req->header(HTTP_LABEL_KEY);
-    if (ctx->label.empty()) {
-        ctx->label = generate_uuid_string();
+    Status st = Status::OK();
+    if (!req->header(HTTP_GROUP_COMMIT).empty() && iequal(req->header(HTTP_GROUP_COMMIT), "true")) {
+        if (!ctx->label.empty()) {
+            st = Status::InternalError("label and group_commit can't be set at the same time");
+        }
+        ctx->group_commit = true;
+    } else {
+        if (ctx->label.empty()) {
+            ctx->label = generate_uuid_string();
+        }
     }
 
     LOG(INFO) << "new income streaming load request." << ctx->brief()
               << " sql : " << req->header(HTTP_SQL);
 
-    auto st = _on_header(req, ctx);
+    st = _on_header(req, ctx);
     if (!st.ok()) {
         ctx->status = std::move(st);
         if (ctx->body_sink != nullptr) {
@@ -283,6 +297,7 @@ Status HttpStreamAction::_process_put(HttpRequest* http_req,
     request.__set_load_sql(http_req->header(HTTP_SQL));
     request.__set_loadId(ctx->id.to_thrift());
     request.__set_label(ctx->label);
+    request.__set_group_commit(ctx->group_commit);
     if (_exec_env->master_info()->__isset.backend_id) {
         request.__set_backend_id(_exec_env->master_info()->backend_id);
     } else {
@@ -306,6 +321,14 @@ Status HttpStreamAction::_process_put(HttpRequest* http_req,
     ctx->db = ctx->put_result.params.db_name;
     ctx->table = ctx->put_result.params.table_name;
     ctx->txn_id = ctx->put_result.params.txn_conf.txn_id;
+
+    if (ctx->group_commit) {
+        ctx->db_id = ctx->put_result.db_id;
+        ctx->table_id = ctx->put_result.table_id;
+        ctx->schema_version = ctx->put_result.base_schema_version;
+        return _exec_env->group_commit_mgr()->group_commit_stream_load(ctx);
+    }
+
     return _exec_env->stream_load_executor()->execute_plan_fragment(ctx);
 }
 

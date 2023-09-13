@@ -112,6 +112,7 @@ public abstract class ExternalFileTableValuedFunction extends TableValuedFunctio
 
     protected static final ImmutableSet<String> FILE_FORMAT_PROPERTIES = new ImmutableSet.Builder<String>()
             .add(FORMAT)
+            .add(COMPRESS_TYPE)
             .add(JSON_ROOT)
             .add(JSON_PATHS)
             .add(STRIP_OUTER_ARRAY)
