@@ -870,14 +870,10 @@ public class NativeInsertStmt extends InsertStmt {
         }
         if (targetTable instanceof OlapTable) {
             checkInnerGroupCommit();
-            OlapTableSink sink;
-            if (isGroupCommitTvf) {
-                sink = new GroupCommitOlapTableSink((OlapTable) targetTable, olapTuple,
-                        targetPartitionIds, analyzer.getContext().getSessionVariable().isEnableSingleReplicaInsert());
-            } else {
-                sink = new OlapTableSink((OlapTable) targetTable, olapTuple, targetPartitionIds,
-                        analyzer.getContext().getSessionVariable().isEnableSingleReplicaInsert());
-            }
+            OlapTableSink sink = isGroupCommitTvf ? new GroupCommitOlapTableSink((OlapTable) targetTable, olapTuple,
+                    targetPartitionIds, analyzer.getContext().getSessionVariable().isEnableSingleReplicaInsert())
+                    : new OlapTableSink((OlapTable) targetTable, olapTuple, targetPartitionIds,
+                            analyzer.getContext().getSessionVariable().isEnableSingleReplicaInsert());
             dataSink = sink;
             sink.setPartialUpdateInputColumns(isPartialUpdate, partialUpdateCols);
             dataPartition = dataSink.getOutputPartition();
