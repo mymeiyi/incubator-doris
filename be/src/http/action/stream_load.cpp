@@ -185,7 +185,7 @@ int StreamLoadAction::on_header(HttpRequest* req) {
     url_decode(req->param(HTTP_TABLE_KEY), &ctx->table);
     ctx->label = req->header(HTTP_LABEL_KEY);
     Status st = Status::OK();
-    if (!req->header(HTTP_GROUP_COMMIT).empty() && iequal(req->header(HTTP_GROUP_COMMIT), "true")) {
+    if (iequal(req->header(HTTP_GROUP_COMMIT), "true")) {
         if (!ctx->label.empty()) {
             st = Status::InternalError("label and group_commit can't be set at the same time");
         }
@@ -629,10 +629,6 @@ Status StreamLoadAction::_data_saved_path(HttpRequest* req, std::string* file_pa
 
 void StreamLoadAction::_save_stream_load_record(std::shared_ptr<StreamLoadContext> ctx,
                                                 const std::string& str) {
-    if (ctx->group_commit) {
-        LOG(INFO) << "skip save stream load record because this is group commit";
-        return;
-    }
     auto stream_load_recorder = StorageEngine::instance()->get_stream_load_recorder();
     if (stream_load_recorder != nullptr) {
         std::string key =
