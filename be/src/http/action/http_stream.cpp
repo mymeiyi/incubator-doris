@@ -161,22 +161,15 @@ int HttpStreamAction::on_header(HttpRequest* req) {
     ctx->load_src_type = TLoadSourceType::RAW;
 
     ctx->label = req->header(HTTP_LABEL_KEY);
-    Status st = Status::OK();
-    if (!req->header(HTTP_GROUP_COMMIT).empty() && iequal(req->header(HTTP_GROUP_COMMIT), "true")) {
-        if (!ctx->label.empty()) {
-            st = Status::InternalError("label and group_commit can't be set at the same time");
-        }
-        ctx->group_commit = true;
-    } else {
-        if (ctx->label.empty()) {
-            ctx->label = generate_uuid_string();
-        }
+    if (ctx->label.empty()) {
+        ctx->label = generate_uuid_string();
     }
+    ctx->group_commit = iequal(req->header(HTTP_GROUP_COMMIT), "true");
 
     LOG(INFO) << "new income streaming load request." << ctx->brief()
               << " sql : " << req->header(HTTP_SQL);
 
-    st = _on_header(req, ctx);
+    auto st = _on_header(req, ctx);
     if (!st.ok()) {
         ctx->status = std::move(st);
         if (ctx->body_sink != nullptr) {

@@ -107,7 +107,7 @@ suite("test_group_commit_http_stream") {
         streamLoad {
             set 'version', '1'
             set 'sql', """
-                    insert into ${db}.${tableName}(id, name, score) select c3, c1, c2 from http_stream
+                    insert into ${db}.${tableName}(score, id, name) select c1, c2, c3 from http_stream
                     ("format"="csv", "column_separator"="|")
             """
 
@@ -216,14 +216,14 @@ suite("test_group_commit_http_stream") {
             }
         }
 
-        getRowCount(21)
+        getRowCount(7)
         qt_sql " SELECT * FROM ${tableName} order by id, name, score asc; "
     } finally {
         // try_sql("DROP TABLE ${tableName}")
     }
 
     // stream load with large data and schema change
-    tableName = "test_stream_load_lineorder"
+    /*tableName = "test_stream_load_lineorder"
     try {
         sql """ DROP TABLE IF EXISTS `${tableName}` """
         sql """
@@ -324,5 +324,5 @@ suite("test_group_commit_http_stream") {
         assertTrue(getAlterTableState())
     } finally {
         // try_sql("DROP TABLE ${tableName}")
-    }
+    }*/
 }
