@@ -165,14 +165,6 @@ Status DataSink::create_data_sink(ObjectPool* pool, const TDataSink& thrift_sink
         RETURN_IF_ERROR(status);
         break;
     }
-    case TDataSinkType::GROUP_COMMIT_BLOCK_SINK: {
-        Status status;
-        DCHECK(thrift_sink.__isset.olap_table_sink);
-        sink->reset(
-                new stream_load::GroupCommitBlockSink(pool, row_desc, output_exprs, &status));
-        RETURN_IF_ERROR(status);
-        break;
-    }
     case TDataSinkType::MULTI_CAST_DATA_STREAM_SINK: {
         return Status::NotSupported("MULTI_CAST_DATA_STREAM_SINK only support in pipeline engine");
     }
@@ -326,14 +318,6 @@ Status DataSink::create_data_sink(ObjectPool* pool, const TDataSink& thrift_sink
         DCHECK(thrift_sink.__isset.olap_table_sink);
         sink->reset(
                 new stream_load::GroupCommitVOlapTableSink(pool, row_desc, output_exprs, &status));
-        RETURN_IF_ERROR(status);
-        break;
-    }
-    case TDataSinkType::GROUP_COMMIT_BLOCK_SINK: {
-        Status status;
-        DCHECK(thrift_sink.__isset.olap_table_sink);
-        sink->reset(
-                new stream_load::GroupCommitBlockSink(pool, row_desc, output_exprs, &status));
         RETURN_IF_ERROR(status);
         break;
     }
