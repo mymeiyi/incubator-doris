@@ -20,12 +20,10 @@
 #include "runtime/group_commit_mgr.h"
 #include "runtime/runtime_state.h"
 #include "util/doris_metrics.h"
-#include "vec/sink/vtablet_sink.h"
-// #include "vec/core/future_block.h"
 #include "vec/exprs/vexpr.h"
 #include "vec/sink/vtablet_block_convertor.h"
 #include "vec/sink/vtablet_finder.h"
-// #include "vec/sink/vtablet_sink.h"
+#include "vec/sink/vtablet_sink.h"
 
 namespace doris {
 
@@ -64,8 +62,6 @@ Status GroupCommitBlockSink::validate_and_convert_block(RuntimeState* state,
     state->update_num_bytes_load_total(bytes);
     DorisMetrics::instance()->load_rows->increment(rows);
     DorisMetrics::instance()->load_bytes->increment(bytes);
-
-    LOG(INFO) << "sout: sink before convert=\n" << input_block->dump_data(0);
     return _block_convertor->validate_and_convert_block(
             state, input_block, block, _output_vexpr_ctxs, rows, eos, has_filtered_rows);
 }
@@ -105,7 +101,6 @@ Status GroupCommitBlockSink::open(RuntimeState* state) {
 }
 
 Status GroupCommitBlockSink::send(RuntimeState* state, vectorized::Block* input_block, bool eos) {
-    LOG(INFO) << "sout: call GroupCommitBlockSink::send";
     SCOPED_CONSUME_MEM_TRACKER(_mem_tracker.get());
     Status status = Status::OK();
     auto rows = input_block->rows();
@@ -116,22 +111,7 @@ Status GroupCommitBlockSink::send(RuntimeState* state, vectorized::Block* input_
     bool has_filtered_rows = false;
     RETURN_IF_ERROR(validate_and_convert_block(state, input_block, eos, block,
                                                                has_filtered_rows));
-    LOG(INFO) << "sout: after convert block=" << block->dump_data(0);
     block->swap(*input_block);
-    // add block into block queue
-    // return add_block(state, block, eos);
-    return Status::OK();
-}
-
-Status GroupCommitBlockSink::close(RuntimeState* state, Status exec_status) {
-    DataSink::close(state, exec_status);
-    // VOlapTableSink::close(state, close_status);
-    // std::shared_ptr<vectorized::Block> block = std::make_shared<vectorized::Block>();
-    LOG(INFO) << "sout: add a eos block";
-    // return add_block(state, block, true);
-        // DCHECK(!exec_status.ok());
-        // DataSink::close(state, exec_status);
-        // return exec_status;
     return Status::OK();
 }
 
