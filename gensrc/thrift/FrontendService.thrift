@@ -637,6 +637,7 @@ struct TStreamLoadPutRequest {
     52: optional i8 escape
     53: optional bool memtable_on_sink_node;
     54: optional bool ignore_mode = false
+    55: optional bool group_commit
 }
 
 struct TStreamLoadPutResult {
@@ -646,6 +647,8 @@ struct TStreamLoadPutResult {
     3: optional PaloInternalService.TPipelineFragmentParams pipeline_params
     // used for group commit
     4: optional i64 base_schema_version
+    5: optional i64 db_id
+    6: optional i64 table_id
 }
 
 struct TStreamLoadMultiTablePutResult {

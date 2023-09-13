@@ -1159,6 +1159,9 @@ DECLARE_Int16(bitmap_serialize_version);
 // This config can be set to limit thread number in group commit insert thread pool.
 DECLARE_mInt32(group_commit_insert_threads);
 
+// This config can be set to limit thread number in group commit stream load thread pool.
+DECLARE_mInt32(group_commit_stream_load_threads);
+
 #ifdef BE_TEST
 // test s3
 DECLARE_String(test_s3_resource);
