@@ -44,6 +44,8 @@ public:
     Status send(RuntimeState* state, vectorized::Block* block, bool eos = false) override;
 
 private:
+    Status _add_block_to_queue();
+
     vectorized::VExprContextSPtrs _output_vexpr_ctxs;
 
     int _tuple_desc_id = -1;

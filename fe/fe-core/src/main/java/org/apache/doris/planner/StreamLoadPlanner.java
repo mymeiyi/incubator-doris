@@ -254,8 +254,14 @@ public class StreamLoadPlanner {
 
         // create dest sink
         List<Long> partitionIds = getAllPartitionIds();
-        OlapTableSink olapTableSink = new OlapTableSink(destTable, tupleDesc, partitionIds,
-                Config.enable_single_replica_load);
+        OlapTableSink olapTableSink;
+        if (taskInfo.isGroupCommit()) {
+            olapTableSink = new GroupCommitBlockSink(destTable, tupleDesc, partitionIds,
+                    Config.enable_single_replica_load);
+        } else {
+            olapTableSink = new OlapTableSink(destTable, tupleDesc, partitionIds,
+                    Config.enable_single_replica_load);
+        }
         olapTableSink.init(loadId, taskInfo.getTxnId(), db.getId(), timeout, taskInfo.getSendBatchParallelism(),
                 taskInfo.isLoadToSingleTablet(), taskInfo.isStrictMode(), taskInfo.isIgnoreMode());
         olapTableSink.setPartialUpdateInputColumns(isPartialUpdate, partialUpdateInputColumns);

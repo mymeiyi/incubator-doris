@@ -47,6 +47,7 @@ import org.apache.doris.mysql.privilege.PrivPredicate;
 import org.apache.doris.planner.DataPartition;
 import org.apache.doris.planner.DataSink;
 import org.apache.doris.planner.ExportSink;
+import org.apache.doris.planner.GroupCommitBlockSink;
 import org.apache.doris.planner.GroupCommitOlapTableSink;
 import org.apache.doris.planner.OlapTableSink;
 import org.apache.doris.planner.StreamLoadPlanner;
@@ -55,6 +56,7 @@ import org.apache.doris.qe.ConnectContext;
 import org.apache.doris.rewrite.ExprRewriter;
 import org.apache.doris.service.FrontendOptions;
 import org.apache.doris.tablefunction.GroupCommitTableValuedFunction;
+import org.apache.doris.tablefunction.HttpStreamTableValuedFunction;
 import org.apache.doris.task.StreamLoadTask;
 import org.apache.doris.thrift.TExecPlanFragmentParams;
 import org.apache.doris.thrift.TFileCompressType;
@@ -165,6 +167,8 @@ public class NativeInsertStmt extends InsertStmt {
     private long tableId = -1;
     // true if be generates an insert from group commit tvf stmt and executes to load data
     public boolean isGroupCommitTvf = false;
+    // true when this stmt is a group commit stream load tvf or group commit insert into values
+    public boolean isGroupCommitLoad = false;
 
     private boolean isInsertIgnore = false;
     private boolean isFromDeleteOrUpdateStmt = false;
@@ -901,10 +905,17 @@ public class NativeInsertStmt extends InsertStmt {
         }
         if (targetTable instanceof OlapTable) {
             checkInnerGroupCommit();
-            OlapTableSink sink = isGroupCommitTvf ? new GroupCommitOlapTableSink((OlapTable) targetTable, olapTuple,
-                    targetPartitionIds, analyzer.getContext().getSessionVariable().isEnableSingleReplicaInsert())
-                    : new OlapTableSink((OlapTable) targetTable, olapTuple, targetPartitionIds,
-                            analyzer.getContext().getSessionVariable().isEnableSingleReplicaInsert());
+            OlapTableSink sink;
+            /*if (isGroupCommitTvf) {
+                sink = new GroupCommitOlapTableSink((OlapTable) targetTable, olapTuple,
+                        targetPartitionIds, analyzer.getContext().getSessionVariable().isEnableSingleReplicaInsert());
+            } else*/ if (isGroupCommitLoad) {
+                sink = new GroupCommitBlockSink((OlapTable) targetTable, olapTuple,
+                        targetPartitionIds, analyzer.getContext().getSessionVariable().isEnableSingleReplicaInsert());
+            } else {
+                sink = new OlapTableSink((OlapTable) targetTable, olapTuple, targetPartitionIds,
+                        analyzer.getContext().getSessionVariable().isEnableSingleReplicaInsert());
+            }
             dataSink = sink;
             sink.setPartialUpdateInputColumns(isPartialUpdate, partialUpdateCols);
             dataPartition = dataSink.getOutputPartition();
@@ -944,6 +955,7 @@ public class NativeInsertStmt extends InsertStmt {
             if (tvfRef.getTableFunction() instanceof GroupCommitTableValuedFunction) {
                 isGroupCommitTvf = true;
             }
+            isGroupCommitLoad = isGroupCommitLoad & tvfRef.getTableFunction() instanceof HttpStreamTableValuedFunction;
         }
     }
 
@@ -1125,7 +1137,7 @@ public class NativeInsertStmt extends InsertStmt {
                 if (insertCol.getName() != null && insertCol.getName().equals(col.getName())) {
                     if (!col.isVisible() && !Column.DELETE_SIGN.equals(col.getName())) {
                         throw new UserException("Partial update should not include invisible column except"
-                                    + " delete sign column: " + col.getName());
+                                + " delete sign column: " + col.getName());
                     }
                     exists = true;
                     break;
@@ -1155,5 +1167,9 @@ public class NativeInsertStmt extends InsertStmt {
             slotDesc.setColumn(col);
             slotDesc.setIsNullable(col.isAllowNull());
         }
+    }
+
+    public void setGroupCommitLoad(boolean isGroupCommitLoad) {
+        this.isGroupCommitLoad = isGroupCommitLoad;
     }
 }

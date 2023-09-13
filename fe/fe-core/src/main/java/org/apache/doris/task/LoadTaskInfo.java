@@ -129,6 +129,10 @@ public interface LoadTaskInfo {
         return false;
     }
 
+    default boolean isGroupCommit() {
+        return false;
+    }
+
     class ImportColumnDescs {
         public List<ImportColumnDesc> descs = Lists.newArrayList();
         public boolean isColumnDescsRewrited = false;

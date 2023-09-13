@@ -2046,6 +2046,7 @@ public class FrontendServiceImpl implements FrontendService.Iface {
             if (request.isGroupCommit() && parsedStmt.getLabel() != null) {
                 throw new AnalysisException("label and group_commit can't be set at the same time");
             }
+            parsedStmt.setGroupCommitLoad(request.isGroupCommit());
             StmtExecutor executor = new StmtExecutor(ctx, parsedStmt);
             ctx.setExecutor(executor);
             TQueryOptions tQueryOptions = ctx.getSessionVariable().toThrift();
@@ -2075,6 +2076,8 @@ public class FrontendServiceImpl implements FrontendService.Iface {
         } catch (Throwable e) {
             LOG.warn("exec sql error catch unknown result.", e);
             throw new UserException("exec sql error catch unknown result." + e);
+        } finally {
+            LOG.info("sout: coordinator size={}", QeProcessorImpl.INSTANCE.getAllCoordinators().size());
         }
     }
 

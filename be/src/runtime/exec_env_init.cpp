@@ -65,6 +65,7 @@
 #include "runtime/memory/mem_tracker.h"
 #include "runtime/memory/mem_tracker_limiter.h"
 #include "runtime/memory/thread_mem_tracker_mgr.h"
+#include "runtime/new_group_commit_mgr.h"
 #include "runtime/result_buffer_mgr.h"
 #include "runtime/result_queue_mgr.h"
 #include "runtime/routine_load/routine_load_task_executor.h"
@@ -207,6 +208,7 @@ Status ExecEnv::_init(const std::vector<StorePath>& store_paths) {
     _small_file_mgr = new SmallFileMgr(this, config::small_file_dir);
     _block_spill_mgr = new BlockSpillManager(_store_paths);
     _group_commit_mgr = new GroupCommitMgr(this);
+    _new_group_commit_mgr = new NewGroupCommitMgr(this);
     _file_meta_cache = new FileMetaCache(config::max_external_file_meta_cache_num);
     _memtable_memory_limiter = std::make_unique<MemTableMemoryLimiter>();
     _load_stream_stub_pool = std::make_unique<stream_load::LoadStreamStubPool>();
@@ -523,6 +525,7 @@ void ExecEnv::destroy() {
     SAFE_STOP(_load_path_mgr);
     SAFE_STOP(_result_mgr);
     SAFE_STOP(_group_commit_mgr);
+    // SAFE_STOP(_new_group_commit_mgr);
     // _routine_load_task_executor should be stopped before _new_load_stream_mgr.
     SAFE_STOP(_routine_load_task_executor);
     SAFE_STOP(_pipeline_task_scheduler);
@@ -582,6 +585,7 @@ void ExecEnv::destroy() {
     SAFE_DELETE(_result_mgr);
     SAFE_DELETE(_file_meta_cache);
     SAFE_DELETE(_group_commit_mgr);
+    SAFE_DELETE(_new_group_commit_mgr);
     SAFE_DELETE(_routine_load_task_executor);
     // _stream_load_executor
     SAFE_DELETE(_function_client_cache);

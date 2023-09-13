@@ -94,6 +94,7 @@ class HeartbeatFlags;
 class FrontendServiceClient;
 class FileMetaCache;
 class GroupCommitMgr;
+class NewGroupCommitMgr;
 class TabletSchemaCache;
 class UserFunctionCache;
 class SchemaCache;
@@ -202,6 +203,7 @@ public:
     SmallFileMgr* small_file_mgr() { return _small_file_mgr; }
     BlockSpillManager* block_spill_mgr() { return _block_spill_mgr; }
     GroupCommitMgr* group_commit_mgr() { return _group_commit_mgr; }
+    NewGroupCommitMgr* new_group_commit_mgr() { return _new_group_commit_mgr; }
 
     const std::vector<StorePath>& store_paths() const { return _store_paths; }
 
@@ -352,6 +354,7 @@ private:
     std::mutex _frontends_lock;
     std::map<TNetworkAddress, FrontendInfo> _frontends;
     GroupCommitMgr* _group_commit_mgr = nullptr;
+    NewGroupCommitMgr* _new_group_commit_mgr = nullptr;
 
     // Maybe we should use unique_ptr, but it need complete type, which means we need
     // to include many headers, and for some cpp file that do not need class like TabletSchemaCache,
