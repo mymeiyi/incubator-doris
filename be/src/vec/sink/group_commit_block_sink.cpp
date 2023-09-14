@@ -61,7 +61,7 @@ Status GroupCommitBlockSink::prepare(RuntimeState* state) {
     // profile must add to state's object pool
     _profile = state->obj_pool()->add(new RuntimeProfile("OlapTableSink"));
     _mem_tracker =
-            std::make_shared<MemTracker>("OlapTableSink:" + std::to_string(state->load_job_id()));
+            std::make_shared<MemTracker>("GroupCommitBlockSink:" + std::to_string(state->load_job_id()));
     SCOPED_TIMER(_profile->total_time_counter());
     SCOPED_CONSUME_MEM_TRACKER(_mem_tracker.get());
 
@@ -81,6 +81,8 @@ Status GroupCommitBlockSink::prepare(RuntimeState* state) {
     _load_id = state->fragment_instance_id();
     RETURN_IF_ERROR(_state->exec_env()->new_group_commit_mgr()->get_first_block_load_queue(
             _db_id, _table_id, _base_schema_version, _load_block_queue));
+    _state->set_import_label(_load_block_queue->label);
+    _state->set_txn_id(_load_block_queue->txn_id);
     return Status::OK();
 }
 

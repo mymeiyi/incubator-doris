@@ -220,6 +220,16 @@ public:
 
     void set_import_label(const std::string& import_label) { _import_label = import_label; }
 
+    std::string get_import_label() {
+        return _import_label;
+    }
+
+    void set_txn_id(int64_t txn_id) { _txn_id = txn_id; }
+
+    int64_t get_txn_id() {
+        return _txn_id;
+    }
+
     const std::vector<std::string>& export_output_files() const { return _export_output_files; }
 
     void add_export_output_file(const std::string& file) { _export_output_files.push_back(file); }
@@ -546,6 +556,7 @@ private:
     std::string _db_name;
     std::string _load_dir;
     int64_t _load_job_id;
+    int64_t _txn_id = -1;
 
     // mini load
     int64_t _normal_row_number;

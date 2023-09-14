@@ -49,7 +49,7 @@
 #include "runtime/client_cache.h"
 #include "runtime/exec_env.h"
 #include "runtime/fragment_mgr.h"
-#include "runtime/group_commit_mgr.h"
+//#include "runtime/group_commit_mgr.h"
 #include "runtime/load_path_mgr.h"
 #include "runtime/plan_fragment_executor.h"
 #include "runtime/stream_load/new_load_stream_mgr.h"
@@ -319,7 +319,7 @@ Status HttpStreamAction::_process_put(HttpRequest* http_req,
         ctx->db_id = ctx->put_result.db_id;
         ctx->table_id = ctx->put_result.table_id;
         ctx->schema_version = ctx->put_result.base_schema_version;
-        return _exec_env->group_commit_mgr()->group_commit_stream_load(ctx);
+        // return _exec_env->group_commit_mgr()->group_commit_stream_load(ctx);
     }
 
     return _exec_env->stream_load_executor()->execute_plan_fragment(ctx);

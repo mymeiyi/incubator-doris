@@ -43,6 +43,8 @@ Status GroupCommitScanNode::get_next(RuntimeState* state, vectorized::Block* blo
 }
 
 Status GroupCommitScanNode::init(const TPlanNode& tnode, RuntimeState* state) {
+    LOG(INFO) << "sout: get load block queue, instance_id="
+              << print_id(state->fragment_instance_id());
     RETURN_IF_ERROR(VScanNode::init(tnode, state));
     return state->exec_env()->new_group_commit_mgr()->get_load_block_queue(
             _table_id, state->fragment_instance_id(), load_block_queue);
