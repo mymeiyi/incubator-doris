@@ -20,6 +20,7 @@
 #include "runtime/new_group_commit_mgr.h"
 #include "runtime/runtime_state.h"
 #include "util/doris_metrics.h"
+#include "vec/core/columns_with_type_and_name.h"
 #include "vec/exprs/vexpr.h"
 #include "vec/sink/vtablet_block_convertor.h"
 #include "vec/sink/vtablet_finder.h"
@@ -108,9 +109,20 @@ Status GroupCommitBlockSink::send(RuntimeState* state, vectorized::Block* input_
     bool has_filtered_rows = false;
     RETURN_IF_ERROR(_block_convertor->validate_and_convert_block(
             state, input_block, block, _output_vexpr_ctxs, rows, eos, has_filtered_rows));
-    /*std::shared_ptr<vectorized::Block> output_block = std::make_shared<doris::vectorized::Block>();
-    block->swap(*output_block.get());*/
-    RETURN_IF_ERROR(_load_block_queue->add_block(_load_id, block));
+    auto _cur_mutable_block = vectorized::MutableBlock::create_unique(block->clone_empty());
+    {
+        vectorized::IColumn::Selector selector;
+        for (auto i = 0; i < block->rows(); i++) {
+            selector.emplace_back(i);
+        }
+        block->append_to_block_by_selector(_cur_mutable_block.get(), selector);
+    }
+    LOG(INFO) << "sout: mutable block=\n"
+              << _cur_mutable_block->dump_data(_cur_mutable_block->rows());
+    std::shared_ptr<vectorized::Block> output_block =
+            std::make_shared<vectorized::Block>(_cur_mutable_block->to_block());
+    LOG(INFO) << "sout: output block=\n" << output_block->dump_data(0);
+    RETURN_IF_ERROR(_load_block_queue->add_block(_load_id, output_block));
     return Status::OK();
 }
 

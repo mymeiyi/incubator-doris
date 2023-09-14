@@ -601,6 +601,7 @@ Status VNodeChannel::add_block(vectorized::Block* block, const Payload* payload,
 
     std::unique_ptr<Payload> temp_payload = nullptr;
     if (_index_channel != nullptr && _index_channel->get_where_clause() != nullptr) {
+        LOG(INFO) << "sout: where clause is not null";
         SCOPED_RAW_TIMER(&_stat.where_clause_ns);
         temp_payload.reset(new Payload(
                 std::unique_ptr<vectorized::IColumn::Selector>(new vectorized::IColumn::Selector()),
@@ -647,6 +648,7 @@ Status VNodeChannel::add_block(vectorized::Block* block, const Payload* payload,
 
     SCOPED_RAW_TIMER(&_stat.append_node_channel_ns);
     if (is_append) {
+        LOG(INFO) << "sout: append";
         // Do not split the data of the block by tablets but append it to a single delta writer.
         // This is a faster way to send block than append_to_block_by_selector
         // TODO: we could write to local delta writer if single_replica_load is true
@@ -662,6 +664,8 @@ Status VNodeChannel::add_block(vectorized::Block* block, const Payload* payload,
         *_cur_add_block_request.mutable_tablet_ids() = {tablets.begin(), tablets.end()};
         _cur_add_block_request.set_is_single_tablet_block(true);
     } else {
+        LOG(INFO) << "sout: not append, append_to_block_by_selector, size="
+                  << payload->first->size();
         block->append_to_block_by_selector(_cur_mutable_block.get(), *(payload->first));
         for (auto tablet_id : payload->second) {
             _cur_add_block_request.add_tablet_ids(tablet_id);
@@ -1561,6 +1565,9 @@ Status VOlapTableSink::send(RuntimeState* state, vectorized::Block* input_block,
             _block_convertor->num_filtered_rows() + _tablet_finder->num_filtered_rows();
     RETURN_IF_ERROR(_block_convertor->validate_and_convert_block(
             state, input_block, block, _output_vexpr_ctxs, rows, eos, has_filtered_rows));
+    LOG(INFO) << "sout: after convert, iuput=\n"
+              << input_block->dump_data(0) << "\noutput=\n"
+              << block->dump_data(0);
 
     SCOPED_RAW_TIMER(&_send_data_ns);
     // This is just for passing compilation.
@@ -1573,9 +1580,11 @@ Status VOlapTableSink::send(RuntimeState* state, vectorized::Block* input_block,
     size_t partition_num = _vpartition->get_partitions().size();
     if (!_vpartition->is_auto_partition() && partition_num == 1 &&
         _tablet_finder->is_find_tablet_every_sink()) {
+        LOG(INFO) << "sout: single partition mode.";
         RETURN_IF_ERROR(_single_partition_generate(state, block.get(), channel_to_payload, num_rows,
                                                    has_filtered_rows));
     } else {
+        LOG(INFO) << "sout: not single partition mode.";
         // if there's projection of partition calc, we need to calc it first.
         auto [part_ctx, part_func] = _get_partition_function();
         int result_idx;
@@ -1708,7 +1717,7 @@ Status VOlapTableSink::send(RuntimeState* state, vectorized::Block* input_block,
             }
         }
     }
-
+    LOG(INFO) << "sout: after add block to channel, data=\n" << block->dump_data(0);
     // check intolerable failure
     for (const auto& index_channel : _channels) {
         RETURN_IF_ERROR(index_channel->check_intolerable_failure());
