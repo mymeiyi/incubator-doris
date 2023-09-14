@@ -45,6 +45,7 @@ Status NewLoadBlockQueue::add_block(const UniqueId& load_id,
     // DCHECK(block->get_schema_version() == schema_version);
     std::unique_lock l(*_mutex);
     RETURN_IF_ERROR(_status);
+    LOG(INFO) << "sout: add block=\n" << block->dump_data(0);
     if (block->rows() > 0) {
         _block_queue.push_back(block);
         _load_ids.emplace(load_id);

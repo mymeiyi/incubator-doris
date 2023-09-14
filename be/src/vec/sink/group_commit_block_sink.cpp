@@ -17,7 +17,7 @@
 
 #include "vec/sink/group_commit_block_sink.h"
 
-#include "runtime/group_commit_mgr.h"
+#include "runtime/new_group_commit_mgr.h"
 #include "runtime/runtime_state.h"
 #include "util/doris_metrics.h"
 #include "vec/exprs/vexpr.h"
@@ -45,6 +45,11 @@ Status GroupCommitBlockSink::init(const TDataSink& t_sink) {
     _tuple_desc_id = table_sink.tuple_id;
     _schema.reset(new OlapTableSchemaParam());
     RETURN_IF_ERROR(_schema->init(table_sink.schema));
+
+    _db_id = table_sink.db_id;
+    _table_id = table_sink.table_id;
+    LOG(INFO) << "sout: db_id=" << _db_id << ", table_id=" << _table_id;
+    // _base_schema_version = table_sink.;
     return Status::OK();
 }
 
@@ -70,7 +75,12 @@ Status GroupCommitBlockSink::prepare(RuntimeState* state) {
     _block_convertor->init_autoinc_info(_schema->db_id(), _schema->table_id(),
                                         _state->batch_size());
     // Prepare the exprs to run.
-    return vectorized::VExpr::prepare(_output_vexpr_ctxs, state, _row_desc);
+    RETURN_IF_ERROR(vectorized::VExpr::prepare(_output_vexpr_ctxs, state, _row_desc));
+
+    _load_id = state->fragment_instance_id();
+    RETURN_IF_ERROR(_state->exec_env()->new_group_commit_mgr()->get_first_block_load_queue(
+            _db_id, _table_id, _base_schema_version, _load_block_queue));
+    return Status::OK();
 }
 
 Status GroupCommitBlockSink::open(RuntimeState* state) {
@@ -98,7 +108,16 @@ Status GroupCommitBlockSink::send(RuntimeState* state, vectorized::Block* input_
     bool has_filtered_rows = false;
     RETURN_IF_ERROR(_block_convertor->validate_and_convert_block(
             state, input_block, block, _output_vexpr_ctxs, rows, eos, has_filtered_rows));
-    block->swap(*input_block);
+    /*std::shared_ptr<vectorized::Block> output_block = std::make_shared<doris::vectorized::Block>();
+    block->swap(*output_block.get());*/
+    RETURN_IF_ERROR(_load_block_queue->add_block(_load_id, block));
+    return Status::OK();
+}
+
+Status GroupCommitBlockSink::close(RuntimeState* state, Status close_status) {
+    if (_load_block_queue) {
+        _load_block_queue->remove_load_id(_load_id);
+    }
     return Status::OK();
 }
 

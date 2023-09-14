@@ -23,6 +23,7 @@ namespace doris {
 
 class OlapTableSchemaParam;
 class MemTracker;
+class NewLoadBlockQueue;
 
 namespace stream_load {
 
@@ -43,8 +44,8 @@ public:
 
     Status send(RuntimeState* state, vectorized::Block* block, bool eos = false) override;
 
+    Status close(RuntimeState* state, Status close_status) override;
 private:
-    Status _add_block_to_queue();
 
     vectorized::VExprContextSPtrs _output_vexpr_ctxs;
 
@@ -56,6 +57,12 @@ private:
     // this is tuple descriptor of destination OLAP table
     TupleDescriptor* _output_tuple_desc = nullptr;
     std::unique_ptr<OlapTableBlockConvertor> _block_convertor;
+
+    int64_t _db_id;
+    int64_t _table_id;
+    int64_t _base_schema_version = 0;
+    UniqueId _load_id;
+    std::shared_ptr<NewLoadBlockQueue> _load_block_queue;
 };
 
 } // namespace stream_load

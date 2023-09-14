@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "runtime/group_commit_mgr.h"
+#include "runtime/new_group_commit_mgr.h"
 #include "vec/exec/format/format_common.h"
 #include "vec/exec/scan/vscan_node.h"
 
@@ -43,6 +43,6 @@ protected:
 
 private:
     int64_t _table_id;
-    std::shared_ptr<LoadBlockQueue> load_block_queue;
+    std::shared_ptr<NewLoadBlockQueue> load_block_queue;
 };
 } // namespace doris::vectorized
