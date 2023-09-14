@@ -1083,10 +1083,10 @@ public class StmtExecutor {
         }
         parsedStmt.analyze(analyzer);
         if (parsedStmt instanceof QueryStmt || parsedStmt instanceof InsertStmt) {
-            if (parsedStmt instanceof NativeInsertStmt && ((NativeInsertStmt) parsedStmt).isGroupCommit()) {
+            /*if (parsedStmt instanceof NativeInsertStmt && ((NativeInsertStmt) parsedStmt).isGroupCommit()) {
                 LOG.debug("skip generate query plan for group commit insert");
                 return;
-            }
+            }*/
             ExprRewriter rewriter = analyzer.getExprRewriter();
             rewriter.reset();
             if (context.getSessionVariable().isEnableFoldConstantByBe()) {
@@ -1764,7 +1764,7 @@ public class StmtExecutor {
             loadedRows = executeForTxn(insertStmt);
             label = context.getTxnEntry().getLabel();
             txnId = context.getTxnEntry().getTxnConf().getTxnId();
-        } else if (insertStmt instanceof NativeInsertStmt && ((NativeInsertStmt) insertStmt).isGroupCommit()) {
+        } /*else if (insertStmt instanceof NativeInsertStmt && ((NativeInsertStmt) insertStmt).isGroupCommit()) {
             NativeInsertStmt nativeInsertStmt = (NativeInsertStmt) insertStmt;
             Backend backend = context.getInsertGroupCommit(insertStmt.getTargetTable().getId());
             if (backend == null || !backend.isAlive()) {
@@ -1845,7 +1845,7 @@ public class StmtExecutor {
                 filteredRows = (int) response.getFilteredRows();
                 break;
             }
-        } else {
+        }*/ else {
             label = insertStmt.getLabel();
             LOG.info("Do insert [{}] with query id: {}", label, DebugUtil.printId(context.queryId()));
 

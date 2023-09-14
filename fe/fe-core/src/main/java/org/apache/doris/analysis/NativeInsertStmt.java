@@ -158,7 +158,7 @@ public class NativeInsertStmt extends InsertStmt {
     private HashSet<String> partialUpdateCols = new HashSet<String>();
 
     // Used for group commit insert
-    private boolean isGroupCommit = false;
+    // private boolean isGroupCommit = false;
     private int baseSchemaVersion = -1;
     private TUniqueId loadId = null;
     private ByteString planBytes = null;
@@ -373,9 +373,9 @@ public class NativeInsertStmt extends InsertStmt {
         db = analyzer.getEnv().getCatalogMgr().getCatalog(tblName.getCtl()).getDbOrAnalysisException(tblName.getDb());
 
         analyzeGroupCommit();
-        if (isGroupCommit()) {
+        /*if (isGroupCommit()) {
             return;
-        }
+        }*/
 
         analyzeSubquery(analyzer, false);
 
@@ -1046,13 +1046,14 @@ public class NativeInsertStmt extends InsertStmt {
                 && !ConnectContext.get().isTxnModel()
                 && getQueryStmt() instanceof SelectStmt
                 && ((SelectStmt) getQueryStmt()).getTableRefs().isEmpty() && targetPartitionNames == null) {
-            isGroupCommit = true;
+            // isGroupCommit = true;
+            isGroupCommitLoad = true;
         }
     }
 
-    public boolean isGroupCommit() {
+    /*public boolean isGroupCommit() {
         return isGroupCommit;
-    }
+    }*/
 
     public void planForGroupCommit(TUniqueId queryId) throws UserException, TException {
         OlapTable olapTable = (OlapTable) getTargetTable();
@@ -1072,7 +1073,7 @@ public class NativeInsertStmt extends InsertStmt {
         streamLoadPutRequest.setDb(db.getFullName()).setMaxFilterRatio(1)
                 .setTbl(getTbl())
                 .setFileType(TFileType.FILE_STREAM).setFormatType(TFileFormatType.FORMAT_CSV_PLAIN)
-                .setMergeType(TMergeType.APPEND).setThriftRpcTimeoutMs(5000).setLoadId(queryId);
+                .setMergeType(TMergeType.APPEND).setGroupCommit(true).setThriftRpcTimeoutMs(5000).setLoadId(queryId);
         StreamLoadTask streamLoadTask = StreamLoadTask.fromTStreamLoadPutRequest(streamLoadPutRequest);
         StreamLoadPlanner planner = new StreamLoadPlanner((Database) getDbObj(), olapTable, streamLoadTask);
         // Will using load id as query id in fragment
