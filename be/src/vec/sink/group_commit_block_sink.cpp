@@ -49,7 +49,9 @@ Status GroupCommitBlockSink::init(const TDataSink& t_sink) {
 
     _db_id = table_sink.db_id;
     _table_id = table_sink.table_id;
-    LOG(INFO) << "sout: db_id=" << _db_id << ", table_id=" << _table_id;
+    _base_schema_version = table_sink.base_schema_version;
+    LOG(INFO) << "sout: db_id=" << _db_id << ", table_id=" << _table_id
+              << ", base_schema_version=" << _base_schema_version;
     // _base_schema_version = table_sink.;
     return Status::OK();
 }

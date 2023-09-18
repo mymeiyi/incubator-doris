@@ -60,7 +60,7 @@ private:
 
     int64_t _db_id;
     int64_t _table_id;
-    int64_t _base_schema_version = 0;
+    int64_t _base_schema_version;
     UniqueId _load_id;
     std::shared_ptr<NewLoadBlockQueue> _load_block_queue;
 };

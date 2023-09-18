@@ -173,6 +173,7 @@ public class OlapTableSink extends DataSink {
         TOlapTableSink tSink = tDataSink.getOlapTableSink();
 
         tSink.setTableId(dstTable.getId());
+        tSink.setBaseSchemaVersion(dstTable.getBaseSchemaVersion());
         tSink.setTupleId(tupleDescriptor.getId().asInt());
         int numReplicas = 1;
         for (Partition partition : dstTable.getPartitions()) {

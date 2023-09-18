@@ -120,7 +120,6 @@ Status NewGroupCommitTable::get_first_block_load_queue(
         int64_t table_id, int64_t base_schema_version,
         std::shared_ptr<NewLoadBlockQueue>& load_block_queue) {
     DCHECK(table_id == _table_id);
-    // DCHECK(block->is_first() == true);
     {
         std::unique_lock l(_lock);
         for (auto it = _load_block_queues.begin(); it != _load_block_queues.end(); ++it) {
