@@ -32,7 +32,7 @@ namespace stream_load {
 
 GroupCommitBlockSink::GroupCommitBlockSink(ObjectPool* pool, const RowDescriptor& row_desc,
                                            const std::vector<TExpr>& texprs, Status* status)
-        : DataSink(row_desc) {
+        : DataSink(row_desc), _pool(pool) {
     // From the thrift expressions create the real exprs.
     *status = vectorized::VExpr::create_expr_trees(texprs, _output_vexpr_ctxs);
     _name = "GroupCommitBlockSink";
@@ -46,6 +46,17 @@ Status GroupCommitBlockSink::init(const TDataSink& t_sink) {
     _tuple_desc_id = table_sink.tuple_id;
     _schema.reset(new OlapTableSchemaParam());
     RETURN_IF_ERROR(_schema->init(table_sink.schema));
+
+    auto find_tablet_mode = OlapTabletFinder::FindTabletMode::FIND_TABLET_EVERY_ROW;
+    if (table_sink.partition.distributed_columns.empty()) {
+        if (table_sink.__isset.load_to_single_tablet && table_sink.load_to_single_tablet) {
+            find_tablet_mode = OlapTabletFinder::FindTabletMode::FIND_TABLET_EVERY_SINK;
+        } else {
+            find_tablet_mode = OlapTabletFinder::FindTabletMode::FIND_TABLET_EVERY_BATCH;
+        }
+    }
+    _vpartition = _pool->add(new doris::VOlapTablePartitionParam(_schema, table_sink.partition));
+    _tablet_finder = std::make_unique<OlapTabletFinder>(_vpartition, find_tablet_mode);
 
     _db_id = table_sink.db_id;
     _table_id = table_sink.table_id;
@@ -115,6 +126,11 @@ Status GroupCommitBlockSink::send(RuntimeState* state, vectorized::Block* input_
     bool has_filtered_rows = false;
     RETURN_IF_ERROR(_block_convertor->validate_and_convert_block(
             state, input_block, block, _output_vexpr_ctxs, rows, eos, has_filtered_rows));
+
+    _tablet_finder->clear_for_new_batch();
+
+
+    // add block to queue, TODO only add non filtered rows
     auto _cur_mutable_block = vectorized::MutableBlock::create_unique(block->clone_empty());
     {
         vectorized::IColumn::Selector selector;
@@ -139,11 +155,11 @@ Status GroupCommitBlockSink::close(RuntimeState* state, Status close_status) {
     LOG(INFO) << "sout: set total rows=" << num_rows_load_total;
     state->set_num_rows_load_total(num_rows_load_total);
     // TODO
-    /*state->update_num_rows_load_filtered(
+    state->update_num_rows_load_filtered(
             _block_convertor->num_filtered_rows() + _tablet_finder->num_filtered_rows() +
             state->num_rows_filtered_in_strict_mode_partial_update());
     state->update_num_rows_load_unselected(
-            _tablet_finder->num_immutable_partition_filtered_rows());*/
+            _tablet_finder->num_immutable_partition_filtered_rows());
     if (_load_block_queue) {
         _load_block_queue->remove_load_id(_load_id);
     }

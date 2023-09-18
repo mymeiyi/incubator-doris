@@ -176,9 +176,9 @@ suite("test_group_commit_stream_load") {
                 assertEquals("success", json.Status.toLowerCase())
                 assertTrue(json.GroupCommit)
                 assertEquals(6, json.NumberTotalRows)
-                // assertEquals(2, json.NumberLoadedRows)
-                // assertEquals(3, json.NumberFilteredRows)
-                // assertEquals(1, json.NumberUnselectedRows)
+                assertEquals(2, json.NumberLoadedRows)
+                assertEquals(3, json.NumberFilteredRows)
+                assertEquals(1, json.NumberUnselectedRows)
                 assertFalse(json.ErrorURL.isEmpty())
             }
         }

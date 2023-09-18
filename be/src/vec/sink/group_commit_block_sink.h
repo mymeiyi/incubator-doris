@@ -17,6 +17,7 @@
 
 #pragma once
 #include "exec/data_sink.h"
+#include "exec/tablet_info.h"
 #include "vec/exprs/vexpr_fwd.h"
 
 namespace doris {
@@ -28,6 +29,7 @@ class NewLoadBlockQueue;
 namespace stream_load {
 
 class OlapTableBlockConvertor;
+class OlapTabletFinder;
 
 class GroupCommitBlockSink : public DataSink {
 public:
@@ -46,11 +48,14 @@ public:
 
     Status close(RuntimeState* state, Status close_status) override;
 private:
+    ObjectPool* _pool;
 
     vectorized::VExprContextSPtrs _output_vexpr_ctxs;
 
     int _tuple_desc_id = -1;
     std::shared_ptr<OlapTableSchemaParam> _schema;
+    VOlapTablePartitionParam* _vpartition = nullptr;
+    std::unique_ptr<OlapTabletFinder> _tablet_finder;
 
     RuntimeState* _state = nullptr;
     std::shared_ptr<MemTracker> _mem_tracker;
