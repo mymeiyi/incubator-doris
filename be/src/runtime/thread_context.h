@@ -165,8 +165,8 @@ public:
         // will only attach_task at the beginning of the thread function, there should be no duplicate attach_task.
         DCHECK(mem_tracker);
         // Orphan is thread default tracker.
-        /*DCHECK(thread_mem_tracker()->label() == "Orphan")
-                << ", attach mem tracker label: " << mem_tracker->label();*/
+        DCHECK(thread_mem_tracker()->label() == "Orphan")
+                << ", attach mem tracker label: " << mem_tracker->label();
 #endif
         _task_id = task_id;
         _fragment_instance_id = fragment_instance_id;
