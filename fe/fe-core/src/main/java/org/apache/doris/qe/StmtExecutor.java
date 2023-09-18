@@ -1903,23 +1903,27 @@ public class StmtExecutor {
                     return;
                 }
 
-                if (Env.getCurrentGlobalTransactionMgr().commitAndPublishTransaction(
-                        insertStmt.getDbObj(), Lists.newArrayList(insertStmt.getTargetTable()),
-                        insertStmt.getTransactionId(),
-                        TabletCommitInfo.fromThrift(coord.getCommitInfos()),
-                        context.getSessionVariable().getInsertVisibleTimeoutMs())) {
-                    txnStatus = TransactionStatus.VISIBLE;
-                } else {
-                    txnStatus = TransactionStatus.COMMITTED;
+                if (!insertStmt.isGroupCommitLoad()) {
+                    if (Env.getCurrentGlobalTransactionMgr().commitAndPublishTransaction(
+                            insertStmt.getDbObj(), Lists.newArrayList(insertStmt.getTargetTable()),
+                            insertStmt.getTransactionId(),
+                            TabletCommitInfo.fromThrift(coord.getCommitInfos()),
+                            context.getSessionVariable().getInsertVisibleTimeoutMs())) {
+                        txnStatus = TransactionStatus.VISIBLE;
+                    } else {
+                        txnStatus = TransactionStatus.COMMITTED;
+                    }
                 }
 
             } catch (Throwable t) {
                 // if any throwable being thrown during insert operation, first we should abort this txn
                 LOG.warn("handle insert stmt fail: {}", label, t);
                 try {
-                    Env.getCurrentGlobalTransactionMgr().abortTransaction(
-                            insertStmt.getDbObj().getId(), insertStmt.getTransactionId(),
-                            t.getMessage() == null ? "unknown reason" : t.getMessage());
+                    if (!insertStmt.isGroupCommitLoad()) {
+                        Env.getCurrentGlobalTransactionMgr().abortTransaction(
+                                insertStmt.getDbObj().getId(), insertStmt.getTransactionId(),
+                                t.getMessage() == null ? "unknown reason" : t.getMessage());
+                    }
                 } catch (Exception abortTxnException) {
                     // just print a log if abort txn failed. This failure do not need to pass to user.
                     // user only concern abort how txn failed.

@@ -1554,6 +1554,8 @@ Status VOlapTableSink::send(RuntimeState* state, vectorized::Block* input_block,
     _number_input_rows += rows;
     // update incrementally so that FE can get the progress.
     // the real 'num_rows_load_total' will be set when sink being closed.
+    LOG(INFO) << "sout: add total rows=" << rows
+              << ", original rows=" << state->num_rows_load_total();
     state->update_num_rows_load_total(rows);
     state->update_num_bytes_load_total(bytes);
     DorisMetrics::instance()->load_rows->increment(rows);
@@ -1647,6 +1649,8 @@ Status VOlapTableSink::send(RuntimeState* state, vectorized::Block* input_block,
                 RETURN_IF_ERROR(_automatic_create_partition());
                 // now we need to rollback the metrics
                 _number_input_rows -= rows;
+                LOG(INFO) << "sout: - total rows=" << rows
+                          << ", original rows=" << state->num_rows_load_total();
                 state->update_num_rows_load_total(-rows);
                 state->update_num_bytes_load_total(-bytes);
                 DorisMetrics::instance()->load_rows->increment(-rows);
@@ -1919,6 +1923,7 @@ Status VOlapTableSink::close(RuntimeState* state, Status exec_status) {
             // _number_input_rows don't contain num_rows_load_filtered and num_rows_load_unselected in scan node
             int64_t num_rows_load_total = _number_input_rows + state->num_rows_load_filtered() +
                                           state->num_rows_load_unselected();
+            LOG(INFO) << "sout: set total rows=" << num_rows_load_total;
             state->set_num_rows_load_total(num_rows_load_total);
             state->update_num_rows_load_filtered(
                     _block_convertor->num_filtered_rows() + _tablet_finder->num_filtered_rows() +

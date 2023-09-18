@@ -1120,6 +1120,7 @@ public class NativeInsertStmt extends InsertStmt {
         return rangeBytes;
     }
 
+<<<<<<< HEAD
     public void setIsFromDeleteOrUpdateStmt(boolean isFromDeleteOrUpdateStmt) {
         this.isFromDeleteOrUpdateStmt = isFromDeleteOrUpdateStmt;
     }
@@ -1168,6 +1169,11 @@ public class NativeInsertStmt extends InsertStmt {
             slotDesc.setColumn(col);
             slotDesc.setIsNullable(col.isAllowNull());
         }
+    }
+
+    @Override
+    public boolean isGroupCommitLoad() {
+        return this.isGroupCommitLoad;
     }
 
     public void setGroupCommitLoad(boolean isGroupCommitLoad) {
