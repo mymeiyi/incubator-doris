@@ -76,16 +76,15 @@ private:
 
 class NewGroupCommitTable {
 public:
-    NewGroupCommitTable(ExecEnv* exec_env, int64_t db_id, int64_t table_id)
-            : _exec_env(exec_env), _db_id(db_id), _table_id(table_id) {};
+    NewGroupCommitTable(ExecEnv* exec_env, ThreadPool* thread_pool, int64_t db_id, int64_t table_id)
+            : _exec_env(exec_env), _thread_pool(thread_pool), _db_id(db_id), _table_id(table_id) {};
     Status get_first_block_load_queue(int64_t table_id, int64_t base_schema_version,
                                       std::shared_ptr<NewLoadBlockQueue>& load_block_queue);
     Status get_load_block_queue(const TUniqueId& instance_id,
                                 std::shared_ptr<NewLoadBlockQueue>& load_block_queue);
 
 private:
-    Status _create_group_commit_load(int64_t table_id,
-                                     std::shared_ptr<NewLoadBlockQueue>& load_block_queue);
+    Status _create_group_commit_load();
     Status _exec_plan_fragment(int64_t db_id, int64_t table_id, const std::string& label,
                                int64_t txn_id, bool is_pipeline,
                                const TExecPlanFragmentParams& params,
@@ -95,13 +94,17 @@ private:
                                      bool prepare_failed, RuntimeState* state);
 
     ExecEnv* _exec_env;
+    ThreadPool* _thread_pool;
     int64_t _db_id;
     int64_t _table_id;
-    doris::Mutex _lock;
+    bool _need_plan_fragment = false;
+    doris::Mutex _mutex;
+    doris::ConditionVariable _cv;
+    // doris::ConditionVariable _put_cv;
     // fragment_instance_id to load_block_queue
     std::unordered_map<UniqueId, std::shared_ptr<NewLoadBlockQueue>> _load_block_queues;
 
-    doris::Mutex _request_fragment_mutex;
+    // doris::Mutex _request_fragment_mutex;
 };
 
 class NewGroupCommitMgr {
@@ -115,13 +118,13 @@ public:
                                       std::shared_ptr<NewLoadBlockQueue>& load_block_queue);
 
 private:
-
-
     ExecEnv* _exec_env;
 
     doris::Mutex _lock;
     // TODO remove table when unused
     std::unordered_map<int64_t, std::shared_ptr<NewGroupCommitTable>> _table_map;
+
+    std::unique_ptr<ThreadPool> _thread_pool;
 };
 
 } // namespace doris

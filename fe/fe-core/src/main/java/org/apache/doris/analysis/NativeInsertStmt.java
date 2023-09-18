@@ -1120,7 +1120,6 @@ public class NativeInsertStmt extends InsertStmt {
         return rangeBytes;
     }
 
-<<<<<<< HEAD
     public void setIsFromDeleteOrUpdateStmt(boolean isFromDeleteOrUpdateStmt) {
         this.isFromDeleteOrUpdateStmt = isFromDeleteOrUpdateStmt;
     }
