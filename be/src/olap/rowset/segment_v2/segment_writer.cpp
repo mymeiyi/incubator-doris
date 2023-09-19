@@ -114,6 +114,8 @@ SegmentWriter::SegmentWriter(io::FileWriter* file_writer, uint32_t segment_id,
                 _key_coders.push_back(get_key_coder(column.type()));
                 _key_index_size.push_back(column.index_length());
             }
+            LOG(INFO) << "sout: primary key coder size=" << _primary_key_coders.size()
+                      << ", key coder size=" << _key_coders.size();
         }
     }
 }
@@ -754,7 +756,8 @@ Status SegmentWriter::append_block(const vectorized::Block* block, size_t row_po
             return converted_result.first;
         }
         auto cid = _column_ids[id];
-        if (_has_key && cid < _num_key_columns) {
+        // LOG(INFO) << "sout: id=" << id << ", cid=" << cid << ", has_key=" << _has_key;
+        if (_has_key && cid < _tablet_schema->num_key_columns()) {
             key_columns.push_back(converted_result.second);
         } else if (_has_key && _tablet_schema->has_sequence_col() &&
                    cid == _tablet_schema->sequence_col_idx()) {
@@ -763,7 +766,9 @@ Status SegmentWriter::append_block(const vectorized::Block* block, size_t row_po
         RETURN_IF_ERROR(_column_writers[id]->append(converted_result.second->get_nullmap(),
                                                     converted_result.second->get_data(), num_rows));
     }
-    // LOG(INFO) << "sout: key column is=" << show(key_columns) << ", size=" << key_columns.size();
+    LOG(INFO) << "sout: key column is=" << show(key_columns) << ", size=" << key_columns.size()
+              << ", _num_key_columns=" << _num_key_columns
+              << ", _column_writer size=" << _column_writers.size();
     if (_has_key) {
         bool need_primary_key_indexes = (_tablet_schema->keys_type() == UNIQUE_KEYS &&
                                          _opts.enable_unique_key_merge_on_write);
@@ -946,6 +951,7 @@ std::string SegmentWriter::_full_encode_keys(
         std::vector<const KeyCoder*>& key_coders,
         const std::vector<vectorized::IOlapColumnDataAccessor*>& key_columns, size_t pos,
         bool null_first) {
+    LOG(INFO) << "sout: key columns=" << key_columns.size() << ", key coders=" << key_coders.size();
     assert(key_columns.size() == key_coders.size());
 
     std::string encoded_keys;
