@@ -393,7 +393,7 @@ Status Segment::lookup_row_key(const Slice& key, bool with_seq_col, RowLocation*
     row_location->segment_id = _segment_id;
     row_location->rowset_id = _rowset_id;
 
-    auto get_sought_key = [&](Slice& sought_key) {
+    /*auto get_sought_key = [&](Slice& sought_key) {
         size_t num_to_read = 1;
         auto index_type = vectorized::DataTypeFactory::instance().create_data_type(
                 _pk_index_reader->type_info()->type(), 1, 0);
@@ -405,18 +405,24 @@ Status Segment::lookup_row_key(const Slice& key, bool with_seq_col, RowLocation*
         sought_key = Slice(index_column->get_data_at(0).data, index_column->get_data_at(0).size);
         LOG(INFO) << "sout: get_sought_key=" << sought_key.to_int_array();
         return Status::OK();
-    };
+    };*/
+
+    size_t num_to_read = 1;
+    auto index_type = vectorized::DataTypeFactory::instance().create_data_type(
+            _pk_index_reader->type_info()->type(), 1, 0);
+    auto index_column = index_type->create_column();
+    size_t num_read = num_to_read;
+    RETURN_IF_ERROR(index_iterator->next_batch(&num_read, index_column));
+    DCHECK(num_to_read == num_read);
+
+    Slice sought_key = Slice(index_column->get_data_at(0).data, index_column->get_data_at(0).size);
 
     if (has_seq_col) {
-        Slice sought_key;
-        RETURN_IF_ERROR(get_sought_key(sought_key));
         Slice sought_key_without_seq =
-                Slice(sought_key.get_data(), sought_key.get_size() - seq_col_length - rowid_length);
+                Slice(sought_key.get_data(), sought_key.get_size() - seq_col_length);
 
         // compare key
         if (key_without_seq.compare(sought_key_without_seq) != 0) {
-            LOG(INFO) << "sout: can not find key, rowset=" << rowset_id()
-                      << ", segment_id=" << _segment_id;
             return Status::Error<ErrorCode::KEY_NOT_FOUND>("Can't find key in the segment");
         }
 
@@ -433,22 +439,8 @@ Status Segment::lookup_row_key(const Slice& key, bool with_seq_col, RowLocation*
             return Status::Error<ErrorCode::KEY_ALREADY_EXISTS>(
                     "key with higher sequence id exists");
         }
-        if (has_rowid) {
-            Slice row_id = Slice(
-                    sought_key.get_data() + sought_key_without_seq.get_size() + seq_col_length + 2,
-                    rowid_length - 1);
-            row_location->row_id =
-                    *reinterpret_cast<const uint32_t*>(row_id.get_data(), row_id.get_size());
-            LOG(INFO) << "sout: rowset_id=" << row_location->rowset_id
-                      << ", segment_id=" << row_location->segment_id
-                      << ", row_id=" << row_location->row_id;
-        }
     }
     if (!has_seq_col && has_rowid) {
-        Slice sought_key;
-        LOG(INFO) << "sout: start get_sought_key";
-        RETURN_IF_ERROR(get_sought_key(sought_key));
-        LOG(INFO) << "sout: finish get_sought_key=";//<< sought_key.to_int_array();
         Slice sought_key_without_rowid =
                 Slice(sought_key.get_data(), sought_key.get_size() - rowid_length);
         // compare key
