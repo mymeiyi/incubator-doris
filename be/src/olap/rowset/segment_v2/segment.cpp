@@ -419,10 +419,14 @@ Status Segment::lookup_row_key(const Slice& key, bool with_seq_col, RowLocation*
 
     if (has_seq_col) {
         Slice sought_key_without_seq =
-                Slice(sought_key.get_data(), sought_key.get_size() - seq_col_length);
+                Slice(sought_key.get_data(), sought_key.get_size() - seq_col_length - rowid_length);
 
         // compare key
         if (key_without_seq.compare(sought_key_without_seq) != 0) {
+            LOG(INFO) << "sout: Can't find key in the segment, rowset=" << rowset_id()
+                      << ", segment_id=" << _segment_id << ", st=" << st.to_string()
+                      << ", has_seq_col=" << has_seq_col << ", exact_match=" << exact_match
+                      << ", has_rowid=" << has_rowid;
             return Status::Error<ErrorCode::KEY_NOT_FOUND>("Can't find key in the segment");
         }
 
