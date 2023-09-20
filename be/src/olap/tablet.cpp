@@ -2786,7 +2786,8 @@ Status Tablet::lookup_row_key(const Slice& encoded_key, bool with_seq_col,
         auto& rs = specified_rowsets[i];
         auto& segments_key_bounds = rs->rowset_meta()->get_segments_key_bounds();
         int num_segments = rs->num_segments();
-        LOG(INFO) << "sout: i=" << i << ", num_segments=" << num_segments;
+        LOG(INFO) << "sout: i=" << i << ", num_segments=" << num_segments << ", rowset version=["
+                  << rs->version().first << "," << rs->version().second << "]";
         DCHECK_EQ(segments_key_bounds.size(), num_segments);
         std::vector<uint32_t> picked_segments;
         for (int i = num_segments - 1; i >= 0; i--) {

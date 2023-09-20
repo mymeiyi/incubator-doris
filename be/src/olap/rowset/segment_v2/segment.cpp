@@ -363,7 +363,8 @@ Status Segment::lookup_row_key(const Slice& key, bool with_seq_col, RowLocation*
     Slice key_without_seq = Slice(
             key.get_data(), key.get_size() - (with_seq_col ? seq_col_length : 0) - rowid_length);
     LOG(INFO) << "sout: Segment::lookup_row_key, seq_col_len=" << seq_col_length
-              << ", rowid_len=" << rowid_length << ", len=" << key_without_seq.get_size()
+              << ", rowid_len=" << rowid_length
+              << ", key_without_seq_len=" << key_without_seq.get_size()
               << ", key_without_seq=" << key_without_seq.to_int_array();
 
     DCHECK(_pk_index_reader != nullptr);
@@ -377,9 +378,15 @@ Status Segment::lookup_row_key(const Slice& key, bool with_seq_col, RowLocation*
     RETURN_IF_ERROR(_pk_index_reader->new_iterator(&index_iterator));
     auto st = index_iterator->seek_at_or_after(&key_without_seq, &exact_match);
     if (!st.ok() && !st.is<ErrorCode::ENTRY_NOT_FOUND>()) {
+        LOG(INFO) << "sout: rowset=" << rowset_id() << ", segment_id=" << _segment_id
+                  << ", seek status =" << st.to_string();
         return st;
     }
-    if (st.is<ErrorCode::ENTRY_NOT_FOUND>() || (!has_seq_col && !exact_match)) {
+    if (st.is<ErrorCode::ENTRY_NOT_FOUND>() || (!has_seq_col && !has_rowid && !exact_match)) {
+        LOG(INFO) << "sout: Can't find key in the segment, rowset=" << rowset_id()
+                  << ", segment_id=" << _segment_id << ", st=" << st.to_string()
+                  << ", has_seq_col=" << has_seq_col << ", exact_match=" << exact_match
+                  << ", has_rowid=" << has_rowid;
         return Status::Error<ErrorCode::KEY_NOT_FOUND>("Can't find key in the segment");
     }
     row_location->row_id = index_iterator->get_current_ordinal();
@@ -396,6 +403,7 @@ Status Segment::lookup_row_key(const Slice& key, bool with_seq_col, RowLocation*
         DCHECK(num_to_read == num_read);
 
         sought_key = Slice(index_column->get_data_at(0).data, index_column->get_data_at(0).size);
+        LOG(INFO) << "sout: get_sought_key=" << sought_key.to_int_array();
         return Status::OK();
     };
 
@@ -407,6 +415,8 @@ Status Segment::lookup_row_key(const Slice& key, bool with_seq_col, RowLocation*
 
         // compare key
         if (key_without_seq.compare(sought_key_without_seq) != 0) {
+            LOG(INFO) << "sout: can not find key, rowset=" << rowset_id()
+                      << ", segment_id=" << _segment_id;
             return Status::Error<ErrorCode::KEY_NOT_FOUND>("Can't find key in the segment");
         }
 
@@ -436,7 +446,9 @@ Status Segment::lookup_row_key(const Slice& key, bool with_seq_col, RowLocation*
     }
     if (!has_seq_col && has_rowid) {
         Slice sought_key;
+        LOG(INFO) << "sout: start get_sought_key";
         RETURN_IF_ERROR(get_sought_key(sought_key));
+        LOG(INFO) << "sout: finish get_sought_key=";//<< sought_key.to_int_array();
         Slice sought_key_without_rowid =
                 Slice(sought_key.get_data(), sought_key.get_size() - rowid_length);
         // compare key

@@ -202,7 +202,7 @@ public:
                 ss << ", ";
             }
         }
-        ss << "]}";
+        ss << "], ptr=" << &data << "}";
         return ss.str();
     }
 
