@@ -289,6 +289,7 @@ public class OlapScanNode extends ScanNode {
 
     public void setSortInfo(SortInfo sortInfo) {
         this.sortInfo = sortInfo;
+        LOG.info("sout: set sort info to {}", this.sortInfo.toThrift());
     }
 
     public void setSortLimit(long sortLimit) {

@@ -23,6 +23,8 @@ import org.apache.doris.persist.gson.GsonUtils;
 import org.apache.doris.thrift.TSortType;
 
 import com.google.gson.annotations.SerializedName;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.io.DataInput;
 import java.io.DataOutput;
@@ -31,6 +33,7 @@ import java.util.Map;
 import java.util.Objects;
 
 public class DataSortInfo implements Writable {
+    private static final Logger LOG = LogManager.getLogger(DataSortInfo.class);
     public static final String DATA_SORT_PROPERTY_PREFIX = "data_sort";
     public static final String DATA_SORT_TYPE = "data_sort.sort_type";
     public static final String DATA_SORT_COL_NUM = "data_sort.col_num";
@@ -52,6 +55,9 @@ public class DataSortInfo implements Writable {
                 this.sortType = TSortType.LEXICAL;
             }
             this.colNum = Integer.parseInt(properties.get(DATA_SORT_COL_NUM));
+            if (this.colNum == 1) {
+                // LOG.info("sout: data sort col={}", this.colNum);
+            }
         }
     }
 
@@ -74,6 +80,7 @@ public class DataSortInfo implements Writable {
 
     public void setColNum(int colNum) {
         this.colNum = colNum;
+        LOG.info("sout: data sort col={}", this.colNum);
     }
 
     @Override
