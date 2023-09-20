@@ -80,6 +80,7 @@ public class SortNode extends PlanNode {
             boolean isDefaultLimit, long offset) {
         super(id, useTopN ? "TOP-N" : "SORT", StatisticalType.SORT_NODE);
         this.info = info;
+        LOG.info("sout: set sort info: {}", info.toThrift());
         this.useTopN = useTopN;
         this.isDefaultLimit = isDefaultLimit;
         this.tupleIds.addAll(Lists.newArrayList(info.getSortTupleDescriptor().getId()));
@@ -100,6 +101,7 @@ public class SortNode extends PlanNode {
     public SortNode(PlanNodeId id, SortNode inputSortNode, PlanNode child) {
         super(id, inputSortNode, inputSortNode.useTopN ? "TOP-N" : "SORT", StatisticalType.SORT_NODE);
         this.info = inputSortNode.info;
+        LOG.info("sout: set sort info: {}", info.toThrift());
         this.useTopN = inputSortNode.useTopN;
         this.isDefaultLimit = inputSortNode.isDefaultLimit;
         this.children.add(child);

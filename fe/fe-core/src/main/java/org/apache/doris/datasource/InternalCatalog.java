@@ -2130,9 +2130,11 @@ public class InternalCatalog implements CatalogIf<Database> {
         }
         olapTable.setCompressionType(compressionType);
 
-        // check data sort properties, TODO: handle cluster keys
+        // check data sort properties
+        int keyColumnSize = CollectionUtils.isEmpty(keysDesc.getClusterKeysColumnIds()) ? keysDesc.keysColumnSize() :
+                keysDesc.getClusterKeysColumnIds().size();
         DataSortInfo dataSortInfo = PropertyAnalyzer.analyzeDataSortInfo(properties, keysType,
-                keysDesc.keysColumnSize(), storageFormat);
+                keyColumnSize, storageFormat);
         olapTable.setDataSortInfo(dataSortInfo);
 
         boolean enableUniqueKeyMergeOnWrite = false;

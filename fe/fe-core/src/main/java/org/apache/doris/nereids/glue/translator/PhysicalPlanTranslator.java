@@ -197,6 +197,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -2280,12 +2281,29 @@ public class PhysicalPlanTranslator extends DefaultPlanVisitor<PlanFragment, Pla
         List<Expr> sortExprs = sortNode.getSortInfo().getOrderingExprs();
         List<Boolean> nullsFirsts = sortNode.getSortInfo().getNullsFirst();
         List<Boolean> isAscOrders = sortNode.getSortInfo().getIsAscOrder();
+        LOG.info("sout: data sort info={}, sortExprs size={}, sortExprs={}", olapTable.getDataSortInfo().toSql(),
+                sortExprs.size(), sortExprs);
         if (sortExprs.size() > olapTable.getDataSortInfo().getColNum()) {
             return false;
         }
+        List<Column> sortKeyColumns = olapTable.getFullSchema();
+        if (olapTable.getEnableUniqueKeyMergeOnWrite()) {
+            Map<Integer, Column> clusterKeyMap = new TreeMap<>();
+            for (Column column : olapTable.getFullSchema()) {
+                if (column.getClusterKeyId() != -1) {
+                    clusterKeyMap.put(column.getClusterKeyId(), column);
+                }
+            }
+            if (!clusterKeyMap.isEmpty()) {
+                sortKeyColumns.clear();
+                sortKeyColumns.addAll(clusterKeyMap.values());
+            }
+        }
+        LOG.info("sout: sort key is={}", sortKeyColumns);
+        // if (olapTable.)
         for (int i = 0; i < sortExprs.size(); i++) {
             // table key.
-            Column tableKey = olapTable.getFullSchema().get(i);
+            Column tableKey = sortKeyColumns.get(i);
             // sort slot.
             Expr sortExpr = sortExprs.get(i);
             if (sortExpr instanceof SlotRef) {
