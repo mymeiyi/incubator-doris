@@ -1810,6 +1810,7 @@ public class Coordinator implements CoordInterface {
 
                     for (Integer planNodeId : value.keySet()) {
                         List<TScanRangeParams> perNodeScanRanges = value.get(planNodeId);
+                        LOG.info("sout: scan range size={}", perNodeScanRanges.size());
                         List<List<TScanRangeParams>> perInstanceScanRanges = Lists.newArrayList();
                         List<Boolean> sharedScanOpts = Lists.newArrayList();
 
@@ -2025,6 +2026,7 @@ public class Coordinator implements CoordInterface {
                     instanceParam.bucketSeqSet.add(nodeScanRangeMap.first);
                     for (Map.Entry<Integer, List<TScanRangeParams>> nodeScanRange
                             : nodeScanRangeMap.second.entrySet()) {
+                        LOG.info("sout: add scan range size={}", nodeScanRange.getValue().size());
                         if (!instanceParam.perNodeScanRanges.containsKey(nodeScanRange.getKey())) {
                             range.put(nodeScanRange.getKey(), Lists.newArrayList());
                             instanceParam.perNodeScanRanges.put(nodeScanRange.getKey(), Lists.newArrayList());
@@ -2228,6 +2230,7 @@ public class Coordinator implements CoordInterface {
                     new HashMap<Integer, List<TScanRangeParams>>());
             List<TScanRangeParams> scanRangeParamsList = findOrInsert(scanRanges, scanNode.getId().asInt(),
                     new ArrayList<TScanRangeParams>());
+            LOG.info("sout: scan range size={}", scanRangeParamsList.size());
             // add scan range
             TScanRangeParams scanRangeParams = new TScanRangeParams();
             scanRangeParams.scan_range = scanRangeLocations.scan_range;
@@ -2696,6 +2699,7 @@ public class Coordinator implements CoordInterface {
                                 instanceParam.perNodeScanRanges.put(nodeScanRange.getKey(), Lists.newArrayList());
                             }
                             range.get(nodeScanRange.getKey()).addAll(nodeScanRange.getValue());
+                            LOG.info("sout: add scan range size={}", nodeScanRange.getValue().size());
                             instanceParam.perNodeScanRanges.get(nodeScanRange.getKey())
                                     .addAll(nodeScanRange.getValue());
                         }

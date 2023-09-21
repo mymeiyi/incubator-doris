@@ -71,6 +71,8 @@ Status Segment::open(io::FileSystemSPtr fs, const std::string& path, uint32_t se
                      RowsetId rowset_id, TabletSchemaSPtr tablet_schema,
                      const io::FileReaderOptions& reader_options,
                      std::shared_ptr<Segment>* output) {
+    LOG(INFO) << "sout: Segment::open, path=" << path << ", segment_id=" << segment_id
+              << ", rowset_id=" << rowset_id;
     io::FileReaderSPtr file_reader;
     RETURN_IF_ERROR(fs->open_file(path, &file_reader, &reader_options));
     std::shared_ptr<Segment> segment(new Segment(segment_id, rowset_id, tablet_schema));
@@ -94,6 +96,7 @@ Segment::~Segment() {
 }
 
 Status Segment::_open() {
+    LOG(INFO) << "sout: Segment::_open, segment_id=" << _segment_id << ", rowset_id=" << _rowset_id;
     SegmentFooterPB footer;
     RETURN_IF_ERROR(_parse_footer(&footer));
     RETURN_IF_ERROR(_create_column_readers(footer));
@@ -109,6 +112,7 @@ Status Segment::_open() {
 
 Status Segment::new_iterator(SchemaSPtr schema, const StorageReadOptions& read_options,
                              std::unique_ptr<RowwiseIterator>* iter) {
+    LOG(INFO) << "sout: Segment::new_iterator";
     read_options.stats->total_segment_number++;
     // trying to prune the current segment by segment-level zone map
     for (auto& entry : read_options.col_id_to_predicates) {
@@ -161,6 +165,7 @@ Status Segment::new_iterator(SchemaSPtr schema, const StorageReadOptions& read_o
 }
 
 Status Segment::_parse_footer(SegmentFooterPB* footer) {
+    LOG(INFO) << "sout: Segment::_parse_footer";
     // Footer := SegmentFooterPB, FooterPBSize(4), FooterPBChecksum(4), MagicNumber(4)
     auto file_size = _file_reader->size();
     if (file_size < 12) {
@@ -212,6 +217,7 @@ Status Segment::_parse_footer(SegmentFooterPB* footer) {
 }
 
 Status Segment::_load_pk_bloom_filter() {
+    LOG(INFO) << "sout: Segment::_load_pk_bloom_filter";
     DCHECK(_tablet_schema->keys_type() == UNIQUE_KEYS);
     DCHECK(_pk_index_meta != nullptr);
     DCHECK(_pk_index_reader != nullptr);
@@ -224,11 +230,13 @@ Status Segment::_load_pk_bloom_filter() {
 }
 
 Status Segment::load_pk_index_and_bf() {
+    LOG(INFO) << "sout: Segment::load_pk_index_and_bf";
     RETURN_IF_ERROR(load_index());
     RETURN_IF_ERROR(_load_pk_bloom_filter());
     return Status::OK();
 }
 Status Segment::load_index() {
+    LOG(INFO) << "sout: Segment::load_index";
     return _load_index_once.call([this] {
         if (_tablet_schema->keys_type() == UNIQUE_KEYS && _pk_index_meta != nullptr) {
             _pk_index_reader.reset(new PrimaryKeyIndexReader());
@@ -265,6 +273,7 @@ Status Segment::load_index() {
 }
 
 Status Segment::_create_column_readers(const SegmentFooterPB& footer) {
+    LOG(INFO) << "sout: Segment::_create_column_readers";
     std::unordered_map<uint32_t, uint32_t> column_id_to_footer_ordinal;
 
     for (uint32_t ordinal = 0; ordinal < footer.columns().size(); ++ordinal) {
@@ -299,6 +308,7 @@ Status Segment::_create_column_readers(const SegmentFooterPB& footer) {
 // but they are not the same column
 Status Segment::new_column_iterator(const TabletColumn& tablet_column,
                                     std::unique_ptr<ColumnIterator>* iter) {
+    LOG(INFO) << "sout: Segment::new_column_iterator";
     if (_column_readers.count(tablet_column.unique_id()) < 1) {
         if (!tablet_column.has_default_value() && !tablet_column.is_nullable()) {
             return Status::InternalError("invalid nonexistent column without default value.");
@@ -323,6 +333,7 @@ Status Segment::new_column_iterator(const TabletColumn& tablet_column,
 
 Status Segment::new_bitmap_index_iterator(const TabletColumn& tablet_column,
                                           std::unique_ptr<BitmapIndexIterator>* iter) {
+    LOG(INFO) << "sout: Segment::new_bitmap_index_iterator";
     auto col_unique_id = tablet_column.unique_id();
     if (_column_readers.count(col_unique_id) > 0 &&
         _column_readers.at(col_unique_id)->has_bitmap_index()) {
@@ -348,6 +359,7 @@ Status Segment::new_inverted_index_iterator(const TabletColumn& tablet_column,
 }
 
 Status Segment::lookup_row_key(const Slice& key, bool with_seq_col, RowLocation* row_location) {
+    LOG(INFO) << "sout: Segment::lookup_row_key";
     RETURN_IF_ERROR(load_pk_index_and_bf());
     bool has_seq_col = _tablet_schema->has_sequence_col();
     bool has_rowid = !_tablet_schema->cluster_key_idxes().empty();
@@ -469,6 +481,7 @@ Status Segment::lookup_row_key(const Slice& key, bool with_seq_col, RowLocation*
 }
 
 Status Segment::read_key_by_rowid(uint32_t row_id, std::string* key) {
+    LOG(INFO) << "sout: Segment::read_key_by_rowid, row_id=" << row_id << ", key=" << *key;
     RETURN_IF_ERROR(load_pk_index_and_bf());
     std::unique_ptr<segment_v2::IndexedColumnIterator> iter;
     RETURN_IF_ERROR(_pk_index_reader->new_iterator(&iter));

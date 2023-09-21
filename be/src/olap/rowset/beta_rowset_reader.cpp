@@ -101,8 +101,13 @@ Status BetaRowsetReader::get_segment_iterators(RowsetReaderContext* read_context
     _read_options.rowset_id = _rowset->rowset_id();
     _read_options.version = _rowset->version();
     _read_options.tablet_id = _rowset->rowset_meta()->tablet_id();
+    LOG(INFO) << "sout: lower bound key size=" << _read_context->lower_bound_keys->size()
+              << ", upper bound key size=" << _read_context->upper_bound_keys->size();
     if (_read_context->lower_bound_keys != nullptr) {
         for (int i = 0; i < _read_context->lower_bound_keys->size(); ++i) {
+            LOG(INFO) << "sout: lower bound key="
+                      << _read_context->lower_bound_keys->at(i).to_string()
+                      << ", upper bound key=" << _read_context->upper_bound_keys->at(i).to_string();
             _read_options.key_ranges.emplace_back(&_read_context->lower_bound_keys->at(i),
                                                   _read_context->is_lower_keys_included->at(i),
                                                   &_read_context->upper_bound_keys->at(i),
@@ -184,6 +189,7 @@ Status BetaRowsetReader::get_segment_iterators(RowsetReaderContext* read_context
     }
 
     if (_should_push_down_value_predicates()) {
+        LOG(INFO) << "sout: push down value predicates";
         if (_read_context->value_predicates != nullptr) {
             _read_options.column_predicates.insert(_read_options.column_predicates.end(),
                                                    _read_context->value_predicates->begin(),
@@ -252,6 +258,9 @@ Status BetaRowsetReader::init(RowsetReaderContext* read_context, const RowSetSpl
     _read_context = read_context;
     _read_context->rowset_id = _rowset->rowset_id();
     _segment_offsets = rs_splits.segment_offsets;
+    LOG(INFO) << "sout: BetaRowsetReader::init, rowset_id=" << _read_context->rowset_id
+              << ", segment_offsets=[" << _segment_offsets.first << ", " << _segment_offsets.second
+              << "]";
     return Status::OK();
 }
 
@@ -262,6 +271,7 @@ Status BetaRowsetReader::_init_iterator_once() {
 Status BetaRowsetReader::_init_iterator() {
     std::vector<RowwiseIteratorUPtr> iterators;
     RETURN_IF_ERROR(get_segment_iterators(_read_context, &iterators));
+    LOG(INFO) << "sout: segment iter size=" << iterators.size();
 
     // merge or union segment iterator
     if (_is_merge_iterator()) {
@@ -277,12 +287,15 @@ Status BetaRowsetReader::_init_iterator() {
         _iterator = vectorized::new_merge_iterator(
                 std::move(iterators), sequence_loc, _read_context->is_unique,
                 _read_context->read_orderby_key_reverse, _read_context->merged_rows);
+        LOG(INFO) << "sout: BetaRowsetReader::_init_iterator, use merge iterator";
     } else {
         if (_read_context->read_orderby_key_reverse) {
             // reverse iterators to read backward for ORDER BY key DESC
             std::reverse(iterators.begin(), iterators.end());
+            LOG(INFO) << "sout: read_orderby_key_reverse, reverse iterators";
         }
         _iterator = vectorized::new_union_iterator(std::move(iterators));
+        LOG(INFO) << "sout: BetaRowsetReader::_init_iterator, use union iterator";
     }
 
     auto s = _iterator->init(_read_options);
@@ -295,9 +308,11 @@ Status BetaRowsetReader::_init_iterator() {
 }
 
 Status BetaRowsetReader::next_block(vectorized::Block* block) {
+    LOG(INFO) << "sout: BetaRowsetReader::next_block";
     SCOPED_RAW_TIMER(&_stats->block_fetch_ns);
     _init_iterator_once();
     if (_empty) {
+        LOG(INFO) << "sout: BetaRowsetReader::next_block, return empty";
         return Status::Error<END_OF_FILE>("BetaRowsetReader is empty");
     }
 
@@ -307,14 +322,17 @@ Status BetaRowsetReader::next_block(vectorized::Block* block) {
             if (!s.is<END_OF_FILE>()) {
                 LOG(WARNING) << "failed to read next block: " << s.to_string();
             }
+            LOG(INFO) << "sout: BetaRowsetReader::next_block, return " << s.to_string();
             return s;
         }
     } while (block->empty());
 
+    LOG(INFO) << "sout: BetaRowsetReader::next_block, return " << block->rows();
     return Status::OK();
 }
 
 Status BetaRowsetReader::next_block_view(vectorized::BlockView* block_view) {
+    LOG(INFO) << "sout: BetaRowsetReader::next_block_view";
     SCOPED_RAW_TIMER(&_stats->block_fetch_ns);
     _init_iterator_once();
     do {
@@ -334,11 +352,12 @@ bool BetaRowsetReader::_should_push_down_value_predicates() const {
     // if unique table with rowset [0-x] or [0-1] [2-y] [...],
     // value column predicates can be pushdown on rowset [0-x] or [2-y], [2-y]
     // must be compaction, not overlapping and don't have sequence column
-    return _rowset->keys_type() == UNIQUE_KEYS &&
+    /*return _rowset->keys_type() == UNIQUE_KEYS &&
            (((_rowset->start_version() == 0 || _rowset->start_version() == 2) &&
              !_rowset->_rowset_meta->is_segments_overlapping() &&
              _read_context->sequence_id_idx == -1) ||
-            _read_context->enable_unique_key_merge_on_write);
+            _read_context->enable_unique_key_merge_on_write);*/
+    return false;
 }
 
 Status BetaRowsetReader::get_segment_num_rows(std::vector<uint32_t>* segment_num_rows) {

@@ -637,7 +637,7 @@ Status TabletReader::init_reader_params_and_create_block(
     reader_params->reader_type = reader_type;
     reader_params->version =
             Version(input_rowsets.front()->start_version(), input_rowsets.back()->end_version());
-
+    LOG(INFO) << "sout: input rowset size=" << input_rowsets.size();
     for (auto& rowset : input_rowsets) {
         RowsetReaderSharedPtr rs_reader;
         RETURN_IF_ERROR(rowset->create_reader(&rs_reader));

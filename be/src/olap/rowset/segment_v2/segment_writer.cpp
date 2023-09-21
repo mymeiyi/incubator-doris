@@ -89,7 +89,12 @@ SegmentWriter::SegmentWriter(io::FileWriter* file_writer, uint32_t segment_id,
     if (_tablet_schema->cluster_key_idxes().empty()) {
         LOG(INFO) << "sout: cluster key size=" << _tablet_schema->cluster_key_idxes().size()
                   << ", table_id=" << _tablet_schema->table_id();
-        DCHECK(_num_key_columns >= _num_short_key_columns);
+        DCHECK(_num_key_columns >= _num_short_key_columns)
+                << ", num_key_columns=" << _num_key_columns
+                << ", num_short_key_columns=" << _num_short_key_columns
+                << ", cluster_key_columns=" << _tablet_schema->cluster_key_idxes().size()
+                << ", tablet_id=" << _tablet_schema->table_id()
+                << ", table_id=" << _tablet_schema->table_id();
     }
     for (size_t cid = 0; cid < _num_key_columns; ++cid) {
         const auto& column = _tablet_schema->column(cid);
