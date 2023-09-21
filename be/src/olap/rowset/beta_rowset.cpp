@@ -143,6 +143,9 @@ Status BetaRowset::load_segment(int64_t seg_id, segment_v2::SegmentSharedPtr* se
 }
 
 Status BetaRowset::create_reader(RowsetReaderSharedPtr* result) {
+    LOG(INFO) << "sout: BetaRowset::create_reader, rowset_id=" << rowset_id().to_string()
+              << ", version=" << start_version() << "-" << end_version()
+              << ", tabletid=" << _rowset_meta->tablet_id();
     // NOTE: We use std::static_pointer_cast for performance
     result->reset(new BetaRowsetReader(std::static_pointer_cast<BetaRowset>(shared_from_this())));
     return Status::OK();

@@ -397,9 +397,12 @@ Status NewOlapScanNode::_should_push_down_function_filter(VectorizedFnCall* fn_c
 //}
 // every doris_scan_range is related with one tablet so that one olap scan node contains multiple tablet
 void NewOlapScanNode::set_scan_ranges(const std::vector<TScanRangeParams>& scan_ranges) {
+    LOG(INFO) << "sout: will add scan node size=" << scan_ranges.size();
     for (auto& scan_range : scan_ranges) {
         DCHECK(scan_range.scan_range.__isset.palo_scan_range);
         _scan_ranges.emplace_back(new TPaloScanRange(scan_range.scan_range.palo_scan_range));
+        LOG(INFO) << "sout: add a new scan range, tablet_id="
+                  << scan_range.scan_range.palo_scan_range.tablet_id;
         COUNTER_UPDATE(_tablet_counter, 1);
     }
     // telemetry::set_current_span_attribute(_tablet_counter);
@@ -456,6 +459,7 @@ Status NewOlapScanNode::_init_scanners(std::list<VScannerSPtr>* scanners) {
         for (int i = 0; i < _scan_ranges.size(); ++i) {
             auto& scan_range = _scan_ranges[i];
             auto tablet_id = scan_range->tablet_id;
+            LOG(INFO) << "sout: will read tablet_id=" << tablet_id;
             auto [tablet, status] =
                     StorageEngine::instance()->tablet_manager()->get_tablet_and_status(tablet_id,
                                                                                        true);
@@ -476,6 +480,7 @@ Status NewOlapScanNode::_init_scanners(std::list<VScannerSPtr>* scanners) {
             // acquire tablet rowset readers at the beginning of the scan node
             // to prevent this case: when there are lots of olap scanners to run for example 10000
             // the rowsets maybe compacted when the last olap scanner starts
+            LOG(INFO) << "sout: call tablet->capture_rs_readers";
             Status acquire_reader_st =
                     tablet->capture_rs_readers({0, version}, &rowset_splits_vector[i]);
             if (!acquire_reader_st.ok()) {

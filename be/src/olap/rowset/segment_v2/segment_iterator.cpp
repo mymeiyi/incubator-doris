@@ -211,6 +211,7 @@ SegmentIterator::SegmentIterator(std::shared_ptr<Segment> segment, SchemaSPtr sc
           _pool(new ObjectPool) {}
 
 Status SegmentIterator::init(const StorageReadOptions& opts) {
+    LOG(INFO) << "sout: SegmentIterator::init";
     // get file handle from file descriptor of segment
     if (_inited) {
         return Status::OK();
@@ -262,6 +263,7 @@ Status SegmentIterator::init(const StorageReadOptions& opts) {
 }
 
 Status SegmentIterator::init_iterators() {
+    LOG(INFO) << "sout: SegmentIterator::init_iterators";
     RETURN_IF_ERROR(_init_return_column_iterators());
     RETURN_IF_ERROR(_init_bitmap_index_iterators());
     RETURN_IF_ERROR(_init_inverted_index_iterators());
@@ -1803,7 +1805,9 @@ Status SegmentIterator::_next_batch_internal(vectorized::Block* block) {
         }
     }
 
+    LOG(INFO) << "sout: start read block, rows=" << block->rows();
     _init_current_block(block, _current_return_columns);
+    LOG(INFO) << "sout: finish read block, rows=" << block->rows();
 
     _current_batch_rows_read = 0;
     uint32_t nrows_read_limit = _opts.block_row_max;
@@ -1819,6 +1823,7 @@ Status SegmentIterator::_next_batch_internal(vectorized::Block* block) {
     RETURN_IF_ERROR(_read_columns_by_index(
             nrows_read_limit, _current_batch_rows_read,
             _lazy_materialization_read || _opts.record_rowids || _is_need_expr_eval));
+    LOG(INFO) << "sout: _read_columns_by_index, rows=" << _current_batch_rows_read;
     if (std::find(_first_read_column_ids.begin(), _first_read_column_ids.end(),
                   _schema->version_col_idx()) != _first_read_column_ids.end()) {
         _replace_version_col(_current_batch_rows_read);
@@ -1836,6 +1841,7 @@ Status SegmentIterator::_next_batch_internal(vectorized::Block* block) {
             }
         }
         block->clear_column_data();
+        LOG(INFO) << "sout: no more data in segment";
         return Status::EndOfFile("no more data in segment");
     }
 

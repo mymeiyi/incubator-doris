@@ -227,6 +227,7 @@ Status NewOlapScanner::init() {
                 // to prevent this case: when there are lots of olap scanners to run for example 10000
                 // the rowsets maybe compacted when the last olap scanner starts
                 Version rd_version(0, _version);
+                LOG(INFO) << "sout: call _tablet->capture_rs_readers";
                 Status acquire_reader_st =
                         _tablet->capture_rs_readers(rd_version, &_tablet_reader_params.rs_splits);
                 if (!acquire_reader_st.ok()) {

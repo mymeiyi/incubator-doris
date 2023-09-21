@@ -684,6 +684,7 @@ public class OlapScanNode extends ScanNode {
         DistributionPruner distributionPruner = null;
         switch (distributionInfo.getType()) {
             case HASH: {
+                // TODO: cluster key
                 HashDistributionInfo info = (HashDistributionInfo) distributionInfo;
                 distributionPruner = new HashDistributionPruner(table.getTabletIdsInOrder(),
                         info.getDistributionColumns(),
@@ -691,6 +692,7 @@ public class OlapScanNode extends ScanNode {
                         info.getBucketNum(),
                         getSelectedIndexId() == olapTable.getBaseIndexId());
                 return distributionPruner.prune();
+                // return null;
             }
             case RANDOM: {
                 return null;

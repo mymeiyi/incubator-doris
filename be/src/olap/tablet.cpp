@@ -939,6 +939,7 @@ Status Tablet::capture_rs_readers(const Version& spec_version,
 Status Tablet::capture_rs_readers(const std::vector<Version>& version_path,
                                   std::vector<RowSetSplits>* rs_splits) const {
     DCHECK(rs_splits != nullptr && rs_splits->empty());
+    LOG(INFO) << "sout: Tablet::capture_rs_readers";
     for (auto version : version_path) {
         auto it = _rs_version_map.find(version);
         if (it == _rs_version_map.end()) {
