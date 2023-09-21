@@ -1,1 +1,1 @@
-drop table `date`;
+truncate table `date`;

@@ -190,6 +190,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -2945,6 +2946,14 @@ public class InternalCatalog implements CatalogIf<Database> {
         Set<Long> tabletIdSet = Sets.newHashSet();
         long bufferSize = IdGeneratorUtil.getBufferSizeForTruncateTable(copiedTbl, origPartitions.values());
         IdGeneratorBuffer idGeneratorBuffer = Env.getCurrentEnv().getIdGeneratorBuffer(bufferSize);
+        Map<Integer, Integer> clusterKeyMap = new TreeMap<>();
+        for (int i = 0; i < olapTable.getBaseSchema().size(); i++) {
+            Column column = olapTable.getBaseSchema().get(i);
+            if (column.getClusterKeyId() != -1) {
+                clusterKeyMap.put(column.getClusterKeyId(), i);
+            }
+        }
+        List<Integer> clusterKeyIdxes = clusterKeyMap.values().stream().collect(Collectors.toList());
         try {
             for (Map.Entry<String, Long> entry : origPartitions.entrySet()) {
                 // the new partition must use new id
@@ -2970,7 +2979,8 @@ public class InternalCatalog implements CatalogIf<Database> {
                         olapTable.getTimeSeriesCompactionFileCountThreshold(),
                         olapTable.getTimeSeriesCompactionTimeThresholdSeconds(),
                         olapTable.storeRowColumn(), binlogConfig,
-                        copiedTbl.getPartitionInfo().getDataProperty(oldPartitionId).isStorageMediumSpecified(), null);
+                        copiedTbl.getPartitionInfo().getDataProperty(oldPartitionId).isStorageMediumSpecified(),
+                        clusterKeyIdxes);
                 newPartitions.add(newPartition);
             }
         } catch (DdlException e) {

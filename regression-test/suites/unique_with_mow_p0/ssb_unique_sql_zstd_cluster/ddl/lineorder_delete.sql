@@ -1,1 +1,1 @@
-drop table lineorder;
+truncate table lineorder;
