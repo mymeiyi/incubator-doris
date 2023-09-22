@@ -310,7 +310,7 @@ Status BetaRowsetReader::_init_iterator() {
 Status BetaRowsetReader::next_block(vectorized::Block* block) {
     LOG(INFO) << "sout: BetaRowsetReader::next_block";
     SCOPED_RAW_TIMER(&_stats->block_fetch_ns);
-    RETURN_IF_ERROR(_init_iterator_once());
+    _init_iterator_once();
     if (_empty) {
         LOG(INFO) << "sout: BetaRowsetReader::next_block, return empty";
         return Status::Error<END_OF_FILE>("BetaRowsetReader is empty");
@@ -334,7 +334,7 @@ Status BetaRowsetReader::next_block(vectorized::Block* block) {
 Status BetaRowsetReader::next_block_view(vectorized::BlockView* block_view) {
     LOG(INFO) << "sout: BetaRowsetReader::next_block_view";
     SCOPED_RAW_TIMER(&_stats->block_fetch_ns);
-    RETURN_IF_ERROR(_init_iterator_once());
+    _init_iterator_once();
     do {
         auto s = _iterator->next_block_view(block_view);
         if (!s.ok()) {

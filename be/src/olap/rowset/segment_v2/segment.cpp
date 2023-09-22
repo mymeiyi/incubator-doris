@@ -238,18 +238,13 @@ Status Segment::load_pk_index_and_bf() {
 Status Segment::load_index() {
     LOG(INFO) << "sout: Segment::load_index";
     return _load_index_once.call([this] {
-        bool load_short_key_index =
-                !(_tablet_schema->keys_type() == UNIQUE_KEYS && _pk_index_meta != nullptr) ||
-                (_tablet_schema->keys_type() == UNIQUE_KEYS &&
-                 !_tablet_schema->cluster_key_idxes().empty());
         if (_tablet_schema->keys_type() == UNIQUE_KEYS && _pk_index_meta != nullptr) {
             _pk_index_reader.reset(new PrimaryKeyIndexReader());
             RETURN_IF_ERROR(_pk_index_reader->parse_index(_file_reader, *_pk_index_meta));
             _meta_mem_usage += _pk_index_reader->get_memory_size();
             _segment_meta_mem_tracker->consume(_pk_index_reader->get_memory_size());
-            LOG(INFO) << "sout: Segment::load_index, load pk index, segment_id=" << _segment_id;
-        }
-        if (load_short_key_index) {
+            return Status::OK();
+        } else {
             // read and parse short key index page
             OlapReaderStatistics tmp_stats;
             PageReadOptions opts {
@@ -272,10 +267,8 @@ Status Segment::load_index() {
             _meta_mem_usage += body.get_size();
             _segment_meta_mem_tracker->consume(body.get_size());
             _sk_index_decoder.reset(new ShortKeyIndexDecoder);
-            RETURN_IF_ERROR(_sk_index_decoder->parse(body, footer.short_key_page_footer()));
-            LOG(INFO) << "sout: Segment::load_index, load short key index, segment_id=" << _segment_id;
+            return _sk_index_decoder->parse(body, footer.short_key_page_footer());
         }
-        return Status::OK();
     });
 }
 
