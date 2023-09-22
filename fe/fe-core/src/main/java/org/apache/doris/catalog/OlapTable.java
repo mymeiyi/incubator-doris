@@ -356,13 +356,6 @@ public class OlapTable extends Table {
                 null, null, indexes);
     }
 
-    public void setIndexMeta(long indexId, String indexName, List<Column> schema, int schemaVersion, int schemaHash,
-            short shortKeyColumnCount, TStorageType storageType, KeysType keysType, List<Index> indexes,
-            List<Integer> clusterKeyIdxes) {
-        setIndexMeta(indexId, indexName, schema, schemaVersion, schemaHash, shortKeyColumnCount, storageType,
-                keysType, null, null, indexes, clusterKeyIdxes);
-    }
-
     public void setIndexMeta(long indexId, String indexName, List<Column> schema, int schemaVersion,
             int schemaHash,
             short shortKeyColumnCount, TStorageType storageType, KeysType keysType, OriginStatement origStmt,
@@ -406,14 +399,6 @@ public class OlapTable extends Table {
 
         indexIdToMeta.put(indexId, indexMeta);
         indexNameToId.put(indexName, indexId);
-    }
-
-    public void setIndexMeta(long indexId, String indexName, List<Column> schema, int schemaVersion,
-            int schemaHash, short shortKeyColumnCount, TStorageType storageType, KeysType keysType,
-            OriginStatement origStmt, Analyzer analyzer, List<Index> indexes, List<Integer> clusterKeyIdxes) {
-        setIndexMeta(indexId, indexName, schema, schemaVersion, schemaHash, shortKeyColumnCount, storageType,
-                keysType, origStmt, analyzer, indexes);
-        // this.clusterKeyIdxes = clusterKeyIdxes;
     }
 
     // rebuild the full schema of table
