@@ -818,15 +818,18 @@ Status SegmentWriter::append_block(const vectorized::Block* block, size_t row_po
                         if (_tablet_schema->has_sequence_col()) {
                             seq_col_length =
                                     _tablet_schema->column(_tablet_schema->sequence_col_idx())
-                                            .length() + 1;
+                                            .length() +
+                                    1;
                         }
                         Slice key_slice(key);
                         size_t rowid_length = sizeof(uint32_t) + 1;
-                        Slice key_without_seq = Slice(
-                                key_slice.get_data(), key_slice.get_size() - seq_col_length - rowid_length);
-                        Slice rowid_slice = Slice(
-                                key_slice.get_data() + key_without_seq.get_size() + seq_col_length + 1,
-                                rowid_length - 1);
+                        Slice key_without_seq =
+                                Slice(key_slice.get_data(),
+                                      key_slice.get_size() - seq_col_length - rowid_length);
+                        Slice rowid_slice =
+                                Slice(key_slice.get_data() + key_without_seq.get_size() +
+                                              seq_col_length + 1,
+                                      rowid_length - 1);
                         uint32_t row_id = 0;
                         _rowid_coder->decode_ascending(&rowid_slice, rowid_length,
                                                        (uint8_t*)&row_id);
