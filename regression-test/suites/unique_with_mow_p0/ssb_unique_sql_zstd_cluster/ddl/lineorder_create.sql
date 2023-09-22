@@ -31,5 +31,6 @@ DISTRIBUTED BY HASH(`lo_orderkey`) BUCKETS 48
 PROPERTIES (
 "compression"="zstd",
 "replication_num" = "1",
+"disable_auto_compaction" = "true",
 "enable_unique_key_merge_on_write" = "true"
 );
