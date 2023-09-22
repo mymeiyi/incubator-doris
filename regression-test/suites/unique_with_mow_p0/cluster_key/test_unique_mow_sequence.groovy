@@ -36,6 +36,7 @@ suite("test_unique_mow_sequence") {
                     "function_column.sequence_type" = 'int',
                     "compression"="zstd",
                     "replication_num" = "1",
+                    "disable_auto_compaction" = "true",
                     "enable_unique_key_merge_on_write" = "true"
              );
         """

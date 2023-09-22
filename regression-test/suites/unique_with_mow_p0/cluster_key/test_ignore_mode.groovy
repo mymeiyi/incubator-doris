@@ -34,7 +34,7 @@ suite("test_mow_table_ignore_mode") {
                 "storage_format" = "V2", 
                 "enable_unique_key_merge_on_write" = "true", 
                 "light_schema_change" = "true", 
-                "disable_auto_compaction" = "false", 
+                "disable_auto_compaction" = "true", 
                 "enable_single_replica_compaction" = "false" 
             );
     """
@@ -82,7 +82,7 @@ suite("test_mow_table_ignore_mode") {
                 "storage_format" = "V2", 
                 "enable_unique_key_merge_on_write" = "true", 
                 "light_schema_change" = "true", 
-                "disable_auto_compaction" = "false", 
+                "disable_auto_compaction" = "true", 
                 "enable_single_replica_compaction" = "false" 
             );"""
     sql """insert into ${tableName2} values
