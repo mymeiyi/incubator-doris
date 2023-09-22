@@ -128,6 +128,9 @@ public class Column implements Writable, GsonPostProcessable {
     @SerializedName(value = "genericAggregationName")
     private String genericAggregationName;
 
+    @SerializedName(value = "clusterKeyId")
+    private int clusterKeyId = -1;
+
     private boolean isCompoundKey = false;
 
     public Column() {
@@ -225,6 +228,14 @@ public class Column implements Writable, GsonPostProcessable {
         }
     }
 
+    public Column(String name, Type type, boolean isKey, AggregateType aggregateType, boolean isAllowNull,
+            boolean isAutoInc, String defaultValue, String comment, boolean visible,
+            DefaultValueExprDef defaultValueExprDef, int colUniqueId, String realDefaultValue, int clusterKeyId) {
+        this(name, type, isKey, aggregateType, isAllowNull, isAutoInc, defaultValue, comment, visible,
+                defaultValueExprDef, colUniqueId, realDefaultValue);
+        this.clusterKeyId = clusterKeyId;
+    }
+
     public Column(Column column) {
         this.name = column.getName();
         this.type = column.type;
@@ -244,6 +255,7 @@ public class Column implements Writable, GsonPostProcessable {
         this.uniqueId = column.getUniqueId();
         this.defineExpr = column.getDefineExpr();
         this.defineName = column.getDefineName();
+        this.clusterKeyId = column.getClusterKeyId();
     }
 
     public void createChildrenColumn(Type type, Column column) {
@@ -524,6 +536,7 @@ public class Column implements Writable, GsonPostProcessable {
                 tColumn.addToChildrenColumn(column.toThrift());
             }
         }
+        tColumn.setClusterKeyId(this.clusterKeyId);
         // ATTN:
         // Currently, this `toThrift()` method is only used from CreateReplicaTask.
         // And CreateReplicaTask does not need `defineExpr` field.
@@ -553,6 +566,7 @@ public class Column implements Writable, GsonPostProcessable {
         if (tColumn.getAggregationType() != null) {
             childrenTColumn.setAggregationType(tColumn.getAggregationType());
         }
+        childrenTColumn.setClusterKeyId(children.clusterKeyId);
 
         tColumn.children_column.add(childrenTColumn);
         toChildrenThrift(children, childrenTColumn);
@@ -633,6 +647,7 @@ public class Column implements Writable, GsonPostProcessable {
                 && (other.getDataType() == PrimitiveType.VARCHAR || other.getDataType() == PrimitiveType.STRING)) {
             return;
         }
+        // TODO check cluster key
     }
 
     public boolean nameEquals(String otherColName, boolean ignorePrefix) {
@@ -689,6 +704,14 @@ public class Column implements Writable, GsonPostProcessable {
             defineExpr.collect(SlotRef.class, slots);
             return slots;
         }
+    }
+
+    public boolean isClusterKey() {
+        return clusterKeyId != -1;
+    }
+
+    public int getClusterKeyId() {
+        return clusterKeyId;
     }
 
     public String toSql() {
@@ -781,7 +804,7 @@ public class Column implements Writable, GsonPostProcessable {
     public int hashCode() {
         return Objects.hash(name, getDataType(), getStrLen(), getPrecision(), getScale(), aggregationType,
                 isAggregationTypeImplicit, isKey, isAllowNull, isAutoInc, defaultValue, comment, children, visible,
-                realDefaultValue);
+                realDefaultValue, clusterKeyId);
     }
 
     @Override
@@ -809,7 +832,8 @@ public class Column implements Writable, GsonPostProcessable {
                 && Objects.equals(comment, other.comment)
                 && visible == other.visible
                 && Objects.equals(children, other.children)
-                && Objects.equals(realDefaultValue, other.realDefaultValue);
+                && Objects.equals(realDefaultValue, other.realDefaultValue)
+                && clusterKeyId == other.clusterKeyId;
     }
 
     // distribution column compare only care about attrs which affect data,
@@ -831,20 +855,22 @@ public class Column implements Writable, GsonPostProcessable {
                 && getScale() == other.getScale()
                 && visible == other.visible
                 && Objects.equals(children, other.children)
-                && Objects.equals(realDefaultValue, other.realDefaultValue);
+                && Objects.equals(realDefaultValue, other.realDefaultValue)
+                && clusterKeyId == other.clusterKeyId;
 
         if (!ok) {
             LOG.info("this column: name {} default value {} aggregationType {} isAggregationTypeImplicit {} "
-                     + "isKey {}, isAllowNull {}, datatype {}, strlen {}, precision {}, scale {}, visible {} "
-                     + "children {} realDefaultValue {}",
-                     name, getDefaultValue(), aggregationType, isAggregationTypeImplicit, isKey, isAllowNull,
-                     getDataType(), getStrLen(), getPrecision(), getScale(), visible, children, realDefaultValue);
+                            + "isKey {}, isAllowNull {}, datatype {}, strlen {}, precision {}, scale {}, visible {} "
+                            + "children {}, realDefaultValue {}, clusterKeyId {}",
+                    name, getDefaultValue(), aggregationType, isAggregationTypeImplicit, isKey, isAllowNull,
+                    getDataType(), getStrLen(), getPrecision(), getScale(), visible, children, realDefaultValue,
+                    clusterKeyId);
             LOG.info("other column: name {} default value {} aggregationType {} isAggregationTypeImplicit {} "
-                     + "isKey {}, isAllowNull {}, datatype {}, strlen {}, precision {}, scale {}, visible {} "
-                     + "children {} realDefaultValue {}",
-                     other.name, other.getDefaultValue(), other.aggregationType, other.isAggregationTypeImplicit,
-                     other.isKey, other.isAllowNull, other.getDataType(), other.getStrLen(), other.getPrecision(),
-                     other.getScale(), other.visible, other.children, other.realDefaultValue);
+                            + "isKey {}, isAllowNull {}, datatype {}, strlen {}, precision {}, scale {}, visible {}, "
+                            + "children {}, realDefaultValue {}, clusterKeyId {}",
+                    other.name, other.getDefaultValue(), other.aggregationType, other.isAggregationTypeImplicit,
+                    other.isKey, other.isAllowNull, other.getDataType(), other.getStrLen(), other.getPrecision(),
+                    other.getScale(), other.visible, other.children, other.realDefaultValue, other.clusterKeyId);
         }
         return ok;
     }
@@ -912,6 +938,7 @@ public class Column implements Writable, GsonPostProcessable {
         sb.append(isKey);
         sb.append(isAllowNull);
         sb.append(aggregationType);
+        sb.append(clusterKeyId);
         sb.append(defaultValue == null ? "" : defaultValue);
         return sb.toString();
     }
