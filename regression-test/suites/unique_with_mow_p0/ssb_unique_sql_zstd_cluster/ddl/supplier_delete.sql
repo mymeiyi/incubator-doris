@@ -1,1 +1,1 @@
-drop table if exists `supplier`;
+truncate table `supplier`;

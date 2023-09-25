@@ -1,1 +1,1 @@
-drop table if exists `date`;
+truncate table `date`;

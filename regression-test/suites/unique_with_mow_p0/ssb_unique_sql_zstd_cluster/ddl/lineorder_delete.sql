@@ -1,1 +1,1 @@
-drop table if exists lineorder;
+truncate table lineorder;

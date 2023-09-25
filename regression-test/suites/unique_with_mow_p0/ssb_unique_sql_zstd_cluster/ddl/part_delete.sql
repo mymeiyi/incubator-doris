@@ -1,1 +1,1 @@
-drop table if exists `part`;
+truncate table `part`;

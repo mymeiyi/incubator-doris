@@ -1,1 +1,1 @@
-drop table if exists customer;
+truncate table customer;

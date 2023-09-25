@@ -34,8 +34,8 @@ suite("load") {
                     """s_suppkey,s_name,s_address,s_city,s_nation,s_region,s_phone,s_dummy"""]
 
     for (String table in tables) {
-        sql new File("""${context.file.parent}/ddl/${table}_delete.sql""").text
         sql new File("""${context.file.parent}/ddl/${table}_create.sql""").text
+        sql new File("""${context.file.parent}/ddl/${table}_delete.sql""").text
     }
     def i = 0
     for (String tableName in tables) {
