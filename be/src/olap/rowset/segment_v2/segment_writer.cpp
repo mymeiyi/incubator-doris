@@ -1201,12 +1201,14 @@ Status SegmentWriter::_write_raw_data(const std::vector<Slice>& slices) {
 }
 
 Slice SegmentWriter::min_encoded_key() {
-    return (_primary_key_index_builder == nullptr) ? Slice(_min_key.data(), _min_key.size())
-                                                   : _primary_key_index_builder->min_key();
+    return (_primary_key_index_builder == nullptr /*|| !_tablet_schema->cluster_key_idxes().empty()*/)
+                   ? Slice(_min_key.data(), _min_key.size())
+                   : _primary_key_index_builder->min_key();
 }
 Slice SegmentWriter::max_encoded_key() {
-    return (_primary_key_index_builder == nullptr) ? Slice(_max_key.data(), _max_key.size())
-                                                   : _primary_key_index_builder->max_key();
+    return (_primary_key_index_builder == nullptr /*|| !_tablet_schema->cluster_key_idxes().empty()*/)
+                   ? Slice(_max_key.data(), _max_key.size())
+                   : _primary_key_index_builder->max_key();
 }
 
 void SegmentWriter::set_min_max_key(const Slice& key) {
