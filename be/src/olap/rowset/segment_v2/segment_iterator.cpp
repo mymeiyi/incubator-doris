@@ -109,8 +109,6 @@ public:
     // read next range into [*from, *to) whose size <= max_range_size.
     // return false when there is no more range.
     virtual bool next_range(const uint32_t max_range_size, uint32_t* from, uint32_t* to) {
-        LOG(INFO) << "sout: next_range, eof=" << _eof << ", buf_size=" << _buf_size
-                  << ", buf_pos=" << _buf_pos;
         if (_eof) {
             return false;
         }
@@ -151,8 +149,6 @@ private:
         _buf_pos = 0;
         _buf_size = roaring::api::roaring_read_uint32_iterator(&_iter, _buf, kBatchSize);
         _eof = (_buf_size == 0);
-        LOG(INFO) << "sout: _read_next_batch, buf_size=" << _buf_size << ", eof=" << _eof
-                  << ", kBatchSize=" << kBatchSize;
     }
 
     static const uint32_t kBatchSize = 256;
@@ -179,7 +175,6 @@ public:
     // read next range into [*from, *to) whose size <= max_range_size.
     // return false when there is no more range.
     bool next_range(const uint32_t max_range_size, uint32_t* from, uint32_t* to) override {
-        LOG(INFO) << "sout: next_range";
         if (!_riter.has_value) {
             return false;
         }
@@ -277,31 +272,19 @@ Status SegmentIterator::_lazy_init() {
     SCOPED_RAW_TIMER(&_opts.stats->block_init_ns);
     DorisMetrics::instance()->segment_read_total->increment(1);
     _row_bitmap.addRange(0, _segment->num_rows());
-    LOG(INFO) << "sout: SegmentIterator::_lazy_init, segment rows=" << _segment->num_rows()
-              << ", segment_id=" << segment_id()
-              << ", sort type=" << _segment->_tablet_schema->sort_type()
-              << ", _opts.read_orderby_key_reverse=" << _opts.read_orderby_key_reverse;
     // z-order can not use prefix index
-    LOG(INFO) << "sout: _row_bitmap 0 size=" << _row_bitmap.cardinality()
-              << ", empty=" << _row_bitmap.isEmpty();
     if (_segment->_tablet_schema->sort_type() != SortType::ZORDER) {
         RETURN_IF_ERROR(_get_row_ranges_by_keys());
     }
-    LOG(INFO) << "sout: _row_bitmap 1 size=" << _row_bitmap.cardinality()
-              << ", empty=" << _row_bitmap.isEmpty();
     RETURN_IF_ERROR(_get_row_ranges_by_column_conditions());
-    LOG(INFO) << "sout: _row_bitmap 2 size=" << _row_bitmap.cardinality()
-              << ", empty=" << _row_bitmap.isEmpty();
     RETURN_IF_ERROR(_vec_init_lazy_materialization());
-    LOG(INFO) << "sout: _row_bitmap 3 size=" << _row_bitmap.cardinality()
-              << ", empty=" << _row_bitmap.isEmpty();
     // Remove rows that have been marked deleted
     if (_opts.delete_bitmap.count(segment_id()) > 0 &&
         _opts.delete_bitmap.at(segment_id()) != nullptr) {
         size_t pre_size = _row_bitmap.cardinality();
         _row_bitmap -= *(_opts.delete_bitmap.at(segment_id()));
         _opts.stats->rows_del_by_bitmap += (pre_size - _row_bitmap.cardinality());
-        VLOG_DEBUG << "sout: read on segment: " << segment_id() << ", delete bitmap cardinality: "
+        VLOG_DEBUG << "read on segment: " << segment_id() << ", delete bitmap cardinality: "
                    << _opts.delete_bitmap.at(segment_id())->cardinality() << ", "
                    << _opts.stats->rows_del_by_bitmap << " rows deleted by bitmap";
     }
@@ -325,27 +308,15 @@ Status SegmentIterator::_get_row_ranges_by_keys() {
     if (std::none_of(_schema->columns().begin(), _schema->columns().end(), [&](const Field* col) {
             return col && _opts.tablet_schema->column_by_uid(col->unique_id()).is_key();
         })) {
-        LOG(INFO) << "sout: SegmentIterator::_get_row_ranges_by_keys return";
         return Status::OK();
     }
 
-    bool has_rowid = !_segment->_tablet_schema->cluster_key_idxes().empty();
-    LOG(INFO) << "sout: key range size=" << _opts.key_ranges.size();
     RowRanges result_ranges;
-    if (has_rowid) {
-        for (auto& key_range : _opts.key_ranges) {
-            RETURN_IF_ERROR(_prepare_seek(key_range));
-            RETURN_IF_ERROR(_lookup_ordinal(key_range, &result_ranges));
-        }
-    } else {
+    if (_segment->_tablet_schema->cluster_key_idxes().empty()) {
         for (auto& key_range : _opts.key_ranges) {
             rowid_t lower_rowid = 0;
             rowid_t upper_rowid = num_rows();
             RETURN_IF_ERROR(_prepare_seek(key_range));
-            LOG(INFO) << "sout: range size 0="
-                      << RowRanges::ranges_to_roaring(result_ranges).cardinality()
-                      << ", low_key=" << key_range.lower_key
-                      << ", upper_key=" << key_range.upper_key;
             if (key_range.upper_key != nullptr) {
                 // If client want to read upper_bound, the include_upper is true. So we
                 // should get the first ordinal at which key is larger than upper_bound.
@@ -357,13 +328,13 @@ Status SegmentIterator::_get_row_ranges_by_keys() {
                 RETURN_IF_ERROR(_lookup_ordinal(*key_range.lower_key, key_range.include_lower,
                                                 upper_rowid, &lower_rowid));
             }
-            LOG(INFO) << "sout: range size 1="
-                      << RowRanges::ranges_to_roaring(result_ranges).cardinality()
-                      << ", low_id=" << lower_rowid << ", upper_id=" << upper_rowid;
             auto row_range = RowRanges::create_single(lower_rowid, upper_rowid);
             RowRanges::ranges_union(result_ranges, row_range, &result_ranges);
-            LOG(INFO) << "sout: range size 2="
-                      << RowRanges::ranges_to_roaring(result_ranges).cardinality();
+        }
+    } else {
+        for (auto& key_range : _opts.key_ranges) {
+            RETURN_IF_ERROR(_prepare_seek(key_range));
+            RETURN_IF_ERROR(_lookup_ordinal(key_range, &result_ranges));
         }
     }
     // pre-condition: _row_ranges == [0, num_rows)
@@ -1131,7 +1102,6 @@ Status SegmentIterator::_init_inverted_index_iterators() {
 Status SegmentIterator::_lookup_ordinal(const RowCursor& key, bool is_include, rowid_t upper_bound,
                                         rowid_t* rowid) {
     if (_segment->_tablet_schema->keys_type() == UNIQUE_KEYS &&
-        /*_segment->_tablet_schema->cluster_key_idxes().empty() &&*/
         _segment->get_primary_key_index() != nullptr) {
         return _lookup_ordinal_from_pk_index(key, is_include, rowid);
     }
@@ -1207,7 +1177,6 @@ Status SegmentIterator::_lookup_ordinal_from_sk_index(const RowCursor& key, bool
 }
 
 Status SegmentIterator::_lookup_ordinal(const StorageReadOptions::KeyRange& key_range,
-                                        /*rowid_t lower_bound, rowid_t upper_bound,*/
                                         RowRanges* result_ranges) {
     rowid_t lower_rowid = 0;
     rowid_t upper_rowid = num_rows();
@@ -1233,18 +1202,7 @@ Status SegmentIterator::_lookup_ordinal(const StorageReadOptions::KeyRange& key_
     RETURN_IF_ERROR(pk_index_reader->new_iterator(&index_iterator));
     auto index_type = vectorized::DataTypeFactory::instance().create_data_type(
             pk_index_reader->type_info()->type(), 1, 0);
-    /*size_t num_read = upper_rowid - lower_rowid + 1;
-    RETURN_IF_ERROR(index_iterator->next_batch(&num_read, index_column));
-    Slice sought_key = Slice(index_column->get_data_at(0).data, index_column->get_data_at(0).size);*/
 
-    /*bool has_seq_col = _segment->_tablet_schema->has_sequence_col();
-    size_t seq_col_length = 0;
-    if (has_seq_col) {
-        seq_col_length =
-                _segment->_tablet_schema->column(_segment->_tablet_schema->sequence_col_idx())
-                        .length() +
-                1;
-    }*/
     bool has_rowid = !_segment->_tablet_schema->cluster_key_idxes().empty();
     size_t rowid_length = 0;
     if (has_rowid) {
@@ -1253,7 +1211,6 @@ Status SegmentIterator::_lookup_ordinal(const StorageReadOptions::KeyRange& key_
     const auto* type_info = get_scalar_type_info<FieldType::OLAP_FIELD_TYPE_UNSIGNED_INT>();
     auto rowid_coder = get_key_coder(type_info->type());
 
-    LOG(INFO) << "sout: lower_rowid=" << lower_rowid << ", upper_rowid=" << upper_rowid;
     size_t num_read = 1;
     for (auto i = lower_rowid; i < upper_rowid; ++i) {
         Status st = index_iterator->seek_to_ordinal(i);
@@ -1264,16 +1221,10 @@ Status SegmentIterator::_lookup_ordinal(const StorageReadOptions::KeyRange& key_
                     Slice(index_column->get_data_at(0).data, index_column->get_data_at(0).size);
             // get row_id from key
             rowid_t rowid = 0;
-            /*Slice sought_key_without_seq =
-                    Slice(sought_key.get_data(), sought_key.get_size() - seq_col_length - rowid_length);
-            Slice rowid_slice = Slice(
-                    sought_key.get_data() + sought_key_without_seq.get_size() + seq_col_length + 1,
-                    rowid_length - 1);*/
             Slice rowid_slice = Slice(sought_key.get_data() + sought_key.size - rowid_length + 1,
                                       rowid_length - 1);
             RETURN_IF_ERROR(
                     rowid_coder->decode_ascending(&rowid_slice, rowid_length, (uint8_t*)&rowid));
-            LOG(INFO) << "sout: get row_id=" << rowid;
             auto row_range = RowRanges::create_single(rowid, rowid + 1);
             RowRanges::ranges_union(*result_ranges, row_range, result_ranges);
         } else if (st.is<ENTRY_NOT_FOUND>()) {
@@ -1286,7 +1237,6 @@ Status SegmentIterator::_lookup_ordinal(const StorageReadOptions::KeyRange& key_
     return Status::OK();
 }
 
-// the returned row_id is id in the primary key index, not in the segment file
 Status SegmentIterator::_lookup_ordinal_from_pk_index(const RowCursor& key, bool is_include,
                                                       rowid_t* rowid) {
     DCHECK(_segment->_tablet_schema->keys_type() == UNIQUE_KEYS);
@@ -1350,16 +1300,6 @@ Status SegmentIterator::_lookup_ordinal_from_pk_index(const RowCursor& key, bool
         if (Slice(index_key).compare(sought_key_without_seq) == 0) {
             exact_match = true;
         }
-        /*if (has_rowid) {
-            Slice rowid_slice = Slice(
-                    sought_key.get_data() + sought_key_without_seq.get_size() + seq_col_length + 1,
-                    rowid_length - 1);
-            const auto* type_info = get_scalar_type_info<FieldType::OLAP_FIELD_TYPE_UNSIGNED_INT>();
-            auto rowid_coder = get_key_coder(type_info->type());
-            RETURN_IF_ERROR(
-                    rowid_coder->decode_ascending(&rowid_slice, rowid_length, (uint8_t*)rowid));
-            LOG(INFO) << "sout: set 0 row_id=" << *rowid << ", exact_match=" << exact_match;
-        }*/
     }
     if (!has_seq_col && has_rowid) {
         auto index_type = vectorized::DataTypeFactory::instance().create_data_type(
@@ -1377,18 +1317,11 @@ Status SegmentIterator::_lookup_ordinal_from_pk_index(const RowCursor& key, bool
         if (Slice(index_key).compare(sought_key_without_rowid) == 0) {
             exact_match = true;
         }
-        /*Slice rowid_slice = Slice(sought_key.get_data() + sought_key_without_rowid.get_size() + 1,
-                                  rowid_length - 1);
-        const auto* type_info = get_scalar_type_info<FieldType::OLAP_FIELD_TYPE_UNSIGNED_INT>();
-        auto rowid_coder = get_key_coder(type_info->type());
-        RETURN_IF_ERROR(rowid_coder->decode_ascending(&rowid_slice, rowid_length, (uint8_t*)rowid));
-        LOG(INFO) << "sout: set 1 row_id=" << *rowid << ", exact_match=" << exact_match;*/
     }
 
     // find the key in primary key index, and the is_include is false, so move
     // to the next row.
     if (exact_match && !is_include) {
-        // TODO: no used if has cluster key
         *rowid += 1;
     }
     return Status::OK();
@@ -1752,9 +1685,6 @@ Status SegmentIterator::_read_columns_by_index(uint32_t nrows_read_limit, uint32
         uint32_t range_to;
         bool has_next_range =
                 _range_iter->next_range(nrows_read_limit - nrows_read, &range_from, &range_to);
-        LOG(INFO) << "sout: _range_iter->next_range, nrows_read=" << nrows_read
-                  << ", limit=" << nrows_read_limit << ", from=" << range_from
-                  << ", to=" << range_to << ", has_next_range=" << has_next_range;
         if (!has_next_range) {
             break;
         }
@@ -1977,11 +1907,9 @@ Status SegmentIterator::_next_batch_internal(vectorized::Block* block) {
     }
     _split_row_ranges.clear();
     _split_row_ranges.reserve(nrows_read_limit / 2);
-    LOG(INFO) << "sout: before read_columns_by_index, rows=" << _current_batch_rows_read;
     RETURN_IF_ERROR(_read_columns_by_index(
             nrows_read_limit, _current_batch_rows_read,
             _lazy_materialization_read || _opts.record_rowids || _is_need_expr_eval));
-    LOG(INFO) << "sout: after read_columns_by_index, rows=" << _current_batch_rows_read;
     if (std::find(_first_read_column_ids.begin(), _first_read_column_ids.end(),
                   _schema->version_col_idx()) != _first_read_column_ids.end()) {
         _replace_version_col(_current_batch_rows_read);

@@ -255,12 +255,6 @@ Status NewOlapScanNode::_build_key_ranges_and_filters() {
         const std::vector<std::string>& column_names = _olap_scan_node.key_column_name;
         const std::vector<TPrimitiveType::type>& column_types = _olap_scan_node.key_column_type;
         DCHECK(column_types.size() == column_names.size());
-        LOG(INFO) << "sout: key column size=" << column_names.size()
-                  << ", column_names=" << to_string(column_names)
-                  << ", column_types=" << to_string(column_types)
-                  << ", push_down_type=" << _push_down_agg_type
-                  << ", scan_key=" << _scan_keys.debug_string()
-                  << ", _colname_to_value_range=" << _colname_to_value_range.size();
 
         // 1. construct scan key except last olap engine short key
         _scan_keys.set_is_convertible(limit() == -1);
@@ -344,7 +338,6 @@ Status NewOlapScanNode::_build_key_ranges_and_filters() {
         _runtime_profile->add_info_string("TabletIds", tablets_id_to_string(_scan_ranges));
     }
     VLOG_CRITICAL << _scan_keys.debug_string();
-    LOG(INFO) << "sout: scan_keys=" << _scan_keys.debug_string();
 
     return Status::OK();
 }
