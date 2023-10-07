@@ -315,9 +315,9 @@ Status SegmentIterator::_lazy_init() {
 
 Status SegmentIterator::_get_row_ranges_by_keys() {
     LOG(INFO) << "sout: key range size=" << _opts.key_ranges.size();
-    for (const auto& item : _opts.key_ranges) {
+    /*for (const auto& item : _opts.key_ranges) {
         item.lower_key;
-    }
+    }*/
     DorisMetrics::instance()->segment_row_total->increment(num_rows());
 
     // fast path for empty segment or empty key ranges
@@ -1281,7 +1281,8 @@ Status SegmentIterator::_lookup_ordinal_from_pk_index(const RowCursor& key, bool
                     rowid_length - 1);
             const auto* type_info = get_scalar_type_info<FieldType::OLAP_FIELD_TYPE_UNSIGNED_INT>();
             auto rowid_coder = get_key_coder(type_info->type());
-            rowid_coder->decode_ascending(&rowid_slice, rowid_length, (uint8_t*)rowid);
+            RETURN_IF_ERROR(
+                    rowid_coder->decode_ascending(&rowid_slice, rowid_length, (uint8_t*)rowid));
             LOG(INFO) << "sout: set 0 row_id=" << *rowid << ", exact_match=" << exact_match;
         }
     }
@@ -1305,7 +1306,7 @@ Status SegmentIterator::_lookup_ordinal_from_pk_index(const RowCursor& key, bool
                                   rowid_length - 1);
         const auto* type_info = get_scalar_type_info<FieldType::OLAP_FIELD_TYPE_UNSIGNED_INT>();
         auto rowid_coder = get_key_coder(type_info->type());
-        rowid_coder->decode_ascending(&rowid_slice, rowid_length, (uint8_t*)rowid);
+        RETURN_IF_ERROR(rowid_coder->decode_ascending(&rowid_slice, rowid_length, (uint8_t*)rowid));
         LOG(INFO) << "sout: set 1 row_id=" << *rowid << ", exact_match=" << exact_match;
     }
 
