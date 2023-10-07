@@ -1233,20 +1233,19 @@ Status SegmentIterator::_lookup_ordinal(const StorageReadOptions::KeyRange& key_
     RETURN_IF_ERROR(pk_index_reader->new_iterator(&index_iterator));
     auto index_type = vectorized::DataTypeFactory::instance().create_data_type(
             pk_index_reader->type_info()->type(), 1, 0);
-    auto index_column = index_type->create_column();
     /*size_t num_read = upper_rowid - lower_rowid + 1;
     RETURN_IF_ERROR(index_iterator->next_batch(&num_read, index_column));
     Slice sought_key = Slice(index_column->get_data_at(0).data, index_column->get_data_at(0).size);*/
 
-    // bool has_seq_col = _segment->_tablet_schema->has_sequence_col();
-    bool has_rowid = !_segment->_tablet_schema->cluster_key_idxes().empty();
-    /*size_t seq_col_length = 0;
+    /*bool has_seq_col = _segment->_tablet_schema->has_sequence_col();
+    size_t seq_col_length = 0;
     if (has_seq_col) {
         seq_col_length =
                 _segment->_tablet_schema->column(_segment->_tablet_schema->sequence_col_idx())
                         .length() +
                 1;
     }*/
+    bool has_rowid = !_segment->_tablet_schema->cluster_key_idxes().empty();
     size_t rowid_length = 0;
     if (has_rowid) {
         rowid_length = sizeof(uint32_t) + 1;
@@ -1256,9 +1255,10 @@ Status SegmentIterator::_lookup_ordinal(const StorageReadOptions::KeyRange& key_
 
     LOG(INFO) << "sout: lower_rowid=" << lower_rowid << ", upper_rowid=" << upper_rowid;
     size_t num_read = 1;
-    for (auto i = lower_rowid; i <= upper_rowid; ++i) {
+    for (auto i = lower_rowid; i < upper_rowid; ++i) {
         Status st = index_iterator->seek_to_ordinal(i);
         if (st.ok()) {
+            auto index_column = index_type->create_column();
             RETURN_IF_ERROR(index_iterator->next_batch(&num_read, index_column));
             Slice sought_key =
                     Slice(index_column->get_data_at(0).data, index_column->get_data_at(0).size);
@@ -1269,7 +1269,8 @@ Status SegmentIterator::_lookup_ordinal(const StorageReadOptions::KeyRange& key_
             Slice rowid_slice = Slice(
                     sought_key.get_data() + sought_key_without_seq.get_size() + seq_col_length + 1,
                     rowid_length - 1);*/
-            Slice rowid_slice = Slice(sought_key.get_data() + rowid_length + 1, rowid_length - 1);
+            Slice rowid_slice = Slice(sought_key.get_data() + sought_key.size - rowid_length + 1,
+                                      rowid_length - 1);
             RETURN_IF_ERROR(
                     rowid_coder->decode_ascending(&rowid_slice, rowid_length, (uint8_t*)&rowid));
             LOG(INFO) << "sout: get row_id=" << rowid;
