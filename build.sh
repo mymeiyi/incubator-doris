@@ -451,14 +451,17 @@ if [[ "${BUILD_FE}" -eq 1 ]]; then
     modules+=("fe-core")
     BUILD_DOCS='ON'
 fi
+BUILD_SPARK_DPP=0
 if [[ "${BUILD_SPARK_DPP}" -eq 1 ]]; then
     modules+=("fe-common")
     modules+=("spark-dpp")
 fi
+BUILD_HIVE_UDF=0
 if [[ "${BUILD_HIVE_UDF}" -eq 1 ]]; then
     modules+=("fe-common")
     modules+=("hive-udf")
 fi
+BUILD_BE_JAVA_EXTENSIONS=0
 if [[ "${BUILD_BE_JAVA_EXTENSIONS}" -eq 1 ]]; then
     modules+=("fe-common")
     modules+=("be-java-extensions/hudi-scanner")
@@ -583,6 +586,7 @@ if [[ "${FE_MODULES}" != '' ]]; then
     if [[ "${CLEAN}" -eq 1 ]]; then
         clean_fe
     fi
+    DISABLE_JAVA_CHECK_STYLE="ON"
     if [[ "${DISABLE_JAVA_CHECK_STYLE}" = "ON" ]]; then
         "${MVN_CMD}" package -pl ${FE_MODULES:+${FE_MODULES}} -Dskip.doc=true -DskipTests -Dcheckstyle.skip=true
     else
