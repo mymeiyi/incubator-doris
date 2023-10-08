@@ -248,11 +248,12 @@ Status OlapScanLocalState::_init_scanners(std::list<vectorized::VScannerSPtr>* s
     int scanners_per_tablet = std::max(1, 64 / (int)_scan_ranges.size());
 
     auto build_new_scanner = [&](const TPaloScanRange& scan_range,
-                                 const std::vector<OlapScanRange*>& key_ranges) {
+                                 const std::vector<OlapScanRange*>& key_ranges,
+                                 const std::vector<OlapScanRange*>& cluster_key_ranges) {
         std::shared_ptr<vectorized::NewOlapScanner> scanner =
                 vectorized::NewOlapScanner::create_shared(
                         state(), this, p._limit_per_scanner, p._olap_scan_node.is_preaggregation,
-                        scan_range, key_ranges, _scanner_profile.get());
+                        scan_range, key_ranges, cluster_key_ranges, _scanner_profile.get());
 
         RETURN_IF_ERROR(scanner->prepare(state(), _conjuncts));
         scanner->set_compound_filters(_compound_filters);
@@ -285,7 +286,9 @@ Status OlapScanLocalState::_init_scanners(std::list<vectorized::VScannerSPtr>* s
                  ++j, ++i) {
                 scanner_ranges.push_back((*ranges)[i].get());
             }
-            RETURN_IF_ERROR(build_new_scanner(*scan_range, scanner_ranges));
+            // TODO
+            std::vector<doris::OlapScanRange*> cluster_scanner_ranges(0);
+            RETURN_IF_ERROR(build_new_scanner(*scan_range, scanner_ranges, cluster_scanner_ranges));
         }
     }
 

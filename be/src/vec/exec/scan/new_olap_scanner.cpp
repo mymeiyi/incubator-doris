@@ -66,12 +66,14 @@ using ReadSource = TabletReader::ReadSource;
 NewOlapScanner::NewOlapScanner(RuntimeState* state, NewOlapScanNode* parent, int64_t limit,
                                bool aggregation, const TPaloScanRange& scan_range,
                                const std::vector<OlapScanRange*>& key_ranges,
+                               const std::vector<OlapScanRange*>& cluster_key_ranges,
                                RuntimeProfile* profile)
         : VScanner(state, static_cast<VScanNode*>(parent), limit, profile),
           _aggregation(aggregation),
           _version(-1),
           _scan_range(scan_range),
-          _key_ranges(key_ranges) {
+          _key_ranges(key_ranges),
+          _cluster_key_ranges(cluster_key_ranges) {
     _tablet_schema = std::make_shared<TabletSchema>();
     _is_init = false;
 }
@@ -79,12 +81,14 @@ NewOlapScanner::NewOlapScanner(RuntimeState* state, NewOlapScanNode* parent, int
 NewOlapScanner::NewOlapScanner(RuntimeState* state, NewOlapScanNode* parent, int64_t limit,
                                bool aggregation, const TPaloScanRange& scan_range,
                                const std::vector<OlapScanRange*>& key_ranges,
+                               const std::vector<OlapScanRange*>& cluster_key_ranges,
                                ReadSource read_source, RuntimeProfile* profile)
         : VScanner(state, static_cast<VScanNode*>(parent), limit, profile),
           _aggregation(aggregation),
           _version(-1),
           _scan_range(scan_range),
-          _key_ranges(key_ranges) {
+          _key_ranges(key_ranges),
+          _cluster_key_ranges(cluster_key_ranges) {
     _tablet_reader_params.set_read_source(std::move(read_source));
     _tablet_schema = std::make_shared<TabletSchema>();
     _is_init = false;
@@ -93,12 +97,14 @@ NewOlapScanner::NewOlapScanner(RuntimeState* state, NewOlapScanNode* parent, int
 NewOlapScanner::NewOlapScanner(RuntimeState* state, pipeline::ScanLocalStateBase* local_state,
                                int64_t limit, bool aggregation, const TPaloScanRange& scan_range,
                                const std::vector<OlapScanRange*>& key_ranges,
+                               const std::vector<OlapScanRange*>& cluster_key_ranges,
                                RuntimeProfile* profile)
         : VScanner(state, local_state, limit, profile),
           _aggregation(aggregation),
           _version(-1),
           _scan_range(scan_range),
-          _key_ranges(key_ranges) {
+          _key_ranges(key_ranges),
+          _cluster_key_ranges(cluster_key_ranges) {
     _tablet_schema = std::make_shared<TabletSchema>();
     _is_init = false;
 }
@@ -106,12 +112,14 @@ NewOlapScanner::NewOlapScanner(RuntimeState* state, pipeline::ScanLocalStateBase
 NewOlapScanner::NewOlapScanner(RuntimeState* state, pipeline::ScanLocalStateBase* local_state,
                                int64_t limit, bool aggregation, const TPaloScanRange& scan_range,
                                const std::vector<OlapScanRange*>& key_ranges,
+                               const std::vector<OlapScanRange*>& cluster_key_ranges,
                                ReadSource read_source, RuntimeProfile* profile)
         : VScanner(state, local_state, limit, profile),
           _aggregation(aggregation),
           _version(-1),
           _scan_range(scan_range),
-          _key_ranges(key_ranges) {
+          _key_ranges(key_ranges),
+          _cluster_key_ranges(cluster_key_ranges) {
     _tablet_reader_params.set_read_source(std::move(read_source));
     _tablet_schema = std::make_shared<TabletSchema>();
     _is_init = false;
@@ -239,7 +247,8 @@ Status NewOlapScanner::init() {
 
         // Initialize tablet_reader_params
         RETURN_IF_ERROR(_init_tablet_reader_params(
-                _key_ranges, parent ? parent->_olap_filters : local_state->_olap_filters,
+                _key_ranges, _cluster_key_ranges,
+                parent ? parent->_olap_filters : local_state->_olap_filters,
                 parent ? parent->_filter_predicates : local_state->_filter_predicates,
                 parent ? parent->_push_down_functions : local_state->_push_down_functions));
     }
@@ -281,8 +290,9 @@ void NewOlapScanner::set_compound_filters(const std::vector<TCondition>& compoun
 
 // it will be called under tablet read lock because capture rs readers need
 Status NewOlapScanner::_init_tablet_reader_params(
-        const std::vector<OlapScanRange*>& key_ranges, const std::vector<TCondition>& filters,
-        const FilterPredicates& filter_predicates,
+        const std::vector<OlapScanRange*>& key_ranges,
+        const std::vector<OlapScanRange*>& cluster_key_ranges,
+        const std::vector<TCondition>& filters, const FilterPredicates& filter_predicates,
         const std::vector<FunctionFilter>& function_filters) {
     // if the table with rowset [0-x] or [0-1] [2-y], and [0-1] is empty
     const bool single_version = _tablet_reader_params.has_single_version();
@@ -365,6 +375,19 @@ Status NewOlapScanner::_init_tablet_reader_params(
 
         _tablet_reader_params.start_key.push_back(key_range->begin_scan_range);
         _tablet_reader_params.end_key.push_back(key_range->end_scan_range);
+    }
+    // cluster key range
+    for (auto key_range : cluster_key_ranges) {
+        if (key_range->begin_scan_range.size() == 1 &&
+            key_range->begin_scan_range.get_value(0) == NEGATIVE_INFINITY) {
+            continue;
+        }
+
+        _tablet_reader_params.start_cluster_key_include = key_range->begin_include;
+        _tablet_reader_params.end_cluster_key_include = key_range->end_include;
+
+        _tablet_reader_params.start_cluster_key.push_back(key_range->begin_scan_range);
+        _tablet_reader_params.end_cluster_key.push_back(key_range->end_scan_range);
     }
 
     _tablet_reader_params.profile = _parent ? _parent->runtime_profile() : _local_state->profile();

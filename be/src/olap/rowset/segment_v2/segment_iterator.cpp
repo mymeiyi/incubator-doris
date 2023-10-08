@@ -370,6 +370,11 @@ Status SegmentIterator::_get_row_ranges_by_keys() {
             RETURN_IF_ERROR(_prepare_seek(key_range));
             RETURN_IF_ERROR(_lookup_ordinal(key_range, &row_bitmap));
         }
+        LOG(INFO) << "sout: cluster key range size=" << _opts.cluster_key_ranges.size();
+        for (const auto& key_range : _opts.cluster_key_ranges) {
+            LOG(INFO) << "sout: cluster key range, lower=" << key_range.lower_key->to_string()
+                      << ", upper=" << key_range.upper_key->to_string();
+        }
         // TODO deal cluster key ranges
         _row_bitmap = row_bitmap;
     }

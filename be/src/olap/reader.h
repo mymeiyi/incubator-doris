@@ -133,6 +133,10 @@ public:
         std::vector<OlapTuple> end_key;
         bool start_key_include = false;
         bool end_key_include = false;
+        std::vector<OlapTuple> start_cluster_key;
+        std::vector<OlapTuple> end_cluster_key;
+        bool start_cluster_key_include = false;
+        bool end_cluster_key_include = false;
 
         std::vector<TCondition> conditions;
         std::vector<std::pair<string, std::shared_ptr<BloomFilterFuncBase>>> bloom_filters;
@@ -239,6 +243,7 @@ protected:
     bool _optimize_for_single_rowset(const std::vector<RowsetReaderSharedPtr>& rs_readers);
 
     Status _init_keys_param(const ReaderParams& read_params);
+    Status _init_cluster_keys_param(const ReaderParams& read_params);
 
     Status _init_orderby_keys_param(const ReaderParams& read_params);
 

@@ -253,6 +253,53 @@ Status NewOlapScanNode::_build_key_ranges_and_filters() {
     if (_push_down_agg_type == TPushAggOp::NONE ||
         _push_down_agg_type == TPushAggOp::COUNT_ON_INDEX) {
 
+        {
+            const std::vector<std::string>& column_names = _olap_scan_node.cluster_key_column_name;
+            const std::vector<TPrimitiveType::type>& column_types =
+                    _olap_scan_node.cluster_key_column_type;
+            DCHECK(column_types.size() == column_names.size());
+            LOG(INFO) << "sout: cluster_key column size=" << column_names.size()
+                      << ", cluster_column_names=" << to_string(column_names)
+                      << ", cluster_column_types=" << to_string(column_types)
+                      << ", cluster_scan_key=" << _scan_cluster_keys.debug_string();
+            _scan_cluster_keys.set_is_convertible(limit() == -1);
+
+            bool exact_range = true;
+            bool eos = false;
+            for (int column_index = 0; column_index < column_names.size() &&
+                                       !_scan_cluster_keys.has_range_value() && !eos;
+                 ++column_index) {
+                auto iter = _colname_to_value_range.find(column_names[column_index]);
+                if (_colname_to_value_range.end() == iter) {
+                    break;
+                }
+
+                RETURN_IF_ERROR(std::visit(
+                        [&](auto&& range) {
+                            // make a copy or range and pass to extend_scan_key, keep the range unchanged
+                            // because extend_scan_key method may change the first parameter.
+                            // but the original range may be converted to olap filters, if it's not a exact_range.
+                            auto temp_range = range;
+                            if (range.get_fixed_value_size() <=
+                                _max_pushdown_conditions_per_column) {
+                                RETURN_IF_ERROR(_scan_cluster_keys.extend_scan_key(
+                                        temp_range, _max_scan_key_num, &exact_range, &eos));
+                                /*if (exact_range) {
+                                    _colname_to_value_range.erase(iter->first);
+                                }*/
+                            } else {
+                                // if exceed max_pushdown_conditions_per_column, use whole_value_rang instead
+                                // and will not erase from _colname_to_value_range, it must be not exact_range
+                                temp_range.set_whole_value_range();
+                                RETURN_IF_ERROR(_scan_cluster_keys.extend_scan_key(
+                                        temp_range, _max_scan_key_num, &exact_range, &eos));
+                            }
+                            return Status::OK();
+                        },
+                        iter->second));
+            }
+        }
+
         // 1. construct scan key except last olap engine short key
         {
             const std::vector<std::string>& column_names = _olap_scan_node.key_column_name;
@@ -303,53 +350,6 @@ Status NewOlapScanNode::_build_key_ranges_and_filters() {
                         iter->second));
             }
             _eos |= eos;
-        }
-
-        {
-            const std::vector<std::string>& column_names = _olap_scan_node.cluster_key_column_name;
-            const std::vector<TPrimitiveType::type>& column_types =
-                    _olap_scan_node.cluster_key_column_type;
-            DCHECK(column_types.size() == column_names.size());
-            LOG(INFO) << "sout: cluster_key column size=" << column_names.size()
-                      << ", cluster_column_names=" << to_string(column_names)
-                      << ", cluster_column_types=" << to_string(column_types)
-                      << ", cluster_scan_key=" << _scan_cluster_keys.debug_string();
-            _scan_cluster_keys.set_is_convertible(limit() == -1);
-
-            bool exact_range = true;
-            bool eos = false;
-            for (int column_index = 0; column_index < column_names.size() &&
-                                       !_scan_cluster_keys.has_range_value() && !eos;
-                 ++column_index) {
-                auto iter = _colname_to_value_range.find(column_names[column_index]);
-                if (_colname_to_value_range.end() == iter) {
-                    break;
-                }
-
-                RETURN_IF_ERROR(std::visit(
-                        [&](auto&& range) {
-                            // make a copy or range and pass to extend_scan_key, keep the range unchanged
-                            // because extend_scan_key method may change the first parameter.
-                            // but the original range may be converted to olap filters, if it's not a exact_range.
-                            auto temp_range = range;
-                            if (range.get_fixed_value_size() <=
-                                _max_pushdown_conditions_per_column) {
-                                RETURN_IF_ERROR(_scan_cluster_keys.extend_scan_key(
-                                        temp_range, _max_scan_key_num, &exact_range, &eos));
-                                if (exact_range) {
-                                    _colname_to_value_range.erase(iter->first);
-                                }
-                            } else {
-                                // if exceed max_pushdown_conditions_per_column, use whole_value_rang instead
-                                // and will not erase from _colname_to_value_range, it must be not exact_range
-                                temp_range.set_whole_value_range();
-                                RETURN_IF_ERROR(_scan_cluster_keys.extend_scan_key(
-                                        temp_range, _max_scan_key_num, &exact_range, &eos));
-                            }
-                            return Status::OK();
-                        },
-                        iter->second));
-            }
         }
 
         for (auto& iter : _colname_to_value_range) {
@@ -501,6 +501,12 @@ Status NewOlapScanNode::_init_scanners(std::list<VScannerSPtr>* scanners) {
     if (_cond_ranges.empty()) {
         _cond_ranges.emplace_back(new doris::OlapScanRange());
     }
+    RETURN_IF_ERROR(_scan_cluster_keys.get_key_range(&_cluster_cond_ranges));
+    // if we can't get ranges from conditions, we give it a total range
+    if (_cluster_cond_ranges.empty()) {
+        _cluster_cond_ranges.emplace_back(new doris::OlapScanRange());
+    }
+
     int scanners_per_tablet = std::max(1, 64 / (int)_scan_ranges.size());
 
     bool is_dup_mow_key = false;
@@ -559,10 +565,11 @@ Status NewOlapScanNode::_init_scanners(std::list<VScannerSPtr>* scanners) {
     if (is_dup_mow_key) {
         auto build_new_scanner = [&](const TPaloScanRange& scan_range,
                                      const std::vector<OlapScanRange*>& key_ranges,
+                                     const std::vector<OlapScanRange*>& cluster_key_ranges,
                                      TabletReader::ReadSource read_source) {
             std::shared_ptr<NewOlapScanner> scanner = NewOlapScanner::create_shared(
                     _state, this, _limit_per_scanner, _olap_scan_node.is_preaggregation, scan_range,
-                    key_ranges, std::move(read_source), _scanner_profile.get());
+                    cluster_key_ranges, key_ranges, std::move(read_source), _scanner_profile.get());
 
             RETURN_IF_ERROR(scanner->prepare(_state, _conjuncts));
             scanner->set_compound_filters(_compound_filters);
@@ -579,6 +586,13 @@ Status NewOlapScanNode::_init_scanners(std::list<VScannerSPtr>* scanners) {
             std::vector<doris::OlapScanRange*> scanner_ranges(num_ranges);
             for (int j = 0; j < num_ranges; ++j) {
                 scanner_ranges[j] = (*ranges)[j].get();
+            }
+
+            std::vector<std::unique_ptr<doris::OlapScanRange>>* cluster_ranges = &_cluster_cond_ranges;
+            int num_cluster_ranges = cluster_ranges->size();
+            std::vector<doris::OlapScanRange*> cluster_scanner_ranges(num_cluster_ranges);
+            for (int j = 0; j < num_cluster_ranges; ++j) {
+                cluster_scanner_ranges[j] = (*cluster_ranges)[j].get();
             }
 
             // Segment count in current rowset vector
@@ -612,7 +626,7 @@ Status NewOlapScanNode::_init_scanners(std::list<VScannerSPtr>* scanners) {
                             segment_idx_to_scan + need_add_seg_nums}; // only scan need_add_seg_nums
 
                     RETURN_IF_ERROR(build_new_scanner(
-                            *scan_range, scanner_ranges,
+                            *scan_range, scanner_ranges, cluster_scanner_ranges,
                             {std::move(rs_splits), read_source.delete_predicates}));
 
                     segment_idx_to_scan += need_add_seg_nums;
@@ -621,7 +635,7 @@ Status NewOlapScanNode::_init_scanners(std::list<VScannerSPtr>* scanners) {
                            avg_segment_count_by_scanner) {
                     split.segment_offsets = {segment_idx_to_scan, rs_seg_count[rowset_idx]};
                     RETURN_IF_ERROR(build_new_scanner(
-                            *scan_range, scanner_ranges,
+                            *scan_range, scanner_ranges, cluster_scanner_ranges,
                             {std::move(rs_splits), read_source.delete_predicates}));
 
                     segment_idx_to_scan = 0;
@@ -646,16 +660,17 @@ Status NewOlapScanNode::_init_scanners(std::list<VScannerSPtr>* scanners) {
             // dispose some segment tail
             if (!rs_splits.empty()) {
                 static_cast<void>(
-                        build_new_scanner(*scan_range, scanner_ranges,
+                        build_new_scanner(*scan_range, scanner_ranges, cluster_scanner_ranges,
                                           {std::move(rs_splits), read_source.delete_predicates}));
             }
         }
     } else {
         auto build_new_scanner = [&](const TPaloScanRange& scan_range,
-                                     const std::vector<OlapScanRange*>& key_ranges) {
+                                     const std::vector<OlapScanRange*>& key_ranges,
+                                     const std::vector<OlapScanRange*>& cluster_key_ranges) {
             std::shared_ptr<NewOlapScanner> scanner = NewOlapScanner::create_shared(
                     _state, this, _limit_per_scanner, _olap_scan_node.is_preaggregation, scan_range,
-                    key_ranges, _scanner_profile.get());
+                    key_ranges, cluster_key_ranges, _scanner_profile.get());
 
             RETURN_IF_ERROR(scanner->prepare(_state, _conjuncts));
             scanner->set_compound_filters(_compound_filters);
@@ -690,7 +705,8 @@ Status NewOlapScanNode::_init_scanners(std::list<VScannerSPtr>* scanners) {
                      ++j, ++i) {
                     scanner_ranges.push_back((*ranges)[i].get());
                 }
-                RETURN_IF_ERROR(build_new_scanner(*scan_range, scanner_ranges));
+                std::vector<doris::OlapScanRange*> cluster_scanner_ranges(0);
+                RETURN_IF_ERROR(build_new_scanner(*scan_range, scanner_ranges, cluster_scanner_ranges));
             }
         }
     }

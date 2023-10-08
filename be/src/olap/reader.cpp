@@ -178,34 +178,68 @@ Status TabletReader::_capture_rs_readers(const ReaderParams& read_params) {
     }
 
     bool eof = false;
-    bool is_lower_key_included = _keys_param.start_key_include;
-    bool is_upper_key_included = _keys_param.end_key_include;
+    {
+        bool is_lower_key_included = _keys_param.start_key_include;
+        bool is_upper_key_included = _keys_param.end_key_include;
 
-    for (int i = 0; i < _keys_param.start_keys.size(); ++i) {
-        // lower bound
-        RowCursor& start_key = _keys_param.start_keys[i];
-        RowCursor& end_key = _keys_param.end_keys[i];
+        for (int i = 0; i < _keys_param.start_keys.size(); ++i) {
+            // lower bound
+            RowCursor& start_key = _keys_param.start_keys[i];
+            RowCursor& end_key = _keys_param.end_keys[i];
 
-        if (!is_lower_key_included) {
-            if (compare_row_key(start_key, end_key) >= 0) {
-                VLOG_NOTICE << "return EOF when lower key not include"
-                            << ", start_key=" << start_key.to_string()
-                            << ", end_key=" << end_key.to_string();
-                eof = true;
-                break;
+            if (!is_lower_key_included) {
+                if (compare_row_key(start_key, end_key) >= 0) {
+                    VLOG_NOTICE << "return EOF when lower key not include"
+                                << ", start_key=" << start_key.to_string()
+                                << ", end_key=" << end_key.to_string();
+                    eof = true;
+                    break;
+                }
+            } else {
+                if (compare_row_key(start_key, end_key) > 0) {
+                    VLOG_NOTICE << "return EOF when lower key include="
+                                << ", start_key=" << start_key.to_string()
+                                << ", end_key=" << end_key.to_string();
+                    eof = true;
+                    break;
+                }
             }
-        } else {
-            if (compare_row_key(start_key, end_key) > 0) {
-                VLOG_NOTICE << "return EOF when lower key include="
-                            << ", start_key=" << start_key.to_string()
-                            << ", end_key=" << end_key.to_string();
-                eof = true;
-                break;
-            }
+
+            _is_lower_keys_included.push_back(is_lower_key_included);
+            _is_upper_keys_included.push_back(is_upper_key_included);
         }
+    }
 
-        _is_lower_keys_included.push_back(is_lower_key_included);
-        _is_upper_keys_included.push_back(is_upper_key_included);
+    {
+        bool is_lower_cluster_key_included = _keys_param.start_cluster_key_include;
+        bool is_upper_cluster_key_included = _keys_param.end_cluster_key_include;
+
+        for (int i = 0; i < _keys_param.start_cluster_keys.size(); ++i) {
+            // lower bound
+            RowCursor& start_key = _keys_param.start_cluster_keys[i];
+            RowCursor& end_key = _keys_param.end_cluster_keys[i];
+
+            if (!is_lower_cluster_key_included) {
+                if (compare_row_key(start_key, end_key) >= 0) {
+                    VLOG_NOTICE << "return EOF when lower key not include"
+                                << ", start_key=" << start_key.to_string()
+                                << ", end_key=" << end_key.to_string();
+                    eof = true;
+                    break;
+                }
+            } else {
+                if (compare_row_key(start_key, end_key) > 0) {
+                    VLOG_NOTICE << "return EOF when lower key include="
+                                << ", start_key=" << start_key.to_string()
+                                << ", end_key=" << end_key.to_string();
+                    eof = true;
+                    break;
+                }
+            }
+
+            _is_lower_cluster_keys_included.push_back(is_lower_cluster_key_included);
+            _is_upper_cluster_keys_included.push_back(is_upper_cluster_key_included);
+        }
     }
 
     if (eof) {
@@ -300,6 +334,7 @@ Status TabletReader::_init_params(const ReaderParams& read_params) {
     }
 
     res = _init_keys_param(read_params);
+    res = _init_cluster_keys_param(read_params);
     if (!res.ok()) {
         LOG(WARNING) << "fail to init keys param. res=" << res;
         return res;
@@ -451,6 +486,77 @@ Status TabletReader::_init_keys_param(const ReaderParams& read_params) {
 
     //TODO:check the valid of start_key and end_key.(eg. start_key <= end_key)
 
+    return Status::OK();
+}
+
+Status TabletReader::_init_cluster_keys_param(const ReaderParams& read_params) {
+    if (read_params.start_cluster_key.empty()) {
+        return Status::OK();
+    }
+
+    _keys_param.start_cluster_key_include = read_params.start_cluster_key_include;
+    _keys_param.end_cluster_key_include = read_params.end_cluster_key_include;
+
+    size_t start_cluster_key_size = read_params.start_cluster_key.size();
+    //_keys_param.start_keys.resize(start_key_size);
+    std::vector<RowCursor>(start_cluster_key_size).swap(_keys_param.start_cluster_keys);
+
+    size_t scan_cluster_key_size = read_params.start_cluster_key.front().size();
+    if (scan_cluster_key_size > _tablet_schema->num_columns()) {
+        return Status::Error<INVALID_ARGUMENT>(
+                "Input param are invalid. Column count is bigger than num_columns of schema. "
+                "column_count={}, schema.num_columns={}",
+                scan_cluster_key_size, _tablet_schema->num_columns());
+    }
+
+    std::vector<uint32_t> columns(scan_cluster_key_size);
+    std::iota(columns.begin(), columns.end(), 0);
+
+    std::shared_ptr<Schema> schema = std::make_shared<Schema>(_tablet_schema->columns(), columns);
+
+    for (size_t i = 0; i < start_cluster_key_size; ++i) {
+        if (read_params.start_cluster_key[i].size() != scan_cluster_key_size) {
+            return Status::Error<INVALID_ARGUMENT>(
+                    "The start_key.at({}).size={}, not equals the scan_key_size={}", i,
+                    read_params.start_cluster_key[i].size(), scan_cluster_key_size);
+        }
+
+        Status res = _keys_param.start_cluster_keys[i].init_scan_key(
+                _tablet_schema, read_params.start_cluster_key[i].values(), schema);
+        if (!res.ok()) {
+            LOG(WARNING) << "fail to init row cursor. res = " << res;
+            return res;
+        }
+        res = _keys_param.start_cluster_keys[i].from_tuple(read_params.start_cluster_key[i]);
+        if (!res.ok()) {
+            LOG(WARNING) << "fail to init row cursor from Keys. res=" << res << "key_index=" << i;
+            return res;
+        }
+    }
+
+    size_t end_cluster_key_size = read_params.end_cluster_key.size();
+    //_keys_param.end_keys.resize(end_key_size);
+    std::vector<RowCursor>(end_cluster_key_size).swap(_keys_param.end_cluster_keys);
+    for (size_t i = 0; i < end_cluster_key_size; ++i) {
+        if (read_params.end_cluster_key[i].size() != scan_cluster_key_size) {
+            return Status::Error<INVALID_ARGUMENT>(
+                    "The end_key.at({}).size={}, not equals the scan_key_size={}", i,
+                    read_params.end_cluster_key[i].size(), scan_cluster_key_size);
+        }
+
+        Status res = _keys_param.end_cluster_keys[i].init_scan_key(
+                _tablet_schema, read_params.end_cluster_key[i].values(), schema);
+        if (!res.ok()) {
+            LOG(WARNING) << "fail to init row cursor. res = " << res;
+            return res;
+        }
+
+        res = _keys_param.end_cluster_keys[i].from_tuple(read_params.end_cluster_key[i]);
+        if (!res.ok()) {
+            LOG(WARNING) << "fail to init row cursor from Keys. res=" << res << " key_index=" << i;
+            return res;
+        }
+    }
     return Status::OK();
 }
 

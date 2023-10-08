@@ -107,6 +107,7 @@ private:
     TOlapScanNode _olap_scan_node;
     std::vector<std::unique_ptr<TPaloScanRange>> _scan_ranges;
     std::vector<std::unique_ptr<doris::OlapScanRange>> _cond_ranges;
+    std::vector<std::unique_ptr<doris::OlapScanRange>> _cluster_cond_ranges;
     OlapScanKeys _scan_keys;
     OlapScanKeys _scan_cluster_keys;
     std::vector<TCondition> _olap_filters;
