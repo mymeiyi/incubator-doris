@@ -317,7 +317,7 @@ Status SegmentIterator::_get_row_ranges_by_keys() {
     DorisMetrics::instance()->segment_row_total->increment(num_rows());
 
     // fast path for empty segment or empty key ranges
-    if (_row_bitmap.isEmpty() || _opts.key_ranges.empty()) {
+    if (_row_bitmap.isEmpty() || (_opts.key_ranges.empty() && _opts.cluster_key_ranges.empty())) {
         return Status::OK();
     }
 
@@ -370,6 +370,7 @@ Status SegmentIterator::_get_row_ranges_by_keys() {
             RETURN_IF_ERROR(_prepare_seek(key_range));
             RETURN_IF_ERROR(_lookup_ordinal(key_range, &row_bitmap));
         }
+        // TODO deal cluster key ranges
         _row_bitmap = row_bitmap;
     }
     _opts.stats->rows_key_range_filtered += (pre_size - _row_bitmap.cardinality());
@@ -454,6 +455,9 @@ Status SegmentIterator::_get_row_ranges_by_column_conditions() {
         auto query_ctx = _opts.runtime_state->get_query_ctx();
         runtime_predicate = query_ctx->get_runtime_predicate().get_predictate();
     }
+    LOG(INFO) << "sout: col_id_to_predicates size=" << _opts.col_id_to_predicates.size()
+              << ", delete_condition_predicates size="
+              << _opts.delete_condition_predicates->num_of_column_predicate();
 
     if (!_row_bitmap.isEmpty() &&
         (runtime_predicate || !_opts.col_id_to_predicates.empty() ||

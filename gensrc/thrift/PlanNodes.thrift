@@ -666,6 +666,8 @@ struct TOlapScanNode {
   15: optional set<i32> output_column_unique_ids
   16: optional list<i32> distribute_column_ids
   17: optional i32 schema_version
+  18: optional list<string> cluster_key_column_name
+  19: optional list<Types.TPrimitiveType> cluster_key_column_type
 }
 
 struct TEqJoinCondition {

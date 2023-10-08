@@ -90,7 +90,8 @@ suite("test_point_query") {
               "store_row_column" = "true",
               "enable_unique_key_merge_on_write" = "true",
               "light_schema_change" = "true",
-              "storage_format" = "V2"
+              "storage_format" = "V2",
+              "function_column.sequence_col" = 'k6'
               )
           """
       sql """ INSERT INTO ${tableName} VALUES(1231, 119291.11, "ddd", "laooq", null, "2020-01-01 12:36:38", null, "1022-01-01 11:30:38", null, 1.111112, [119181.1111, 819019.1191, null], null) """

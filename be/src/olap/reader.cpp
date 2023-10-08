@@ -95,6 +95,15 @@ std::string TabletReader::KeysParam::to_string() const {
         ss << " end_keys=" << end_key.to_string();
     }
 
+    ss << "start_cluster_key_include=" << start_cluster_key_include
+       << " end_cluster_key_include=" << end_cluster_key_include;
+
+    for (auto& start_key : start_cluster_keys) {
+        ss << " cluster_keys=" << start_key.to_string();
+    }
+    for (auto& end_key : end_cluster_keys) {
+        ss << " cluster_end_keys=" << end_key.to_string();
+    }
     return ss.str();
 }
 
@@ -243,6 +252,11 @@ Status TabletReader::_capture_rs_readers(const ReaderParams& read_params) {
     _reader_context.is_lower_keys_included = &_is_lower_keys_included;
     _reader_context.upper_bound_keys = &_keys_param.end_keys;
     _reader_context.is_upper_keys_included = &_is_upper_keys_included;
+    // cluster key
+    _reader_context.lower_bound_cluster_keys = &_keys_param.start_cluster_keys;
+    _reader_context.is_lower_cluster_keys_included = &_is_lower_cluster_keys_included;
+    _reader_context.upper_bound_cluster_keys = &_keys_param.end_cluster_keys;
+    _reader_context.is_upper_cluster_keys_included = &_is_upper_cluster_keys_included;
     _reader_context.delete_handler = &_delete_handler;
     _reader_context.stats = &_stats;
     _reader_context.use_page_cache = read_params.use_page_cache;

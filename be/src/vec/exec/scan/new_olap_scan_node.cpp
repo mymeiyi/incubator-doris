@@ -252,55 +252,105 @@ Status NewOlapScanNode::_process_conjuncts() {
 Status NewOlapScanNode::_build_key_ranges_and_filters() {
     if (_push_down_agg_type == TPushAggOp::NONE ||
         _push_down_agg_type == TPushAggOp::COUNT_ON_INDEX) {
-        const std::vector<std::string>& column_names = _olap_scan_node.key_column_name;
-        const std::vector<TPrimitiveType::type>& column_types = _olap_scan_node.key_column_type;
-        DCHECK(column_types.size() == column_names.size());
-        LOG(INFO) << "sout: key column size=" << column_names.size()
-                  << ", column_names=" << to_string(column_names)
-                  << ", column_types=" << to_string(column_types)
-                  << ", push_down_type=" << _push_down_agg_type
-                  << ", scan_key=" << _scan_keys.debug_string()
-                  << ", _colname_to_value_range=" << _colname_to_value_range.size();
 
         // 1. construct scan key except last olap engine short key
-        _scan_keys.set_is_convertible(limit() == -1);
+        {
+            const std::vector<std::string>& column_names = _olap_scan_node.key_column_name;
+            const std::vector<TPrimitiveType::type>& column_types = _olap_scan_node.key_column_type;
+            DCHECK(column_types.size() == column_names.size());
+            LOG(INFO) << "sout: key column size=" << column_names.size()
+                      << ", column_names=" << to_string(column_names)
+                      << ", column_types=" << to_string(column_types)
+                      << ", push_down_type=" << _push_down_agg_type
+                      << ", scan_key=" << _scan_keys.debug_string()
+                      << ", _colname_to_value_range=" << _colname_to_value_range.size();
+            _scan_keys.set_is_convertible(limit() == -1);
 
-        // we use `exact_range` to identify a key range is an exact range or not when we convert
-        // it to `_scan_keys`. If `exact_range` is true, we can just discard it from `_olap_filters`.
-        bool exact_range = true;
-        bool eos = false;
-        for (int column_index = 0;
-             column_index < column_names.size() && !_scan_keys.has_range_value() && !eos;
-             ++column_index) {
-            auto iter = _colname_to_value_range.find(column_names[column_index]);
-            if (_colname_to_value_range.end() == iter) {
-                break;
-            }
+            // we use `exact_range` to identify a key range is an exact range or not when we convert
+            // it to `_scan_keys`. If `exact_range` is true, we can just discard it from `_olap_filters`.
+            bool exact_range = true;
+            bool eos = false;
+            for (int column_index = 0;
+                 column_index < column_names.size() && !_scan_keys.has_range_value() && !eos;
+                 ++column_index) {
+                auto iter = _colname_to_value_range.find(column_names[column_index]);
+                if (_colname_to_value_range.end() == iter) {
+                    break;
+                }
 
-            RETURN_IF_ERROR(std::visit(
-                    [&](auto&& range) {
-                        // make a copy or range and pass to extend_scan_key, keep the range unchanged
-                        // because extend_scan_key method may change the first parameter.
-                        // but the original range may be converted to olap filters, if it's not a exact_range.
-                        auto temp_range = range;
-                        if (range.get_fixed_value_size() <= _max_pushdown_conditions_per_column) {
-                            RETURN_IF_ERROR(_scan_keys.extend_scan_key(
-                                    temp_range, _max_scan_key_num, &exact_range, &eos));
-                            if (exact_range) {
-                                _colname_to_value_range.erase(iter->first);
+                RETURN_IF_ERROR(std::visit(
+                        [&](auto&& range) {
+                            // make a copy or range and pass to extend_scan_key, keep the range unchanged
+                            // because extend_scan_key method may change the first parameter.
+                            // but the original range may be converted to olap filters, if it's not a exact_range.
+                            auto temp_range = range;
+                            if (range.get_fixed_value_size() <=
+                                _max_pushdown_conditions_per_column) {
+                                RETURN_IF_ERROR(_scan_keys.extend_scan_key(
+                                        temp_range, _max_scan_key_num, &exact_range, &eos));
+                                if (exact_range) {
+                                    _colname_to_value_range.erase(iter->first);
+                                }
+                            } else {
+                                // if exceed max_pushdown_conditions_per_column, use whole_value_rang instead
+                                // and will not erase from _colname_to_value_range, it must be not exact_range
+                                temp_range.set_whole_value_range();
+                                RETURN_IF_ERROR(_scan_keys.extend_scan_key(
+                                        temp_range, _max_scan_key_num, &exact_range, &eos));
                             }
-                        } else {
-                            // if exceed max_pushdown_conditions_per_column, use whole_value_rang instead
-                            // and will not erase from _colname_to_value_range, it must be not exact_range
-                            temp_range.set_whole_value_range();
-                            RETURN_IF_ERROR(_scan_keys.extend_scan_key(
-                                    temp_range, _max_scan_key_num, &exact_range, &eos));
-                        }
-                        return Status::OK();
-                    },
-                    iter->second));
+                            return Status::OK();
+                        },
+                        iter->second));
+            }
+            _eos |= eos;
         }
-        _eos |= eos;
+
+        {
+            const std::vector<std::string>& column_names = _olap_scan_node.cluster_key_column_name;
+            const std::vector<TPrimitiveType::type>& column_types =
+                    _olap_scan_node.cluster_key_column_type;
+            DCHECK(column_types.size() == column_names.size());
+            LOG(INFO) << "sout: cluster_key column size=" << column_names.size()
+                      << ", cluster_column_names=" << to_string(column_names)
+                      << ", cluster_column_types=" << to_string(column_types)
+                      << ", cluster_scan_key=" << _scan_cluster_keys.debug_string();
+            _scan_cluster_keys.set_is_convertible(limit() == -1);
+
+            bool exact_range = true;
+            bool eos = false;
+            for (int column_index = 0; column_index < column_names.size() &&
+                                       !_scan_cluster_keys.has_range_value() && !eos;
+                 ++column_index) {
+                auto iter = _colname_to_value_range.find(column_names[column_index]);
+                if (_colname_to_value_range.end() == iter) {
+                    break;
+                }
+
+                RETURN_IF_ERROR(std::visit(
+                        [&](auto&& range) {
+                            // make a copy or range and pass to extend_scan_key, keep the range unchanged
+                            // because extend_scan_key method may change the first parameter.
+                            // but the original range may be converted to olap filters, if it's not a exact_range.
+                            auto temp_range = range;
+                            if (range.get_fixed_value_size() <=
+                                _max_pushdown_conditions_per_column) {
+                                RETURN_IF_ERROR(_scan_cluster_keys.extend_scan_key(
+                                        temp_range, _max_scan_key_num, &exact_range, &eos));
+                                if (exact_range) {
+                                    _colname_to_value_range.erase(iter->first);
+                                }
+                            } else {
+                                // if exceed max_pushdown_conditions_per_column, use whole_value_rang instead
+                                // and will not erase from _colname_to_value_range, it must be not exact_range
+                                temp_range.set_whole_value_range();
+                                RETURN_IF_ERROR(_scan_cluster_keys.extend_scan_key(
+                                        temp_range, _max_scan_key_num, &exact_range, &eos));
+                            }
+                            return Status::OK();
+                        },
+                        iter->second));
+            }
+        }
 
         for (auto& iter : _colname_to_value_range) {
             std::vector<TCondition> filters;
@@ -344,7 +394,8 @@ Status NewOlapScanNode::_build_key_ranges_and_filters() {
         _runtime_profile->add_info_string("TabletIds", tablets_id_to_string(_scan_ranges));
     }
     VLOG_CRITICAL << _scan_keys.debug_string();
-    LOG(INFO) << "sout: scan_keys=" << _scan_keys.debug_string();
+    LOG(INFO) << "sout: scan_keys=" << _scan_keys.debug_string()
+              << ", scan_cluster_keys=" << _scan_cluster_keys.debug_string();
 
     return Status::OK();
 }
