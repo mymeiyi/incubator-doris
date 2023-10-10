@@ -506,6 +506,10 @@ Status NewOlapScanNode::_init_scanners(std::list<VScannerSPtr>* scanners) {
     if (_cluster_cond_ranges.empty()) {
         _cluster_cond_ranges.emplace_back(new doris::OlapScanRange());
     }
+    LOG(INFO) << "sout: cluster cond ranges size=" << _cluster_cond_ranges.size();
+    for (const auto& range : _cluster_cond_ranges) {
+        LOG(INFO) << "sout: cluster cond range=" << range->debug_string();
+    }
 
     int scanners_per_tablet = std::max(1, 64 / (int)_scan_ranges.size());
 
@@ -562,6 +566,11 @@ Status NewOlapScanNode::_init_scanners(std::list<VScannerSPtr>* scanners) {
         }
     }
 
+    LOG(INFO) << "sout: is_dup_mow_key=" << is_dup_mow_key
+              << ", _shared_scan_opt=" << _shared_scan_opt
+              << ", _scan_ranges.size=" << _scan_ranges.size()
+              << ", doris_scanner_thread_pool_thread_num="
+              << config::doris_scanner_thread_pool_thread_num;
     if (is_dup_mow_key) {
         auto build_new_scanner = [&](const TPaloScanRange& scan_range,
                                      const std::vector<OlapScanRange*>& key_ranges,
@@ -593,7 +602,10 @@ Status NewOlapScanNode::_init_scanners(std::list<VScannerSPtr>* scanners) {
             std::vector<doris::OlapScanRange*> cluster_scanner_ranges(num_cluster_ranges);
             for (int j = 0; j < num_cluster_ranges; ++j) {
                 cluster_scanner_ranges[j] = (*cluster_ranges)[j].get();
+                LOG(INFO) << "sout: cluster scanner range="
+                          << cluster_scanner_ranges[j]->debug_string();
             }
+            LOG(INFO) << "sout: cluster scanner range size=" << cluster_scanner_ranges.size();
 
             // Segment count in current rowset vector
             const auto& rs_seg_count = tablet_rs_seg_count[i];
@@ -625,6 +637,7 @@ Status NewOlapScanNode::_init_scanners(std::list<VScannerSPtr>* scanners) {
                             segment_idx_to_scan,
                             segment_idx_to_scan + need_add_seg_nums}; // only scan need_add_seg_nums
 
+                    LOG(INFO) << "sout: build new scanner 1";
                     RETURN_IF_ERROR(build_new_scanner(
                             *scan_range, scanner_ranges, cluster_scanner_ranges,
                             {std::move(rs_splits), read_source.delete_predicates}));
@@ -634,6 +647,11 @@ Status NewOlapScanNode::_init_scanners(std::list<VScannerSPtr>* scanners) {
                 } else if (num_segments_assigned + max_add_seg_nums ==
                            avg_segment_count_by_scanner) {
                     split.segment_offsets = {segment_idx_to_scan, rs_seg_count[rowset_idx]};
+                    LOG(INFO) << "sout: build new scanner 2, cluster_scanner_ranges size="
+                              << cluster_scanner_ranges.size();
+                    for (const auto& range : cluster_scanner_ranges) {
+                        LOG(INFO) << "sout: cluster_scanner_range=" << range->debug_string();
+                    }
                     RETURN_IF_ERROR(build_new_scanner(
                             *scan_range, scanner_ranges, cluster_scanner_ranges,
                             {std::move(rs_splits), read_source.delete_predicates}));
@@ -659,6 +677,7 @@ Status NewOlapScanNode::_init_scanners(std::list<VScannerSPtr>* scanners) {
 
             // dispose some segment tail
             if (!rs_splits.empty()) {
+                LOG(INFO) << "sout: build new scanner 3";
                 static_cast<void>(
                         build_new_scanner(*scan_range, scanner_ranges, cluster_scanner_ranges,
                                           {std::move(rs_splits), read_source.delete_predicates}));
@@ -706,6 +725,7 @@ Status NewOlapScanNode::_init_scanners(std::list<VScannerSPtr>* scanners) {
                     scanner_ranges.push_back((*ranges)[i].get());
                 }
                 std::vector<doris::OlapScanRange*> cluster_scanner_ranges(0);
+                LOG(INFO) << "sout: build new scanner 4";
                 RETURN_IF_ERROR(build_new_scanner(*scan_range, scanner_ranges, cluster_scanner_ranges));
             }
         }

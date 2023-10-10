@@ -76,6 +76,15 @@ NewOlapScanner::NewOlapScanner(RuntimeState* state, NewOlapScanNode* parent, int
           _cluster_key_ranges(cluster_key_ranges) {
     _tablet_schema = std::make_shared<TabletSchema>();
     _is_init = false;
+    LOG(INFO) << "sout: cluster key range size=" << _cluster_key_ranges.size();
+    for (const auto& range : _cluster_key_ranges) {
+        LOG(INFO) << "sout: cluster key range=" << range->debug_string();
+    }
+
+    LOG(INFO) << "sout: key range size=" << _key_ranges.size();
+    for (const auto& range : _key_ranges) {
+        LOG(INFO) << "sout: key range=" << range->debug_string();
+    }
 }
 
 NewOlapScanner::NewOlapScanner(RuntimeState* state, NewOlapScanNode* parent, int64_t limit,
@@ -92,6 +101,15 @@ NewOlapScanner::NewOlapScanner(RuntimeState* state, NewOlapScanNode* parent, int
     _tablet_reader_params.set_read_source(std::move(read_source));
     _tablet_schema = std::make_shared<TabletSchema>();
     _is_init = false;
+    LOG(INFO) << "sout: cluster key range size=" << _cluster_key_ranges.size();
+    for (const auto& range : _cluster_key_ranges) {
+        LOG(INFO) << "sout: cluster key range=" << range->debug_string();
+    }
+
+    LOG(INFO) << "sout: key range size=" << _key_ranges.size();
+    for (const auto& range : _key_ranges) {
+        LOG(INFO) << "sout: key range=" << range->debug_string();
+    }
 }
 
 NewOlapScanner::NewOlapScanner(RuntimeState* state, pipeline::ScanLocalStateBase* local_state,
@@ -107,6 +125,15 @@ NewOlapScanner::NewOlapScanner(RuntimeState* state, pipeline::ScanLocalStateBase
           _cluster_key_ranges(cluster_key_ranges) {
     _tablet_schema = std::make_shared<TabletSchema>();
     _is_init = false;
+    LOG(INFO) << "sout: cluster key range size=" << _cluster_key_ranges.size();
+    for (const auto& range : _cluster_key_ranges) {
+        LOG(INFO) << "sout: cluster key range=" << range->debug_string();
+    }
+
+    LOG(INFO) << "sout: key range size=" << _key_ranges.size();
+    for (const auto& range : _key_ranges) {
+        LOG(INFO) << "sout: key range=" << range->debug_string();
+    }
 }
 
 NewOlapScanner::NewOlapScanner(RuntimeState* state, pipeline::ScanLocalStateBase* local_state,
@@ -123,6 +150,15 @@ NewOlapScanner::NewOlapScanner(RuntimeState* state, pipeline::ScanLocalStateBase
     _tablet_reader_params.set_read_source(std::move(read_source));
     _tablet_schema = std::make_shared<TabletSchema>();
     _is_init = false;
+    LOG(INFO) << "sout: cluster key range size=" << _cluster_key_ranges.size();
+    for (const auto& range : _cluster_key_ranges) {
+        LOG(INFO) << "sout: cluster key range=" << range->debug_string();
+    }
+
+    LOG(INFO) << "sout: key range size=" << _key_ranges.size();
+    for (const auto& range : _key_ranges) {
+        LOG(INFO) << "sout: key range=" << range->debug_string();
+    }
 }
 
 static std::string read_columns_to_string(TabletSchemaSPtr tablet_schema,
@@ -243,6 +279,11 @@ Status NewOlapScanner::init() {
                 read_source.fill_delete_predicates();
             }
             _tablet_reader_params.set_read_source(std::move(read_source));
+        }
+
+        LOG(INFO) << "sout: cluster key range size 0=" << _cluster_key_ranges.size();
+        for (auto key_range : _cluster_key_ranges) {
+            LOG(INFO) << "sout: cluster key range 0=" << key_range->debug_string();
         }
 
         // Initialize tablet_reader_params
@@ -376,8 +417,10 @@ Status NewOlapScanner::_init_tablet_reader_params(
         _tablet_reader_params.start_key.push_back(key_range->begin_scan_range);
         _tablet_reader_params.end_key.push_back(key_range->end_scan_range);
     }
-    // cluster key range
+    // cluster key
+    LOG(INFO) << "sout: cluster key range size=" << cluster_key_ranges.size();
     for (auto key_range : cluster_key_ranges) {
+        LOG(INFO) << "sout: cluster key range=" << key_range->debug_string();
         if (key_range->begin_scan_range.size() == 1 &&
             key_range->begin_scan_range.get_value(0) == NEGATIVE_INFINITY) {
             continue;
