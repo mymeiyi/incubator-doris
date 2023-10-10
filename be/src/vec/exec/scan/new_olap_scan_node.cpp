@@ -578,7 +578,7 @@ Status NewOlapScanNode::_init_scanners(std::list<VScannerSPtr>* scanners) {
                                      TabletReader::ReadSource read_source) {
             std::shared_ptr<NewOlapScanner> scanner = NewOlapScanner::create_shared(
                     _state, this, _limit_per_scanner, _olap_scan_node.is_preaggregation, scan_range,
-                    cluster_key_ranges, key_ranges, std::move(read_source), _scanner_profile.get());
+                    key_ranges, cluster_key_ranges, std::move(read_source), _scanner_profile.get());
 
             RETURN_IF_ERROR(scanner->prepare(_state, _conjuncts));
             scanner->set_compound_filters(_compound_filters);

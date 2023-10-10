@@ -365,18 +365,53 @@ Status SegmentIterator::_get_row_ranges_by_keys() {
         }
         _row_bitmap = RowRanges::ranges_to_roaring(result_ranges);
     } else {
-        roaring::Roaring row_bitmap;
-        for (auto& key_range : _opts.key_ranges) {
-            RETURN_IF_ERROR(_prepare_seek(key_range));
-            RETURN_IF_ERROR(_lookup_ordinal(key_range, &row_bitmap));
+        LOG(INFO) << "sout: key range size=" << _opts.key_ranges.size();
+        for (const auto& key_range : _opts.key_ranges) {
+            LOG(INFO) << "sout: key range, lower=" << key_range.lower_key->to_string()
+                      << ", upper=" << key_range.upper_key->to_string();
         }
         LOG(INFO) << "sout: cluster key range size=" << _opts.cluster_key_ranges.size();
         for (const auto& key_range : _opts.cluster_key_ranges) {
             LOG(INFO) << "sout: cluster key range, lower=" << key_range.lower_key->to_string()
                       << ", upper=" << key_range.upper_key->to_string();
         }
-        // TODO deal cluster key ranges
+
+        roaring::Roaring row_bitmap;
+        for (auto& key_range : _opts.key_ranges) {
+            RETURN_IF_ERROR(_prepare_seek(key_range));
+            RETURN_IF_ERROR(_lookup_ordinal(key_range, &row_bitmap));
+        }
         _row_bitmap = row_bitmap;
+        LOG(INFO) << "sout: after filter key range, num=" << _row_bitmap.cardinality();
+
+        // TODO deal cluster key ranges
+        RowRanges result_ranges;
+        for (const auto& key_range : _opts.cluster_key_ranges) {
+            rowid_t lower_rowid = 0;
+            rowid_t upper_rowid = num_rows();
+            RETURN_IF_ERROR(_prepare_seek(key_range));
+            LOG(INFO) << "sout: range size 0="
+                      << RowRanges::ranges_to_roaring(result_ranges).cardinality()
+                      << ", low_key=" << key_range.lower_key
+                      << ", upper_key=" << key_range.upper_key;
+            if (key_range.upper_key != nullptr) {
+                RETURN_IF_ERROR(_lookup_ordinal_from_sk_index(
+                        *key_range.upper_key, !key_range.include_upper, num_rows(), &upper_rowid));
+            }
+            if (upper_rowid > 0 && key_range.lower_key != nullptr) {
+                RETURN_IF_ERROR(_lookup_ordinal_from_sk_index(
+                        *key_range.lower_key, key_range.include_lower, upper_rowid, &lower_rowid));
+            }
+            LOG(INFO) << "sout: range size 1="
+                      << RowRanges::ranges_to_roaring(result_ranges).cardinality()
+                      << ", low_id=" << lower_rowid << ", upper_id=" << upper_rowid;
+            auto row_range = RowRanges::create_single(lower_rowid, upper_rowid);
+            RowRanges::ranges_union(result_ranges, row_range, &result_ranges);
+            LOG(INFO) << "sout: range size 2="
+                      << RowRanges::ranges_to_roaring(result_ranges).cardinality();
+        }
+        auto row_bitmap2 = RowRanges::ranges_to_roaring(result_ranges);
+        LOG(INFO) << "sout: after filter cluster key range, num=" << row_bitmap2.cardinality();
     }
     _opts.stats->rows_key_range_filtered += (pre_size - _row_bitmap.cardinality());
 
@@ -1229,12 +1264,12 @@ Status SegmentIterator::_lookup_ordinal(const StorageReadOptions::KeyRange& key_
         // If client want to read upper_bound, the include_upper is true. So we
         // should get the first ordinal at which key is larger than upper_bound.
         // So we call _lookup_ordinal with include_upper's negate
-        RETURN_IF_ERROR(_lookup_ordinal(*key_range.upper_key, !key_range.include_upper, num_rows(),
-                                        &upper_rowid));
+        RETURN_IF_ERROR(_lookup_ordinal_from_pk_index(*key_range.upper_key,
+                                                      !key_range.include_upper, &upper_rowid));
     }
     if (upper_rowid > 0 && key_range.lower_key != nullptr) {
-        RETURN_IF_ERROR(_lookup_ordinal(*key_range.lower_key, key_range.include_lower, upper_rowid,
-                                        &lower_rowid));
+        RETURN_IF_ERROR(_lookup_ordinal_from_pk_index(*key_range.lower_key, key_range.include_lower,
+                                                      &lower_rowid));
     }
     DCHECK(lower_rowid <= upper_rowid);
     if (lower_rowid == 0 && upper_rowid == num_rows()) {

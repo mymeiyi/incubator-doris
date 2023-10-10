@@ -293,6 +293,7 @@ Status PipelineFragmentContext::prepare(const doris::TPipelineFragmentParams& re
             const bool shared_scan =
                     find_with_default(local_params.per_node_shared_scans, scan_node->id(), false);
             scan_node->set_scan_ranges(scan_ranges);
+            LOG(INFO) << "sout: set_shared_scan=" << shared_scan;
             scan_node->set_shared_scan(_runtime_state.get(), shared_scan);
         } else {
             ScanNode* scan_node = static_cast<ScanNode*>(node);
