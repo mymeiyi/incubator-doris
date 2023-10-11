@@ -76,7 +76,7 @@ suite("test_point_query") {
         exception "errCode = 2, detailMessage = Row store column rely on light schema change, enable light schema change first"
     }
 
-    for (int i = 0; i < 2; i++) {
+    for (int i = 0; i < 3; i++) {
         tableName = realDb + ".tbl_point_query" + i
         sql """DROP TABLE IF EXISTS ${tableName}"""
         if (i == 0) {
@@ -102,8 +102,34 @@ suite("test_point_query") {
               "store_row_column" = "true",
               "enable_unique_key_merge_on_write" = "true",
               "light_schema_change" = "true",
+              "storage_format" = "V2"
+              )
+            """
+        } else if (i == 1) {
+            sql """
+              CREATE TABLE IF NOT EXISTS ${tableName} (
+                `k1` int(11) NULL COMMENT "",
+                `k2` decimalv3(27, 9) NULL COMMENT "",
+                `k3` varchar(300) NULL COMMENT "",
+                `k4` varchar(30) NULL COMMENT "",
+                `k5` date NULL COMMENT "",
+                `k6` datetime NULL COMMENT "",
+                `k7` float NULL COMMENT "",
+                `k8` datev2 NULL COMMENT "",
+                `k9` boolean NULL COMMENT "",
+                `k10` decimalv3(20, 3) NULL COMMENT "",
+                `k11` array<decimalv3(27, 9)> NULL COMMENT "",
+                `k12` array<text> NULL COMMENT ""
+              ) ENGINE=OLAP
+              UNIQUE KEY(`k1`, `k2`, `k3`)
+              DISTRIBUTED BY HASH(`k1`, k2, k3) BUCKETS 1
+              PROPERTIES (
+              "replication_allocation" = "tag.location.default: 1",
+              "store_row_column" = "true",
+              "enable_unique_key_merge_on_write" = "true",
+              "light_schema_change" = "true",
               "storage_format" = "V2",
-              "function_column.sequence_col" = 'k6'
+              "function_column.sequence_type" = 'int'
               )
             """
         } else {
@@ -129,7 +155,8 @@ suite("test_point_query") {
               "store_row_column" = "true",
               "enable_unique_key_merge_on_write" = "true",
               "light_schema_change" = "true",
-              "storage_format" = "V2"
+              "storage_format" = "V2",
+              "function_column.sequence_col" = 'k6'
               )
             """
         }
