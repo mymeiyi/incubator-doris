@@ -162,8 +162,8 @@ private:
     [[nodiscard]] Status _prepare_seek(const StorageReadOptions::KeyRange& key_range);
     [[nodiscard]] Status _lookup_ordinal(const RowCursor& key, bool is_include, rowid_t upper_bound,
                                          rowid_t* rowid);
-    [[nodiscard]] Status _lookup_ordinal(const StorageReadOptions::KeyRange& key_range,
-                                         roaring::Roaring* row_bitmap);
+    [[nodiscard]] Status _lookup_ordinal_from_pk_index(
+            const StorageReadOptions::KeyRange& key_range, roaring::Roaring* row_bitmap);
     // lookup the ordinal of given key from short key index
     // the returned rowid is rowid in primary index, not the rowid encoded in primary key
     [[nodiscard]] Status _lookup_ordinal_from_sk_index(const RowCursor& key, bool is_include,
@@ -297,6 +297,49 @@ private:
         }
 
         for (auto cid = 0; cid < num_keys; cid++) {
+            auto field = key.schema()->column(cid);
+            if (field == nullptr) {
+                break;
+            }
+            auto cell = key.cell(cid);
+            if (cell.is_null()) {
+                _short_key[cid]->insert_default();
+            } else {
+                if (field->type() == FieldType::OLAP_FIELD_TYPE_VARCHAR ||
+                    field->type() == FieldType::OLAP_FIELD_TYPE_CHAR ||
+                    field->type() == FieldType::OLAP_FIELD_TYPE_STRING) {
+                    const Slice* slice = reinterpret_cast<const Slice*>(cell.cell_ptr());
+                    _short_key[cid]->insert_data(slice->data, slice->size);
+                } else {
+                    _short_key[cid]->insert_many_fix_len_data(
+                            reinterpret_cast<const char*>(cell.cell_ptr()), 1);
+                }
+            }
+        }
+    }
+
+    void _convert_rowcursor_to_short_key(const RowCursor& key,
+                                         std::vector<uint32_t> short_key_column_ids) {
+        auto num_keys = short_key_column_ids.size();
+        if (_short_key.size() == 0) {
+            _short_key.resize(num_keys);
+            for (auto cid : short_key_column_ids) {
+                auto* field = key.schema()->column(cid);
+                _short_key[cid] = Schema::get_column_by_field(*field);
+
+                if (field->type() == FieldType::OLAP_FIELD_TYPE_DATE) {
+                    _short_key[cid]->set_date_type();
+                } else if (field->type() == FieldType::OLAP_FIELD_TYPE_DATETIME) {
+                    _short_key[cid]->set_datetime_type();
+                }
+            }
+        } else {
+            for (int i = 0; i < num_keys; i++) {
+                _short_key[i]->clear();
+            }
+        }
+
+        for (auto cid : short_key_column_ids) {
             auto field = key.schema()->column(cid);
             if (field == nullptr) {
                 break;
