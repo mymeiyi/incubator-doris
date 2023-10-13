@@ -55,7 +55,7 @@ suite("test_schema_change") {
             `max_dwell_time` INT DEFAULT "0" COMMENT "用户最大停留时间",
             `min_dwell_time` INT DEFAULT "99999" COMMENT "用户最小停留时间")
         UNIQUE KEY(`user_id`, `date`, `city`, `age`, `sex`)
-        CLUSTER BY(`user_id`, `sex`, `cost`, `age`)
+        CLUSTER BY(`user_id`, `max_dwell_time`, `sex`, `cost`, `age`)
         DISTRIBUTED BY HASH(`user_id`)
         PROPERTIES ( "replication_num" = "1",
                      "disable_auto_compaction" = "true",
@@ -145,70 +145,71 @@ suite("test_schema_change") {
 
     // 2. drop a value column
     sql """ alter table ${tableName} DROP column last_visit_date; """
-    assertTrue(getAlterTableState(), "drop column should success")
-    sql """ INSERT INTO ${tableName}
+    assertTrue(getAlterTableState(), "drop column should success");
+    {
+        sql """ INSERT INTO ${tableName}
         (`user_id`, `date`, `city`, `age`, `sex`, `last_update_date`, `last_visit_date_not_null`,
         `cost`, `max_dwell_time`, `min_dwell_time`) 
         VALUES (1, '2017-10-01', 'Beijing', 10, 1, '2020-01-01', '2020-01-01', 1, 30, 20)
         """
 
-    sql """ INSERT INTO ${tableName}
+        sql """ INSERT INTO ${tableName}
         (`user_id`, `date`, `city`, `age`, `sex`, `last_update_date`, `last_visit_date_not_null`,
         `cost`, `max_dwell_time`, `min_dwell_time`) 
         VALUES (2, '2017-10-01', 'Beijing', 10, 1, '2020-01-02', '2020-01-02', 1, 31, 21)
         """
 
-    sql """ INSERT INTO ${tableName}
+        sql """ INSERT INTO ${tableName}
         (`user_id`, `date`, `city`, `age`, `sex`, `last_update_date`, `last_visit_date_not_null`,
         `cost`, `max_dwell_time`, `min_dwell_time`) 
         VALUES (3, '2017-10-01', 'Beijing', 10, 1, '2020-01-03', '2020-01-03', 1, 32, 20)
         """
 
-    sql """ INSERT INTO ${tableName}
+        sql """ INSERT INTO ${tableName}
         (`user_id`, `date`, `city`, `age`, `sex`, `last_update_date`, `last_visit_date_not_null`,
         `cost`, `max_dwell_time`, `min_dwell_time`) 
         VALUES (4, '2017-10-01', 'Beijing', 10, 1, '2020-01-03', '2020-01-03', 1, 32, 22)
         """
 
-    sql """ INSERT INTO ${tableName} 
+        sql """ INSERT INTO ${tableName} 
         (`user_id`, `date`, `city`, `age`, `sex`, `last_update_date`, `last_visit_date_not_null`,
         `cost`, `max_dwell_time`, `min_dwell_time`) 
         VALUES (5, '2017-10-01', 'Beijing', 10, 1, NULL, '2020-01-05', 1, 34, 20)
         """
 
-    qt_sql """ SELECT * FROM ${tableName} t ORDER BY user_id; """
-    qt_sql """ SELECT * FROM ${tableName} t where user_id = 6 and sex = 1 ORDER BY user_id; """
+        qt_sql """ SELECT * FROM ${tableName} t ORDER BY user_id; """
+        qt_sql """ SELECT * FROM ${tableName} t where user_id = 6 and sex = 1 ORDER BY user_id; """
 
-    // insert a duplicate key
-    sql """ INSERT INTO ${tableName} 
+        // insert a duplicate key
+        sql """ INSERT INTO ${tableName} 
         (`user_id`, `date`, `city`, `age`, `sex`, `last_update_date`, `last_visit_date_not_null`,
         `cost`, `max_dwell_time`, `min_dwell_time`) 
         VALUES (5, '2017-10-01', 'Beijing', 10, 1, NULL, '2020-01-05', 1, 34, 21)
         """
-    qt_sql """ SELECT * FROM ${tableName} t ORDER BY user_id; """
+        qt_sql """ SELECT * FROM ${tableName} t ORDER BY user_id; """
 
-    // insert a duplicate key
-    sql """ INSERT INTO ${tableName}
+        // insert a duplicate key
+        sql """ INSERT INTO ${tableName}
         (`user_id`, `date`, `city`, `age`, `sex`, `last_update_date`, `last_visit_date_not_null`,
         `cost`, `max_dwell_time`, `min_dwell_time`) 
         VALUES (5, '2017-10-01', 'Beijing', 10, 1, NULL, '2020-01-05', 1, 34, 22)
         """
-    qt_sql """ SELECT * FROM ${tableName} t ORDER BY user_id; """
+        qt_sql """ SELECT * FROM ${tableName} t ORDER BY user_id; """
 
-    qt_sql """ SELECT * FROM ${tableName} t where user_id = 5; """
+        qt_sql """ SELECT * FROM ${tableName} t where user_id = 5; """
 
-    qt_sql """ SELECT COUNT(*) FROM ${tableName};"""
+        qt_sql """ SELECT COUNT(*) FROM ${tableName};"""
 
-    // insert a new key
-    sql """ INSERT INTO ${tableName}
+        // insert a new key
+        sql """ INSERT INTO ${tableName}
         (`user_id`, `date`, `city`, `age`, `sex`, `last_update_date`, `last_visit_date_not_null`,
         `cost`, `max_dwell_time`, `min_dwell_time`) 
         VALUES (6, '2017-10-01', 'Beijing', 10, 1, NULL, '2020-01-05', 1, 34, 22)
         """
-    qt_sql """ SELECT * FROM ${tableName} t ORDER BY user_id; """
+        qt_sql """ SELECT * FROM ${tableName} t ORDER BY user_id; """
 
-    // insert batch key
-    sql """ INSERT INTO ${tableName}
+        // insert batch key
+        sql """ INSERT INTO ${tableName}
             (`user_id`, `date`, `city`, `age`, `sex`, `last_update_date`, `last_visit_date_not_null`,
             `cost`, `max_dwell_time`, `min_dwell_time`) 
             VALUES
@@ -217,74 +218,76 @@ suite("test_schema_change") {
             (7, '2017-10-01', 'Beijing', 10, 1, NULL, '2020-01-05', 1, 34, 24),
             (7, '2017-10-01', 'Beijing', 10, 1, NULL, '2020-01-05', 1, 34, 25)
         """
-    qt_sql """ SELECT * FROM ${tableName} t ORDER BY user_id; """
-    qt_sql """ SELECT * FROM ${tableName} t where user_id = 6 and sex = 1 ORDER BY user_id; """
+        qt_sql """ SELECT * FROM ${tableName} t ORDER BY user_id; """
+        qt_sql """ SELECT * FROM ${tableName} t where user_id = 6 and sex = 1 ORDER BY user_id; """
+    }
 
     // 3. drop a cluster key column(not the key column)
     sql """ alter table ${tableName} DROP column cost; """
-    assertTrue(getAlterTableState(), "drop column should success")
-    sql """ INSERT INTO ${tableName}
+    assertTrue(getAlterTableState(), "drop column should success");
+    {
+        sql """ INSERT INTO ${tableName}
         (`user_id`, `date`, `city`, `age`, `sex`, `last_update_date`, `last_visit_date_not_null`,
         `max_dwell_time`, `min_dwell_time`) 
         VALUES (1, '2017-10-01', 'Beijing', 10, 1, '2020-01-01', '2020-01-01', 30, 20)
         """
 
-    sql """ INSERT INTO ${tableName}
+        sql """ INSERT INTO ${tableName}
         (`user_id`, `date`, `city`, `age`, `sex`, `last_update_date`, `last_visit_date_not_null`,
         `max_dwell_time`, `min_dwell_time`)
         VALUES (2, '2017-10-01', 'Beijing', 10, 1, '2020-01-02', '2020-01-02', 31, 21)
         """
 
-    sql """ INSERT INTO ${tableName}
+        sql """ INSERT INTO ${tableName}
         (`user_id`, `date`, `city`, `age`, `sex`, `last_update_date`, `last_visit_date_not_null`,
         `max_dwell_time`, `min_dwell_time`)
         VALUES (3, '2017-10-01', 'Beijing', 10, 1, '2020-01-03', '2020-01-03', 32, 20)
         """
 
-    sql """ INSERT INTO ${tableName}
+        sql """ INSERT INTO ${tableName}
         (`user_id`, `date`, `city`, `age`, `sex`, `last_update_date`, `last_visit_date_not_null`,
         `max_dwell_time`, `min_dwell_time`)
         VALUES (4, '2017-10-01', 'Beijing', 10, 1, '2020-01-03', '2020-01-03', 32, 22)
         """
 
-    sql """ INSERT INTO ${tableName} 
+        sql """ INSERT INTO ${tableName} 
         (`user_id`, `date`, `city`, `age`, `sex`, `last_update_date`, `last_visit_date_not_null`,
         `max_dwell_time`, `min_dwell_time`)
         VALUES (5, '2017-10-01', 'Beijing', 10, 1, NULL, '2020-01-05', 34, 20)
         """
 
-    qt_sql """ SELECT * FROM ${tableName} t ORDER BY user_id; """
+        qt_sql """ SELECT * FROM ${tableName} t ORDER BY user_id; """
 
-    // insert a duplicate key
-    sql """ INSERT INTO ${tableName} 
+        // insert a duplicate key
+        sql """ INSERT INTO ${tableName} 
         (`user_id`, `date`, `city`, `age`, `sex`, `last_update_date`, `last_visit_date_not_null`,
         `max_dwell_time`, `min_dwell_time`)
         VALUES (5, '2017-10-01', 'Beijing', 10, 1, NULL, '2020-01-05', 34, 21)
         """
-    qt_sql """ SELECT * FROM ${tableName} t ORDER BY user_id; """
+        qt_sql """ SELECT * FROM ${tableName} t ORDER BY user_id; """
 
-    // insert a duplicate key
-    sql """ INSERT INTO ${tableName}
+        // insert a duplicate key
+        sql """ INSERT INTO ${tableName}
         (`user_id`, `date`, `city`, `age`, `sex`, `last_update_date`, `last_visit_date_not_null`,
         `max_dwell_time`, `min_dwell_time`)
         VALUES (5, '2017-10-01', 'Beijing', 10, 1, NULL, '2020-01-05', 34, 22)
         """
-    qt_sql """ SELECT * FROM ${tableName} t ORDER BY user_id; """
+        qt_sql """ SELECT * FROM ${tableName} t ORDER BY user_id; """
 
-    qt_sql """ SELECT * FROM ${tableName} t where user_id = 5; """
+        qt_sql """ SELECT * FROM ${tableName} t where user_id = 5; """
 
-    qt_sql """ SELECT COUNT(*) FROM ${tableName};"""
+        qt_sql """ SELECT COUNT(*) FROM ${tableName};"""
 
-    // insert a new key
-    sql """ INSERT INTO ${tableName}
+        // insert a new key
+        sql """ INSERT INTO ${tableName}
         (`user_id`, `date`, `city`, `age`, `sex`, `last_update_date`, `last_visit_date_not_null`,
         `max_dwell_time`, `min_dwell_time`)
         VALUES (6, '2017-10-01', 'Beijing', 10, 1, NULL, '2020-01-05', 34, 22)
         """
-    qt_sql """ SELECT * FROM ${tableName} t ORDER BY user_id; """
+        qt_sql """ SELECT * FROM ${tableName} t ORDER BY user_id; """
 
-    // insert batch key
-    sql """ INSERT INTO ${tableName}
+        // insert batch key
+        sql """ INSERT INTO ${tableName}
         (`user_id`, `date`, `city`, `age`, `sex`, `last_update_date`, `last_visit_date_not_null`,
         `max_dwell_time`, `min_dwell_time`)
             VALUES
@@ -293,6 +296,10 @@ suite("test_schema_change") {
             (7, '2017-10-01', 'Beijing', 10, 1, NULL, '2020-01-05', 34, 24),
             (7, '2017-10-01', 'Beijing', 10, 1, NULL, '2020-01-05', 34, 25)
         """
-    qt_sql """ SELECT * FROM ${tableName} t ORDER BY user_id; """
-    qt_sql """ SELECT * FROM ${tableName} t where user_id = 6 and sex = 1 ORDER BY user_id; """
+        qt_sql """ SELECT * FROM ${tableName} t ORDER BY user_id; """
+        qt_sql """ SELECT * FROM ${tableName} t where user_id = 6 and sex = 1 ORDER BY user_id; """
+    }
+
+    // 4. modify a cluster key column
+    sql """ alter table ${tableName} MODIFY column max_dwell_time int default 0; """
 }
