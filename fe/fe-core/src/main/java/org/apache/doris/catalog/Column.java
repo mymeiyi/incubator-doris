@@ -792,6 +792,7 @@ public class Column implements Writable, GsonPostProcessable {
         if (StringUtils.isNotBlank(comment)) {
             sb.append(" COMMENT '").append(getComment(true)).append("'");
         }
+        sb.append(", cluster key=").append(clusterKeyId);
         return sb.toString();
     }
 

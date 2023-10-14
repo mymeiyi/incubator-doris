@@ -310,19 +310,15 @@ public class SchemaChangeHandler extends AlterHandler {
          */
         if (KeysType.UNIQUE_KEYS == olapTable.getKeysType()) {
             List<Column> baseSchema = indexSchemaMap.get(baseIndexId);
-            boolean isKey = false;
             for (Column column : baseSchema) {
-                if (column.isKey() && column.getName().equalsIgnoreCase(dropColName)) {
-                    lightSchemaChange = false;
-                    isKey = true;
-                    break;
+                if (column.getName().equalsIgnoreCase(dropColName)) {
+                    if (column.isKey()) {
+                        throw new DdlException("Can not drop key column in Unique data model table");
+                    } else if (column.isClusterKey()) {
+                        throw new DdlException("Can not drop cluster key column in Unique data model table");
+                    }
                 }
             }
-
-            if (isKey) {
-                throw new DdlException("Can not drop key column in Unique data model table");
-            }
-
         } else if (KeysType.AGG_KEYS == olapTable.getKeysType()) {
             if (null == targetIndexName) {
                 // drop column in base table
@@ -521,6 +517,7 @@ public class SchemaChangeHandler extends AlterHandler {
     // User can modify column type and column position
     private boolean processModifyColumn(ModifyColumnClause alterClause, OlapTable olapTable,
                                         Map<Long, LinkedList<Column>> indexSchemaMap) throws DdlException {
+        LOG.info("sout: process modify, alterClause={}, schema={}", alterClause, indexSchemaMap);
         Column modColumn = alterClause.getColumn();
         boolean lightSchemaChange = false;
         if (KeysType.AGG_KEYS == olapTable.getKeysType()) {
@@ -580,6 +577,7 @@ public class SchemaChangeHandler extends AlterHandler {
         for (int i = 0; i < schemaForFinding.size(); i++) {
             Column col = schemaForFinding.get(i);
             if (col.getName().equalsIgnoreCase(newColName)) {
+                LOG.info("sout: find col={}", col);
                 modColIndex = i;
                 found = true;
                 if (!col.equals(modColumn)) {
@@ -589,6 +587,9 @@ public class SchemaChangeHandler extends AlterHandler {
                             && modColumn.getDataType() == PrimitiveType.VARCHAR) {
                         col.checkSchemaChangeAllowed(modColumn);
                         lightSchemaChange = olapTable.getEnableLightSchemaChange();
+                    }
+                    if (col.isClusterKey()) {
+                        throw new DdlException("Can not modify cluster key column: " + col.getName());
                     }
                 }
             }
