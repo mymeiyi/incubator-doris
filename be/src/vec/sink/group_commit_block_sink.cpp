@@ -121,15 +121,30 @@ Status GroupCommitBlockSink::send(RuntimeState* state, vectorized::Block* input_
 
 Status GroupCommitBlockSink::_add_block(RuntimeState* state,
                                         std::shared_ptr<vectorized::Block> block, bool eos) {
-    auto cloneBlock = block->clone_without_columns();
+    // add block to queue, TODO only add non filtered rows
+    auto _cur_mutable_block = vectorized::MutableBlock::create_unique(block->clone_empty());
+    {
+        vectorized::IColumn::Selector selector;
+        for (auto i = 0; i < block->rows(); i++) {
+            selector.emplace_back(i);
+        }
+        block->append_to_block_by_selector(_cur_mutable_block.get(), selector);
+    }
+    LOG(INFO) << "sout: mutable block=\n"
+              << _cur_mutable_block->dump_data(_cur_mutable_block->rows());
+    std::shared_ptr<vectorized::Block> output_block =
+            std::make_shared<vectorized::Block>(_cur_mutable_block->to_block());
+    LOG(INFO) << "sout: output block=\n" << output_block->dump_data(0);
+
+    /*auto cloneBlock = block->clone_without_columns();
     auto res_block = vectorized::MutableBlock::build_mutable_block(&cloneBlock);
     for (int i = 0; i < block->rows(); ++i) {
         res_block.add_row(block.get(), i);
-    }
+    }*/
     std::shared_ptr<doris::vectorized::FutureBlock> future_block =
             std::make_shared<doris::vectorized::FutureBlock>();
 
-    future_block->swap(*(block.get()));
+    future_block->swap(*(output_block.get()));
     TUniqueId load_id;
     load_id.__set_hi(load_id.hi);
     load_id.__set_lo(load_id.lo);
