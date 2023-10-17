@@ -346,6 +346,10 @@ Status GroupCommitTable::_finish_group_commit_load(int64_t db_id, int64_t table_
     if (state && !(state->get_error_log_file_path().empty())) {
         ss << ", error_url=" << state->get_error_log_file_path();
     }
+    ss << ", total_rows=" << state->num_rows_load_total()
+       << ", loaded_rows=" << state->num_rows_load_success()
+       << ", filtered_rows=" << state->num_rows_load_filtered()
+       << ", unselected_rows=" << state->num_rows_load_unselected();
     LOG(INFO) << ss.str();
     return st;
 }

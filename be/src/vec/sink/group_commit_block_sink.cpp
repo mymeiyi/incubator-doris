@@ -44,6 +44,10 @@ Status GroupCommitBlockSink::init(const TDataSink& t_sink) {
     _tuple_desc_id = table_sink.tuple_id;
     _schema.reset(new OlapTableSchemaParam());
     RETURN_IF_ERROR(_schema->init(table_sink.schema));
+
+    _db_id = table_sink.db_id;
+    _table_id = table_sink.table_id;
+    LOG(INFO) << "sout: db_id=" << _db_id << ", table_id=" << _table_id;
     return Status::OK();
 }
 
@@ -79,7 +83,10 @@ Status GroupCommitBlockSink::open(RuntimeState* state) {
 
 Status GroupCommitBlockSink::close(RuntimeState* state, Status close_status) {
     RETURN_IF_ERROR(DataSink::close(state, close_status));
-    // VOlapTableSink::close(state, close_status);
+    // TODO remove load id or add a eos block
+    /*if (_load_block_queue) {
+        _load_block_queue->remove_load_id(_load_id);
+    }*/
     LOG(INFO) << "sout: add a eos block";
     std::shared_ptr<vectorized::Block> block = std::make_shared<vectorized::Block>();
     return _add_block(state, block, true);

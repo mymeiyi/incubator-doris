@@ -61,6 +61,11 @@ private:
     TupleDescriptor* _output_tuple_desc = nullptr;
     std::unique_ptr<vectorized::OlapTableBlockConvertor> _block_convertor;
 
+    int64_t _db_id;
+    int64_t _table_id;
+    int64_t _base_schema_version = 0;
+    UniqueId _load_id;
+    // std::shared_ptr<NewLoadBlockQueue> _load_block_queue;
     bool _first_block = true;
     std::shared_ptr<LoadBlockQueue> _load_block_queue;
     std::vector<std::shared_ptr<vectorized::FutureBlock>> _future_blocks;
