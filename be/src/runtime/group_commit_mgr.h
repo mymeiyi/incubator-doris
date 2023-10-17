@@ -76,8 +76,8 @@ private:
 
 class GroupCommitTable {
 public:
-    GroupCommitTable(ExecEnv* exec_env, int64_t db_id, int64_t table_id)
-            : _exec_env(exec_env), _db_id(db_id), _table_id(table_id) {};
+    GroupCommitTable(ExecEnv* exec_env, doris::ThreadPool* thread_pool, int64_t db_id, int64_t table_id)
+            : _exec_env(exec_env), _thread_pool(thread_pool), _db_id(db_id), _table_id(table_id) {};
     Status get_first_block_load_queue(int64_t table_id,
                                       std::shared_ptr<vectorized::FutureBlock> block,
                                       std::shared_ptr<LoadBlockQueue>& load_block_queue);
@@ -85,8 +85,7 @@ public:
                                 std::shared_ptr<LoadBlockQueue>& load_block_queue);
 
 private:
-    Status _create_group_commit_load(int64_t table_id,
-                                     std::shared_ptr<LoadBlockQueue>& load_block_queue);
+    Status _create_group_commit_load();
     Status _exec_plan_fragment(int64_t db_id, int64_t table_id, const std::string& label,
                                int64_t txn_id, bool is_pipeline,
                                const TExecPlanFragmentParams& params,
@@ -96,13 +95,15 @@ private:
                                      bool prepare_failed, RuntimeState* state);
 
     ExecEnv* _exec_env;
+    ThreadPool* _thread_pool;
     int64_t _db_id;
     int64_t _table_id;
     doris::Mutex _lock;
+    doris::ConditionVariable _cv;
     // fragment_instance_id to load_block_queue
     std::unordered_map<UniqueId, std::shared_ptr<LoadBlockQueue>> _load_block_queues;
 
-    doris::Mutex _request_fragment_mutex;
+    bool _need_plan_fragment = false;
 };
 
 class GroupCommitMgr {
