@@ -1082,7 +1082,8 @@ public class NativeInsertStmt extends InsertStmt {
         streamLoadPutRequest.setDb(db.getFullName()).setMaxFilterRatio(1)
                 .setTbl(getTbl())
                 .setFileType(TFileType.FILE_STREAM).setFormatType(TFileFormatType.FORMAT_CSV_PLAIN)
-                .setMergeType(TMergeType.APPEND).setThriftRpcTimeoutMs(5000).setLoadId(queryId);
+                .setMergeType(TMergeType.APPEND).setThriftRpcTimeoutMs(5000).setLoadId(queryId)
+                .setGroupCommit(true);
         StreamLoadTask streamLoadTask = StreamLoadTask.fromTStreamLoadPutRequest(streamLoadPutRequest);
         StreamLoadPlanner planner = new StreamLoadPlanner((Database) getDbObj(), olapTable, streamLoadTask);
         // Will using load id as query id in fragment
