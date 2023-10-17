@@ -19,7 +19,6 @@
 #include "exec/data_sink.h"
 #include "exec/tablet_info.h"
 #include "vec/exprs/vexpr_fwd.h"
-#include "vec/sink/vtablet_sink.h"
 
 namespace doris {
 
@@ -32,7 +31,7 @@ namespace stream_load {
 class OlapTableBlockConvertor;
 class OlapTabletFinder;
 
-class GroupCommitBlockSink : public VOlapTableSink {
+class GroupCommitBlockSink : public DataSink {
 public:
     GroupCommitBlockSink(ObjectPool* pool, const RowDescriptor& row_desc,
                          const std::vector<TExpr>& texprs, Status* status);
@@ -48,12 +47,8 @@ public:
     Status send(RuntimeState* state, vectorized::Block* block, bool eos = false) override;
 
     Status close(RuntimeState* state, Status close_status) override;
-
-    Status try_close(RuntimeState* state, Status exec_status) override;
-    // if true, all node channels rpc done, can start close().
-    bool is_close_done() override;
 private:
-    /*ObjectPool* _pool;
+    ObjectPool* _pool;
 
     vectorized::VExprContextSPtrs _output_vexpr_ctxs;
 
@@ -66,7 +61,7 @@ private:
     std::shared_ptr<MemTracker> _mem_tracker;
     // this is tuple descriptor of destination OLAP table
     TupleDescriptor* _output_tuple_desc = nullptr;
-    std::unique_ptr<OlapTableBlockConvertor> _block_convertor;*/
+    std::unique_ptr<OlapTableBlockConvertor> _block_convertor;
 
     int64_t _db_id;
     int64_t _table_id;

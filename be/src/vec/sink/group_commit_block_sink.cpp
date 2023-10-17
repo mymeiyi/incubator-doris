@@ -32,7 +32,9 @@ namespace stream_load {
 
 GroupCommitBlockSink::GroupCommitBlockSink(ObjectPool* pool, const RowDescriptor& row_desc,
                                            const std::vector<TExpr>& texprs, Status* status)
-        : VOlapTableSink(pool, row_desc, texprs, status) {
+        : DataSink(row_desc), _pool(pool) {
+    // From the thrift expressions create the real exprs.
+    *status = vectorized::VExpr::create_expr_trees(texprs, _output_vexpr_ctxs);
     _name = "GroupCommitBlockSink";
 }
 
