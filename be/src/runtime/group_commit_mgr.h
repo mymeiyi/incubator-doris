@@ -85,7 +85,7 @@ public:
                                 std::shared_ptr<LoadBlockQueue>& load_block_queue);
 
 private:
-    Status _create_group_commit_load();
+    Status _create_group_commit_load(std::shared_ptr<LoadBlockQueue>& load_block_queue);
     Status _exec_plan_fragment(int64_t db_id, int64_t table_id, const std::string& label,
                                int64_t txn_id, bool is_pipeline,
                                const TExecPlanFragmentParams& params,
@@ -140,6 +140,7 @@ private:
 
     // thread pool to handle insert into: append data to pipe
     std::unique_ptr<doris::ThreadPool> _insert_into_thread_pool;
+    std::unique_ptr<doris::ThreadPool> _thread_pool;
 };
 
 } // namespace doris

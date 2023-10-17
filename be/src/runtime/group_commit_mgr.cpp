@@ -136,12 +136,13 @@ Status GroupCommitTable::get_first_block_load_queue(
     auto base_schema_version = block->get_schema_version();
     {
         std::unique_lock l(_lock);
-        while (load_block_queue == nullptr) {
+        for (int i = 0; i < 3; i++) {
             bool is_schema_version_match = true;
             for (auto it = _load_block_queues.begin(); it != _load_block_queues.end(); ++it) {
                 // TODO if block schema version is less than fragment schema version, return error
                 if (!it->second->need_commit && it->second->schema_version == base_schema_version) {
                     if (base_schema_version == it->second->schema_version) {
+                        // TODO emplace this id
                         load_block_queue = it->second;
                         return Status::OK();
                     } else if (base_schema_version < it->second->schema_version) {
@@ -152,57 +153,39 @@ Status GroupCommitTable::get_first_block_load_queue(
             if (!is_schema_version_match) {
                 return Status::DataQualityError("schema version not match");
             }
-            /*if (load_block_queue != nullptr) {
-                break;
-            }*/
+            LOG(INFO) << "sout: start get a plan";
             if (!_need_plan_fragment) {
                 _need_plan_fragment = true;
                 RETURN_IF_ERROR(_thread_pool->submit_func(
-                        [&] { [[maybe_unused]]  auto st = _create_group_commit_load(); }));
+                        [&] { [[maybe_unused]]  auto st = _create_group_commit_load(load_block_queue); }));
             }
 #if !defined(USE_BTHREAD_SCANNER)
             _cv.wait_for(l, std::chrono::seconds(4));
 #else
             _cv.wait_for(l, 4 * 1000000);
 #endif
+            LOG(INFO) << "sout: finish get a plan";
+            if (load_block_queue != nullptr) {
+                break;
+            }
         }
     }
-    /*if (load_block_queue == nullptr) {
-        Status st = Status::OK();
-        for (int i = 0; i < 3; ++i) {
-            std::unique_lock l(_request_fragment_mutex);
-            // check if there is a re-usefully fragment
-            {
-                std::unique_lock l1(_lock);
-                for (auto it = _load_block_queues.begin(); it != _load_block_queues.end(); ++it) {
-                    // TODO if block schema version is less than fragment schema version, return error
-                    if (!it->second->need_commit) {
-                        if (base_schema_version == it->second->schema_version) {
-                            load_block_queue = it->second;
-                            break;
-                        } else if (base_schema_version < it->second->schema_version) {
-                            return Status::DataQualityError("schema version not match");
-                        }
-                    }
-                }
-            }
-            if (load_block_queue == nullptr) {
-                st = _create_group_commit_load(table_id, load_block_queue);
-                if (LIKELY(st.ok())) {
-                    break;
-                }
-            }
-        }
-        RETURN_IF_ERROR(st);
-        if (load_block_queue->schema_version != base_schema_version) {
-            // TODO check this is the first block
-            return Status::DataQualityError("schema version not match");
-        }
-    }*/
-    return Status::OK();
+    if (load_block_queue == nullptr) {
+        return Status::InternalError("can not get a block queue");
+    } else if (load_block_queue->schema_version == base_schema_version) {
+        // TODO emplace this id
+        return Status::OK();
+    } else if (base_schema_version < load_block_queue->schema_version ) {
+        return Status::DataQualityError("schema version not match");
+    } else {
+        return Status::InternalError("schema version not match, block_schema_version=" +
+                                     std::to_string(base_schema_version) +
+                                     ", block_queue_schema_version=" +
+                                     std::to_string(load_block_queue->schema_version));
+    }
 }
 
-Status GroupCommitTable::_create_group_commit_load() {
+Status GroupCommitTable::_create_group_commit_load(std::shared_ptr<LoadBlockQueue>& load_block_queue) {
     LOG(INFO) << "sout: start create group commit load, table_id=" << _table_id;
     TStreamLoadPutRequest request;
     UniqueId load_id = UniqueId::gen_uid();
@@ -259,7 +242,7 @@ Status GroupCommitTable::_create_group_commit_load() {
                << ", txn_id=" << txn_id << ", instance_id=" << print_id(instance_id)
                << ", is_pipeline=" << is_pipeline;
     {
-        auto load_block_queue =
+        load_block_queue =
                 std::make_shared<LoadBlockQueue>(instance_id, label, txn_id, schema_version);
         std::unique_lock l(_lock);
         _load_block_queues.emplace(instance_id, load_block_queue);
@@ -408,6 +391,10 @@ GroupCommitMgr::GroupCommitMgr(ExecEnv* exec_env) : _exec_env(exec_env) {
                               .set_min_threads(config::group_commit_insert_threads)
                               .set_max_threads(config::group_commit_insert_threads)
                               .build(&_insert_into_thread_pool));
+    static_cast<void>(ThreadPoolBuilder("GroupCommitThreadPool")
+                              .set_min_threads(1)
+                              .set_max_threads(config::group_commit_insert_threads)
+                              .build(&_thread_pool));
 }
 
 GroupCommitMgr::~GroupCommitMgr() {
@@ -416,6 +403,7 @@ GroupCommitMgr::~GroupCommitMgr() {
 
 void GroupCommitMgr::stop() {
     _insert_into_thread_pool->shutdown();
+    _thread_pool->shutdown();
     LOG(INFO) << "GroupCommitMgr is stopped";
 }
 
@@ -546,9 +534,8 @@ Status GroupCommitMgr::get_first_block_load_queue(
     {
         std::lock_guard wlock(_lock);
         if (_table_map.find(table_id) == _table_map.end()) {
-            _table_map.emplace(table_id,
-                               std::make_shared<GroupCommitTable>(
-                                       _exec_env, _insert_into_thread_pool.get(), db_id, table_id));
+            _table_map.emplace(table_id, std::make_shared<GroupCommitTable>(
+                                                 _exec_env, _thread_pool.get(), db_id, table_id));
         }
         group_commit_table = _table_map[table_id];
     }
