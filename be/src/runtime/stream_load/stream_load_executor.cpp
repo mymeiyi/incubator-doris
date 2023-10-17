@@ -88,7 +88,7 @@ Status StreamLoadExecutor::execute_plan_fragment(std::shared_ptr<StreamLoadConte
 
                         int64_t num_selected_rows =
                                 ctx->number_total_rows - ctx->number_unselected_rows;
-                        if (num_selected_rows > 0 &&
+                        if (!ctx->group_commit && num_selected_rows > 0 &&
                             (double)ctx->number_filtered_rows / num_selected_rows >
                                     ctx->max_filter_ratio) {
                             // NOTE: Do not modify the error message here, for historical reasons,
@@ -151,6 +151,10 @@ Status StreamLoadExecutor::execute_plan_fragment(std::shared_ptr<StreamLoadConte
     } else {
         st = _exec_env->fragment_mgr()->exec_plan_fragment(
                 ctx->put_result.pipeline_params, [ctx, this](RuntimeState* state, Status* status) {
+                    if (ctx->group_commit) {
+                        ctx->label = state->import_label();
+                        ctx->txn_id = state->wal_id();
+                    }
                     ctx->exec_env()->new_load_stream_mgr()->remove(ctx->id);
                     ctx->commit_infos = std::move(state->tablet_commit_infos());
                     if (status->ok()) {
@@ -161,7 +165,7 @@ Status StreamLoadExecutor::execute_plan_fragment(std::shared_ptr<StreamLoadConte
 
                         int64_t num_selected_rows =
                                 ctx->number_total_rows - ctx->number_unselected_rows;
-                        if (num_selected_rows > 0 &&
+                        if (!ctx->group_commit && num_selected_rows > 0 &&
                             (double)ctx->number_filtered_rows / num_selected_rows >
                                     ctx->max_filter_ratio) {
                             // NOTE: Do not modify the error message here, for historical reasons,

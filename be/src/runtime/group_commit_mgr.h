@@ -119,9 +119,6 @@ public:
                                const PGroupCommitInsertRequest* request,
                                PGroupCommitInsertResponse* response);
 
-    // stream load
-    Status group_commit_stream_load(std::shared_ptr<StreamLoadContext> ctx);
-
     // used when init group_commit_scan_node
     Status get_load_block_queue(int64_t table_id, const TUniqueId& instance_id,
                                 std::shared_ptr<LoadBlockQueue>& load_block_queue);
@@ -133,8 +130,6 @@ private:
     // used by insert into
     Status _append_row(std::shared_ptr<io::StreamLoadPipe> pipe,
                        const PGroupCommitInsertRequest* request);
-    // used by stream load
-    Status _group_commit_stream_load(std::shared_ptr<StreamLoadContext> ctx);
 
     ExecEnv* _exec_env;
 
