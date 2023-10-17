@@ -26,7 +26,7 @@
 
 namespace doris {
 
-namespace stream_load {
+namespace vectorized {
 
 GroupCommitBlockSink::GroupCommitBlockSink(ObjectPool* pool, const RowDescriptor& row_desc,
                                            const std::vector<TExpr>& texprs, Status* status)
@@ -77,6 +77,15 @@ Status GroupCommitBlockSink::open(RuntimeState* state) {
     return vectorized::VExpr::open(_output_vexpr_ctxs, state);
 }
 
+Status GroupCommitBlockSink::close(RuntimeState* state, Status close_status) {
+    RETURN_IF_ERROR(DataSink::close(state, close_status));
+    // VOlapTableSink::close(state, close_status);
+    LOG(INFO) << "sout: add a eos block";
+    std::shared_ptr<vectorized::Block> block = std::make_shared<vectorized::Block>();
+    return _add_block(state, block, true);
+    // return Status::OK();
+}
+
 Status GroupCommitBlockSink::send(RuntimeState* state, vectorized::Block* input_block, bool eos) {
     SCOPED_CONSUME_MEM_TRACKER(_mem_tracker.get());
     Status status = Status::OK();
@@ -98,7 +107,41 @@ Status GroupCommitBlockSink::send(RuntimeState* state, vectorized::Block* input_
     RETURN_IF_ERROR(_block_convertor->validate_and_convert_block(
             state, input_block, block, _output_vexpr_ctxs, rows, has_filtered_rows));
     block->swap(*input_block);
-    return Status::OK();
+    // add block into block queue
+    return _add_block(state, block, eos);
+}
+
+Status GroupCommitBlockSink::_add_block(RuntimeState* state,
+                                        std::shared_ptr<vectorized::Block> block, bool eos) {
+    auto cloneBlock = block->clone_without_columns();
+    auto res_block = vectorized::MutableBlock::build_mutable_block(&cloneBlock);
+    for (int i = 0; i < block->rows(); ++i) {
+        res_block.add_row(block.get(), i);
+    }
+    std::shared_ptr<doris::vectorized::FutureBlock> future_block =
+            std::make_shared<doris::vectorized::FutureBlock>();
+
+    future_block->swap(*(block.get()));
+    int64_t schema_version = 0;
+    int64_t db_id = 63012;
+    int64_t table_id = 63023; // 12241;
+    TUniqueId load_id;
+    load_id.__set_hi(load_id.hi);
+    load_id.__set_lo(load_id.lo);
+    future_block->set_info(schema_version, load_id, _first_block, eos);
+    _first_block = false;
+    // TODO what to do if add one block error
+    if (_load_block_queue == nullptr) {
+        RETURN_IF_ERROR(state->exec_env()->group_commit_mgr()->get_first_block_load_queue(
+                db_id, table_id, future_block, _load_block_queue));
+        /*ctx->label = _load_block_queue->label;
+        ctx->txn_id = _load_block_queue->txn_id;*/
+        state->set_import_label(_load_block_queue->label);
+    }
+    LOG(INFO) << "sout: add block to queue=\n" << future_block->dump_data(0);
+    _future_blocks.emplace_back(future_block);
+    return _load_block_queue->add_block(future_block);
+    // TODO add to future block queues
 }
 
 } // namespace stream_load

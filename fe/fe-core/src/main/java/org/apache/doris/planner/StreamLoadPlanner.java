@@ -90,11 +90,17 @@ public class StreamLoadPlanner {
 
     private ScanNode scanNode;
     private TupleDescriptor tupleDesc;
+    private boolean groupCommit;
 
     public StreamLoadPlanner(Database db, OlapTable destTable, LoadTaskInfo taskInfo) {
+        this(db, destTable, taskInfo, false);
+    }
+
+    public StreamLoadPlanner(Database db, OlapTable destTable, LoadTaskInfo taskInfo, boolean groupCommit) {
         this.db = db;
         this.destTable = destTable;
         this.taskInfo = taskInfo;
+        this.groupCommit = groupCommit;
     }
 
     private void resetAnalyzer() {
@@ -254,10 +260,15 @@ public class StreamLoadPlanner {
 
         // create dest sink
         List<Long> partitionIds = getAllPartitionIds();
-        OlapTableSink olapTableSink = new OlapTableSink(destTable, tupleDesc, partitionIds,
-                Config.enable_single_replica_load);
-        olapTableSink.init(loadId, taskInfo.getTxnId(), db.getId(), timeout,
-                taskInfo.getSendBatchParallelism(), taskInfo.isLoadToSingleTablet(), taskInfo.isStrictMode());
+        OlapTableSink olapTableSink;
+        if (groupCommit) {
+            olapTableSink = new GroupCommitBlockSink(destTable, tupleDesc, partitionIds,
+                    Config.enable_single_replica_load);
+        } else {
+            olapTableSink = new OlapTableSink(destTable, tupleDesc, partitionIds, Config.enable_single_replica_load);
+        }
+        olapTableSink.init(loadId, taskInfo.getTxnId(), db.getId(), timeout, taskInfo.getSendBatchParallelism(),
+                taskInfo.isLoadToSingleTablet(), taskInfo.isStrictMode());
         olapTableSink.setPartialUpdateInputColumns(isPartialUpdate, partialUpdateInputColumns);
         olapTableSink.complete(analyzer);
 

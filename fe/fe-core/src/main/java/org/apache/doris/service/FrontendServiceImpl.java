@@ -2150,7 +2150,7 @@ public class FrontendServiceImpl implements FrontendService.Iface {
             if (isMultiTableRequest) {
                 buildMultiTableStreamLoadTask(streamLoadTask, request.getTxnId());
             }
-            StreamLoadPlanner planner = new StreamLoadPlanner(db, table, streamLoadTask);
+            StreamLoadPlanner planner = new StreamLoadPlanner(db, table, streamLoadTask, request.isGroupCommit());
             TExecPlanFragmentParams plan = planner.plan(streamLoadTask.getId(), multiTableFragmentInstanceIdIndex);
             if (!request.isGroupCommit()) {
                 // add table indexes to transaction state

@@ -465,8 +465,8 @@ Status GroupCommitMgr::group_commit_insert(int64_t table_id, const TPlan& plan,
             future_block->swap(*(_block.get()));
             future_block->set_info(request->base_schema_version(), load_id, first, eof);
             if (load_block_queue == nullptr) {
-                RETURN_IF_ERROR(_get_first_block_load_queue(request->db_id(), table_id,
-                                                            future_block, load_block_queue));
+                RETURN_IF_ERROR(get_first_block_load_queue(request->db_id(), table_id, future_block,
+                                                           load_block_queue));
                 response->set_label(load_block_queue->label);
                 response->set_txn_id(load_block_queue->txn_id);
             }
@@ -554,7 +554,7 @@ Status GroupCommitMgr::_group_commit_stream_load(std::shared_ptr<StreamLoadConte
         auto file_scan_node =
                 vectorized::NewFileScanNode(runtime_state->obj_pool(), plan_node, *desc_tbl);
         Status status = Status::OK();
-        auto sink = stream_load::GroupCommitBlockSink(
+        auto sink = vectorized::GroupCommitBlockSink(
                 runtime_state->obj_pool(), file_scan_node.row_desc(),
                 fragment_params.fragment.output_exprs, &status);
         std::unique_ptr<int, std::function<void(int*)>> close_scan_node_func((int*)0x01, [&](int*) {
@@ -591,8 +591,8 @@ Status GroupCommitMgr::_group_commit_stream_load(std::shared_ptr<StreamLoadConte
             future_block->set_info(ctx->schema_version, load_id, first, eof);
             // TODO what to do if add one block error
             if (load_block_queue == nullptr) {
-                RETURN_IF_ERROR(_get_first_block_load_queue(ctx->db_id, ctx->table_id, future_block,
-                                                            load_block_queue));
+                RETURN_IF_ERROR(get_first_block_load_queue(ctx->db_id, ctx->table_id, future_block,
+                                                           load_block_queue));
                 ctx->label = load_block_queue->label;
                 ctx->txn_id = load_block_queue->txn_id;
             }
@@ -639,7 +639,7 @@ Status GroupCommitMgr::_group_commit_stream_load(std::shared_ptr<StreamLoadConte
     return Status::OK();
 }
 
-Status GroupCommitMgr::_get_first_block_load_queue(
+Status GroupCommitMgr::get_first_block_load_queue(
         int64_t db_id, int64_t table_id, std::shared_ptr<vectorized::FutureBlock> block,
         std::shared_ptr<LoadBlockQueue>& load_block_queue) {
     std::shared_ptr<GroupCommitTable> group_commit_table;
