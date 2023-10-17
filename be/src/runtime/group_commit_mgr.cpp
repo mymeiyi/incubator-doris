@@ -50,9 +50,9 @@ Status LoadBlockQueue::add_block(std::shared_ptr<vectorized::FutureBlock> block)
     }
     if (block->is_eos()) {
         _load_ids.erase(block->get_load_id());
-    } else if (block->is_first()) {
+    } /*else if (block->is_first()) {
         _load_ids.emplace(block->get_load_id());
-    }
+    }*/
     _cv->notify_one();
     return Status::OK();
 }
@@ -114,6 +114,16 @@ void LoadBlockQueue::remove_load_id(const UniqueId& load_id) {
     }
 }
 
+Status LoadBlockQueue::add_load_id(const UniqueId& load_id) {
+    std::unique_lock l(*_mutex);
+    if (need_commit) {
+        return Status::InternalError("block queue is set need commit, id=" +
+                                     load_instance_id.to_string());
+    }
+    _load_ids.emplace(load_id);
+    return Status::OK();
+}
+
 void LoadBlockQueue::cancel(const Status& st) {
     DCHECK(!st.ok());
     std::unique_lock l(*_mutex);
@@ -143,8 +153,11 @@ Status GroupCommitTable::get_first_block_load_queue(
                 if (!it->second->need_commit && it->second->schema_version == base_schema_version) {
                     if (base_schema_version == it->second->schema_version) {
                         // TODO emplace this id
-                        load_block_queue = it->second;
-                        return Status::OK();
+                        // return Status::OK();
+                        if (it->second->add_load_id(block->get_load_id()).ok()) {
+                            load_block_queue = it->second;
+                            return Status::OK();
+                        }
                     } else if (base_schema_version < it->second->schema_version) {
                         is_schema_version_match = false;
                     }
@@ -166,23 +179,19 @@ Status GroupCommitTable::get_first_block_load_queue(
 #endif
             LOG(INFO) << "sout: finish get a plan";
             if (load_block_queue != nullptr) {
-                break;
+                if (load_block_queue->schema_version == base_schema_version) {
+                    // return Status::OK();
+                    if (load_block_queue->add_load_id(block->get_load_id()).ok()) {
+                        return Status::OK();
+                    }
+                } else if (base_schema_version < load_block_queue->schema_version ) {
+                    return Status::DataQualityError("schema version not match");
+                }
+                load_block_queue.reset();
             }
         }
     }
-    if (load_block_queue == nullptr) {
-        return Status::InternalError("can not get a block queue");
-    } else if (load_block_queue->schema_version == base_schema_version) {
-        // TODO emplace this id
-        return Status::OK();
-    } else if (base_schema_version < load_block_queue->schema_version ) {
-        return Status::DataQualityError("schema version not match");
-    } else {
-        return Status::InternalError("schema version not match, block_schema_version=" +
-                                     std::to_string(base_schema_version) +
-                                     ", block_queue_schema_version=" +
-                                     std::to_string(load_block_queue->schema_version));
-    }
+    return Status::InternalError("can not get a block queue");
 }
 
 Status GroupCommitTable::_create_group_commit_load(std::shared_ptr<LoadBlockQueue>& load_block_queue) {
