@@ -152,8 +152,6 @@ Status GroupCommitTable::get_first_block_load_queue(
                 // TODO if block schema version is less than fragment schema version, return error
                 if (!it->second->need_commit && it->second->schema_version == base_schema_version) {
                     if (base_schema_version == it->second->schema_version) {
-                        // TODO emplace this id
-                        // return Status::OK();
                         if (it->second->add_load_id(block->get_load_id()).ok()) {
                             load_block_queue = it->second;
                             return Status::OK();
@@ -180,7 +178,6 @@ Status GroupCommitTable::get_first_block_load_queue(
             LOG(INFO) << "sout: finish get a plan";
             if (load_block_queue != nullptr) {
                 if (load_block_queue->schema_version == base_schema_version) {
-                    // return Status::OK();
                     if (load_block_queue->add_load_id(block->get_load_id()).ok()) {
                         return Status::OK();
                     }

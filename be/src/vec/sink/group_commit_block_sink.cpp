@@ -85,13 +85,26 @@ Status GroupCommitBlockSink::open(RuntimeState* state) {
 Status GroupCommitBlockSink::close(RuntimeState* state, Status close_status) {
     RETURN_IF_ERROR(DataSink::close(state, close_status));
     // TODO remove load id or add a eos block
-    /*if (_load_block_queue) {
+    if (_load_block_queue) {
         _load_block_queue->remove_load_id(_load_id);
-    }*/
-    LOG(INFO) << "sout: add a eos block";
+    }
+    // 3. wait to wal
+    int64_t total_rows = 0;
+    int64_t loaded_rows = 0;
+    for (const auto& future_block : _future_blocks) {
+        std::unique_lock<doris::Mutex> l(*(future_block->lock));
+        if (!future_block->is_handled()) {
+            future_block->cv->wait(l);
+        }
+        // future_block->get_status()
+        total_rows += future_block->get_total_rows();
+        loaded_rows += future_block->get_loaded_rows();
+    }
+    LOG(INFO) << "sout: total_rows=" << total_rows << ", loaded_rows=" << loaded_rows;
+    /*LOG(INFO) << "sout: add a eos block";
     std::shared_ptr<vectorized::Block> block = std::make_shared<vectorized::Block>();
-    return _add_block(state, block, true);
-    // return Status::OK();
+    return _add_block(state, block, true);*/
+    return Status::OK();
 }
 
 Status GroupCommitBlockSink::send(RuntimeState* state, vectorized::Block* input_block, bool eos) {
