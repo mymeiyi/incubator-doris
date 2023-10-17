@@ -59,9 +59,4 @@ public class ShowAnalyzeTaskStatus extends ShowStmt {
     public long getJobId() {
         return jobId;
     }
-
-    @Override
-    public RedirectStatus getRedirectStatus() {
-        return RedirectStatus.FORWARD_NO_SYNC;
-    }
 }

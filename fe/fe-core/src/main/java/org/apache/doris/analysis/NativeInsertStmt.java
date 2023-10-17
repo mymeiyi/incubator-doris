@@ -47,6 +47,7 @@ import org.apache.doris.mysql.privilege.PrivPredicate;
 import org.apache.doris.planner.DataPartition;
 import org.apache.doris.planner.DataSink;
 import org.apache.doris.planner.ExportSink;
+import org.apache.doris.planner.GroupCommitBlockSink;
 import org.apache.doris.planner.GroupCommitOlapTableSink;
 import org.apache.doris.planner.OlapTableSink;
 import org.apache.doris.planner.StreamLoadPlanner;
@@ -55,6 +56,7 @@ import org.apache.doris.qe.ConnectContext;
 import org.apache.doris.rewrite.ExprRewriter;
 import org.apache.doris.service.FrontendOptions;
 import org.apache.doris.tablefunction.GroupCommitTableValuedFunction;
+import org.apache.doris.tablefunction.HttpStreamTableValuedFunction;
 import org.apache.doris.task.StreamLoadTask;
 import org.apache.doris.thrift.TExecPlanFragmentParams;
 import org.apache.doris.thrift.TFileCompressType;
@@ -156,7 +158,7 @@ public class NativeInsertStmt extends InsertStmt {
     private HashSet<String> partialUpdateCols = new HashSet<String>();
 
     // Used for group commit insert
-    private boolean isGroupCommit = false;
+    // private boolean isGroupCommit = false;
     private int baseSchemaVersion = -1;
     private TUniqueId loadId = null;
     private ByteString planBytes = null;
@@ -165,21 +167,11 @@ public class NativeInsertStmt extends InsertStmt {
     private long tableId = -1;
     // true if be generates an insert from group commit tvf stmt and executes to load data
     public boolean isGroupCommitTvf = false;
+    // true when this stmt is a group commit stream load tvf or group commit insert into values
+    public boolean isGroupCommitLoad = false;
 
+    private boolean isInsertIgnore = false;
     private boolean isFromDeleteOrUpdateStmt = false;
-
-    private InsertType insertType = InsertType.NATIVE_INSERT;
-
-    enum InsertType {
-        NATIVE_INSERT("insert_"),
-        UPDATE("update_"),
-        DELETE("delete_");
-        private String labePrefix;
-
-        InsertType(String labePrefix) {
-            this.labePrefix = labePrefix;
-        }
-    }
 
     public NativeInsertStmt(InsertTarget target, String label, List<String> cols, InsertSource source,
             List<String> hints) {
@@ -200,6 +192,26 @@ public class NativeInsertStmt extends InsertStmt {
         this.tableId = tableId;
     }
 
+    public NativeInsertStmt(long tableId, String label, List<String> cols, InsertSource source,
+            List<String> hints, boolean isInsertIgnore) {
+        this(new InsertTarget(new TableName(null, null, null), null), label, cols, source, hints, isInsertIgnore);
+        this.tableId = tableId;
+    }
+
+    public NativeInsertStmt(InsertTarget target, String label, List<String> cols, InsertSource source,
+            List<String> hints, boolean isInsertIgnore) {
+        super(new LabelName(null, label), null, null);
+        this.tblName = target.getTblName();
+        this.targetPartitionNames = target.getPartitionNames();
+        this.label = new LabelName(null, label);
+        this.queryStmt = source.getQueryStmt();
+        this.planHints = hints;
+        this.isInsertIgnore = isInsertIgnore;
+        this.targetColumnNames = cols;
+        this.isValuesOrConstantSelect = (queryStmt instanceof SelectStmt
+                && ((SelectStmt) queryStmt).getTableRefs().isEmpty());
+    }
+
     // Ctor for CreateTableAsSelectStmt and InsertOverwriteTableStmt
     public NativeInsertStmt(TableName name, PartitionNames targetPartitionNames, LabelName label,
             QueryStmt queryStmt, List<String> planHints, List<String> targetColumnNames) {
@@ -214,11 +226,11 @@ public class NativeInsertStmt extends InsertStmt {
     }
 
     public NativeInsertStmt(InsertTarget target, String label, List<String> cols, InsertSource source,
-                            List<String> hints, boolean isPartialUpdate, InsertType insertType) {
+             List<String> hints, boolean isPartialUpdate, boolean isInsertIgnore) {
         this(target, label, cols, source, hints);
         this.isPartialUpdate = isPartialUpdate;
         this.partialUpdateCols.addAll(cols);
-        this.insertType = insertType;
+        this.isInsertIgnore = isInsertIgnore;
     }
 
     public boolean isValuesOrConstantSelect() {
@@ -361,9 +373,9 @@ public class NativeInsertStmt extends InsertStmt {
         db = analyzer.getEnv().getCatalogMgr().getCatalog(tblName.getCtl()).getDbOrAnalysisException(tblName.getDb());
 
         analyzeGroupCommit();
-        if (isGroupCommit()) {
+        /*if (isGroupCommit()) {
             return;
-        }
+        }*/
 
         analyzeSubquery(analyzer, false);
 
@@ -380,7 +392,7 @@ public class NativeInsertStmt extends InsertStmt {
         long timeoutSecond = ConnectContext.get().getExecTimeout();
         if (label == null || Strings.isNullOrEmpty(label.getLabelName())) {
             label = new LabelName(db.getFullName(),
-                    insertType.labePrefix + DebugUtil.printId(analyzer.getContext().queryId()).replace("-", "_"));
+                    "insert_" + DebugUtil.printId(analyzer.getContext().queryId()).replace("-", "_"));
         }
         if (!isExplain() && !isTransactionBegin) {
             if (targetTable instanceof OlapTable) {
@@ -401,7 +413,7 @@ public class NativeInsertStmt extends InsertStmt {
             boolean isInsertStrict = analyzer.getContext().getSessionVariable().getEnableInsertStrict()
                     && !isFromDeleteOrUpdateStmt;
             sink.init(loadId, transactionId, db.getId(), timeoutSecond,
-                    sendBatchParallelism, false, isInsertStrict);
+                    sendBatchParallelism, false, isInsertStrict, isInsertIgnore);
         }
     }
 
@@ -507,11 +519,6 @@ public class NativeInsertStmt extends InsertStmt {
         Set<String> mentionedColumns = Sets.newTreeSet(String.CASE_INSENSITIVE_ORDER);
         List<String> realTargetColumnNames;
         if (targetColumnNames == null) {
-            if (!isFromDeleteOrUpdateStmt
-                    && analyzer.getContext().getSessionVariable().isEnableUniqueKeyPartialUpdate()) {
-                throw new AnalysisException("You must explicitly specify the columns to be updated when "
-                        + "updating partial columns using the INSERT statement.");
-            }
             // the mentioned columns are columns which are visible to user, so here we use
             // getBaseSchema(), not getFullSchema()
             for (Column col : targetTable.getBaseSchema(false)) {
@@ -852,17 +859,14 @@ public class NativeInsertStmt extends InsertStmt {
             selectList.set(i, expr);
             exprByName.put(col.getName(), expr);
         }
-
         List<Pair<String, Expr>> resultExprByName = Lists.newArrayList();
-        Map<String, Expr> slotToIndex = Maps.newTreeMap(String.CASE_INSENSITIVE_ORDER);
         // reorder resultExprs in table column order
         for (Column col : targetTable.getFullSchema()) {
             if (isPartialUpdate && !partialUpdateCols.contains(col.getName())) {
                 continue;
             }
-            Expr targetExpr;
             if (exprByName.containsKey(col.getName())) {
-                targetExpr = exprByName.get(col.getName());
+                resultExprByName.add(Pair.of(col.getName(), exprByName.get(col.getName())));
             } else if (targetTable.getType().equals(TableIf.TableType.JDBC_EXTERNAL_TABLE)) {
                 // For JdbcTable,we do not need to generate plans for columns that are not specified at write time
                 continue;
@@ -878,32 +882,19 @@ public class NativeInsertStmt extends InsertStmt {
                                         .filter(p -> p.key().equals(((OlapTable) targetTable).getSequenceMapCol()))
                                         .map(Pair::value).findFirst().orElse(null)));
                     }
-                    continue;
-                } else if (col.getDefineExpr() != null) {
-                    // substitute define expr slot with select statement result expr
-                    ExprSubstitutionMap smap = new ExprSubstitutionMap();
-                    List<SlotRef> columns = col.getRefColumns();
-                    for (SlotRef slot : columns) {
-                        smap.getLhs().add(slot);
-                        smap.getRhs().add(slotToIndex.get(slot.getColumnName()));
-                    }
-                    targetExpr = Expr
-                            .substituteList(Lists.newArrayList(col.getDefineExpr().clone()), smap, analyzer, false)
-                            .get(0);
                 } else if (col.getDefaultValue() == null) {
-                    targetExpr = NullLiteral.create(col.getType());
+                    resultExprByName.add(Pair.of(col.getName(), NullLiteral.create(col.getType())));
                 } else {
                     if (col.getDefaultValueExprDef() != null) {
-                        targetExpr = col.getDefaultValueExpr();
+                        resultExprByName.add(Pair.of(col.getName(), col.getDefaultValueExpr()));
                     } else {
                         StringLiteral defaultValueExpr;
                         defaultValueExpr = new StringLiteral(col.getDefaultValue());
-                        targetExpr = defaultValueExpr.checkTypeCompatibility(col.getType());
+                        resultExprByName.add(Pair.of(col.getName(),
+                                defaultValueExpr.checkTypeCompatibility(col.getType())));
                     }
                 }
             }
-            resultExprByName.add(Pair.of(col.getName(), targetExpr));
-            slotToIndex.put(col.getName(), targetExpr);
         }
         resultExprs.addAll(resultExprByName.stream().map(Pair::value).collect(Collectors.toList()));
     }
@@ -914,10 +905,17 @@ public class NativeInsertStmt extends InsertStmt {
         }
         if (targetTable instanceof OlapTable) {
             checkInnerGroupCommit();
-            OlapTableSink sink = isGroupCommitTvf ? new GroupCommitOlapTableSink((OlapTable) targetTable, olapTuple,
-                    targetPartitionIds, analyzer.getContext().getSessionVariable().isEnableSingleReplicaInsert())
-                    : new OlapTableSink((OlapTable) targetTable, olapTuple, targetPartitionIds,
-                            analyzer.getContext().getSessionVariable().isEnableSingleReplicaInsert());
+            OlapTableSink sink;
+            /*if (isGroupCommitTvf) {
+                sink = new GroupCommitOlapTableSink((OlapTable) targetTable, olapTuple,
+                        targetPartitionIds, analyzer.getContext().getSessionVariable().isEnableSingleReplicaInsert());
+            } else*/ if (isGroupCommitLoad) {
+                sink = new GroupCommitBlockSink((OlapTable) targetTable, olapTuple,
+                        targetPartitionIds, analyzer.getContext().getSessionVariable().isEnableSingleReplicaInsert());
+            } else {
+                sink = new OlapTableSink((OlapTable) targetTable, olapTuple, targetPartitionIds,
+                        analyzer.getContext().getSessionVariable().isEnableSingleReplicaInsert());
+            }
             dataSink = sink;
             sink.setPartialUpdateInputColumns(isPartialUpdate, partialUpdateCols);
             dataPartition = dataSink.getOutputPartition();
@@ -957,6 +955,7 @@ public class NativeInsertStmt extends InsertStmt {
             if (tvfRef.getTableFunction() instanceof GroupCommitTableValuedFunction) {
                 isGroupCommitTvf = true;
             }
+            isGroupCommitLoad = isGroupCommitLoad & tvfRef.getTableFunction() instanceof HttpStreamTableValuedFunction;
         }
     }
 
@@ -1047,13 +1046,14 @@ public class NativeInsertStmt extends InsertStmt {
                 && !ConnectContext.get().isTxnModel()
                 && getQueryStmt() instanceof SelectStmt
                 && ((SelectStmt) getQueryStmt()).getTableRefs().isEmpty() && targetPartitionNames == null) {
-            isGroupCommit = true;
+            // isGroupCommit = true;
+            isGroupCommitLoad = true;
         }
     }
 
-    public boolean isGroupCommit() {
+    /*public boolean isGroupCommit() {
         return isGroupCommit;
-    }
+    }*/
 
     public void planForGroupCommit(TUniqueId queryId) throws UserException, TException {
         OlapTable olapTable = (OlapTable) getTargetTable();
@@ -1073,7 +1073,7 @@ public class NativeInsertStmt extends InsertStmt {
         streamLoadPutRequest.setDb(db.getFullName()).setMaxFilterRatio(1)
                 .setTbl(getTbl())
                 .setFileType(TFileType.FILE_STREAM).setFormatType(TFileFormatType.FORMAT_CSV_PLAIN)
-                .setMergeType(TMergeType.APPEND).setThriftRpcTimeoutMs(5000).setLoadId(queryId);
+                .setMergeType(TMergeType.APPEND).setGroupCommit(true).setThriftRpcTimeoutMs(5000).setLoadId(queryId);
         StreamLoadTask streamLoadTask = StreamLoadTask.fromTStreamLoadPutRequest(streamLoadPutRequest);
         StreamLoadPlanner planner = new StreamLoadPlanner((Database) getDbObj(), olapTable, streamLoadTask);
         // Will using load id as query id in fragment
@@ -1138,7 +1138,7 @@ public class NativeInsertStmt extends InsertStmt {
                 if (insertCol.getName() != null && insertCol.getName().equals(col.getName())) {
                     if (!col.isVisible() && !Column.DELETE_SIGN.equals(col.getName())) {
                         throw new UserException("Partial update should not include invisible column except"
-                                    + " delete sign column: " + col.getName());
+                                + " delete sign column: " + col.getName());
                     }
                     exists = true;
                     break;
@@ -1168,5 +1168,14 @@ public class NativeInsertStmt extends InsertStmt {
             slotDesc.setColumn(col);
             slotDesc.setIsNullable(col.isAllowNull());
         }
+    }
+
+    @Override
+    public boolean isGroupCommitLoad() {
+        return this.isGroupCommitLoad;
+    }
+
+    public void setGroupCommitLoad(boolean isGroupCommitLoad) {
+        this.isGroupCommitLoad = isGroupCommitLoad;
     }
 }

@@ -70,6 +70,9 @@ public class AlterDatabasePropertyStmt extends DdlStmt {
         // clone properties for analyse
         Map<String, String> analysisProperties = new HashMap<String, String>(properties);
         PropertyAnalyzer.analyzeBinlogConfig(analysisProperties);
+        if (!analysisProperties.isEmpty()) {
+            throw new UserException("Invalid property name or value: " + analysisProperties);
+        }
     }
 
     @Override

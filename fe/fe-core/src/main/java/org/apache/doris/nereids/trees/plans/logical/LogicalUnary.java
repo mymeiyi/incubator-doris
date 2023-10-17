@@ -36,17 +36,12 @@ public abstract class LogicalUnary<CHILD_TYPE extends Plan>
         extends AbstractLogicalPlan
         implements UnaryPlan<CHILD_TYPE> {
 
-    protected LogicalUnary(PlanType type, CHILD_TYPE child) {
+    public LogicalUnary(PlanType type, CHILD_TYPE child) {
         super(type, ImmutableList.of(child));
     }
 
-    protected LogicalUnary(PlanType type, Optional<GroupExpression> groupExpression,
+    public LogicalUnary(PlanType type, Optional<GroupExpression> groupExpression,
                             Optional<LogicalProperties> logicalProperties, CHILD_TYPE child) {
-        super(type, groupExpression, logicalProperties, child);
-    }
-
-    protected LogicalUnary(PlanType type, Optional<GroupExpression> groupExpression,
-            Optional<LogicalProperties> logicalProperties, List<Plan> child) {
         super(type, groupExpression, logicalProperties, child);
     }
 

@@ -27,7 +27,6 @@
 #include "common/object_pool.h"
 #include "exec/data_sink.h"
 #include "io/fs/stream_load_pipe.h"
-#include "olap/wal_manager.h"
 #include "runtime/exec_env.h"
 #include "runtime/fragment_mgr.h"
 #include "runtime/runtime_state.h"
@@ -62,22 +61,21 @@ Status LoadBlockQueue::get_block(vectorized::Block* block, bool* find_block, boo
     *eos = false;
     std::unique_lock l(*_mutex);
     if (!need_commit) {
-        auto left_seconds = config::group_commit_interval_seconds -
-                            std::chrono::duration_cast<std::chrono::seconds>(
-                                    std::chrono::steady_clock::now() - _start_time)
-                                    .count();
+        auto left_seconds = 10 - std::chrono::duration_cast<std::chrono::seconds>(
+                                         std::chrono::steady_clock::now() - _start_time)
+                                         .count();
         if (left_seconds <= 0) {
             need_commit = true;
         }
     }
     while (_status.ok() && _block_queue.empty() &&
            (!need_commit || (need_commit && !_load_ids.empty()))) {
-        auto left_seconds = config::group_commit_interval_seconds;
+        // TODO make 10s as a config
+        auto left_seconds = 10;
         if (!need_commit) {
-            left_seconds = config::group_commit_interval_seconds -
-                           std::chrono::duration_cast<std::chrono::seconds>(
-                                   std::chrono::steady_clock::now() - _start_time)
-                                   .count();
+            left_seconds = 10 - std::chrono::duration_cast<std::chrono::seconds>(
+                                        std::chrono::steady_clock::now() - _start_time)
+                                        .count();
             if (left_seconds <= 0) {
                 need_commit = true;
                 break;
@@ -187,17 +185,16 @@ Status GroupCommitTable::get_first_block_load_queue(
 Status GroupCommitTable::_create_group_commit_load(
         int64_t table_id, std::shared_ptr<LoadBlockQueue>& load_block_queue) {
     TStreamLoadPutRequest request;
+    std::stringstream ss;
+    ss << "insert into " << table_id << " select * from group_commit(\"table_id\"=\"" << table_id
+       << "\")";
+    request.__set_load_sql(ss.str());
     UniqueId load_id = UniqueId::gen_uid();
     TUniqueId tload_id;
     tload_id.__set_hi(load_id.hi);
     tload_id.__set_lo(load_id.lo);
-    std::regex reg("-");
-    std::string label = "group_commit_" + std::regex_replace(load_id.to_string(), reg, "_");
-    std::stringstream ss;
-    ss << "insert into table_id(" << table_id << ") WITH LABEL " << label
-       << " select * from group_commit(\"table_id\"=\"" << table_id << "\")";
-    request.__set_load_sql(ss.str());
     request.__set_loadId(tload_id);
+    std::string label = "group_commit_" + load_id.to_string();
     request.__set_label(label);
     request.__set_token("group_commit"); // this is a fake, fe not check it now
     request.__set_max_filter_ratio(1.0);
@@ -246,11 +243,9 @@ Status GroupCommitTable::_create_group_commit_load(
         std::unique_lock l(_lock);
         _load_block_queues.emplace(instance_id, load_block_queue);
     }
-    params.__set_import_label(label);
     st = _exec_plan_fragment(_db_id, table_id, label, txn_id, is_pipeline, params, pipeline_params);
     if (!st.ok()) {
-        static_cast<void>(_finish_group_commit_load(_db_id, table_id, label, txn_id, instance_id,
-                                                    st, true, nullptr));
+        _finish_group_commit_load(_db_id, table_id, label, txn_id, instance_id, st, true, nullptr);
     }
     return st;
 }
@@ -313,27 +308,9 @@ Status GroupCommitTable::_finish_group_commit_load(int64_t db_id, int64_t table_
                      << ", instance_id=" << print_id(instance_id)
                      << ", executor status=" << status.to_string()
                      << ", request commit status=" << st.to_string();
-        if (!prepare_failed) {
-            RETURN_IF_ERROR(_exec_env->wal_mgr()->add_wal_path(_db_id, table_id, txn_id, label));
-            std::string wal_path;
-            RETURN_IF_ERROR(_exec_env->wal_mgr()->get_wal_path(txn_id, wal_path));
-            RETURN_IF_ERROR(_exec_env->wal_mgr()->add_recover_wal(
-                    std::to_string(db_id), std::to_string(table_id),
-                    std::vector<std::string> {wal_path}));
-        }
         return st;
     }
     // TODO handle execute and commit error
-    if (!prepare_failed && !result_status.ok()) {
-        RETURN_IF_ERROR(_exec_env->wal_mgr()->add_wal_path(_db_id, table_id, txn_id, label));
-        std::string wal_path;
-        RETURN_IF_ERROR(_exec_env->wal_mgr()->get_wal_path(txn_id, wal_path));
-        RETURN_IF_ERROR(_exec_env->wal_mgr()->add_recover_wal(std::to_string(db_id),
-                                                              std::to_string(table_id),
-                                                              std::vector<std::string> {wal_path}));
-    } else {
-        RETURN_IF_ERROR(_exec_env->wal_mgr()->delete_wal(txn_id));
-    }
     std::stringstream ss;
     ss << "finish group commit, db_id=" << db_id << ", table_id=" << table_id << ", label=" << label
        << ", txn_id=" << txn_id << ", instance_id=" << print_id(instance_id);
@@ -356,9 +333,8 @@ Status GroupCommitTable::_exec_plan_fragment(int64_t db_id, int64_t table_id,
                                              const TExecPlanFragmentParams& params,
                                              const TPipelineFragmentParams& pipeline_params) {
     auto finish_cb = [db_id, table_id, label, txn_id, this](RuntimeState* state, Status* status) {
-        static_cast<void>(_finish_group_commit_load(db_id, table_id, label, txn_id,
-                                                    state->fragment_instance_id(), *status, false,
-                                                    state));
+        _finish_group_commit_load(db_id, table_id, label, txn_id, state->fragment_instance_id(),
+                                  *status, false, state);
     };
     if (is_pipeline) {
         return _exec_env->fragment_mgr()->exec_plan_fragment(pipeline_params, finish_cb);
@@ -380,10 +356,14 @@ Status GroupCommitTable::get_load_block_queue(const TUniqueId& instance_id,
 }
 
 GroupCommitMgr::GroupCommitMgr(ExecEnv* exec_env) : _exec_env(exec_env) {
-    static_cast<void>(ThreadPoolBuilder("InsertIntoGroupCommitThreadPool")
-                              .set_min_threads(config::group_commit_insert_threads)
-                              .set_max_threads(config::group_commit_insert_threads)
-                              .build(&_insert_into_thread_pool));
+    ThreadPoolBuilder("InsertIntoGroupCommitThreadPool")
+            .set_min_threads(config::group_commit_insert_threads)
+            .set_max_threads(config::group_commit_insert_threads)
+            .build(&_insert_into_thread_pool);
+    ThreadPoolBuilder("StreamLoadGroupCommitThreadPool")
+            .set_min_threads(config::group_commit_stream_load_threads)
+            .set_max_threads(config::group_commit_stream_load_threads)
+            .build(&_stream_load_thread_pool);
 }
 
 GroupCommitMgr::~GroupCommitMgr() {
@@ -425,15 +405,15 @@ Status GroupCommitMgr::group_commit_insert(int64_t table_id, const TPlan& plan,
             }
             _exec_env->new_load_stream_mgr()->remove(load_id);
         });
-        static_cast<void>(_insert_into_thread_pool->submit_func(
-                std::bind<void>(&GroupCommitMgr::_append_row, this, pipe, request)));
+        _insert_into_thread_pool->submit_func(
+                std::bind<void>(&GroupCommitMgr::_append_row, this, pipe, request));
 
         // 2. FileScanNode consumes data from the pipe.
         std::unique_ptr<RuntimeState> runtime_state = RuntimeState::create_unique();
         TQueryOptions query_options;
         query_options.query_type = TQueryType::LOAD;
         TQueryGlobals query_globals;
-        static_cast<void>(runtime_state->init(load_id, query_options, query_globals, _exec_env));
+        runtime_state->init(load_id, query_options, query_globals, _exec_env);
         runtime_state->set_query_mem_tracker(std::make_shared<MemTrackerLimiter>(
                 MemTrackerLimiter::Type::LOAD, fmt::format("Load#Id={}", print_id(load_id)), -1));
         DescriptorTbl* desc_tbl = nullptr;
@@ -441,9 +421,8 @@ Status GroupCommitMgr::group_commit_insert(int64_t table_id, const TPlan& plan,
         runtime_state->set_desc_tbl(desc_tbl);
         auto file_scan_node =
                 vectorized::NewFileScanNode(runtime_state->obj_pool(), plan_node, *desc_tbl);
-        std::unique_ptr<int, std::function<void(int*)>> close_scan_node_func((int*)0x01, [&](int*) {
-            static_cast<void>(file_scan_node.close(runtime_state.get()));
-        });
+        std::unique_ptr<int, std::function<void(int*)>> close_scan_node_func(
+                (int*)0x01, [&](int*) { file_scan_node.close(runtime_state.get()); });
         // TFileFormatType::FORMAT_PROTO, TFileType::FILE_STREAM, set _range.load_id
         RETURN_IF_ERROR(file_scan_node.init(plan_node, runtime_state.get()));
         RETURN_IF_ERROR(file_scan_node.prepare(runtime_state.get()));
@@ -471,10 +450,10 @@ Status GroupCommitMgr::group_commit_insert(int64_t table_id, const TPlan& plan,
                 response->set_txn_id(load_block_queue->txn_id);
             }
             // TODO what to do if add one block error
+            RETURN_IF_ERROR(load_block_queue->add_block(future_block));
             if (future_block->rows() > 0) {
                 future_blocks.emplace_back(future_block);
             }
-            RETURN_IF_ERROR(load_block_queue->add_block(future_block));
             first = false;
         }
         if (!runtime_state->get_error_log_file_path().empty()) {
@@ -511,12 +490,12 @@ Status GroupCommitMgr::_append_row(std::shared_ptr<io::StreamLoadPipe> pipe,
         // TODO append may error when pipe is cancelled
         RETURN_IF_ERROR(pipe->append(std::move(row)));
     }
-    static_cast<void>(pipe->finish());
+    pipe->finish();
     return Status::OK();
 }
 
 Status GroupCommitMgr::group_commit_stream_load(std::shared_ptr<StreamLoadContext> ctx) {
-    return _insert_into_thread_pool->submit_func([ctx, this] {
+    return _stream_load_thread_pool->submit_func([ctx, this] {
         Status st = _group_commit_stream_load(ctx);
         if (!st.ok()) {
             ctx->promise.set_value(st);
@@ -545,7 +524,7 @@ Status GroupCommitMgr::_group_commit_stream_load(std::shared_ptr<StreamLoadConte
         TQueryOptions query_options;
         query_options.query_type = TQueryType::LOAD;
         TQueryGlobals query_globals;
-        static_cast<void>(runtime_state->init(load_id, query_options, query_globals, _exec_env));
+        runtime_state->init(load_id, query_options, query_globals, _exec_env);
         runtime_state->set_query_mem_tracker(std::make_shared<MemTrackerLimiter>(
                 MemTrackerLimiter::Type::LOAD, fmt::format("Load#Id={}", ctx->id.to_string()), -1));
         DescriptorTbl* desc_tbl = nullptr;
@@ -561,8 +540,8 @@ Status GroupCommitMgr::_group_commit_stream_load(std::shared_ptr<StreamLoadConte
             if (load_block_queue != nullptr) {
                 load_block_queue->remove_load_id(load_id);
             }
-            static_cast<void>(file_scan_node.close(runtime_state.get()));
-            static_cast<void>(sink.close(runtime_state.get(), status));
+            file_scan_node.close(runtime_state.get());
+            sink.close(runtime_state.get(), status);
         });
         RETURN_IF_ERROR(file_scan_node.init(plan_node, runtime_state.get()));
         RETURN_IF_ERROR(file_scan_node.prepare(runtime_state.get()));
@@ -596,10 +575,10 @@ Status GroupCommitMgr::_group_commit_stream_load(std::shared_ptr<StreamLoadConte
                 ctx->label = load_block_queue->label;
                 ctx->txn_id = load_block_queue->txn_id;
             }
+            RETURN_IF_ERROR(load_block_queue->add_block(future_block));
             if (future_block->rows() > 0) {
                 future_blocks.emplace_back(future_block);
             }
-            RETURN_IF_ERROR(load_block_queue->add_block(future_block));
             first = false;
         }
         ctx->number_unselected_rows = runtime_state->num_rows_load_unselected();

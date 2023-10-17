@@ -29,7 +29,6 @@ import org.apache.doris.thrift.TTabletType;
 import com.google.common.base.Joiner;
 import com.google.common.base.Joiner.MapJoiner;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Maps;
 
 import java.util.Map;
 
@@ -149,16 +148,9 @@ public class SinglePartitionDesc implements AllPartitionDesc {
 
         partitionKeyDesc.analyze(partColNum);
 
-        Map<String, String> mergedMap = Maps.newHashMap();
-        // Should putAll `otherProperties` before `this.properties`,
-        // because the priority of partition is higher than table
         if (otherProperties != null) {
-            mergedMap.putAll(otherProperties);
+            this.properties = otherProperties;
         }
-        if (this.properties != null) {
-            mergedMap.putAll(this.properties);
-        }
-        this.properties = mergedMap;
 
         // analyze data property
         partitionDataProperty = PropertyAnalyzer.analyzeDataProperty(properties,

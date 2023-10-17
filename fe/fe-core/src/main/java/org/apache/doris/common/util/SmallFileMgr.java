@@ -418,10 +418,10 @@ public class SmallFileMgr implements Writable {
             }
             file.createNewFile();
             byte[] decoded = Base64.getDecoder().decode(smallFile.content);
-            try (FileOutputStream outputStream = new FileOutputStream(file)) {
-                outputStream.write(decoded);
-                outputStream.flush();
-            }
+            FileOutputStream outputStream = new FileOutputStream(file);
+            outputStream.write(decoded);
+            outputStream.flush();
+            outputStream.close();
 
             if (!checkMd5(file, smallFile.md5)) {
                 throw new DdlException("write file " + fileName
@@ -436,7 +436,7 @@ public class SmallFileMgr implements Writable {
     }
 
     private boolean checkMd5(File file, String expectedMd5) throws DdlException {
-        String md5sum;
+        String md5sum = null;
         try (FileInputStream fis = new FileInputStream(file)) {
             md5sum = DigestUtils.md5Hex(fis);
         } catch (FileNotFoundException e) {

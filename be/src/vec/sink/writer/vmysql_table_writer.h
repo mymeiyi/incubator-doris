@@ -53,7 +53,7 @@ public:
 
     Status append_block(vectorized::Block& block) override;
 
-    Status close(Status) override;
+    Status close() override;
 
 private:
     Status _insert_row(vectorized::Block& block, size_t row);

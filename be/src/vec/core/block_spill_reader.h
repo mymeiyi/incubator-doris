@@ -44,7 +44,7 @@ public:
         _init_profile();
     }
 
-    ~BlockSpillReader() { static_cast<void>(close()); }
+    ~BlockSpillReader() { close(); }
 
     Status open();
 

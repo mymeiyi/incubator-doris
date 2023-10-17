@@ -17,15 +17,19 @@
 
 #pragma once
 #include "exec/data_sink.h"
+#include "exec/tablet_info.h"
 #include "vec/exprs/vexpr_fwd.h"
-#include "vec/sink/vtablet_sink.h"
 
 namespace doris {
 
 class OlapTableSchemaParam;
 class MemTracker;
+class NewLoadBlockQueue;
 
 namespace stream_load {
+
+class OlapTableBlockConvertor;
+class OlapTabletFinder;
 
 class GroupCommitBlockSink : public DataSink {
 public:
@@ -42,17 +46,28 @@ public:
 
     Status send(RuntimeState* state, vectorized::Block* block, bool eos = false) override;
 
+    Status close(RuntimeState* state, Status close_status) override;
 private:
+    ObjectPool* _pool;
+
     vectorized::VExprContextSPtrs _output_vexpr_ctxs;
 
     int _tuple_desc_id = -1;
     std::shared_ptr<OlapTableSchemaParam> _schema;
+    VOlapTablePartitionParam* _vpartition = nullptr;
+    std::unique_ptr<OlapTabletFinder> _tablet_finder;
 
     RuntimeState* _state = nullptr;
     std::shared_ptr<MemTracker> _mem_tracker;
     // this is tuple descriptor of destination OLAP table
     TupleDescriptor* _output_tuple_desc = nullptr;
-    std::unique_ptr<vectorized::OlapTableBlockConvertor> _block_convertor;
+    std::unique_ptr<OlapTableBlockConvertor> _block_convertor;
+
+    int64_t _db_id;
+    int64_t _table_id;
+    int64_t _base_schema_version;
+    UniqueId _load_id;
+    std::shared_ptr<NewLoadBlockQueue> _load_block_queue;
 };
 
 } // namespace stream_load

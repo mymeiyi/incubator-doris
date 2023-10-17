@@ -87,7 +87,7 @@ protected:
                             .ok());
 
         _data_dir = std::make_unique<DataDir>(absolute_dir);
-        static_cast<void>(_data_dir->update_capacity());
+        _data_dir->update_capacity();
         doris::EngineOptions options;
         k_engine = new StorageEngine(options);
         ExecEnv::GetInstance()->set_storage_engine(k_engine);
@@ -260,7 +260,8 @@ protected:
         }
 
         RowsetSharedPtr rowset;
-        EXPECT_EQ(Status::OK(), rowset_writer->build(rowset));
+        rowset = rowset_writer->build();
+        EXPECT_TRUE(rowset != nullptr);
         EXPECT_EQ(rowset_data.size(), rowset->rowset_meta()->num_segments());
         EXPECT_EQ(num_rows, rowset->rowset_meta()->num_rows());
         return rowset;
@@ -307,7 +308,7 @@ protected:
         rsm->set_delete_predicate(del_pred);
         rsm->set_tablet_schema(tablet->tablet_schema());
         RowsetSharedPtr rowset = std::make_shared<BetaRowset>(tablet->tablet_schema(), "", rsm);
-        static_cast<void>(tablet->add_rowset(rowset));
+        tablet->add_rowset(rowset);
     }
 
     TabletSharedPtr create_tablet(const TabletSchema& tablet_schema,
@@ -343,7 +344,7 @@ protected:
                                TCompressionType::LZ4F, 0, enable_unique_key_merge_on_write));
 
         TabletSharedPtr tablet(new Tablet(tablet_meta, _data_dir.get()));
-        static_cast<void>(tablet->init());
+        tablet->init();
         if (has_delete_handler) {
             // delete data with key < 1000
             std::vector<TCondition> conditions;

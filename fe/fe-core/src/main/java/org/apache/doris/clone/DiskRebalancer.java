@@ -17,10 +17,6 @@
 
 package org.apache.doris.clone;
 
-import org.apache.doris.catalog.DataProperty;
-import org.apache.doris.catalog.Database;
-import org.apache.doris.catalog.Env;
-import org.apache.doris.catalog.OlapTable;
 import org.apache.doris.catalog.Replica;
 import org.apache.doris.catalog.TabletInvertedIndex;
 import org.apache.doris.catalog.TabletMeta;
@@ -31,7 +27,6 @@ import org.apache.doris.clone.TabletScheduler.PathSlot;
 import org.apache.doris.system.SystemInfoService;
 import org.apache.doris.thrift.TStorageMedium;
 
-import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -152,7 +147,6 @@ public class DiskRebalancer extends Rebalancer {
             return alternativeTablets;
         }
 
-        Set<Long> alternativeTabletIds = Sets.newHashSet();
         Set<Long> unbalancedBEs = Sets.newHashSet();
         // choose tablets from backends randomly.
         Collections.shuffle(midBEs);
@@ -188,14 +182,11 @@ public class DiskRebalancer extends Rebalancer {
             }
 
             if (remainingPaths.isEmpty()) {
-                continue;
+                return alternativeTablets;
             }
 
             // select tablet from shuffled tablets
             for (Long tabletId : tabletIds) {
-                if (alternativeTabletIds.contains(tabletId)) {
-                    continue;
-                }
                 Replica replica = invertedIndex.getReplica(tabletId, beStat.getBeId());
                 if (replica == null) {
                     continue;
@@ -233,7 +224,6 @@ public class DiskRebalancer extends Rebalancer {
                     tabletCtx.setBalanceType(BalanceType.DISK_BALANCE);
 
                     alternativeTablets.add(tabletCtx);
-                    alternativeTabletIds.add(tabletId);
                     unbalancedBEs.add(beStat.getBeId());
                     // update remaining paths
                     int remaining = remainingPaths.get(replicaPathHash) - 1;
@@ -282,19 +272,6 @@ public class DiskRebalancer extends Rebalancer {
         if (replica.getDataSize() == 0) {
             throw new SchedException(Status.UNRECOVERABLE, "size of src replica is zero");
         }
-        Database db = Env.getCurrentInternalCatalog().getDbOrException(tabletCtx.getDbId(),
-                s -> new SchedException(Status.UNRECOVERABLE, "db " + tabletCtx.getDbId() + " does not exist"));
-        OlapTable tbl = (OlapTable) db.getTableOrException(tabletCtx.getTblId(),
-                s -> new SchedException(Status.UNRECOVERABLE, "tbl " + tabletCtx.getTblId() + " does not exist"));
-        DataProperty dataProperty = tbl.getPartitionInfo().getDataProperty(tabletCtx.getPartitionId());
-        if (dataProperty == null) {
-            throw new SchedException(Status.UNRECOVERABLE, "data property is null");
-        }
-        String storagePolicy = dataProperty.getStoragePolicy();
-        if (!Strings.isNullOrEmpty(storagePolicy)) {
-            throw new SchedException(Status.UNRECOVERABLE, "disk balance not support for cooldown storage");
-        }
-
         // check src slot
         PathSlot slot = backendsWorkingSlots.get(replica.getBackendId());
         if (slot == null) {

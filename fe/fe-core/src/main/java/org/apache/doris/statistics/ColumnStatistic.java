@@ -93,7 +93,7 @@ public class ColumnStatistic {
     public final Histogram histogram;
 
     @SerializedName("partitionIdToColStats")
-    public final Map<String, ColumnStatistic> partitionIdToColStats = new HashMap<>();
+    public final Map<Long, ColumnStatistic> partitionIdToColStats = new HashMap<>();
 
     public final String updatedTime;
 
@@ -120,7 +120,7 @@ public class ColumnStatistic {
     }
 
     public static ColumnStatistic fromResultRow(List<ResultRow> resultRows) {
-        Map<String, ColumnStatistic> partitionIdToColStats = new HashMap<>();
+        Map<Long, ColumnStatistic> partitionIdToColStats = new HashMap<>();
         ColumnStatistic columnStatistic = null;
         try {
             for (ResultRow resultRow : resultRows) {
@@ -128,7 +128,7 @@ public class ColumnStatistic {
                 if (partId == null) {
                     columnStatistic = fromResultRow(resultRow);
                 } else {
-                    partitionIdToColStats.put(partId, fromResultRow(resultRow));
+                    partitionIdToColStats.put(Long.parseLong(partId), fromResultRow(resultRow));
                 }
             }
         } catch (Throwable t) {
@@ -177,10 +177,10 @@ public class ColumnStatistic {
                     columnStatisticBuilder.setMinExpr(StatisticsUtil.readableValue(col.getType(), min));
                 } catch (AnalysisException e) {
                     LOG.warn("Failed to deserialize column {} min value {}.", col, min, e);
-                    columnStatisticBuilder.setMinValue(Double.NEGATIVE_INFINITY);
+                    columnStatisticBuilder.setMinValue(Double.MIN_VALUE);
                 }
             } else {
-                columnStatisticBuilder.setMinValue(Double.NEGATIVE_INFINITY);
+                columnStatisticBuilder.setMinValue(Double.MIN_VALUE);
             }
             if (max != null && !max.equalsIgnoreCase("NULL")) {
                 try {
@@ -188,10 +188,10 @@ public class ColumnStatistic {
                     columnStatisticBuilder.setMaxExpr(StatisticsUtil.readableValue(col.getType(), max));
                 } catch (AnalysisException e) {
                     LOG.warn("Failed to deserialize column {} max value {}.", col, max, e);
-                    columnStatisticBuilder.setMaxValue(Double.POSITIVE_INFINITY);
+                    columnStatisticBuilder.setMaxValue(Double.MAX_VALUE);
                 }
             } else {
-                columnStatisticBuilder.setMaxValue(Double.POSITIVE_INFINITY);
+                columnStatisticBuilder.setMaxValue(Double.MAX_VALUE);
             }
             columnStatisticBuilder.setUpdatedTime(row.get(13));
             return columnStatisticBuilder.build();
@@ -392,7 +392,7 @@ public class ColumnStatistic {
         return isUnKnown;
     }
 
-    public void putPartStats(String partId, ColumnStatistic columnStatistic) {
+    public void putPartStats(long partId, ColumnStatistic columnStatistic) {
         this.partitionIdToColStats.put(partId, columnStatistic);
     }
 }

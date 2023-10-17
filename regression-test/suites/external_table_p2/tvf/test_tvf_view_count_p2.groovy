@@ -26,7 +26,8 @@ suite("test_tvf_view_count_p2", "p2,external,tvf,external_remote,external_remote
         sql """use test_tvf_view_count_p2"""
         sql """set enable_nereids_planner=false"""
         sql """create view tvf_view_count as select * from hdfs (
-            "uri"="hdfs://${nameNodeHost}:${hdfsPort}/usr/hive/warehouse/tpch_1000_parquet.db/part/000091_0",
+            "uri"="hdfs://${nameNodeHost}:${hdfsPort}:/usr/hive/warehouse/tpch_1000_parquet.db/part/000091_0",
+            "fs.defaultFS"="hdfs://${nameNodeHost}:${hdfsPort}",
             "hadoop.username" = "hadoop",
             "format"="parquet");"""
 

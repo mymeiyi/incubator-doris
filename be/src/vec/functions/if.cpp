@@ -190,7 +190,7 @@ public:
     Status execute_generic(Block& block, const ColumnUInt8* cond_col,
                            const ColumnWithTypeAndName& then_col_type_name,
                            const ColumnWithTypeAndName& else_col_type_name, size_t result,
-                           size_t input_row_count) const {
+                           size_t input_row_count) {
         MutableColumnPtr result_column = block.get_by_position(result).type->create_column();
         result_column->reserve(input_row_count);
 
@@ -243,8 +243,7 @@ public:
 
     void execute_basic_type(Block& block, const ColumnUInt8* cond_col,
                             const ColumnWithTypeAndName& then_col,
-                            const ColumnWithTypeAndName& else_col, size_t result,
-                            Status& status) const {
+                            const ColumnWithTypeAndName& else_col, size_t result, Status& status) {
         auto call = [&](const auto& types) -> bool {
             using Types = std::decay_t<decltype(types)>;
             using T0 = typename Types::LeftType;
@@ -292,7 +291,7 @@ public:
                                     const ColumnWithTypeAndName& arg_cond,
                                     const ColumnWithTypeAndName& arg_then,
                                     const ColumnWithTypeAndName& arg_else, size_t result,
-                                    size_t input_rows_count, Status& status) const {
+                                    size_t input_rows_count, Status& status) {
         bool then_is_null = arg_then.column->only_null();
         bool else_is_null = arg_else.column->only_null();
 
@@ -396,7 +395,7 @@ public:
                                         const ColumnWithTypeAndName& arg_cond,
                                         const ColumnWithTypeAndName& arg_then,
                                         const ColumnWithTypeAndName& arg_else, size_t result,
-                                        size_t input_rows_count) const {
+                                        size_t input_rows_count) {
         auto then_type_is_nullable = arg_then.type->is_nullable();
         auto else_type_is_nullable = arg_else.type->is_nullable();
         if (!then_type_is_nullable && !else_type_is_nullable) {
@@ -450,8 +449,7 @@ public:
             temporary_block.insert(
                     {nullptr, std::make_shared<DataTypeUInt8>(), "result_column_null_map"});
 
-            static_cast<void>(
-                    execute_impl(context, temporary_block, {0, 1, 2}, 3, temporary_block.rows()));
+            execute_impl(context, temporary_block, {0, 1, 2}, 3, temporary_block.rows());
 
             result_null_mask = temporary_block.get_by_position(3).column;
         }
@@ -465,8 +463,7 @@ public:
                      {get_nested_column(arg_else.column), remove_nullable(arg_else.type), ""},
                      {nullptr, remove_nullable(block.get_by_position(result).type), ""}});
 
-            static_cast<void>(
-                    execute_impl(context, temporary_block, {0, 1, 2}, 3, temporary_block.rows()));
+            execute_impl(context, temporary_block, {0, 1, 2}, 3, temporary_block.rows());
 
             result_nested_column = temporary_block.get_by_position(3).column;
         }
@@ -481,7 +478,7 @@ public:
                                     const ColumnNumbers& arguments,
                                     const ColumnWithTypeAndName& arg_cond,
                                     const ColumnWithTypeAndName& arg_then,
-                                    const ColumnWithTypeAndName& arg_else, size_t result) const {
+                                    const ColumnWithTypeAndName& arg_else, size_t result) {
         bool cond_is_null = arg_cond.column->only_null();
 
         if (cond_is_null) {
@@ -505,15 +502,14 @@ public:
             block.insert({nullable->get_nested_column_ptr(), remove_nullable(arg_cond.type),
                           arg_cond.name});
 
-            static_cast<void>(execute_impl(
-                    context, block, {column_size, arguments[1], arguments[2]}, result, rows));
+            execute_impl(context, block, {column_size, arguments[1], arguments[2]}, result, rows);
             return true;
         }
         return false;
     }
 
     Status execute_impl(FunctionContext* context, Block& block, const ColumnNumbers& arguments,
-                        size_t result, size_t input_rows_count) const override {
+                        size_t result, size_t input_rows_count) override {
         const ColumnWithTypeAndName& arg_then = block.get_by_position(arguments[1]);
         const ColumnWithTypeAndName& arg_else = block.get_by_position(arguments[2]);
 

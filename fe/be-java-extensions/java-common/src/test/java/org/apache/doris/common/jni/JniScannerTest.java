@@ -35,10 +35,9 @@ public class JniScannerTest {
             {
                 put("mock_rows", "128");
                 put("required_fields", "boolean,tinyint,smallint,int,bigint,largeint,float,double,"
-                        + "date,timestamp,char,varchar,string,decimalv2,decimal64,array,map,struct");
+                        + "date,timestamp,char,varchar,string,decimalv2,decimal64");
                 put("columns_types", "boolean#tinyint#smallint#int#bigint#largeint#float#double#"
-                        + "date#timestamp#char(10)#varchar(10)#string#decimalv2(12,4)#decimal64(10,3)#"
-                        + "array<array<string>>#map<string,array<int>>#struct<col1:timestamp(6),col2:array<char(10)>>");
+                        + "date#timestamp#char(10)#varchar(10)#string#decimalv2(12,4)#decimal64(10,3)");
             }
         });
         scanner.open();
@@ -51,7 +50,7 @@ public class JniScannerTest {
 
                 VectorTable restoreTable = new VectorTable(scanner.getTable().getColumnTypes(),
                         scanner.getTable().getFields(), metaAddress);
-                System.out.println(restoreTable.dump((int) rows).substring(0, 128));
+                System.out.println(restoreTable.dump((int) rows));
                 // Restored table is release by the origin table.
             }
             scanner.resetTable();

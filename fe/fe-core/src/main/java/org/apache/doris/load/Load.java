@@ -635,15 +635,7 @@ public class Load {
             if (columnExprMap.containsKey(columnName)) {
                 continue;
             }
-            if (column.getDefaultValue() != null) {
-                exprsByName.put(column.getName(), column.getDefaultValueExpr());
-                continue;
-            }
-            if (column.isAllowNull()) {
-                exprsByName.put(column.getName(), NullLiteral.create(column.getType()));
-                continue;
-            }
-            if (isPartialUpdate) {
+            if (column.getDefaultValue() != null || column.isAllowNull() || isPartialUpdate) {
                 continue;
             }
             if (column.isAutoInc()) {

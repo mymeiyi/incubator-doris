@@ -50,7 +50,6 @@ from dbt.clients.agate_helper import table_from_rows
 from dbt.contracts.graph.manifest import Manifest
 from dbt.contracts.relation import RelationType
 from dbt.utils import executor
-from dbt.adapters.doris.doris_column_item import DorisColumnItem
 
 
 class Engine(str, Enum):
@@ -202,16 +201,23 @@ class DorisAdapter(SQLAdapter):
         # and might even be the SQL standard's intention.
         return f"{add_to} + interval {number} {interval}"
 
-
     @classmethod
     def render_raw_columns_constraints(cls, raw_columns: Dict[str, Dict[str, Any]]) -> List:
         rendered_column_constraints = []
         for v in raw_columns.values():
-            cols_name = cls.quote(v["name"]) if v.get("quote") else v["name"]
+            col_name = cls.quote(v["name"]) if v.get("quote") else v["name"]
             data_type = v.get('data_type')
             comment = v.get('description')
 
-            column = DorisColumnItem(cols_name, data_type, comment, "")
-            rendered_column_constraints.append(column)
+            if data_type is not None:
+                rendered_column_constraint = [f"cast(`{col_name}` as {data_type}) as `{col_name}`"]
+            else:
+                if comment != "":
+                    rendered_column_constraint  = [f"`{col_name}` COMMENT '{comment}'"]
+                else:
+                    rendered_column_constraint = [f"`{col_name}`"]
+
+
+            rendered_column_constraints.append(" ".join(rendered_column_constraint))
 
         return rendered_column_constraints

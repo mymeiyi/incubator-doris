@@ -74,7 +74,7 @@ public:
     Status sink(RuntimeState*, vectorized::Block*, SourceState) override { return Status::OK(); }
 
     Status close(RuntimeState* state) override {
-        static_cast<void>(_exec_node->close(state));
+        _exec_node->close(state);
         return Status::OK();
     }
 

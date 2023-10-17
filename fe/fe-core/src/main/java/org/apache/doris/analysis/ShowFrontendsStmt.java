@@ -52,8 +52,10 @@ public class ShowFrontendsStmt extends ShowStmt {
             ErrorReport.reportAnalysisException(ErrorCode.ERR_SPECIFIC_ACCESS_DENIED_ERROR, "ADMIN/OPERATOR");
         }
 
-        if (detail != null && !detail.equals("disks")) {
-            throw new AnalysisException("Show frontends with extra info only support show frontends disks");
+        if (detail != null) {
+            if (!detail.equals("disks")) {
+                throw new AnalysisException("Show frontends with extra info only support show frontends disks");
+            }
         }
     }
 
@@ -62,8 +64,10 @@ public class ShowFrontendsStmt extends ShowStmt {
         ShowResultSetMetaData.Builder builder = ShowResultSetMetaData.builder();
 
         ImmutableList<String> titles = FrontendsProcNode.TITLE_NAMES;
-        if (detail != null && detail.equals("disks")) {
-            titles = FrontendsProcNode.DISK_TITLE_NAMES;
+        if (detail != null) {
+            if (detail.equals("disks")) {
+                titles = FrontendsProcNode.DISK_TITLE_NAMES;
+            }
         }
         for (String title : titles) {
             builder.addColumn(new Column(title, ScalarType.createVarchar(30)));

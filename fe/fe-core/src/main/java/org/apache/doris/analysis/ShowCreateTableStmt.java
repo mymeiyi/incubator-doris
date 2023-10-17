@@ -20,8 +20,6 @@ package org.apache.doris.analysis;
 import org.apache.doris.catalog.Column;
 import org.apache.doris.catalog.Env;
 import org.apache.doris.catalog.ScalarType;
-import org.apache.doris.catalog.TableIf;
-import org.apache.doris.catalog.View;
 import org.apache.doris.common.AnalysisException;
 import org.apache.doris.common.ErrorCode;
 import org.apache.doris.common.ErrorReport;
@@ -105,19 +103,8 @@ public class ShowCreateTableStmt extends ShowStmt {
         }
         tbl.analyze(analyzer);
 
-        TableIf tableIf = Env.getCurrentEnv().getCatalogMgr()
-                .getCatalogOrAnalysisException(tbl.getCtl())
-                .getDbOrAnalysisException(tbl.getDb()).getTableOrAnalysisException(tbl.getTbl());
-
-        PrivPredicate wanted;
-        if (tableIf instanceof View) {
-            wanted = PrivPredicate.SHOW_VIEW;
-        } else {
-            wanted = PrivPredicate.SHOW;
-        }
-
         if (!Env.getCurrentEnv().getAccessManager().checkTblPriv(ConnectContext.get(), tbl.getCtl(), tbl.getDb(),
-                tbl.getTbl(), wanted)) {
+                tbl.getTbl(), PrivPredicate.SHOW)) {
             ErrorReport.reportAnalysisException(ErrorCode.ERR_TABLEACCESS_DENIED_ERROR, "SHOW CREATE TABLE",
                                                 ConnectContext.get().getQualifiedUser(),
                                                 ConnectContext.get().getRemoteIP(),

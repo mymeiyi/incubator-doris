@@ -261,7 +261,7 @@ public class AnalysisManagerTest {
         analysisManager.buildAndAssignJob(analyzeTblStmt);
         new Expectations() {
             {
-                analysisManager.recordAnalysisJob(analysisInfo);
+                analysisManager.persistAnalysisJob(analysisInfo);
                 times = 1;
             }
         };
@@ -339,12 +339,9 @@ public class AnalysisManagerTest {
 
         };
         OlapTable olapTable = new OlapTable();
-        TableStatsMeta stats1 = new TableStatsMeta(0, 50, new AnalysisInfoBuilder().setColName("col1").build());
-        stats1.updatedRows.addAndGet(30);
-
+        TableStats stats1 = new TableStats(0, 50, new AnalysisInfoBuilder().setColName("col1").build());
         Assertions.assertTrue(olapTable.needReAnalyzeTable(stats1));
-        TableStatsMeta stats2 = new TableStatsMeta(0, 190, new AnalysisInfoBuilder().setColName("col1").build());
-        stats2.updatedRows.addAndGet(20);
+        TableStats stats2 = new TableStats(0, 190, new AnalysisInfoBuilder().setColName("col1").build());
         Assertions.assertFalse(olapTable.needReAnalyzeTable(stats2));
 
     }

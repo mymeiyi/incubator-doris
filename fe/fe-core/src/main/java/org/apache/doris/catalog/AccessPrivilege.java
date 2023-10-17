@@ -38,8 +38,7 @@ public enum AccessPrivilege {
     CREATE_PRIV(9, "Privilege for creating database or table"),
     DROP_PRIV(10, "Privilege for dropping database or table"),
     ADMIN_PRIV(11, "All privileges except NODE_PRIV"),
-    USAGE_PRIV(12, "Privilege for use resource"),
-    SHOW_VIEW_PRIV(13, "Privilege for show view");
+    USAGE_PRIV(12, "Privilege for use resource");
 
     private int flag;
     private String desc;
@@ -50,7 +49,7 @@ public enum AccessPrivilege {
     }
 
     public List<Privilege> toDorisPrivilege() {
-        Preconditions.checkState(flag > 0 && flag < 14);
+        Preconditions.checkState(flag > 0 && flag < 13);
         switch (flag) {
             case 1:
             case 6:
@@ -76,8 +75,6 @@ public enum AccessPrivilege {
                 return Lists.newArrayList(Privilege.ADMIN_PRIV);
             case 12:
                 return Lists.newArrayList(Privilege.USAGE_PRIV);
-            case 13:
-                return Lists.newArrayList(Privilege.SHOW_VIEW_PRIV);
             default:
                 return null;
         }

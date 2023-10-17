@@ -124,7 +124,8 @@ Status LoadStreamWriter::close_segment(uint32_t segid) {
 }
 
 Status LoadStreamWriter::add_segment(uint32_t segid, SegmentStatistics& stat) {
-    return _rowset_writer->add_segment(segid, stat);
+    _rowset_writer->add_segment(segid, stat);
+    return Status::OK();
 }
 
 Status LoadStreamWriter::close() {
@@ -151,10 +152,10 @@ Status LoadStreamWriter::close() {
         }
     }
 
-    RETURN_IF_ERROR(_rowset_builder.build_rowset());
-    RETURN_IF_ERROR(_rowset_builder.submit_calc_delete_bitmap_task());
-    RETURN_IF_ERROR(_rowset_builder.wait_calc_delete_bitmap());
-    RETURN_IF_ERROR(_rowset_builder.commit_txn());
+    _rowset_builder.build_rowset();
+    _rowset_builder.submit_calc_delete_bitmap_task();
+    _rowset_builder.wait_calc_delete_bitmap();
+    _rowset_builder.commit_txn();
 
     return Status::OK();
 }

@@ -107,8 +107,7 @@ Status PadRowsetAction::_pad_rowset(TabletSharedPtr tablet, const Version& versi
     ctx.tablet_schema = tablet->tablet_schema();
     ctx.newest_write_timestamp = UnixSeconds();
     RETURN_IF_ERROR(tablet->create_rowset_writer(ctx, &writer));
-    RowsetSharedPtr rowset;
-    RETURN_IF_ERROR(writer->build(rowset));
+    auto rowset = writer->build();
     rowset->make_visible(version);
 
     std::vector<RowsetSharedPtr> to_add {rowset};
@@ -116,7 +115,7 @@ Status PadRowsetAction::_pad_rowset(TabletSharedPtr tablet, const Version& versi
     {
         std::unique_lock wlock(tablet->get_header_lock());
         SCOPED_SIMPLE_TRACE_IF_TIMEOUT(TRACE_TABLET_LOCK_THRESHOLD);
-        static_cast<void>(tablet->modify_rowsets(to_add, to_delete));
+        tablet->modify_rowsets(to_add, to_delete);
         tablet->save_meta();
     }
 

@@ -77,7 +77,7 @@ public class TempPartitions implements Writable, GsonPostProcessable {
         if (partition != null) {
             idToPartition.remove(partition.getId());
             nameToPartition.remove(partitionName);
-            if (needDropTablet) {
+            if (!Env.isCheckpointThread() && needDropTablet) {
                 TabletInvertedIndex invertedIndex = Env.getCurrentInvertedIndex();
                 for (MaterializedIndex index : partition.getMaterializedIndices(IndexExtState.ALL)) {
                     for (Tablet tablet : index.getTablets()) {

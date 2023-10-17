@@ -1,6 +1,6 @@
 ---
 {
-    "title": "BITMAP_AND_NOT,BITMAP_ANDNOT",
+    "title": "BITMAP_AND_NOT",
     "language": "zh-CN"
 }
 ---
@@ -24,7 +24,7 @@ specific language governing permissions and limitations
 under the License.
 -->
 
-## bitmap_and_not,bitmap_andnot
+## bitmap_and_not
 ### description
 #### Syntax
 
@@ -67,4 +67,4 @@ mysql> select bitmap_to_string(bitmap_and_not(bitmap_from_string('1,2,3'),NULL))
 
 ### keywords
 
-    BITMAP_AND_NOT,BITMAP_ANDNOT,BITMAP
+    BITMAP_AND_NOT,BITMAP

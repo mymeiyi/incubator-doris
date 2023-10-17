@@ -52,12 +52,15 @@ import javax.servlet.http.HttpServletResponse;
 @RestController
 public class GetLoadInfoAction extends RestBaseController {
 
+    protected Env env;
+
     @RequestMapping(path = "/api/{" + DB_KEY + "}/_load_info", method = RequestMethod.GET)
     public Object execute(
             @PathVariable(value = DB_KEY) final String dbName,
             HttpServletRequest request, HttpServletResponse response) {
         executeCheckPassword(request, response);
 
+        this.env = Env.getCurrentEnv();
         String fullDbName = getFullDbName(dbName);
 
         Load.JobInfo info = new Load.JobInfo(fullDbName,
@@ -79,7 +82,7 @@ public class GetLoadInfoAction extends RestBaseController {
         }
 
         try {
-            Env.getCurrentEnv().getLoadInstance().getJobInfo(info);
+            env.getLoadInstance().getJobInfo(info);
             if (info.tblNames.isEmpty()) {
                 checkDbAuth(ConnectContext.get().getCurrentUserIdentity(), info.dbName, PrivPredicate.LOAD);
             } else {
@@ -90,7 +93,7 @@ public class GetLoadInfoAction extends RestBaseController {
             }
         } catch (DdlException | MetaNotFoundException e) {
             try {
-                Env.getCurrentEnv().getLoadManager().getLoadJobInfo(info);
+                env.getLoadManager().getLoadJobInfo(info);
             } catch (DdlException e1) {
                 return new RestBaseResult(e.getMessage());
             }

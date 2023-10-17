@@ -20,7 +20,7 @@ suite("test_group_commit_stream_load") {
 
     def getRowCount = { expectedRowCount ->
         def retry = 0
-        while (retry < 30) {
+        while (retry < 10) {
             sleep(2000)
             def rowCount = sql "select count(*) from ${tableName}"
             logger.info("rowCount: " + rowCount + ", retry: " + retry)
@@ -252,7 +252,7 @@ suite("test_group_commit_stream_load") {
             lo_shippriority,lo_quantity,lo_extendedprice,lo_ordtotalprice,lo_discount, 
             lo_revenue,lo_supplycost,lo_tax,lo_commitdate,lo_shipmode"""
 
-        /*new Thread(() -> {
+        new Thread(() -> {
             Thread.sleep(3000)
             // do light weight schema change
             sql """ alter table ${tableName} ADD column sc_tmp varchar(100) after lo_revenue; """
@@ -264,7 +264,7 @@ suite("test_group_commit_stream_load") {
             lo_shippriority,lo_quantity,lo_extendedprice,lo_ordtotalprice,lo_discount, 
             lo_revenue,lo_supplycost,lo_tax,lo_shipmode,lo_commitdate"""
             sql """ alter table ${tableName} order by (${new_columns}); """
-        }).start();*/
+        }).start();
 
         for (int i = 0; i < 4; i++) {
 
@@ -293,10 +293,7 @@ suite("test_group_commit_stream_load") {
                     def json = parseJson(result)
                     assertEquals("success", json.Status.toLowerCase())
                     assertEquals(json.NumberTotalRows, json.NumberLoadedRows)
-                    if (json.NumberLoadedRows != 600572) {
-                       logger.warn("Stream load ${i}, loaded rows: ${json.NumberLoadedRows}")
-                    }
-                    // assertEquals(json.NumberLoadedRows, 600572)
+                    assertEquals(json.NumberLoadedRows, 600572)
                     assertTrue(json.LoadBytes > 0)
                     assertTrue(json.GroupCommit)
                 }
@@ -306,7 +303,7 @@ suite("test_group_commit_stream_load") {
         getRowCount(2402288)
         qt_sql """ select count(*) from ${tableName} """
 
-        // assertTrue(getAlterTableState())
+        assertTrue(getAlterTableState())
     } finally {
         // try_sql("DROP TABLE ${tableName}")
     }

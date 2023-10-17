@@ -47,11 +47,13 @@ public:
 
 class SortSourceOperatorX;
 class SortLocalState final : public PipelineXLocalState<SortDependency> {
-public:
     ENABLE_FACTORY_CREATOR(SortLocalState);
+
+public:
     SortLocalState(RuntimeState* state, OperatorXBase* parent);
 
     Status init(RuntimeState* state, LocalStateInfo& info) override;
+    Status close(RuntimeState* state) override;
 
 private:
     friend class SortSourceOperatorX;

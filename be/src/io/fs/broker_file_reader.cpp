@@ -47,13 +47,13 @@ BrokerFileReader::BrokerFileReader(const TNetworkAddress& broker_addr, const Pat
           _broker_addr(broker_addr),
           _fd(fd),
           _fs(std::move(fs)) {
-    static_cast<void>(_fs->get_client(&_client));
+    _fs->get_client(&_client);
     DorisMetrics::instance()->broker_file_open_reading->increment(1);
     DorisMetrics::instance()->broker_file_reader_total->increment(1);
 }
 
 BrokerFileReader::~BrokerFileReader() {
-    static_cast<void>(BrokerFileReader::close());
+    BrokerFileReader::close();
 }
 
 Status BrokerFileReader::close() {

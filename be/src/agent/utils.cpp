@@ -19,7 +19,6 @@
 
 // IWYU pragma: no_include <bthread/errno.h>
 #include <errno.h> // IWYU pragma: keep
-#include <fmt/format.h>
 #include <gen_cpp/FrontendService.h>
 #include <gen_cpp/HeartbeatService_types.h>
 #include <gen_cpp/Types_types.h>
@@ -54,6 +53,7 @@ class TReportRequest;
 
 using std::map;
 using std::string;
+using std::stringstream;
 using apache::thrift::transport::TTransportException;
 
 namespace doris {
@@ -102,7 +102,7 @@ Status MasterServerClient::finish_task(const TFinishTaskRequest& request, TMaste
             client->finishTask(*result, request);
         }
     } catch (std::exception& e) {
-        static_cast<void>(client.reopen(config::thrift_rpc_timeout_ms));
+        client.reopen(config::thrift_rpc_timeout_ms);
         LOG(WARNING) << "fail to finish_task. "
                      << "host=" << _master_info.network_address.hostname
                      << ", port=" << _master_info.network_address.port << ", error=" << e.what();
@@ -152,7 +152,7 @@ Status MasterServerClient::report(const TReportRequest& request, TMasterResult* 
             }
         }
     } catch (std::exception& e) {
-        static_cast<void>(client.reopen(config::thrift_rpc_timeout_ms));
+        client.reopen(config::thrift_rpc_timeout_ms);
         LOG(WARNING) << "fail to report to master. "
                      << "host=" << _master_info.network_address.hostname
                      << ", port=" << _master_info.network_address.port
@@ -203,7 +203,7 @@ Status MasterServerClient::confirm_unused_remote_files(
             }
         }
     } catch (std::exception& e) {
-        static_cast<void>(client.reopen(config::thrift_rpc_timeout_ms));
+        client.reopen(config::thrift_rpc_timeout_ms);
         return Status::InternalError(
                 "fail to confirm unused remote files. host={}, port={}, code={}, reason={}",
                 _master_info.network_address.hostname, _master_info.network_address.port,
@@ -226,7 +226,9 @@ bool AgentUtils::exec_cmd(const string& command, string* errmsg, bool redirect_s
     // Execute command.
     FILE* fp = popen(cmd.c_str(), "r");
     if (fp == nullptr) {
-        *errmsg = fmt::format("popen failed. {}, with errno: {}.\n", strerror(errno), errno);
+        std::stringstream err_stream;
+        err_stream << "popen failed. " << strerror(errno) << ", with errno: " << errno << ".\n";
+        *errmsg = err_stream.str();
         return false;
     }
 
@@ -242,8 +244,10 @@ bool AgentUtils::exec_cmd(const string& command, string* errmsg, bool redirect_s
         if (errno == ECHILD) {
             *errmsg += "pclose cannot obtain the child status.\n";
         } else {
-            *errmsg += fmt::format("Close popen failed. {}, with errno: {}.\n", strerror(errno),
-                                   errno);
+            std::stringstream err_stream;
+            err_stream << "Close popen failed. " << strerror(errno) << ", with errno: " << errno
+                       << "\n";
+            *errmsg += err_stream.str();
         }
         return false;
     }

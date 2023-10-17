@@ -206,15 +206,16 @@ public:
     }
 
     Status execute_impl(FunctionContext* context, Block& block, const ColumnNumbers& arguments,
-                        size_t result, size_t input_rows_count) const override {
+                        size_t result, size_t input_rows_count) override {
         if (std::is_same_v<Impl, BitmapAndCount> || std::is_same_v<Impl, BitmapXorCount>) {
-            auto impl_func = [&](FunctionContext* context, Block& block,
-                                 const ColumnNumbers& arguments, size_t result,
-                                 size_t input_rows_count) {
-                return execute_impl_internal(context, block, arguments, result, input_rows_count);
-            };
-            return execute_bitmap_op_count_null_to_zero(context, block, arguments, result,
-                                                        input_rows_count, impl_func);
+            return execute_bitmap_op_count_null_to_zero(
+                    context, block, arguments, result, input_rows_count,
+                    std::bind((Status(FunctionBitMapVariadic<Impl>::*)(FunctionContext*, Block&,
+                                                                       const ColumnNumbers&, size_t,
+                                                                       size_t)) &
+                                      FunctionBitMapVariadic::execute_impl_internal,
+                              this, std::placeholders::_1, std::placeholders::_2,
+                              std::placeholders::_3, std::placeholders::_4, std::placeholders::_5));
         } else {
             return execute_impl_internal(context, block, arguments, result, input_rows_count);
         }
@@ -222,7 +223,7 @@ public:
 
     Status execute_impl_internal(FunctionContext* context, Block& block,
                                  const ColumnNumbers& arguments, size_t result,
-                                 size_t input_rows_count) const {
+                                 size_t input_rows_count) {
         size_t argument_size = arguments.size();
         ColumnPtr argument_columns[argument_size];
 
@@ -250,8 +251,8 @@ public:
         auto& vec_res = col_res->get_data();
         vec_res.resize(input_rows_count);
 
-        static_cast<void>(Impl::vector_vector(argument_columns, argument_size, input_rows_count,
-                                              vec_res, col_res_nulls));
+        Impl::vector_vector(argument_columns, argument_size, input_rows_count, vec_res,
+                            col_res_nulls);
         if (!use_default_implementation_for_nulls() && result_info.type->is_nullable()) {
             block.replace_by_position(
                     result, ColumnNullable::create(std::move(col_res), std::move(col_res_nulls)));

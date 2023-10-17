@@ -288,7 +288,7 @@ public class StatisticsCache {
                 StatsId statsId = new StatsId(r);
                 long tblId = statsId.tblId;
                 long idxId = statsId.idxId;
-                String partId = statsId.partId;
+                long partId = statsId.partId;
                 String colId = statsId.colId;
                 ColumnStatistic partStats = ColumnStatistic.fromResultRow(r);
                 keyToColStats.get(new StatisticsCacheKey(tblId, idxId, colId)).putPartStats(partId, partStats);

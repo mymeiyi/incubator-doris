@@ -58,26 +58,26 @@ Status SchemaViewsScanner::start(RuntimeState* state) {
     }
     SCOPED_TIMER(_get_db_timer);
     TGetDbsParams db_params;
-    if (nullptr != _param->common_param->db) {
-        db_params.__set_pattern(*(_param->common_param->db));
+    if (nullptr != _param->db) {
+        db_params.__set_pattern(*(_param->db));
     }
-    if (nullptr != _param->common_param->catalog) {
-        db_params.__set_catalog(*(_param->common_param->catalog));
+    if (nullptr != _param->catalog) {
+        db_params.__set_catalog(*(_param->catalog));
     }
-    if (nullptr != _param->common_param->current_user_ident) {
-        db_params.__set_current_user_ident(*(_param->common_param->current_user_ident));
+    if (nullptr != _param->current_user_ident) {
+        db_params.__set_current_user_ident(*(_param->current_user_ident));
     } else {
-        if (nullptr != _param->common_param->user) {
-            db_params.__set_user(*(_param->common_param->user));
+        if (nullptr != _param->user) {
+            db_params.__set_user(*(_param->user));
         }
-        if (nullptr != _param->common_param->user_ip) {
-            db_params.__set_user_ip(*(_param->common_param->user_ip));
+        if (nullptr != _param->user_ip) {
+            db_params.__set_user_ip(*(_param->user_ip));
         }
     }
 
-    if (nullptr != _param->common_param->ip && 0 != _param->common_param->port) {
-        RETURN_IF_ERROR(SchemaHelper::get_db_names(
-                *(_param->common_param->ip), _param->common_param->port, db_params, &_db_result));
+    if (nullptr != _param->ip && 0 != _param->port) {
+        RETURN_IF_ERROR(
+                SchemaHelper::get_db_names(*(_param->ip), _param->port, db_params, &_db_result));
     } else {
         return Status::InternalError("IP or port doesn't exists");
     }
@@ -88,24 +88,23 @@ Status SchemaViewsScanner::_get_new_table() {
     SCOPED_TIMER(_get_table_timer);
     TGetTablesParams table_params;
     table_params.__set_db(_db_result.dbs[_db_index++]);
-    if (nullptr != _param->common_param->wild) {
-        table_params.__set_pattern(*(_param->common_param->wild));
+    if (nullptr != _param->wild) {
+        table_params.__set_pattern(*(_param->wild));
     }
-    if (nullptr != _param->common_param->current_user_ident) {
-        table_params.__set_current_user_ident(*(_param->common_param->current_user_ident));
+    if (nullptr != _param->current_user_ident) {
+        table_params.__set_current_user_ident(*(_param->current_user_ident));
     } else {
-        if (nullptr != _param->common_param->user) {
-            table_params.__set_user(*(_param->common_param->user));
+        if (nullptr != _param->user) {
+            table_params.__set_user(*(_param->user));
         }
-        if (nullptr != _param->common_param->user_ip) {
-            table_params.__set_user_ip(*(_param->common_param->user_ip));
+        if (nullptr != _param->user_ip) {
+            table_params.__set_user_ip(*(_param->user_ip));
         }
     }
     table_params.__set_type("VIEW");
 
-    if (nullptr != _param->common_param->ip && 0 != _param->common_param->port) {
-        RETURN_IF_ERROR(SchemaHelper::list_table_status(*(_param->common_param->ip),
-                                                        _param->common_param->port, table_params,
+    if (nullptr != _param->ip && 0 != _param->port) {
+        RETURN_IF_ERROR(SchemaHelper::list_table_status(*(_param->ip), _param->port, table_params,
                                                         &_table_result));
     } else {
         return Status::InternalError("IP or port doesn't exists");
@@ -140,7 +139,7 @@ Status SchemaViewsScanner::_fill_block_impl(vectorized::Block* block) {
     std::vector<void*> datas(tables_num);
 
     // catalog
-    { static_cast<void>(fill_dest_column_for_range(block, 0, null_datas)); }
+    { fill_dest_column_for_range(block, 0, null_datas); }
     // schema
     {
         std::string db_name = SchemaHelper::extract_db_name(_db_result.dbs[_db_index - 1]);
@@ -148,7 +147,7 @@ Status SchemaViewsScanner::_fill_block_impl(vectorized::Block* block) {
         for (int i = 0; i < tables_num; ++i) {
             datas[i] = &str;
         }
-        static_cast<void>(fill_dest_column_for_range(block, 1, datas));
+        fill_dest_column_for_range(block, 1, datas);
     }
     // name
     {
@@ -159,7 +158,7 @@ Status SchemaViewsScanner::_fill_block_impl(vectorized::Block* block) {
             strs[i] = StringRef(src->c_str(), src->size());
             datas[i] = strs + i;
         }
-        static_cast<void>(fill_dest_column_for_range(block, 2, datas));
+        fill_dest_column_for_range(block, 2, datas);
     }
     // definition
     {
@@ -170,7 +169,7 @@ Status SchemaViewsScanner::_fill_block_impl(vectorized::Block* block) {
             strs[i] = StringRef(src->c_str(), src->length());
             datas[i] = strs + i;
         }
-        static_cast<void>(fill_dest_column_for_range(block, 3, datas));
+        fill_dest_column_for_range(block, 3, datas);
     }
     // check_option
     {
@@ -179,7 +178,7 @@ Status SchemaViewsScanner::_fill_block_impl(vectorized::Block* block) {
         for (int i = 0; i < tables_num; ++i) {
             datas[i] = &str;
         }
-        static_cast<void>(fill_dest_column_for_range(block, 4, datas));
+        fill_dest_column_for_range(block, 4, datas);
     }
     // is_updatable
     {
@@ -189,7 +188,7 @@ Status SchemaViewsScanner::_fill_block_impl(vectorized::Block* block) {
         for (int i = 0; i < tables_num; ++i) {
             datas[i] = &str;
         }
-        static_cast<void>(fill_dest_column_for_range(block, 5, datas));
+        fill_dest_column_for_range(block, 5, datas);
     }
     // definer
     {
@@ -199,7 +198,7 @@ Status SchemaViewsScanner::_fill_block_impl(vectorized::Block* block) {
         for (int i = 0; i < tables_num; ++i) {
             datas[i] = &str;
         }
-        static_cast<void>(fill_dest_column_for_range(block, 6, datas));
+        fill_dest_column_for_range(block, 6, datas);
     }
     // security_type
     {
@@ -209,7 +208,7 @@ Status SchemaViewsScanner::_fill_block_impl(vectorized::Block* block) {
         for (int i = 0; i < tables_num; ++i) {
             datas[i] = &str;
         }
-        static_cast<void>(fill_dest_column_for_range(block, 7, datas));
+        fill_dest_column_for_range(block, 7, datas);
     }
     // character_set_client
     {
@@ -219,10 +218,10 @@ Status SchemaViewsScanner::_fill_block_impl(vectorized::Block* block) {
         for (int i = 0; i < tables_num; ++i) {
             datas[i] = &str;
         }
-        static_cast<void>(fill_dest_column_for_range(block, 8, datas));
+        fill_dest_column_for_range(block, 8, datas);
     }
     // collation_connection
-    { static_cast<void>(fill_dest_column_for_range(block, 9, null_datas)); }
+    { fill_dest_column_for_range(block, 9, null_datas); }
     return Status::OK();
 }
 

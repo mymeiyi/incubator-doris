@@ -124,6 +124,7 @@ Status OlapTableSchemaParam::init(const POlapTableSchemaParam& pschema) {
     _version = pschema.version();
     _is_partial_update = pschema.partial_update();
     _is_strict_mode = pschema.is_strict_mode();
+    _is_unique_key_ignore_mode = pschema.is_unique_key_ignore_mode();
 
     for (auto& col : pschema.partial_update_input_columns()) {
         _partial_update_input_columns.insert(col);
@@ -176,9 +177,9 @@ Status OlapTableSchemaParam::init(const TOlapTableSchemaParam& tschema) {
     _table_id = tschema.table_id;
     _version = tschema.version;
     _is_partial_update = tschema.is_partial_update;
-    if (tschema.__isset.is_strict_mode) {
-        _is_strict_mode = tschema.is_strict_mode;
-    }
+    _is_strict_mode = tschema.__isset.is_strict_mode && tschema.is_strict_mode;
+    _is_unique_key_ignore_mode =
+            tschema.__isset.is_unique_key_ignore_mode && tschema.is_unique_key_ignore_mode;
 
     for (auto& tcolumn : tschema.partial_update_input_columns) {
         _partial_update_input_columns.insert(tcolumn);
@@ -246,6 +247,7 @@ void OlapTableSchemaParam::to_protobuf(POlapTableSchemaParam* pschema) const {
     pschema->set_version(_version);
     pschema->set_partial_update(_is_partial_update);
     pschema->set_is_strict_mode(_is_strict_mode);
+    pschema->set_is_unique_key_ignore_mode(_is_unique_key_ignore_mode);
     for (auto col : _partial_update_input_columns) {
         *pschema->add_partial_update_input_columns() = col;
     }
@@ -324,18 +326,11 @@ Status VOlapTablePartitionParam::init() {
         }
     }
     if (_distributed_slot_locs.empty()) {
-        _compute_tablet_index = [](BlockRow* key,
-                                   const VOlapTablePartition& partition) -> uint32_t {
-            if (partition.load_tablet_idx == -1) {
-                // load_to_single_tablet = false, just do random
-                return butil::fast_rand() % partition.num_buckets;
-            }
-            // load_to_single_tablet = ture, do round-robin
-            return partition.load_tablet_idx % partition.num_buckets;
+        _compute_tablet_index = [](BlockRow* key, int64_t num_buckets) -> uint32_t {
+            return butil::fast_rand() % num_buckets;
         };
     } else {
-        _compute_tablet_index = [this](BlockRow* key,
-                                       const VOlapTablePartition& partition) -> uint32_t {
+        _compute_tablet_index = [this](BlockRow* key, int64_t num_buckets) -> uint32_t {
             uint32_t hash_val = 0;
             for (int i = 0; i < _distributed_slot_locs.size(); ++i) {
                 auto slot_desc = _slots[_distributed_slot_locs[i]];
@@ -348,7 +343,7 @@ Status VOlapTablePartitionParam::init() {
                     hash_val = HashUtil::zlib_crc_hash_null(hash_val);
                 }
             }
-            return hash_val % partition.num_buckets;
+            return hash_val % num_buckets;
         };
     }
 
@@ -406,7 +401,7 @@ bool VOlapTablePartitionParam::_part_contains(VOlapTablePartition* part,
 
 uint32_t VOlapTablePartitionParam::find_tablet(BlockRow* block_row,
                                                const VOlapTablePartition& partition) const {
-    return _compute_tablet_index(block_row, partition);
+    return _compute_tablet_index(block_row, partition.num_buckets);
 }
 
 Status VOlapTablePartitionParam::_create_partition_keys(const std::vector<TExprNode>& t_exprs,
@@ -423,10 +418,6 @@ Status VOlapTablePartitionParam::generate_partition_from(const TOlapTablePartiti
     part_result = _obj_pool.add(new VOlapTablePartition(&_partition_block));
     part_result->id = t_part.id;
     part_result->is_mutable = t_part.is_mutable;
-    // only load_to_single_tablet = true will set load_tablet_idx
-    if (t_part.__isset.load_tablet_idx) {
-        part_result->load_tablet_idx = t_part.load_tablet_idx;
-    }
 
     if (!_is_in_partition) {
         if (t_part.__isset.start_keys) {

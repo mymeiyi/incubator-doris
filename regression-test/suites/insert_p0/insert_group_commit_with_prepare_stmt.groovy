@@ -15,8 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import com.mysql.cj.jdbc.StatementImpl
-
 suite("insert_group_commit_with_prepare_stmt") {
     def user = context.config.jdbcUser
     def password = context.config.jdbcPassword
@@ -27,7 +25,7 @@ suite("insert_group_commit_with_prepare_stmt") {
 
     def getRowCount = { expectedRowCount ->
         def retry = 0
-        while (retry < 30) {
+        while (retry < 10) {
             sleep(4000)
             def rowCount = sql "select count(*) from ${table}"
             logger.info("rowCount: " + rowCount + ", retry: " + retry)
@@ -65,19 +63,6 @@ suite("insert_group_commit_with_prepare_stmt") {
         stmt.addBatch()
     }
 
-    def group_commit_insert = { stmt, expected_row_count ->
-        def result = stmt.executeBatch()
-        logger.info("insert result: " + result)
-        def serverInfo = (((StatementImpl) stmt).results).getServerInfo()
-        logger.info("result server info: " + serverInfo)
-        if (result != expected_row_count) {
-            logger.warn("insert result: " + result + ", expected_row_count: " + expected_row_count)
-        }
-        // assertEquals(result, expected_row_count)
-        assertTrue(serverInfo.contains("'status':'PREPARE'"))
-        assertTrue(serverInfo.contains("'label':'group_commit_"))
-    }
-
     def url = getServerPrepareJdbcUrl(context.config.jdbcUrl, realDb)
     logger.info("url: " + url)
 
@@ -106,16 +91,19 @@ suite("insert_group_commit_with_prepare_stmt") {
             assertEquals(com.mysql.cj.jdbc.ServerPreparedStatement, insert_stmt.class)
 
             insert_prepared insert_stmt, 1, "a", 10
-            group_commit_insert insert_stmt, 1
+            def result = insert_stmt.executeBatch()
+            logger.info("execute result: ${result}")
 
             insert_prepared insert_stmt, 2, null, 20
             insert_prepared insert_stmt, 3, "c", null
             insert_prepared insert_stmt, 4, "d", 40
-            group_commit_insert insert_stmt, 3
+            result = insert_stmt.executeBatch()
+            logger.info("execute result: ${result}")
 
             insert_prepared insert_stmt, 5, "e", null
             insert_prepared insert_stmt, 6, "f", 40
-            group_commit_insert insert_stmt, 2
+            result = insert_stmt.executeBatch()
+            logger.info("execute result: ${result}")
 
             getRowCount(6)
             qt_sql """ select * from ${table} order by id asc; """
@@ -125,11 +113,13 @@ suite("insert_group_commit_with_prepare_stmt") {
             assertEquals(com.mysql.cj.jdbc.ServerPreparedStatement, insert_stmt.class)
 
             insert_prepared_partial insert_stmt, 'a', 1, 1
-            group_commit_insert insert_stmt, 1
+            result = insert_stmt.executeBatch()
+            logger.info("execute result: ${result}")
 
             insert_prepared_partial insert_stmt, 'e', 7, 0
             insert_prepared_partial insert_stmt, null, 8, 0
-            group_commit_insert insert_stmt, 2
+            result = insert_stmt.executeBatch()
+            logger.info("execute result: ${result}")
 
             getRowCount(7)
             qt_sql """ select * from ${table} order by id, name, score asc; """
@@ -165,16 +155,19 @@ suite("insert_group_commit_with_prepare_stmt") {
             assertEquals(com.mysql.cj.jdbc.ServerPreparedStatement, insert_stmt.class)
 
             insert_prepared insert_stmt, 1, "a", 10
-            group_commit_insert insert_stmt, 1
+            def result = insert_stmt.executeBatch()
+            logger.info("execute result: " + result)
 
             insert_prepared insert_stmt, 2, null, 20
             insert_prepared insert_stmt, 3, "c", null
             insert_prepared insert_stmt, 4, "d", 40
-            group_commit_insert insert_stmt, 3
+            result = insert_stmt.executeBatch()
+            logger.info("execute result: " + result)
 
             insert_prepared insert_stmt, 5, "e", null
             insert_prepared insert_stmt, 6, "f", 40
-            group_commit_insert insert_stmt, 2
+            result = insert_stmt.executeBatch()
+            logger.info("execute result: " + result)
 
             getRowCount(6)
             qt_sql """ select * from ${table} order by id asc; """
@@ -184,11 +177,13 @@ suite("insert_group_commit_with_prepare_stmt") {
             assertEquals(com.mysql.cj.jdbc.ServerPreparedStatement, insert_stmt.class)
 
             insert_prepared_partial_dup insert_stmt, 'a', 1
-            group_commit_insert insert_stmt, 1
+            result = insert_stmt.executeBatch()
+            logger.info("execute result: " + result)
 
             insert_prepared_partial_dup insert_stmt, 'e', 7
             insert_prepared_partial_dup insert_stmt, null, 8
-            group_commit_insert insert_stmt, 2
+            result = insert_stmt.executeBatch()
+            logger.info("execute result: " + result)
 
             getRowCount(9)
             qt_sql """ select * from ${table} order by id, name, score asc; """

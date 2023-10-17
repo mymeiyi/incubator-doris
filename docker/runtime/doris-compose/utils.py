@@ -16,7 +16,6 @@
 # under the License.
 
 import docker
-import json
 import logging
 import os
 import subprocess
@@ -25,10 +24,6 @@ import yaml
 
 DORIS_PREFIX = "doris-"
 
-LOG = None
-
-ENABLE_LOG = True
-
 
 class Timer(object):
 
@@ -36,7 +31,7 @@ class Timer(object):
         self.start = time.time()
         self.canceled = False
 
-    def show(self):
+    def __del__(self):
         if not self.canceled:
             LOG.info("=== Total run time: {} s".format(
                 int(time.time() - self.start)))
@@ -45,21 +40,7 @@ class Timer(object):
         self.canceled = True
 
 
-def set_enable_log(enabled):
-    global ENABLE_LOG
-    ENABLE_LOG = enabled
-    get_logger().disabled = not enabled
-
-
-def is_enable_log():
-    return ENABLE_LOG
-
-
 def get_logger(name=None):
-    global LOG
-    if LOG != None:
-        return LOG
-
     logger = logging.getLogger(name)
     if not logger.hasHandlers():
         formatter = logging.Formatter(
@@ -71,12 +52,10 @@ def get_logger(name=None):
         logger.addHandler(ch)
         logger.setLevel(logging.INFO)
 
-    LOG = logger
-
     return logger
 
 
-get_logger()
+LOG = get_logger()
 
 
 def render_red(s):
@@ -180,7 +159,7 @@ def exec_shell_command(command, ignore_errors=False):
     out = p.communicate()[0].decode('utf-8')
     if not ignore_errors:
         assert p.returncode == 0, out
-    if ENABLE_LOG and out:
+    if out:
         print(out)
     return p.returncode, out
 
@@ -272,11 +251,3 @@ def read_compose_file(file):
 def write_compose_file(file, compose):
     with open(file, "w") as f:
         f.write(yaml.dump(compose))
-
-
-def pretty_json(json_data):
-    return json.dumps(json_data, indent=4, sort_keys=True)
-
-
-def is_true(val):
-    return str(val) == "true" or str(val) == "1"

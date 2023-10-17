@@ -178,15 +178,6 @@ public class LoadingTaskPlanner {
             }
         }
 
-        // analyze expr in whereExpr before rewrite
-        scanTupleDesc.setTable(table);
-        analyzer.registerTupleDescriptor(scanTupleDesc);
-        for (BrokerFileGroup fileGroup : fileGroups) {
-            if (fileGroup.getWhereExpr() != null) {
-                fileGroup.getWhereExpr().analyze(analyzer);
-            }
-        }
-
         // Generate plan trees
         // 1. Broker scan node
         ScanNode scanNode;
@@ -202,7 +193,7 @@ public class LoadingTaskPlanner {
         List<Long> partitionIds = getAllPartitionIds();
         OlapTableSink olapTableSink = new OlapTableSink(table, destTupleDesc, partitionIds,
                 Config.enable_single_replica_load);
-        olapTableSink.init(loadId, txnId, dbId, timeoutS, sendBatchParallelism, false, strictMode);
+        olapTableSink.init(loadId, txnId, dbId, timeoutS, sendBatchParallelism, false, strictMode, false);
         olapTableSink.setPartialUpdateInputColumns(isPartialUpdate, partialUpdateInputColumns);
 
         olapTableSink.complete(analyzer);

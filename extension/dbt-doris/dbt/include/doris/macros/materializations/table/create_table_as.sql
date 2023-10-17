@@ -48,9 +48,7 @@
 {% macro doris__table_colume_type(sql) -%}
     {% set cols = model.get('columns') %}
     {% if cols %}
-        select {{get_table_columns_and_constraints()}} from (
-            {{sql}}
-        ) `_table_colume_type_name`
+        select {{get_table_columns_and_constraints()}} from ({{sql}}) `_table_colume_type_name`
     {% else %}
         {{sql}}
     {%- endif -%}

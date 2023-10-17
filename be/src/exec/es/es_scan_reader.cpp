@@ -124,7 +124,6 @@ Status ESScanReader::open() {
     }
     _network_client.set_basic_auth(_user_name, _passwd);
     _network_client.set_content_type("application/json");
-    _network_client.set_timeout_ms(_http_timeout_ms);
     if (_use_ssl_client) {
         _network_client.use_untrusted_ssl();
     }
@@ -215,7 +214,7 @@ Status ESScanReader::close() {
     _network_client.set_basic_auth(_user_name, _passwd);
     _network_client.set_method(DELETE);
     _network_client.set_content_type("application/json");
-    _network_client.set_timeout_ms(_http_timeout_ms);
+    _network_client.set_timeout_ms(5 * 1000);
     if (_use_ssl_client) {
         _network_client.use_untrusted_ssl();
     }

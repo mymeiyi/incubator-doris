@@ -53,7 +53,6 @@ namespace doris::signal {
 
 inline thread_local uint64 query_id_hi;
 inline thread_local uint64 query_id_lo;
-inline thread_local int64_t tablet_id = 0;
 
 namespace {
 
@@ -243,9 +242,6 @@ void DumpTimeInfo() {
     formatter.AppendUint64(query_id_hi, 16);
     formatter.AppendString("-");
     formatter.AppendUint64(query_id_lo, 16);
-    formatter.AppendString(" ***\n");
-    formatter.AppendString("*** tablet id: ");
-    formatter.AppendUint64(tablet_id, 10);
     formatter.AppendString(" ***\n");
     formatter.AppendString("*** Aborted at ");
     formatter.AppendUint64(static_cast<uint64>(time_in_sec), 10);

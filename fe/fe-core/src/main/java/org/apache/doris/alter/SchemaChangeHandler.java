@@ -33,7 +33,6 @@ import org.apache.doris.analysis.ModifyColumnClause;
 import org.apache.doris.analysis.ModifyTablePropertiesClause;
 import org.apache.doris.analysis.ReorderColumnsClause;
 import org.apache.doris.analysis.ShowAlterStmt.AlterType;
-import org.apache.doris.analysis.SlotRef;
 import org.apache.doris.catalog.AggregateType;
 import org.apache.doris.catalog.BinlogConfig;
 import org.apache.doris.catalog.Column;
@@ -405,28 +404,21 @@ public class SchemaChangeHandler extends AlterHandler {
                 throw new DdlException("Column does not exists: " + dropColName);
             }
 
+            // remove column in rollup index if exists (i = 1 to skip base index)
             for (int i = 1; i < indexIds.size(); i++) {
                 List<Column> rollupSchema = indexSchemaMap.get(indexIds.get(i));
                 Iterator<Column> iter = rollupSchema.iterator();
                 while (iter.hasNext()) {
                     Column column = iter.next();
-                    boolean containedByMV = column.getName().equalsIgnoreCase(dropColName);
-                    if (!containedByMV && column.getDefineExpr() != null) {
-                        List<SlotRef> slots = new ArrayList<>();
-                        column.getDefineExpr().collect(SlotRef.class, slots);
-                        for (SlotRef slot : slots) {
-                            if (slot.getColumnName().equalsIgnoreCase(dropColName)) {
-                                containedByMV = true;
-                                break;
-                            }
+                    if (column.getName().equalsIgnoreCase(dropColName)) {
+                        if (column.isKey()) {
+                            lightSchemaChange = false;
                         }
-                    }
-                    if (containedByMV) {
-                        throw new DdlException("Can not drop column contained by mv, mv="
-                                + olapTable.getIndexNameById(indexIds.get(i)));
+                        iter.remove();
+                        break;
                     }
                 }
-            }
+            } // end for index names
         } else {
             // if specify rollup index, only drop column from specified rollup index
             // find column

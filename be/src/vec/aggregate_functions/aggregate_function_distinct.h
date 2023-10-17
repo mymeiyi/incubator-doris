@@ -31,9 +31,11 @@
 #include <vector>
 
 #include "vec/aggregate_functions/aggregate_function.h"
+#include "vec/aggregate_functions/key_holder_helpers.h"
 #include "vec/columns/column.h"
 #include "vec/common/assert_cast.h"
 #include "vec/common/hash_table/hash_set.h"
+#include "vec/common/hash_table/hash_table_key_holder.h"
 #include "vec/common/string_ref.h"
 #include "vec/core/types.h"
 #include "vec/data_types/data_type.h"
@@ -85,7 +87,7 @@ struct AggregateFunctionDistinctSingleNumericData {
 
 struct AggregateFunctionDistinctGenericData {
     /// When creating, the hash table must be small.
-    using Set = HashSetWithStackMemory<StringRef, StringRefHash, 4>;
+    using Set = HashSetWithSavedHashWithStackMemory<StringRef, StringRefHash, 4>;
     using Self = AggregateFunctionDistinctGenericData;
     Set set;
 
@@ -93,9 +95,7 @@ struct AggregateFunctionDistinctGenericData {
         Set::LookupResult it;
         bool inserted;
         for (const auto& elem : rhs.set) {
-            StringRef key = elem.get_value();
-            key.data = arena->insert(key.data, key.size);
-            set.emplace(key, it, inserted);
+            set.emplace(ArenaKeyHolder {elem.get_value(), *arena}, it, inserted);
         }
     }
 
@@ -123,16 +123,15 @@ struct AggregateFunctionDistinctSingleGenericData : public AggregateFunctionDist
     void add(const IColumn** columns, size_t /* columns_num */, size_t row_num, Arena* arena) {
         Set::LookupResult it;
         bool inserted;
-        auto key = columns[0]->get_data_at(row_num);
-        key.data = arena->insert(key.data, key.size);
-        set.emplace(key, it, inserted);
+        auto key_holder = get_key_holder<is_plain_column>(*columns[0], row_num, *arena);
+        set.emplace(key_holder, it, inserted);
     }
 
     MutableColumns get_arguments(const DataTypes& argument_types) const {
         MutableColumns argument_columns;
         argument_columns.emplace_back(argument_types[0]->create_column());
         for (const auto& elem : set) {
-            argument_columns[0]->insert_data(elem.get_value().data, elem.get_value().size);
+            deserialize_and_insert<is_plain_column>(elem.get_value(), *argument_columns[0]);
         }
 
         return argument_columns;
@@ -151,8 +150,8 @@ struct AggregateFunctionDistinctMultipleGenericData : public AggregateFunctionDi
 
         Set::LookupResult it;
         bool inserted;
-        value.data = arena->insert(value.data, value.size);
-        set.emplace(value, it, inserted);
+        auto key_holder = SerializedKeyHolder {value, *arena};
+        set.emplace(key_holder, it, inserted);
     }
 
     MutableColumns get_arguments(const DataTypes& argument_types) const {

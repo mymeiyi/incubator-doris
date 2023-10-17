@@ -35,7 +35,7 @@ void DumpStackTraceToString(std::string* stacktrace);
 
 namespace doris {
 
-std::string get_stack_trace(int start_pointers_index) {
+std::string get_stack_trace() {
 #ifdef ENABLE_STACKTRACE
     auto tool = config::get_stack_trace_tool;
     if (tool == "glog") {
@@ -48,7 +48,7 @@ std::string get_stack_trace(int start_pointers_index) {
 #if defined(__APPLE__) // TODO
         return get_stack_trace_by_glog();
 #endif
-        return get_stack_trace_by_libunwind(start_pointers_index);
+        return get_stack_trace_by_libunwind();
     } else {
         return "no stack";
     }
@@ -80,8 +80,8 @@ std::string get_stack_trace_by_glibc() {
     return out.str();
 }
 
-std::string get_stack_trace_by_libunwind(int start_pointers_index) {
-    return "\n" + StackTrace().toString(start_pointers_index);
+std::string get_stack_trace_by_libunwind() {
+    return "\n" + StackTrace().toString();
 }
 
 } // namespace doris

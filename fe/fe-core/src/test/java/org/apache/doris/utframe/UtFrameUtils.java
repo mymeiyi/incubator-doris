@@ -183,17 +183,10 @@ public class UtFrameUtils {
         if (!file.exists()) {
             file.mkdir();
         }
-        if (null != System.getenv("DORIS_HOME")) {
-            File metaDir = new File(Config.meta_dir);
-            if (!metaDir.exists()) {
-                metaDir.mkdir();
-            }
-        }
 
         int feHttpPort = findValidPort();
         int feRpcPort = findValidPort();
         int feQueryPort = findValidPort();
-        int arrowFlightSqlPort = findValidPort();
         int feEditLogPort = findValidPort();
 
         // start fe in "DORIS_HOME/fe/mocked/"
@@ -203,7 +196,6 @@ public class UtFrameUtils {
         feConfMap.put("http_port", String.valueOf(feHttpPort));
         feConfMap.put("rpc_port", String.valueOf(feRpcPort));
         feConfMap.put("query_port", String.valueOf(feQueryPort));
-        feConfMap.put("arrow_flight_sql_port", String.valueOf(arrowFlightSqlPort));
         feConfMap.put("edit_log_port", String.valueOf(feEditLogPort));
         feConfMap.put("tablet_create_timeout_second", "10");
         frontend.init(dorisHome + "/" + runningDir, feConfMap);
@@ -255,16 +247,12 @@ public class UtFrameUtils {
         FeConstants.runningUnitTest = true;
         FeConstants.enableInternalSchemaDb = false;
         int feRpcPort = startFEServer(runningDir);
-        List<Backend> bes = Lists.newArrayList();
         for (int i = 0; i < backendNum; i++) {
             String host = "127.0.0." + (i + 1);
             createBackend(host, feRpcPort);
         }
-        System.out.println("after create backend");
-        checkBEHeartbeat(bes);
         // sleep to wait first heartbeat
-        // Thread.sleep(6000);
-        System.out.println("after create backend2");
+        Thread.sleep(6000);
     }
 
     public static Backend createBackend(String beHost, int feRpcPort) throws IOException, InterruptedException {
@@ -284,13 +272,11 @@ public class UtFrameUtils {
         int beThriftPort = findValidPort();
         int beBrpcPort = findValidPort();
         int beHttpPort = findValidPort();
-        int beArrowFlightSqlPort = findValidPort();
 
         // start be
-        MockedBackendFactory.BeThriftService beThriftService = new DefaultBeThriftServiceImpl();
         MockedBackend backend = MockedBackendFactory.createBackend(beHost, beHeartbeatPort, beThriftPort, beBrpcPort,
-                beHttpPort, beArrowFlightSqlPort, new DefaultHeartbeatServiceImpl(beThriftPort, beHttpPort, beBrpcPort, beArrowFlightSqlPort),
-                beThriftService, new DefaultPBackendServiceImpl());
+                beHttpPort, new DefaultHeartbeatServiceImpl(beThriftPort, beHttpPort, beBrpcPort),
+                new DefaultBeThriftServiceImpl(), new DefaultPBackendServiceImpl());
         backend.setFeAddress(new TNetworkAddress("127.0.0.1", feRpcPort));
         backend.start();
 
@@ -301,17 +287,13 @@ public class UtFrameUtils {
         diskInfo1.setTotalCapacityB(1000000);
         diskInfo1.setAvailableCapacityB(500000);
         diskInfo1.setDataUsedCapacityB(480000);
-        diskInfo1.setPathHash(be.getId());
         disks.put(diskInfo1.getRootPath(), diskInfo1);
         be.setDisks(ImmutableMap.copyOf(disks));
         be.setAlive(true);
         be.setBePort(beThriftPort);
         be.setHttpPort(beHttpPort);
         be.setBrpcPort(beBrpcPort);
-        be.setArrowFlightSqlPort(beArrowFlightSqlPort);
-        beThriftService.setBackendInFe(be);
         Env.getCurrentSystemInfo().addBackend(be);
-
         return be;
     }
 

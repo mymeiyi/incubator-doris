@@ -78,9 +78,6 @@ public class LateralViewRef extends TableRef {
         desc = analyzer.registerTableRef(this);
         explodeSlotRef = new SlotRef(new TableName(null, null, viewName), columnName);
         explodeSlotRef.analyze(analyzer);
-        explodeSlotRef.getDesc().setIsNullable(
-                explodeSlotRef.getDesc().getIsNullable() || relatedTableRef.getDesc().getSlots()
-                        .stream().anyMatch(slotDescriptor -> slotDescriptor.getIsNullable()));
         isAnalyzed = true;  // true now that we have assigned desc
     }
 
@@ -123,6 +120,12 @@ public class LateralViewRef extends TableRef {
             originSlotRef.getDesc().setIsMaterialized(true);
         }
         explodeSlotRef.getDesc().setIsMaterialized(true);
+
+        for (Expr expr : baseTblSmap.getLhs()) {
+            if (expr instanceof SlotRef && ((SlotRef) expr).getDesc().getIsNullable()) {
+                explodeSlotRef.getDesc().setIsNullable(true);
+            }
+        }
     }
 
     // The default table name must be origin table name

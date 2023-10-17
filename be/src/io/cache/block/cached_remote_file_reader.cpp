@@ -68,7 +68,7 @@ CachedRemoteFileReader::CachedRemoteFileReader(FileReaderSPtr remote_file_reader
 }
 
 CachedRemoteFileReader::~CachedRemoteFileReader() {
-    static_cast<void>(close());
+    close();
 }
 
 Status CachedRemoteFileReader::close() {

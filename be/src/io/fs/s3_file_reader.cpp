@@ -60,7 +60,7 @@ S3FileReader::S3FileReader(size_t file_size, std::string key, std::shared_ptr<S3
 }
 
 S3FileReader::~S3FileReader() {
-    static_cast<void>(close());
+    close();
     s3_file_being_read << -1;
 }
 

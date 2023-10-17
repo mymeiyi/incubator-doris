@@ -47,13 +47,16 @@ public class LogController {
     private static final Logger LOG = LogManager.getLogger(LogController.class);
     private static final long WEB_LOG_BYTES = 1024 * 1024;  // 1MB
 
+    private String addVerboseName;
+    private String delVerboseName;
+
     @Autowired
     private ReadEnvironment readEnvironment;
 
     @RequestMapping(path = "/log", method = RequestMethod.GET)
-    public Object log() {
+    public Object log(HttpServletRequest request) {
         Map<String, Map<String, String>> map = new HashMap<>();
-        appendLogConf(map, StringUtils.EMPTY, StringUtils.EMPTY);
+        appendLogConf(map);
         appendLogInfo(map);
         return ResponseEntityBuilder.ok(map);
     }
@@ -62,14 +65,14 @@ public class LogController {
     public Object logLevel(HttpServletRequest request) {
         Map<String, Map<String, String>> map = new HashMap<>();
         // get parameters
-        String addVerboseName = request.getParameter("add_verbose");
-        String delVerboseName = request.getParameter("del_verbose");
+        addVerboseName = request.getParameter("add_verbose");
+        delVerboseName = request.getParameter("del_verbose");
         LOG.info("add verbose name: {}, del verbose name: {}", addVerboseName, delVerboseName);
-        appendLogConf(map, addVerboseName, delVerboseName);
+        appendLogConf(map);
         return ResponseEntityBuilder.ok(map);
     }
 
-    private void appendLogConf(Map<String, Map<String, String>> content, String addVerboseName, String delVerboseName) {
+    private void appendLogConf(Map<String, Map<String, String>> content) {
         Map<String, String> map = new HashMap<>();
 
         try {

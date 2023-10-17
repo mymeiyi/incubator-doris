@@ -37,7 +37,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * Physical filter plan.
@@ -137,14 +136,9 @@ public class PhysicalFilter<CHILD_TYPE extends Plan> extends PhysicalUnary<CHILD
     @Override
     public String shapeInfo() {
         StringBuilder builder = new StringBuilder();
-        builder.append("filter");
-        builder.append(
-                conjuncts.stream().map(conjunct -> conjunct.shapeInfo())
-                        .sorted()
-                        .collect(Collectors.joining(" and ", "(", ")")));
-        // List<String> strConjuncts = Lists.newArrayList();
-        // conjuncts.forEach(conjunct -> strConjuncts.add(conjunct.shapeInfo()));
-        // builder.append(strConjuncts.stream().sorted().collect(Collectors.joining(" and ", "(", ")")));
+        builder.append("filter(");
+        conjuncts.forEach(conjunct -> builder.append(conjunct.shapeInfo()));
+        builder.append(")");
         return builder.toString();
     }
 

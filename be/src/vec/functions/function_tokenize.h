@@ -67,9 +67,9 @@ public:
     }
     void _do_tokenize(const ColumnString& src_column_string, InvertedIndexCtx& inverted_index_ctx,
                       IColumn& dest_nested_column, ColumnArray::Offsets64& dest_offsets,
-                      NullMapType* dest_nested_null_map) const;
+                      NullMapType* dest_nested_null_map);
     Status execute_impl(FunctionContext* /*context*/, Block& block, const ColumnNumbers& arguments,
-                        size_t result, size_t /*input_rows_count*/) const override;
+                        size_t result, size_t /*input_rows_count*/) override;
 
     Status open(FunctionContext* context, FunctionContext::FunctionStateScope scope) override {
         return Status::OK();

@@ -497,16 +497,23 @@ public class DeleteHandler implements Writable {
 
     private void commitJob(DeleteJob job, Database db, Table table, long timeoutMs)
             throws DdlException, QueryStateException {
-        TransactionStatus status = TransactionStatus.UNKNOWN;
+        TransactionStatus status = null;
         try {
-            boolean isVisible = unprotectedCommitJob(job, db, table, timeoutMs);
-            status = isVisible ? TransactionStatus.VISIBLE : TransactionStatus.COMMITTED;
+            unprotectedCommitJob(job, db, table, timeoutMs);
+            GlobalTransactionMgr transactionMgr = Env.getCurrentGlobalTransactionMgr();
+            long dbId = db.getId();
+            long transactionId = job.getTransactionId();
+            TransactionState transactionState = transactionMgr.getTransactionState(dbId, transactionId);
+            Preconditions.checkNotNull(transactionState,
+                    "got null txn state with: dbId=%s, txnId=%s", dbId, transactionId);
+            status = transactionState.getTransactionStatus();
         } catch (UserException e) {
             if (cancelJob(job, CancelType.COMMIT_FAIL, e.getMessage())) {
                 throw new DdlException(e.getMessage(), e);
             }
         }
 
+        Preconditions.checkNotNull(status, "got null txn status, jobId=%s", job.getId());
         StringBuilder sb = new StringBuilder();
         sb.append("{'label':'").append(job.getLabel()).append("', 'status':'").append(status.name());
         sb.append("', 'txnId':'").append(job.getTransactionId()).append("'");

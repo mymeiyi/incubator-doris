@@ -692,7 +692,6 @@ enum TMetadataType {
   FRONTENDS,
   CATALOGS,
   FRONTENDS_DISKS,
-  QUERIES,
 }
 
 enum TIcebergQueryType {

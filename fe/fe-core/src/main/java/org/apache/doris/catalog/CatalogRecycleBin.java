@@ -409,7 +409,7 @@ public class CatalogRecycleBin extends MasterDaemon implements Writable {
         RecycleTableInfo tableInfo = idToTable.remove(tableId);
         idToRecycleTime.remove(tableId);
         Table table = tableInfo.getTable();
-        if (table.getType() == TableType.OLAP) {
+        if (table.getType() == TableType.OLAP && !Env.isCheckpointThread()) {
             Env.getCurrentEnv().onEraseOlapTable((OlapTable) table, true);
         }
         LOG.info("replay erase table[{}]", tableId);
@@ -519,7 +519,9 @@ public class CatalogRecycleBin extends MasterDaemon implements Writable {
         }
 
         Partition partition = partitionInfo.getPartition();
-        Env.getCurrentEnv().onErasePartition(partition);
+        if (!Env.isCheckpointThread()) {
+            Env.getCurrentEnv().onErasePartition(partition);
+        }
 
         LOG.info("replay erase partition[{}]", partitionId);
     }

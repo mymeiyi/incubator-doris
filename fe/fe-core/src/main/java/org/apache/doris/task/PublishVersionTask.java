@@ -21,7 +21,6 @@ import org.apache.doris.thrift.TPartitionVersionInfo;
 import org.apache.doris.thrift.TPublishVersionRequest;
 import org.apache.doris.thrift.TTaskType;
 
-import com.google.common.collect.Maps;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -38,11 +37,6 @@ public class PublishVersionTask extends AgentTask {
 
     // tabletId => version, current version = 0
     private Map<Long, Long> succTablets;
-
-    /**
-     * To collect loaded rows for each table from each BE
-     */
-    private final Map<Long, Long> tableIdToDeltaNumRows = Maps.newHashMap();
 
     public PublishVersionTask(long backendId, long transactionId, long dbId,
             List<TPartitionVersionInfo> partitionVersionInfos, long createTime) {
@@ -86,13 +80,5 @@ public class PublishVersionTask extends AgentTask {
             return;
         }
         this.errorTablets.addAll(errorTablets);
-    }
-
-    public void setTableIdToDeltaNumRows(Map<Long, Long> tabletIdToDeltaNumRows) {
-        this.tableIdToDeltaNumRows.putAll(tabletIdToDeltaNumRows);
-    }
-
-    public Map<Long, Long> getTableIdToDeltaNumRows() {
-        return tableIdToDeltaNumRows;
     }
 }

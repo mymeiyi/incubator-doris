@@ -105,8 +105,7 @@ public class UpdateCommand extends Command implements ForwardWithSync, Explainab
         List<NamedExpression> selectItems = Lists.newArrayList();
         String tableName = tableAlias != null ? tableAlias : targetTable.getName();
         for (Column column : targetTable.getFullSchema()) {
-            // if it sets sequence column in stream load phase, the sequence map column is null, we query it.
-            if (!column.isVisible() && !column.isSequenceColumn()) {
+            if (!column.isVisible()) {
                 continue;
             }
             if (colNameToExpression.containsKey(column.getName())) {
@@ -124,12 +123,9 @@ public class UpdateCommand extends Command implements ForwardWithSync, Explainab
             logicalQuery = ((LogicalPlan) cte.get().withChildren(logicalQuery));
         }
 
-        boolean isPartialUpdate = targetTable.getEnableUniqueKeyMergeOnWrite()
-                && selectItems.size() < targetTable.getColumns().size();
-
         // make UnboundTableSink
         return new UnboundOlapTableSink<>(nameParts, ImmutableList.of(), ImmutableList.of(),
-                ImmutableList.of(), isPartialUpdate, logicalQuery);
+                ImmutableList.of(), logicalQuery);
     }
 
     private void checkTable(ConnectContext ctx) throws AnalysisException {

@@ -65,7 +65,7 @@ import java.util.stream.Collectors;
 
 class PushdownLimitTest extends TestWithFeService implements MemoPatternMatchSupported {
     private final LogicalOlapScan scanScore = new LogicalOlapScan(StatementScopeIdGenerator.newRelationId(), PlanConstructor.score);
-    private final LogicalOlapScan scanStudent = new LogicalOlapScan(StatementScopeIdGenerator.newRelationId(), PlanConstructor.student);
+    private Plan scanStudent = new LogicalOlapScan(StatementScopeIdGenerator.newRelationId(), PlanConstructor.student);
 
     @Override
     protected void runBeforeAll() throws Exception {
@@ -114,7 +114,7 @@ class PushdownLimitTest extends TestWithFeService implements MemoPatternMatchSup
     }
 
     @Test
-    void testPushLimitThroughLeftJoin() {
+    public void testPushLimitThroughLeftJoin() {
         test(JoinType.LEFT_OUTER_JOIN, true,
                 logicalLimit(
                         logicalProject(
@@ -136,7 +136,7 @@ class PushdownLimitTest extends TestWithFeService implements MemoPatternMatchSup
     }
 
     @Test
-    void testPushLimitThroughRightJoin() {
+    public void testPushLimitThroughRightJoin() {
         // after use RelationUtil to allocate relation id, the id will increase when getNextId() called.
         test(JoinType.RIGHT_OUTER_JOIN, true,
                 logicalLimit(
@@ -159,7 +159,7 @@ class PushdownLimitTest extends TestWithFeService implements MemoPatternMatchSup
     }
 
     @Test
-    void testPushLimitThroughCrossJoin() {
+    public void testPushLimitThroughCrossJoin() {
         test(JoinType.CROSS_JOIN, true,
                 logicalLimit(
                         logicalProject(
@@ -181,7 +181,7 @@ class PushdownLimitTest extends TestWithFeService implements MemoPatternMatchSup
     }
 
     @Test
-    void testPushLimitThroughInnerJoin() {
+    public void testPushLimitThroughInnerJoin() {
         test(JoinType.INNER_JOIN, true,
                 logicalLimit(
                         logicalProject(
@@ -203,7 +203,7 @@ class PushdownLimitTest extends TestWithFeService implements MemoPatternMatchSup
     }
 
     @Test
-    void testTranslate() {
+    public void testTranslate() {
         PlanChecker.from(connectContext).checkPlannerResult("select * from t1 left join t2 on t1.k1=t2.k1 limit 5",
                 planner -> {
                     List<PlanFragment> fragments = planner.getFragments();
@@ -227,7 +227,7 @@ class PushdownLimitTest extends TestWithFeService implements MemoPatternMatchSup
     }
 
     @Test
-    void testLimitPushSort() {
+    public void testLimitPushSort() {
         PlanChecker.from(connectContext)
                 .analyze("select k1 from t1 order by k1 limit 1")
                 .rewrite()
@@ -235,7 +235,7 @@ class PushdownLimitTest extends TestWithFeService implements MemoPatternMatchSup
     }
 
     @Test
-    void testLimitPushUnion() {
+    public void testLimitPushUnion() {
         PlanChecker.from(connectContext)
                 .analyze("select k1 from t1 "
                         + "union all select k2 from t2 "
@@ -262,7 +262,7 @@ class PushdownLimitTest extends TestWithFeService implements MemoPatternMatchSup
     }
 
     @Test
-    void testLimitPushWindow() {
+    public void testLimitPushWindow() {
         ConnectContext context = MemoTestUtils.createConnectContext();
         context.getSessionVariable().setEnablePartitionTopN(true);
         NamedExpression grade = scanScore.getOutput().get(2).toSlot();
@@ -304,7 +304,7 @@ class PushdownLimitTest extends TestWithFeService implements MemoPatternMatchSup
     }
 
     @Test
-    void testTopNPushWindow() {
+    public void testTopNPushWindow() {
         ConnectContext context = MemoTestUtils.createConnectContext();
         context.getSessionVariable().setEnablePartitionTopN(true);
         NamedExpression grade = scanScore.getOutput().get(2).toSlot();
@@ -322,7 +322,7 @@ class PushdownLimitTest extends TestWithFeService implements MemoPatternMatchSup
         List<OrderKey> orderKey = ImmutableList.of(
                 new OrderKey(windowAlias1.toSlot(), true, true)
         );
-        LogicalSort<Plan> sort = new LogicalSort<>(orderKey, window);
+        LogicalSort<LogicalWindow> sort = new LogicalSort<>(orderKey, window);
 
         LogicalPlan plan = new LogicalPlanBuilder(sort)
                 .limit(100)
@@ -364,8 +364,8 @@ class PushdownLimitTest extends TestWithFeService implements MemoPatternMatchSup
         LogicalJoin<? extends Plan, ? extends Plan> join = new LogicalJoin<>(
                 joinType,
                 joinConditions,
-                new LogicalOlapScan(scanScore.getRelationId(), PlanConstructor.score),
-                new LogicalOlapScan(scanStudent.getRelationId(), PlanConstructor.student)
+                new LogicalOlapScan(((LogicalOlapScan) scanScore).getRelationId(), PlanConstructor.score),
+                new LogicalOlapScan(((LogicalOlapScan) scanStudent).getRelationId(), PlanConstructor.student)
         );
 
         if (hasProject) {

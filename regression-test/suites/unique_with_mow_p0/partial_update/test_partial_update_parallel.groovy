@@ -31,64 +31,61 @@ suite("test_primary_key_partial_update_parallel", "p0") {
                 UNIQUE KEY(`id`) DISTRIBUTED BY HASH(`id`) BUCKETS 1
                 PROPERTIES("replication_num" = "1", "enable_unique_key_merge_on_write" = "true")
     """
+    // insert 2 lines
+    sql """
+        insert into ${tableName} values(2, "doris2", 2000, 223, 1)
+    """
 
-    sql """insert into ${tableName} values
-        (2, "doris2", 2000, 223, 2),
-        (1, "doris", 1000, 123, 1),
-        (5, "doris5", 5000, 523, 5),
-        (4, "doris4", 4000, 423, 4),
-        (3, "doris3", 3000, 323, 3);"""
+    sql """
+        insert into ${tableName} values(1, "doris", 1000, 123, 1)
+    """
 
-    t1 = Thread.startDaemon {
+    Thread.startDaemon {
         streamLoad {
             table "${tableName}"
 
             set 'column_separator', ','
             set 'format', 'csv'
             set 'partial_columns', 'true'
-            set 'columns', 'id,name'
+            set 'columns', 'id,score'
 
-            file 'partial_update_parallel1.csv'
+            file 'basic.csv'
             time 10000 // limit inflight 10s
         }
     }
 
-    t2 = Thread.startDaemon {
+    Thread.startDaemon {
         streamLoad {
             table "${tableName}"
 
             set 'column_separator', ','
             set 'format', 'csv'
             set 'partial_columns', 'true'
-            set 'columns', 'id,score,test'
+            set 'columns', 'id,score'
 
-            file 'partial_update_parallel2.csv'
+            file 'basic_with_duplicate.csv'
             time 10000 // limit inflight 10s
         }
     }
 
-    t3 = Thread.startDaemon {
+    Thread.startDaemon {
         streamLoad {
             table "${tableName}"
 
             set 'column_separator', ','
             set 'format', 'csv'
             set 'partial_columns', 'true'
-            set 'columns', 'id,dft'
+            set 'columns', 'id,score'
 
-            file 'partial_update_parallel3.csv'
+            file 'basic_with_duplicate2.csv'
             time 10000 // limit inflight 10s
         }
     }
-
-    t1.join()
-    t2.join()
-    t3.join()
 
     sql "sync"
 
-    qt_sql """ select * from ${tableName} order by id;"""
-
-    sql """ DROP TABLE IF EXISTS ${tableName}; """
+    sql """
+        select * from ${tableName} order by id;
+    """
 }
 

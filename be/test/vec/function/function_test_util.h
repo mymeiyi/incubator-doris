@@ -29,7 +29,6 @@
 #include "gtest/gtest_pred_impl.h"
 #include "olap/olap_common.h"
 #include "runtime/define_primitive_type.h"
-#include "runtime/exec_env.h"
 #include "runtime/types.h"
 #include "testutil/any_type.h"
 #include "testutil/function_utils.h"
@@ -274,8 +273,8 @@ Status check_function(const std::string& func_name, const InputTypeSet& input_ty
     FunctionUtils fn_utils(fn_ctx_return, arg_types, 0);
     auto* fn_ctx = fn_utils.get_fn_ctx();
     fn_ctx->set_constant_cols(constant_cols);
-    static_cast<void>(func->open(fn_ctx, FunctionContext::FRAGMENT_LOCAL));
-    static_cast<void>(func->open(fn_ctx, FunctionContext::THREAD_LOCAL));
+    func->open(fn_ctx, FunctionContext::FRAGMENT_LOCAL);
+    func->open(fn_ctx, FunctionContext::THREAD_LOCAL);
 
     block.insert({nullptr, return_type, "result"});
 
@@ -288,8 +287,8 @@ Status check_function(const std::string& func_name, const InputTypeSet& input_ty
         EXPECT_EQ(Status::OK(), st);
     }
 
-    static_cast<void>(func->close(fn_ctx, FunctionContext::THREAD_LOCAL));
-    static_cast<void>(func->close(fn_ctx, FunctionContext::FRAGMENT_LOCAL));
+    func->close(fn_ctx, FunctionContext::THREAD_LOCAL);
+    func->close(fn_ctx, FunctionContext::FRAGMENT_LOCAL);
 
     // 3. check the result of function
     ColumnPtr column = block.get_columns()[result];

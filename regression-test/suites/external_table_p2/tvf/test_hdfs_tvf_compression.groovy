@@ -30,6 +30,7 @@ suite("test_hdfs_tvf_compression", "p2,external,tvf,external_remote,external_rem
         qt_gz_1 """
         select ${select_field} from HDFS(
             "uri" = "${baseUri}/dt=gzip/000000_0.gz",
+            "fs.defaultFS"= "${baseFs}",
             "hadoop.username" = "hadoop",
             "format" = "csv",
             "column_separator" = '\001',
@@ -39,6 +40,7 @@ suite("test_hdfs_tvf_compression", "p2,external,tvf,external_remote,external_rem
         qt_gz_2 """
         desc function HDFS(
             "uri" = "${baseUri}/dt=gzip/000000_0.gz",
+            "fs.defaultFS"= "${baseFs}",
             "hadoop.username" = "hadoop",
             "format" = "csv",
             "column_separator" = '\001',
@@ -50,6 +52,7 @@ suite("test_hdfs_tvf_compression", "p2,external,tvf,external_remote,external_rem
         select ${select_field} from 
         HDFS(
             "uri" = "${baseUri}/dt=bzip2/000000_0.bz2",
+            "fs.defaultFS"= "${baseFs}",
             "hadoop.username" = "hadoop",
             "format" = "csv",
             "column_separator" = '\001',
@@ -61,6 +64,7 @@ suite("test_hdfs_tvf_compression", "p2,external,tvf,external_remote,external_rem
         select ${select_field} from         
         HDFS(
             "uri" = "${baseUri}/dt=deflate/000000_0_copy_1.deflate",
+            "fs.defaultFS"= "${baseFs}",
             "hadoop.username" = "hadoop",
             "format" = "csv",
             "column_separator" = '\001',
@@ -71,6 +75,7 @@ suite("test_hdfs_tvf_compression", "p2,external,tvf,external_remote,external_rem
         select c7 from         
         HDFS(
             "uri" = "${baseUri}/dt=deflate/000000_0_copy_1.deflate",
+            "fs.defaultFS"= "${baseFs}",
             "hadoop.username" = "hadoop",
             "format" = "csv",
             "column_separator" = '\001',
@@ -83,6 +88,7 @@ suite("test_hdfs_tvf_compression", "p2,external,tvf,external_remote,external_rem
         select ${select_field} from 
         HDFS(
             "uri" = "${baseUri}/dt=plain/000000_0",
+            "fs.defaultFS"= "${baseFs}",
             "hadoop.username" = "hadoop",
             "format" = "csv",
             "column_separator" = '\001',
@@ -93,6 +99,7 @@ suite("test_hdfs_tvf_compression", "p2,external,tvf,external_remote,external_rem
         select c3,c4,c10 from 
         HDFS(
             "uri" = "${baseUri}/dt=plain/000000_0",
+            "fs.defaultFS"= "${baseFs}",
             "hadoop.username" = "hadoop",
             "format" = "csv",
             "column_separator" = '\001',
@@ -107,6 +114,7 @@ suite("test_hdfs_tvf_compression", "p2,external,tvf,external_remote,external_rem
         select count(*) from 
         HDFS(
             "uri" = "${test_data_dir}/test_data/ckbench_hits.part-00000.snappy.parquet",
+            "fs.defaultFS" = "${baseFs}",
             "format" = "parquet"
         );
         """
@@ -116,6 +124,7 @@ suite("test_hdfs_tvf_compression", "p2,external,tvf,external_remote,external_rem
         select count(*) from 
         HDFS(
             "uri" = "${test_data_dir}/test_data/ckbench_hits.part-00000.snappy.parquet",
+            "fs.defaultFS" = "${baseFs}",
             "format" = "parquet"
         );
         """
@@ -126,6 +135,7 @@ suite("test_hdfs_tvf_compression", "p2,external,tvf,external_remote,external_rem
         select count(*) from 
         HDFS(
             "uri" = "${test_data_dir}/test_data/ckbench_hits.000000_0.orc",
+            "fs.defaultFS" = "${baseFs}",
             "format" = "orc"
         );
         """
@@ -135,6 +145,7 @@ suite("test_hdfs_tvf_compression", "p2,external,tvf,external_remote,external_rem
         select count(*) from 
         HDFS(
             "uri" = "${test_data_dir}/test_data/ckbench_hits.000000_0.orc",
+            "fs.defaultFS" = "${baseFs}",
             "format" = "orc"
         );
         """
@@ -145,6 +156,7 @@ suite("test_hdfs_tvf_compression", "p2,external,tvf,external_remote,external_rem
         select count(*) from 
         HDFS(
             "uri" = "${test_data_dir}/test_data/tpcds_catalog_returns_data-m-00000.txt",
+            "fs.defaultFS" = "${baseFs}",
             "format" = "csv"
         );
         """
@@ -154,6 +166,7 @@ suite("test_hdfs_tvf_compression", "p2,external,tvf,external_remote,external_rem
         select count(*) from 
         HDFS(
             "uri" = "${test_data_dir}/test_data/tpcds_catalog_returns_data-m-00000.txt",
+            "fs.defaultFS" = "${baseFs}",
             "format" = "csv"
         );
         """

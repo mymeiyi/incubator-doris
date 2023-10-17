@@ -106,7 +106,7 @@ public:
 
     JdbcStatistic& get_jdbc_statistic() { return _jdbc_statistic; }
 
-    Status close(Status s = Status::OK()) override;
+    Status close() override;
 
 protected:
     JdbcConnectorParam _conn_param;

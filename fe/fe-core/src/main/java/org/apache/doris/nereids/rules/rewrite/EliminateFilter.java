@@ -19,36 +19,27 @@ package org.apache.doris.nereids.rules.rewrite;
 
 import org.apache.doris.nereids.rules.Rule;
 import org.apache.doris.nereids.rules.RuleType;
-import org.apache.doris.nereids.rules.expression.ExpressionRewriteContext;
-import org.apache.doris.nereids.rules.expression.rules.FoldConstantRule;
-import org.apache.doris.nereids.trees.expressions.Alias;
 import org.apache.doris.nereids.trees.expressions.Expression;
-import org.apache.doris.nereids.trees.expressions.NamedExpression;
 import org.apache.doris.nereids.trees.expressions.literal.BooleanLiteral;
 import org.apache.doris.nereids.trees.plans.Plan;
 import org.apache.doris.nereids.trees.plans.logical.LogicalEmptyRelation;
 import org.apache.doris.nereids.trees.plans.logical.LogicalFilter;
-import org.apache.doris.nereids.trees.plans.logical.LogicalOneRowRelation;
-import org.apache.doris.nereids.util.ExpressionUtils;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.Set;
 
 /**
  * Eliminate filter which is FALSE or TRUE.
  */
-public class EliminateFilter implements RewriteRuleFactory {
+public class EliminateFilter extends OneRewriteRuleFactory {
     @Override
-    public List<Rule> buildRules() {
-        return ImmutableList.of(logicalFilter().when(
-                filter -> filter.getConjuncts().stream().anyMatch(BooleanLiteral.class::isInstance))
+    public Rule build() {
+        return logicalFilter()
+                .when(filter -> filter.getConjuncts().stream().anyMatch(BooleanLiteral.class::isInstance))
                 .thenApply(ctx -> {
                     LogicalFilter<Plan> filter = ctx.root;
-                    ImmutableSet.Builder newConjuncts = ImmutableSet.builder();
+                    Set<Expression> newConjuncts = Sets.newHashSetWithExpectedSize(filter.getConjuncts().size());
                     for (Expression expression : filter.getConjuncts()) {
                         if (expression == BooleanLiteral.FALSE) {
                             return new LogicalEmptyRelation(ctx.statementContext.getNextRelationId(),
@@ -57,44 +48,12 @@ public class EliminateFilter implements RewriteRuleFactory {
                             newConjuncts.add(expression);
                         }
                     }
-
-                    ImmutableSet<Expression> conjuncts = newConjuncts.build();
-                    if (conjuncts.isEmpty()) {
+                    if (newConjuncts.isEmpty()) {
                         return filter.child();
                     } else {
-                        return new LogicalFilter<>(conjuncts, filter.child());
+                        return new LogicalFilter<>(newConjuncts, filter.child());
                     }
                 })
-                .toRule(RuleType.ELIMINATE_FILTER),
-                logicalFilter(logicalOneRowRelation()).thenApply(ctx -> {
-                    LogicalFilter<LogicalOneRowRelation> filter = ctx.root;
-                    Map<Expression, Expression> replaceMap =
-                            filter.child().getOutputs().stream().filter(e -> e instanceof Alias)
-                                    .collect(Collectors.toMap(NamedExpression::toSlot, e -> ((Alias) e).child()));
-
-                    ImmutableSet.Builder newConjuncts = ImmutableSet.builder();
-                    ExpressionRewriteContext context =
-                            new ExpressionRewriteContext(ctx.cascadesContext);
-                    for (Expression expression : filter.getConjuncts()) {
-                        Expression newExpr = ExpressionUtils.replace(expression, replaceMap);
-                        Expression foldExpression =
-                                FoldConstantRule.INSTANCE.rewrite(newExpr, context);
-
-                        if (foldExpression == BooleanLiteral.FALSE) {
-                            return new LogicalEmptyRelation(
-                                    ctx.statementContext.getNextRelationId(), filter.getOutput());
-                        } else if (foldExpression != BooleanLiteral.TRUE) {
-                            newConjuncts.add(expression);
-                        }
-                    }
-
-                    ImmutableSet<Expression> conjuncts = newConjuncts.build();
-                    if (conjuncts.isEmpty()) {
-                        return filter.child();
-                    } else {
-                        return new LogicalFilter<>(conjuncts, filter.child());
-                    }
-                })
-                .toRule(RuleType.ELIMINATE_FILTER_ON_ONE_RELATION));
+                .toRule(RuleType.ELIMINATE_FILTER);
     }
 }

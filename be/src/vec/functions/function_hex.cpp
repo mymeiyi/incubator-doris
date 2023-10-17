@@ -70,15 +70,14 @@ public:
     }
 
     Status execute_impl(FunctionContext* context, Block& block, const ColumnNumbers& arguments,
-                        size_t result, size_t input_rows_count) const override {
+                        size_t result, size_t input_rows_count) override {
         ColumnPtr& argument_column = block.get_by_position(arguments[0]).column;
 
         auto result_data_column = ColumnString::create();
         auto& result_data = result_data_column->get_chars();
         auto& result_offset = result_data_column->get_offsets();
 
-        static_cast<void>(
-                Impl::vector(argument_column, input_rows_count, result_data, result_offset));
+        Impl::vector(argument_column, input_rows_count, result_data, result_offset);
         block.replace_by_position(result, std::move(result_data_column));
         return Status::OK();
     }

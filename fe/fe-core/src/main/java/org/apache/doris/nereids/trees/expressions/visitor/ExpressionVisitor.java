@@ -17,7 +17,6 @@
 
 package org.apache.doris.nereids.trees.expressions.visitor;
 
-import org.apache.doris.nereids.analyzer.PlaceholderExpression;
 import org.apache.doris.nereids.analyzer.UnboundAlias;
 import org.apache.doris.nereids.analyzer.UnboundFunction;
 import org.apache.doris.nereids.analyzer.UnboundSlot;
@@ -108,7 +107,6 @@ import org.apache.doris.nereids.trees.expressions.literal.MapLiteral;
 import org.apache.doris.nereids.trees.expressions.literal.NullLiteral;
 import org.apache.doris.nereids.trees.expressions.literal.SmallIntLiteral;
 import org.apache.doris.nereids.trees.expressions.literal.StringLiteral;
-import org.apache.doris.nereids.trees.expressions.literal.StructLiteral;
 import org.apache.doris.nereids.trees.expressions.literal.TinyIntLiteral;
 import org.apache.doris.nereids.trees.expressions.literal.VarcharLiteral;
 
@@ -311,10 +309,6 @@ public abstract class ExpressionVisitor<R, C>
         return visitLiteral(mapLiteral, context);
     }
 
-    public R visitStructLiteral(StructLiteral structLiteral, C context) {
-        return visitLiteral(structLiteral, context);
-    }
-
     public R visitCompoundPredicate(CompoundPredicate compoundPredicate, C context) {
         return visitBinaryOperator(compoundPredicate, context);
     }
@@ -501,13 +495,5 @@ public abstract class ExpressionVisitor<R, C>
 
     public R visitUnboundVariable(UnboundVariable unboundVariable, C context) {
         return visit(unboundVariable, context);
-    }
-
-    /* ********************************************************************************************
-     * Placeholder expressions
-     * ********************************************************************************************/
-
-    public R visitPlaceholderExpression(PlaceholderExpression placeholderExpression, C context) {
-        return visit(placeholderExpression, context);
     }
 }

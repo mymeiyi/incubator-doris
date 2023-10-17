@@ -51,7 +51,6 @@ public class Frontend implements Writable {
 
     private int queryPort;
     private int rpcPort;
-    private int arrowFlightSqlPort;
 
     private long replayedJournalId;
     private long lastStartupTime;
@@ -99,10 +98,6 @@ public class Frontend implements Writable {
 
     public int getRpcPort() {
         return rpcPort;
-    }
-
-    public int getArrowFlightSqlPort() {
-        return arrowFlightSqlPort;
     }
 
     public boolean isAlive() {
@@ -158,7 +153,6 @@ public class Frontend implements Writable {
             version = hbResponse.getVersion();
             queryPort = hbResponse.getQueryPort();
             rpcPort = hbResponse.getRpcPort();
-            arrowFlightSqlPort = hbResponse.getArrowFlightSqlPort();
             replayedJournalId = hbResponse.getReplayedJournalId();
             lastUpdateTime = hbResponse.getHbTime();
             heartbeatErrMsg = "";

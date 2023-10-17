@@ -158,13 +158,14 @@ public class FunctionBinder extends AbstractExpressionRewriteRule {
                     .accept(this, context);
         }
 
-        FunctionBuilder builder = functionRegistry.findFunctionBuilder(
-                unboundFunction.getDbName(), functionName, arguments);
+        FunctionBuilder builder = functionRegistry.findFunctionBuilder(unboundFunction.getDbName(),
+                functionName, arguments);
+        BoundFunction boundFunction = builder.build(functionName, arguments);
         if (builder instanceof AliasUdfBuilder) {
             // we do type coercion in build function in alias function, so it's ok to return directly.
-            return builder.build(functionName, arguments);
+            return boundFunction;
         } else {
-            return TypeCoercionUtils.processBoundFunction((BoundFunction) builder.build(functionName, arguments));
+            return TypeCoercionUtils.processBoundFunction(boundFunction);
         }
     }
 
@@ -314,11 +315,9 @@ public class FunctionBinder extends AbstractExpressionRewriteRule {
         Expression left = match.left().accept(this, context);
         Expression right = match.right().accept(this, context);
         // check child type
-        if (!left.getDataType().isStringLikeType()
-                && !(left.getDataType() instanceof ArrayType
-                && ((ArrayType) left.getDataType()).getItemType().isStringLikeType())) {
+        if (!left.getDataType().isStringLikeType()) {
             throw new AnalysisException(String.format(
-                    "left operand '%s' part of predicate " + "'%s' should return type 'STRING' or 'ARRAY<STRING>' but "
+                    "left operand '%s' part of predicate " + "'%s' should return type 'STRING' but "
                             + "returns type '%s'.",
                     left.toSql(), match.toSql(), left.getDataType()));
         }
@@ -336,7 +335,7 @@ public class FunctionBinder extends AbstractExpressionRewriteRule {
     public Expression visitCast(Cast cast, ExpressionRewriteContext context) {
         cast = (Cast) super.visitCast(cast, context);
         // NOTICE: just for compatibility with legacy planner.
-        if (cast.child().getDataType().isComplexType() || cast.getDataType().isComplexType()) {
+        if (cast.child().getDataType() instanceof ArrayType || cast.getDataType() instanceof ArrayType) {
             TypeCoercionUtils.checkCanCastTo(cast.child().getDataType(), cast.getDataType());
         }
         return cast;

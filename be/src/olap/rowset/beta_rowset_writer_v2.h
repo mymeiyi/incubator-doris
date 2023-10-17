@@ -97,9 +97,7 @@ public:
     // This method is thread-safe.
     Status flush_single_block(const vectorized::Block* block) override;
 
-    Status build(RowsetSharedPtr& rowset) override {
-        return Status::NotSupported("BetaRowsetWriterV2::build is not supported");
-    };
+    RowsetSharedPtr build() override { return nullptr; };
 
     RowsetSharedPtr manual_build(const RowsetMetaSharedPtr& rowset_meta) override {
         LOG(FATAL) << "not implemeted";

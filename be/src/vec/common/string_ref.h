@@ -193,8 +193,7 @@ struct StringRef {
     StringRef(const unsigned char* data_, size_t size_)
             : StringRef(reinterpret_cast<const char*>(data_), size_) {}
 
-    /// Make this copy constructor explicit to prevent inadvertently constructing a StringRef from a temporary std::string variable.
-    explicit StringRef(const std::string& s) : data(s.data()), size(s.size()) {}
+    StringRef(const std::string& s) : data(s.data()), size(s.size()) {}
     explicit StringRef(const char* str) : data(str), size(strlen(str)) {}
 
     std::string to_string() const { return std::string(data, size); }

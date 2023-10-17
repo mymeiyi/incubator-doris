@@ -27,6 +27,7 @@
 #include <string>
 
 #include "vec/aggregate_functions/aggregate_function.h"
+#include "vec/aggregate_functions/key_holder_helpers.h"
 #include "vec/columns/column.h"
 #include "vec/columns/column_array.h"
 #include "vec/columns/column_decimal.h"
@@ -35,6 +36,7 @@
 #include "vec/columns/columns_number.h"
 #include "vec/common/assert_cast.h"
 #include "vec/common/hash_table/hash_set.h"
+#include "vec/common/hash_table/hash_table_key_holder.h"
 #include "vec/common/pod_array_fwd.h"
 #include "vec/common/string_buffer.hpp"
 #include "vec/common/string_ref.h"
@@ -113,7 +115,7 @@ struct AggregateFunctionCollectSetData<StringRef, HasLimit> {
     using ElementType = StringRef;
     using ColVecType = ColumnString;
     using SelfType = AggregateFunctionCollectSetData<ElementType, HasLimit>;
-    using Set = HashSetWithStackMemory<ElementType, DefaultHash<ElementType>, 4>;
+    using Set = HashSetWithSavedHashWithStackMemory<ElementType, DefaultHash<ElementType>, 4>;
     Set data_set;
     Int64 max_size = -1;
 
@@ -122,9 +124,8 @@ struct AggregateFunctionCollectSetData<StringRef, HasLimit> {
     void add(const IColumn& column, size_t row_num, Arena* arena) {
         Set::LookupResult it;
         bool inserted;
-        auto key = column.get_data_at(row_num);
-        key.data = arena->insert(key.data, key.size);
-        data_set.emplace(key, it, inserted);
+        auto key_holder = get_key_holder<true>(column, row_num, *arena);
+        data_set.emplace(key_holder, it, inserted);
     }
 
     void merge(const SelfType& rhs, Arena* arena) {
@@ -140,9 +141,7 @@ struct AggregateFunctionCollectSetData<StringRef, HasLimit> {
                 }
             }
             assert(arena != nullptr);
-            StringRef key = rhs_elem.get_value();
-            key.data = arena->insert(key.data, key.size);
-            data_set.emplace(key, it, inserted);
+            data_set.emplace(ArenaKeyHolder {rhs_elem.get_value(), *arena}, it, inserted);
         }
     }
 

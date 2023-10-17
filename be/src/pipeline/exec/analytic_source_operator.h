@@ -59,6 +59,8 @@ public:
 
     Status output_current_block(vectorized::Block* block);
 
+    void release_mem();
+
     bool init_next_partition(vectorized::BlockRowPos found_partition_end);
 
 private:

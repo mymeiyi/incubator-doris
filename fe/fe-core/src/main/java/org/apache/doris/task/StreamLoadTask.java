@@ -37,13 +37,13 @@ import org.apache.doris.thrift.TStreamLoadPutRequest;
 import org.apache.doris.thrift.TUniqueId;
 
 import com.google.common.base.Strings;
+import com.google.common.collect.Lists;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.io.StringReader;
 import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
 
 public class StreamLoadTask implements LoadTaskInfo {
 
@@ -84,6 +84,7 @@ public class StreamLoadTask implements LoadTaskInfo {
     private List<String> hiddenColumns;
     private boolean trimDoubleQuotes = false;
     private boolean isPartialUpdate = false;
+    private boolean isIgnoreMode = false;
 
     private int skipLines = 0;
     private boolean enableProfile = false;
@@ -93,6 +94,7 @@ public class StreamLoadTask implements LoadTaskInfo {
     private byte enclose = 0;
 
     private byte escape = 0;
+    private boolean groupCommit = false;
 
     public StreamLoadTask(TUniqueId id, long txnId, TFileType fileType, TFileFormatType formatType,
             TFileCompressType compressType) {
@@ -269,6 +271,7 @@ public class StreamLoadTask implements LoadTaskInfo {
         return !Strings.isNullOrEmpty(sequenceCol);
     }
 
+
     @Override
     public String getSequenceCol() {
         return sequenceCol;
@@ -307,6 +310,10 @@ public class StreamLoadTask implements LoadTaskInfo {
         this.memtableOnSinkNode = memtableOnSinkNode;
     }
 
+    public boolean isIgnoreMode() {
+        return isIgnoreMode;
+    }
+
     public static StreamLoadTask fromTStreamLoadPutRequest(TStreamLoadPutRequest request) throws UserException {
         StreamLoadTask streamLoadTask = new StreamLoadTask(request.getLoadId(), request.getTxnId(),
                 request.getFileType(), request.getFormatType(),
@@ -315,6 +322,7 @@ public class StreamLoadTask implements LoadTaskInfo {
         if (request.isSetFileSize()) {
             streamLoadTask.fileSize = request.getFileSize();
         }
+        streamLoadTask.groupCommit = request.isGroupCommit();
         return streamLoadTask;
     }
 
@@ -357,12 +365,11 @@ public class StreamLoadTask implements LoadTaskInfo {
             headerType = request.getHeaderType();
         }
         if (request.isSetPartitions()) {
-            String[] splitPartNames = request.getPartitions().trim().split(",");
-            List<String> partNames = Arrays.stream(splitPartNames).map(String::trim).collect(Collectors.toList());
+            String[] partNames = request.getPartitions().trim().split("\\s*,\\s*");
             if (request.isSetIsTempPartition()) {
-                partitions = new PartitionNames(request.isIsTempPartition(), partNames);
+                partitions = new PartitionNames(request.isIsTempPartition(), Lists.newArrayList(partNames));
             } else {
-                partitions = new PartitionNames(false, partNames);
+                partitions = new PartitionNames(false, Lists.newArrayList(partNames));
             }
         }
         switch (request.getFileType()) {
@@ -444,6 +451,9 @@ public class StreamLoadTask implements LoadTaskInfo {
         if (request.isSetMemtableOnSinkNode()) {
             this.memtableOnSinkNode = request.isMemtableOnSinkNode();
         }
+        if (request.isSetIgnoreMode()) {
+            isIgnoreMode = request.isIgnoreMode();
+        }
     }
 
     // used for stream load
@@ -518,6 +528,11 @@ public class StreamLoadTask implements LoadTaskInfo {
     @Override
     public double getMaxFilterRatio() {
         return maxFilterRatio;
+    }
+
+    @Override
+    public boolean isGroupCommit() {
+        return groupCommit;
     }
 }
 

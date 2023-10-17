@@ -25,7 +25,6 @@
 #include "http/http_headers.h"
 #include "http/http_request.h"
 #include "http/utils.h"
-#include "util/defer_op.h"
 
 namespace doris {
 
@@ -59,7 +58,6 @@ TEST_F(HttpAuthTest, disable_auth) {
 }
 
 TEST_F(HttpAuthTest, enable_all_http_auth) {
-    Defer defer {[]() { config::enable_all_http_auth = false; }};
     config::enable_all_http_auth = true;
 
     // 1. empty auth info

@@ -21,7 +21,6 @@
 #include <string>
 
 #include "common/status.h"
-#include "runtime/types.h"
 
 // This file will convert Doris RowBatch to/from Arrow's RecordBatch
 // RowBatch is used by Doris query engine to exchange data between
@@ -29,7 +28,6 @@
 
 namespace arrow {
 
-class DataType;
 class RecordBatch;
 class Schema;
 
@@ -39,15 +37,10 @@ namespace doris {
 
 class RowDescriptor;
 
-Status convert_to_arrow_type(const TypeDescriptor& type, std::shared_ptr<arrow::DataType>* result);
-
 // Convert Doris RowDescriptor to Arrow Schema.
 Status convert_to_arrow_schema(const RowDescriptor& row_desc,
                                std::shared_ptr<arrow::Schema>* result);
 
 Status serialize_record_batch(const arrow::RecordBatch& record_batch, std::string* result);
-
-Status serialize_arrow_schema(RowDescriptor row_desc, std::shared_ptr<arrow::Schema>* schema,
-                              std::string* result);
 
 } // namespace doris

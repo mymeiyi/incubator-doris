@@ -74,7 +74,7 @@ VMysqlTableWriter::VMysqlTableWriter(const TDataSink& t_sink,
     _conn_info.charset = t_mysql_sink.charset;
 }
 
-Status VMysqlTableWriter::close(Status) {
+Status VMysqlTableWriter::close() {
     if (_mysql_conn) {
         mysql_close(_mysql_conn);
     }

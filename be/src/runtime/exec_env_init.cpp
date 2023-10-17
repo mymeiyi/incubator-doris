@@ -39,7 +39,7 @@
 #include "common/status.h"
 #include "io/cache/block/block_file_cache_factory.h"
 #include "io/fs/file_meta_cache.h"
-#include "io/fs/s3_file_bufferpool.h"
+#include "io/fs/s3_file_write_bufferpool.h"
 #include "olap/memtable_memory_limiter.h"
 #include "olap/olap_define.h"
 #include "olap/options.h"
@@ -48,7 +48,6 @@
 #include "olap/schema_cache.h"
 #include "olap/segment_loader.h"
 #include "olap/storage_engine.h"
-#include "olap/wal_manager.h"
 #include "pipeline/task_queue.h"
 #include "pipeline/task_scheduler.h"
 #include "runtime/block_spill_manager.h"
@@ -66,6 +65,7 @@
 #include "runtime/memory/mem_tracker.h"
 #include "runtime/memory/mem_tracker_limiter.h"
 #include "runtime/memory/thread_mem_tracker_mgr.h"
+#include "runtime/new_group_commit_mgr.h"
 #include "runtime/result_buffer_mgr.h"
 #include "runtime/result_queue_mgr.h"
 #include "runtime/routine_load/routine_load_task_executor.h"
@@ -134,13 +134,11 @@ static void init_doris_metrics(const std::vector<StorePath>& store_paths) {
     DorisMetrics::instance()->initialize(init_system_metrics, disk_devices, network_interfaces);
 }
 
-Status ExecEnv::init(ExecEnv* env, const std::vector<StorePath>& store_paths,
-                     const std::set<std::string>& broken_paths) {
-    return env->_init(store_paths, broken_paths);
+Status ExecEnv::init(ExecEnv* env, const std::vector<StorePath>& store_paths) {
+    return env->_init(store_paths);
 }
 
-Status ExecEnv::_init(const std::vector<StorePath>& store_paths,
-                      const std::set<std::string>& broken_paths) {
+Status ExecEnv::_init(const std::vector<StorePath>& store_paths) {
     //Only init once before be destroyed
     if (ready()) {
         return Status::OK();
@@ -148,7 +146,7 @@ Status ExecEnv::_init(const std::vector<StorePath>& store_paths,
     init_doris_metrics(store_paths);
     _store_paths = store_paths;
     _user_function_cache = new UserFunctionCache();
-    static_cast<void>(_user_function_cache->init(doris::config::user_function_dir));
+    _user_function_cache->init(doris::config::user_function_dir);
     _external_scan_context_mgr = new ExternalScanContextMgr(this);
     _vstream_mgr = new doris::vectorized::VDataStreamMgr();
     _result_mgr = new ResultBufferMgr();
@@ -158,40 +156,38 @@ Status ExecEnv::_init(const std::vector<StorePath>& store_paths,
     _broker_client_cache = new BrokerServiceClientCache(config::max_client_cache_size_per_host);
 
     TimezoneUtils::load_timezone_names();
-    TimezoneUtils::load_timezones_to_cache();
 
-    static_cast<void>(ThreadPoolBuilder("SendBatchThreadPool")
-                              .set_min_threads(config::send_batch_thread_pool_thread_num)
-                              .set_max_threads(config::send_batch_thread_pool_thread_num)
-                              .set_max_queue_size(config::send_batch_thread_pool_queue_size)
-                              .build(&_send_batch_thread_pool));
+    // _global_zone_cache is not owned by ExecEnv ... maybe should refactor.
+    _global_zone_cache = std::make_unique<vectorized::ZoneList>();
+    TimezoneUtils::load_timezones_to_cache(*_global_zone_cache);
+
+    ThreadPoolBuilder("SendBatchThreadPool")
+            .set_min_threads(config::send_batch_thread_pool_thread_num)
+            .set_max_threads(config::send_batch_thread_pool_thread_num)
+            .set_max_queue_size(config::send_batch_thread_pool_queue_size)
+            .build(&_send_batch_thread_pool);
 
     init_download_cache_required_components();
 
-    static_cast<void>(ThreadPoolBuilder("BufferedReaderPrefetchThreadPool")
-                              .set_min_threads(16)
-                              .set_max_threads(64)
-                              .build(&_buffered_reader_prefetch_thread_pool));
-
-    static_cast<void>(ThreadPoolBuilder("S3FileUploadThreadPool")
-                              .set_min_threads(16)
-                              .set_max_threads(64)
-                              .build(&_s3_file_upload_thread_pool));
+    ThreadPoolBuilder("BufferedReaderPrefetchThreadPool")
+            .set_min_threads(16)
+            .set_max_threads(64)
+            .build(&_buffered_reader_prefetch_thread_pool);
 
     // min num equal to fragment pool's min num
     // max num is useless because it will start as many as requested in the past
     // queue size is useless because the max thread num is very large
-    static_cast<void>(ThreadPoolBuilder("SendReportThreadPool")
-                              .set_min_threads(config::fragment_pool_thread_num_min)
-                              .set_max_threads(std::numeric_limits<int>::max())
-                              .set_max_queue_size(config::fragment_pool_queue_size)
-                              .build(&_send_report_thread_pool));
+    ThreadPoolBuilder("SendReportThreadPool")
+            .set_min_threads(config::fragment_pool_thread_num_min)
+            .set_max_threads(std::numeric_limits<int>::max())
+            .set_max_queue_size(config::fragment_pool_queue_size)
+            .build(&_send_report_thread_pool);
 
-    static_cast<void>(ThreadPoolBuilder("JoinNodeThreadPool")
-                              .set_min_threads(config::fragment_pool_thread_num_min)
-                              .set_max_threads(std::numeric_limits<int>::max())
-                              .set_max_queue_size(config::fragment_pool_queue_size)
-                              .build(&_join_node_thread_pool));
+    ThreadPoolBuilder("JoinNodeThreadPool")
+            .set_min_threads(config::fragment_pool_thread_num_min)
+            .set_max_threads(std::numeric_limits<int>::max())
+            .set_max_queue_size(config::fragment_pool_queue_size)
+            .build(&_join_node_thread_pool);
     init_file_cache_factory();
     RETURN_IF_ERROR(init_pipeline_task_scheduler());
     _task_group_manager = new taskgroup::TaskGroupManager();
@@ -210,36 +206,35 @@ Status ExecEnv::_init(const std::vector<StorePath>& store_paths,
     _stream_load_executor = StreamLoadExecutor::create_shared(this);
     _routine_load_task_executor = new RoutineLoadTaskExecutor(this);
     _small_file_mgr = new SmallFileMgr(this, config::small_file_dir);
-    _block_spill_mgr = new BlockSpillManager(store_paths);
+    _block_spill_mgr = new BlockSpillManager(_store_paths);
     _group_commit_mgr = new GroupCommitMgr(this);
+    _new_group_commit_mgr = new NewGroupCommitMgr(this);
     _file_meta_cache = new FileMetaCache(config::max_external_file_meta_cache_num);
     _memtable_memory_limiter = std::make_unique<MemTableMemoryLimiter>();
     _load_stream_stub_pool = std::make_unique<stream_load::LoadStreamStubPool>();
-    _delta_writer_v2_pool = std::make_unique<vectorized::DeltaWriterV2Pool>();
-    _wal_manager = WalManager::create_shared(this, config::group_commit_replay_wal_dir);
+    _delta_writer_v2_pool = std::make_unique<stream_load::DeltaWriterV2Pool>();
 
     _backend_client_cache->init_metrics("backend");
     _frontend_client_cache->init_metrics("frontend");
     _broker_client_cache->init_metrics("broker");
-    static_cast<void>(_result_mgr->init());
+    _result_mgr->init();
     Status status = _load_path_mgr->init();
     if (!status.ok()) {
         LOG(ERROR) << "Load path mgr init failed. " << status;
         return status;
     }
     _broker_mgr->init();
-    static_cast<void>(_small_file_mgr->init());
-    status = _scanner_scheduler->init(this);
+    _small_file_mgr->init();
+    status = _scanner_scheduler->init();
     if (!status.ok()) {
         LOG(ERROR) << "Scanner scheduler init failed. " << status;
         return status;
     }
 
-    static_cast<void>(_init_mem_env());
+    _init_mem_env();
 
     RETURN_IF_ERROR(_memtable_memory_limiter->init(MemInfo::mem_limit()));
     RETURN_IF_ERROR(_load_channel_mgr->init(MemInfo::mem_limit()));
-    RETURN_IF_ERROR(_wal_manager->init());
     _heartbeat_flags = new HeartbeatFlags();
     _register_metrics();
 
@@ -249,12 +244,11 @@ Status ExecEnv::_init(const std::vector<StorePath>& store_paths,
     // S3 buffer pool
     _s3_buffer_pool = new io::S3FileBufferPool();
     _s3_buffer_pool->init(config::s3_write_buffer_whole_size, config::s3_write_buffer_size,
-                          this->s3_file_upload_thread_pool());
+                          this->buffered_reader_prefetch_thread_pool());
 
     // Storage engine
     doris::EngineOptions options;
     options.store_paths = store_paths;
-    options.broken_paths = broken_paths;
     options.backend_uid = doris::UniqueId::gen_uid();
     _storage_engine = new StorageEngine(options);
     auto st = _storage_engine->open();
@@ -279,27 +273,17 @@ Status ExecEnv::init_pipeline_task_scheduler() {
         executors_size = CpuInfo::num_cores();
     }
 
-    if (!config::doris_cgroup_cpu_path.empty()) {
-        _cgroup_cpu_ctl = std::make_unique<CgroupV1CpuCtl>();
-        Status ret = _cgroup_cpu_ctl->init();
-        if (!ret.ok()) {
-            LOG(ERROR) << "init cgroup cpu controller failed";
-        }
-    } else {
-        LOG(INFO) << "cgroup cpu controller is not inited";
-    }
-
     // TODO pipeline task group combie two blocked schedulers.
     auto t_queue = std::make_shared<pipeline::MultiCoreTaskQueue>(executors_size);
     auto b_scheduler = std::make_shared<pipeline::BlockedTaskScheduler>(t_queue);
-    _pipeline_task_scheduler = new pipeline::TaskScheduler(this, b_scheduler, t_queue,
-                                                           "WithoutGroupTaskSchePool", nullptr);
+    _pipeline_task_scheduler =
+            new pipeline::TaskScheduler(this, b_scheduler, t_queue, "WithoutGroupTaskSchePool");
     RETURN_IF_ERROR(_pipeline_task_scheduler->start());
 
     auto tg_queue = std::make_shared<pipeline::TaskGroupTaskQueue>(executors_size);
     auto tg_b_scheduler = std::make_shared<pipeline::BlockedTaskScheduler>(tg_queue);
-    _pipeline_task_group_scheduler = new pipeline::TaskScheduler(
-            this, tg_b_scheduler, tg_queue, "WithGroupTaskSchePool", _cgroup_cpu_ctl.get());
+    _pipeline_task_group_scheduler =
+            new pipeline::TaskScheduler(this, tg_b_scheduler, tg_queue, "WithGroupTaskSchePool");
     RETURN_IF_ERROR(_pipeline_task_group_scheduler->start());
 
     return Status::OK();
@@ -321,10 +305,10 @@ void ExecEnv::init_file_cache_factory() {
         }
 
         std::unique_ptr<doris::ThreadPool> file_cache_init_pool;
-        static_cast<void>(doris::ThreadPoolBuilder("FileCacheInitThreadPool")
-                                  .set_min_threads(cache_paths.size())
-                                  .set_max_threads(cache_paths.size())
-                                  .build(&file_cache_init_pool));
+        doris::ThreadPoolBuilder("FileCacheInitThreadPool")
+                .set_min_threads(cache_paths.size())
+                .set_max_threads(cache_paths.size())
+                .build(&file_cache_init_pool);
 
         std::list<doris::Status> cache_status;
         for (auto& cache_path : cache_paths) {
@@ -493,11 +477,11 @@ void ExecEnv::init_download_cache_buf() {
 }
 
 void ExecEnv::init_download_cache_required_components() {
-    static_cast<void>(ThreadPoolBuilder("DownloadCacheThreadPool")
-                              .set_min_threads(1)
-                              .set_max_threads(config::download_cache_thread_pool_thread_num)
-                              .set_max_queue_size(config::download_cache_thread_pool_queue_size)
-                              .build(&_download_cache_thread_pool));
+    ThreadPoolBuilder("DownloadCacheThreadPool")
+            .set_min_threads(1)
+            .set_max_threads(config::download_cache_thread_pool_thread_num)
+            .set_max_queue_size(config::download_cache_thread_pool_queue_size)
+            .build(&_download_cache_thread_pool);
     set_serial_download_cache_thread_token();
     init_download_cache_buf();
 }
@@ -534,7 +518,6 @@ void ExecEnv::destroy() {
     // Memory barrier to prevent other threads from accessing destructed resources
     _s_ready = false;
 
-    SAFE_STOP(_wal_manager);
     SAFE_STOP(_tablet_schema_cache);
     SAFE_STOP(_load_channel_mgr);
     SAFE_STOP(_scanner_scheduler);
@@ -542,6 +525,7 @@ void ExecEnv::destroy() {
     SAFE_STOP(_load_path_mgr);
     SAFE_STOP(_result_mgr);
     SAFE_STOP(_group_commit_mgr);
+    // SAFE_STOP(_new_group_commit_mgr);
     // _routine_load_task_executor should be stopped before _new_load_stream_mgr.
     SAFE_STOP(_routine_load_task_executor);
     SAFE_STOP(_pipeline_task_scheduler);
@@ -553,7 +537,6 @@ void ExecEnv::destroy() {
     _stream_load_executor.reset();
     SAFE_STOP(_storage_engine);
     SAFE_SHUTDOWN(_buffered_reader_prefetch_thread_pool);
-    SAFE_SHUTDOWN(_s3_file_upload_thread_pool);
     SAFE_SHUTDOWN(_join_node_thread_pool);
     SAFE_SHUTDOWN(_send_report_thread_pool);
     SAFE_SHUTDOWN(_send_batch_thread_pool);
@@ -562,7 +545,6 @@ void ExecEnv::destroy() {
 
     // Free resource after threads are stopped.
     // Some threads are still running, like threads created by _new_load_stream_mgr ...
-    _wal_manager.reset();
     SAFE_DELETE(_s3_buffer_pool);
     SAFE_DELETE(_tablet_schema_cache);
     _deregister_metrics();
@@ -603,6 +585,7 @@ void ExecEnv::destroy() {
     SAFE_DELETE(_result_mgr);
     SAFE_DELETE(_file_meta_cache);
     SAFE_DELETE(_group_commit_mgr);
+    SAFE_DELETE(_new_group_commit_mgr);
     SAFE_DELETE(_routine_load_task_executor);
     // _stream_load_executor
     SAFE_DELETE(_function_client_cache);
@@ -619,7 +602,6 @@ void ExecEnv::destroy() {
     _join_node_thread_pool.reset(nullptr);
     _send_report_thread_pool.reset(nullptr);
     _buffered_reader_prefetch_thread_pool.reset(nullptr);
-    _s3_file_upload_thread_pool.reset(nullptr);
     _send_batch_thread_pool.reset(nullptr);
 
     SAFE_DELETE(_broker_client_cache);

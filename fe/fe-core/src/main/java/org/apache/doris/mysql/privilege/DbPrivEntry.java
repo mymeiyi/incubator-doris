@@ -22,7 +22,6 @@ import org.apache.doris.cluster.ClusterNamespace;
 import org.apache.doris.common.AnalysisException;
 import org.apache.doris.common.CaseSensibility;
 import org.apache.doris.common.PatternMatcher;
-import org.apache.doris.common.PatternMatcherException;
 import org.apache.doris.common.io.Text;
 
 import java.io.DataInput;
@@ -127,8 +126,4 @@ public class DbPrivEntry extends CatalogPrivEntry {
         isAnyDb = origDb.equals(ANY_DB);
     }
 
-    @Override
-    protected PrivEntry copy() throws AnalysisException, PatternMatcherException {
-        return DbPrivEntry.create(this.getOrigCtl(), this.getOrigDb(), this.getPrivSet().copy());
-    }
 }

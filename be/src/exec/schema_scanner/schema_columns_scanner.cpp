@@ -78,26 +78,26 @@ Status SchemaColumnsScanner::start(RuntimeState* state) {
     }
     // get all database
     TGetDbsParams db_params;
-    if (nullptr != _param->common_param->db) {
-        db_params.__set_pattern(*(_param->common_param->db));
+    if (nullptr != _param->db) {
+        db_params.__set_pattern(*(_param->db));
     }
-    if (nullptr != _param->common_param->catalog) {
-        db_params.__set_catalog(*(_param->common_param->catalog));
+    if (nullptr != _param->catalog) {
+        db_params.__set_catalog(*(_param->catalog));
     }
-    if (nullptr != _param->common_param->current_user_ident) {
-        db_params.__set_current_user_ident(*_param->common_param->current_user_ident);
+    if (nullptr != _param->current_user_ident) {
+        db_params.__set_current_user_ident(*_param->current_user_ident);
     } else {
-        if (nullptr != _param->common_param->user) {
-            db_params.__set_user(*(_param->common_param->user));
+        if (nullptr != _param->user) {
+            db_params.__set_user(*(_param->user));
         }
-        if (nullptr != _param->common_param->user_ip) {
-            db_params.__set_user_ip(*(_param->common_param->user_ip));
+        if (nullptr != _param->user_ip) {
+            db_params.__set_user_ip(*(_param->user_ip));
         }
     }
 
-    if (nullptr != _param->common_param->ip && 0 != _param->common_param->port) {
-        RETURN_IF_ERROR(SchemaHelper::get_db_names(
-                *(_param->common_param->ip), _param->common_param->port, db_params, &_db_result));
+    if (nullptr != _param->ip && 0 != _param->port) {
+        RETURN_IF_ERROR(
+                SchemaHelper::get_db_names(*(_param->ip), _param->port, db_params, &_db_result));
     } else {
         return Status::InternalError("IP or port doesn't exists");
     }
@@ -256,20 +256,19 @@ Status SchemaColumnsScanner::_get_new_desc() {
         desc_params.tables_name.push_back(_table_result.tables[_table_index++]);
     }
 
-    if (nullptr != _param->common_param->current_user_ident) {
-        desc_params.__set_current_user_ident(*(_param->common_param->current_user_ident));
+    if (nullptr != _param->current_user_ident) {
+        desc_params.__set_current_user_ident(*(_param->current_user_ident));
     } else {
-        if (nullptr != _param->common_param->user) {
-            desc_params.__set_user(*(_param->common_param->user));
+        if (nullptr != _param->user) {
+            desc_params.__set_user(*(_param->user));
         }
-        if (nullptr != _param->common_param->user_ip) {
-            desc_params.__set_user_ip(*(_param->common_param->user_ip));
+        if (nullptr != _param->user_ip) {
+            desc_params.__set_user_ip(*(_param->user_ip));
         }
     }
 
-    if (nullptr != _param->common_param->ip && 0 != _param->common_param->port) {
-        RETURN_IF_ERROR(SchemaHelper::describe_tables(*(_param->common_param->ip),
-                                                      _param->common_param->port, desc_params,
+    if (nullptr != _param->ip && 0 != _param->port) {
+        RETURN_IF_ERROR(SchemaHelper::describe_tables(*(_param->ip), _param->port, desc_params,
                                                       &_desc_result));
     } else {
         return Status::InternalError("IP or port doesn't exists");
@@ -286,23 +285,22 @@ Status SchemaColumnsScanner::_get_new_table() {
         table_params.__set_catalog(_db_result.catalogs[_db_index]);
     }
     _db_index++;
-    if (nullptr != _param->common_param->table) {
-        table_params.__set_pattern(*(_param->common_param->table));
+    if (nullptr != _param->table) {
+        table_params.__set_pattern(*(_param->table));
     }
-    if (nullptr != _param->common_param->current_user_ident) {
-        table_params.__set_current_user_ident(*(_param->common_param->current_user_ident));
+    if (nullptr != _param->current_user_ident) {
+        table_params.__set_current_user_ident(*(_param->current_user_ident));
     } else {
-        if (nullptr != _param->common_param->user) {
-            table_params.__set_user(*(_param->common_param->user));
+        if (nullptr != _param->user) {
+            table_params.__set_user(*(_param->user));
         }
-        if (nullptr != _param->common_param->user_ip) {
-            table_params.__set_user_ip(*(_param->common_param->user_ip));
+        if (nullptr != _param->user_ip) {
+            table_params.__set_user_ip(*(_param->user_ip));
         }
     }
 
-    if (nullptr != _param->common_param->ip && 0 != _param->common_param->port) {
-        RETURN_IF_ERROR(SchemaHelper::get_table_names(*(_param->common_param->ip),
-                                                      _param->common_param->port, table_params,
+    if (nullptr != _param->ip && 0 != _param->port) {
+        RETURN_IF_ERROR(SchemaHelper::get_table_names(*(_param->ip), _param->port, table_params,
                                                       &_table_result));
     } else {
         return Status::InternalError("IP or port doesn't exists");
@@ -341,14 +339,14 @@ Status SchemaColumnsScanner::_fill_block_impl(vectorized::Block* block) {
     // TABLE_CATALOG
     {
         if (!_db_result.__isset.catalogs) {
-            static_cast<void>(fill_dest_column_for_range(block, 0, null_datas));
+            fill_dest_column_for_range(block, 0, null_datas);
         } else {
             std::string catalog_name = _db_result.catalogs[_db_index - 1];
             StringRef str = StringRef(catalog_name.c_str(), catalog_name.size());
             for (int i = 0; i < columns_num; ++i) {
                 datas[i] = &str;
             }
-            static_cast<void>(fill_dest_column_for_range(block, 0, datas));
+            fill_dest_column_for_range(block, 0, datas);
         }
     }
     // TABLE_SCHEMA
@@ -358,7 +356,7 @@ Status SchemaColumnsScanner::_fill_block_impl(vectorized::Block* block) {
         for (int i = 0; i < columns_num; ++i) {
             datas[i] = &str;
         }
-        static_cast<void>(fill_dest_column_for_range(block, 1, datas));
+        fill_dest_column_for_range(block, 1, datas);
     }
     // TABLE_NAME
     {
@@ -375,7 +373,7 @@ Status SchemaColumnsScanner::_fill_block_impl(vectorized::Block* block) {
                                 _table_result.tables[cur_table_index].length());
             datas[i] = strs + i;
         }
-        static_cast<void>(fill_dest_column_for_range(block, 2, datas));
+        fill_dest_column_for_range(block, 2, datas);
     }
     // COLUMN_NAME
     {
@@ -385,7 +383,7 @@ Status SchemaColumnsScanner::_fill_block_impl(vectorized::Block* block) {
                                 _desc_result.columns[i].columnDesc.columnName.length());
             datas[i] = strs + i;
         }
-        static_cast<void>(fill_dest_column_for_range(block, 3, datas));
+        fill_dest_column_for_range(block, 3, datas);
     }
     // ORDINAL_POSITION
     {
@@ -400,10 +398,10 @@ Status SchemaColumnsScanner::_fill_block_impl(vectorized::Block* block) {
             srcs[i] = columns_index++;
             datas[i] = srcs + i;
         }
-        static_cast<void>(fill_dest_column_for_range(block, 4, datas));
+        fill_dest_column_for_range(block, 4, datas);
     }
     // COLUMN_DEFAULT
-    { static_cast<void>(fill_dest_column_for_range(block, 5, null_datas)); }
+    { fill_dest_column_for_range(block, 5, null_datas); }
     // IS_NULLABLE
     {
         StringRef str_yes = StringRef("YES", 3);
@@ -419,7 +417,7 @@ Status SchemaColumnsScanner::_fill_block_impl(vectorized::Block* block) {
                 datas[i] = &str_no;
             }
         }
-        static_cast<void>(fill_dest_column_for_range(block, 6, datas));
+        fill_dest_column_for_range(block, 6, datas);
     }
     // DATA_TYPE
     {
@@ -430,7 +428,7 @@ Status SchemaColumnsScanner::_fill_block_impl(vectorized::Block* block) {
             strs[i] = StringRef(buffers[i].c_str(), buffers[i].length());
             datas[i] = strs + i;
         }
-        static_cast<void>(fill_dest_column_for_range(block, 7, datas));
+        fill_dest_column_for_range(block, 7, datas);
     }
     // CHARACTER_MAXIMUM_LENGTH
     // For string columns, the maximum length in characters.
@@ -450,7 +448,7 @@ Status SchemaColumnsScanner::_fill_block_impl(vectorized::Block* block) {
                 datas[i] = nullptr;
             }
         }
-        static_cast<void>(fill_dest_column_for_range(block, 8, datas));
+        fill_dest_column_for_range(block, 8, datas);
     }
     // CHARACTER_OCTET_LENGTH
     // For string columns, the maximum length in bytes.
@@ -470,7 +468,7 @@ Status SchemaColumnsScanner::_fill_block_impl(vectorized::Block* block) {
                 datas[i] = nullptr;
             }
         }
-        static_cast<void>(fill_dest_column_for_range(block, 9, datas));
+        fill_dest_column_for_range(block, 9, datas);
     }
     // NUMERIC_PRECISION
     {
@@ -483,7 +481,7 @@ Status SchemaColumnsScanner::_fill_block_impl(vectorized::Block* block) {
                 datas[i] = nullptr;
             }
         }
-        static_cast<void>(fill_dest_column_for_range(block, 10, datas));
+        fill_dest_column_for_range(block, 10, datas);
     }
     // NUMERIC_SCALE
     {
@@ -496,14 +494,14 @@ Status SchemaColumnsScanner::_fill_block_impl(vectorized::Block* block) {
                 datas[i] = nullptr;
             }
         }
-        static_cast<void>(fill_dest_column_for_range(block, 11, datas));
+        fill_dest_column_for_range(block, 11, datas);
     }
     // DATETIME_PRECISION
-    { static_cast<void>(fill_dest_column_for_range(block, 12, null_datas)); }
+    { fill_dest_column_for_range(block, 12, null_datas); }
     // CHARACTER_SET_NAME
-    { static_cast<void>(fill_dest_column_for_range(block, 13, null_datas)); }
+    { fill_dest_column_for_range(block, 13, null_datas); }
     // COLLATION_NAME
-    { static_cast<void>(fill_dest_column_for_range(block, 14, null_datas)); }
+    { fill_dest_column_for_range(block, 14, null_datas); }
     // COLUMN_TYPE
     {
         std::string buffers[columns_num];
@@ -513,7 +511,7 @@ Status SchemaColumnsScanner::_fill_block_impl(vectorized::Block* block) {
             strs[i] = StringRef(buffers[i].c_str(), buffers[i].length());
             datas[i] = strs + i;
         }
-        static_cast<void>(fill_dest_column_for_range(block, 15, datas));
+        fill_dest_column_for_range(block, 15, datas);
     }
     // COLUMN_KEY
     {
@@ -528,19 +526,19 @@ Status SchemaColumnsScanner::_fill_block_impl(vectorized::Block* block) {
                 datas[i] = &str;
             }
         }
-        static_cast<void>(fill_dest_column_for_range(block, 16, datas));
+        fill_dest_column_for_range(block, 16, datas);
     }
     // EXTRA
     {
         StringRef str = StringRef("", 0);
         std::vector<void*> datas(columns_num, &str);
-        static_cast<void>(fill_dest_column_for_range(block, 17, datas));
+        fill_dest_column_for_range(block, 17, datas);
     }
     // PRIVILEGES
     {
         StringRef str = StringRef("", 0);
         std::vector<void*> datas(columns_num, &str);
-        static_cast<void>(fill_dest_column_for_range(block, 18, datas));
+        fill_dest_column_for_range(block, 18, datas);
     }
     // COLUMN_COMMENT
     {
@@ -550,7 +548,7 @@ Status SchemaColumnsScanner::_fill_block_impl(vectorized::Block* block) {
                                 _desc_result.columns[i].comment.length());
             datas[i] = strs + i;
         }
-        static_cast<void>(fill_dest_column_for_range(block, 19, datas));
+        fill_dest_column_for_range(block, 19, datas);
     }
     // COLUMN_SIZE
     {
@@ -563,7 +561,7 @@ Status SchemaColumnsScanner::_fill_block_impl(vectorized::Block* block) {
                 datas[i] = nullptr;
             }
         }
-        static_cast<void>(fill_dest_column_for_range(block, 20, datas));
+        fill_dest_column_for_range(block, 20, datas);
     }
     // DECIMAL_DIGITS
     {
@@ -576,12 +574,12 @@ Status SchemaColumnsScanner::_fill_block_impl(vectorized::Block* block) {
                 datas[i] = nullptr;
             }
         }
-        static_cast<void>(fill_dest_column_for_range(block, 21, datas));
+        fill_dest_column_for_range(block, 21, datas);
     }
     // GENERATION_EXPRESSION
-    { static_cast<void>(fill_dest_column_for_range(block, 22, null_datas)); }
+    { fill_dest_column_for_range(block, 22, null_datas); }
     // SRS_ID
-    { static_cast<void>(fill_dest_column_for_range(block, 23, null_datas)); }
+    { fill_dest_column_for_range(block, 23, null_datas); }
     return Status::OK();
 }
 

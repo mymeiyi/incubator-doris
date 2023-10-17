@@ -44,9 +44,10 @@ namespace doris {
 
 namespace vectorized {
 
+using ZoneList = std::unordered_map<std::string, cctz::time_zone>;
+
 enum TimeUnit {
     MICROSECOND,
-    MILLISECOND,
     SECOND,
     MINUTE,
     HOUR,
@@ -75,7 +76,6 @@ struct TimeInterval {
     int64_t hour;
     int64_t minute;
     int64_t second;
-    int64_t millisecond;
     int64_t microsecond;
     bool is_neg;
 
@@ -86,7 +86,6 @@ struct TimeInterval {
               hour(0),
               minute(0),
               second(0),
-              millisecond(0),
               microsecond(0),
               is_neg(false) {}
 
@@ -97,7 +96,6 @@ struct TimeInterval {
               hour(0),
               minute(0),
               second(0),
-              millisecond(0),
               microsecond(0),
               is_neg(is_neg_param) {
         switch (unit) {
@@ -124,9 +122,6 @@ struct TimeInterval {
             break;
         case SECOND_MICROSECOND:
             microsecond = count;
-            break;
-        case MILLISECOND:
-            millisecond = count;
             break;
         case MICROSECOND:
             microsecond = count;
@@ -362,7 +357,8 @@ public:
     // 'YY-MM-DD', 'YYYY-MM-DD', 'YY-MM-DD HH.MM.SS'
     // 'YYYYMMDDTHHMMSS'
     bool from_date_str(const char* str, int len);
-    bool from_date_str(const char* str, int len, const cctz::time_zone& local_time_zone);
+    bool from_date_str(const char* str, int len, const cctz::time_zone& local_time_zone,
+                       ZoneList& time_zone_cache, std::shared_mutex* cache_lock);
 
     // Construct Date/Datetime type value from int64_t value.
     // Return true if convert success. Otherwise return false.
@@ -700,7 +696,8 @@ private:
     char* to_date_buffer(char* to) const;
     char* to_time_buffer(char* to) const;
 
-    bool from_date_str_base(const char* date_str, int len, const cctz::time_zone* local_time_zone);
+    bool from_date_str_base(const char* date_str, int len, const cctz::time_zone* local_time_zone,
+                            ZoneList* time_zone_cache, std::shared_mutex* cache_lock);
 
     int64_t to_date_int64() const;
     int64_t to_time_int64() const;
@@ -763,7 +760,7 @@ public:
     }
 
     void set_time(uint16_t year, uint8_t month, uint8_t day, uint8_t hour, uint8_t minute,
-                  uint8_t second, uint32_t microsecond = 0);
+                  uint8_t second, uint32_t microsecond);
 
     void set_time(uint8_t hour, uint8_t minute, uint8_t second, uint32_t microsecond);
 
@@ -822,7 +819,7 @@ public:
     // 'YYYYMMDDTHHMMSS'
     bool from_date_str(const char* str, int len, int scale = -1);
     bool from_date_str(const char* str, int len, const cctz::time_zone& local_time_zone,
-                       int scale = -1);
+                       ZoneList& time_zone_cache, std::shared_mutex* cache_lock, int scale = -1);
 
     // Convert this value to string
     // this will check type to decide which format to convert
@@ -1186,7 +1183,8 @@ private:
                              bool disable_lut = false);
 
     bool from_date_str_base(const char* date_str, int len, int scale,
-                            const cctz::time_zone* local_time_zone);
+                            const cctz::time_zone* local_time_zone, ZoneList* time_zone_cache,
+                            std::shared_mutex* cache_lock);
 
     // Used to construct from int value
     int64_t standardize_timevalue(int64_t value);
@@ -1393,15 +1391,6 @@ int64_t datetime_diff(const DateV2Value<T0>& ts_value1, const DateV2Value<T1>& t
         int64_t second = ts_value2.second_diff(ts_value1);
         return second;
     }
-    case MILLISECOND: {
-        int64_t microsecond = ts_value2.microsecond_diff(ts_value1);
-        int64_t millisecond = microsecond / 1000;
-        return millisecond;
-    }
-    case MICROSECOND: {
-        int64_t microsecond = ts_value2.microsecond_diff(ts_value1);
-        return microsecond;
-    }
     }
     // Rethink the default return value
     return 0;
@@ -1524,26 +1513,9 @@ public:
     static constexpr int DAY_AFTER_EPOCH = 25500;  // 2039-10-24
     static constexpr int DICT_DAYS = DAY_BEFORE_EPOCH + DAY_AFTER_EPOCH;
 
-    static constexpr int START_YEAR = 1900;                         // 1900-01-01
-    static constexpr int END_YEAR = 2039;                           // 2039-10-24
-    static constexpr int DAY_OFFSET_CAL_START_POINT_DAYNR = 719527; // 1969-12-31
-
-    static bool can_speed_up_calc_daynr(int year) { return year >= START_YEAR && year < END_YEAR; }
-
-    static int get_offset_by_daynr(int daynr) { return daynr - DAY_OFFSET_CAL_START_POINT_DAYNR; }
-
-    static bool can_speed_up_daynr_to_date(int daynr) {
-        auto res = get_offset_by_daynr(daynr);
-        return res >= 0 ? res <= DAY_AFTER_EPOCH : -res <= DAY_BEFORE_EPOCH;
-    }
-
     static date_day_offset_dict& get();
 
-    static bool get_dict_init();
-
-    DateV2Value<DateV2ValueType> operator[](int day) const;
-
-    int daynr(int year, int month, int day) const;
+    DateV2Value<DateV2ValueType> operator[](int day);
 };
 
 template <typename T>

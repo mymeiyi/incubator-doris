@@ -18,7 +18,6 @@
 package org.apache.doris.planner.external.iceberg;
 
 import org.apache.doris.catalog.Env;
-import org.apache.doris.catalog.HiveMetaStoreClientHelper;
 import org.apache.doris.catalog.external.HMSExternalTable;
 import org.apache.doris.common.Config;
 import org.apache.doris.common.MetaNotFoundException;
@@ -93,12 +92,11 @@ public class IcebergMetadataCache {
                 ctg.getHiveMetastoreUris(),
                 ctg.getCatalogProperty().getHadoopProperties(),
                 dbName,
-                tbName,
-                ctg.getProperties());
+                tbName);
         } else if (catalog instanceof IcebergExternalCatalog) {
-            IcebergExternalCatalog extCatalog = (IcebergExternalCatalog) catalog;
+            IcebergExternalCatalog icebergExternalCatalog = (IcebergExternalCatalog) catalog;
             icebergTable = getIcebergTable(
-                extCatalog.getCatalog(), extCatalog.getId(), dbName, tbName, extCatalog.getProperties());
+                icebergExternalCatalog.getCatalog(), icebergExternalCatalog.getId(), dbName, tbName);
         } else {
             throw new UserException("Only support 'hms' and 'iceberg' type for iceberg table");
         }
@@ -125,8 +123,7 @@ public class IcebergMetadataCache {
         return icebergTable;
     }
 
-    public Table getIcebergTable(Catalog catalog, long catalogId, String dbName, String tbName,
-            Map<String, String> props) {
+    public Table getIcebergTable(Catalog catalog, long catalogId, String dbName, String tbName) {
         IcebergMetadataCacheKey key = IcebergMetadataCacheKey.of(
                 catalogId,
                 dbName,
@@ -135,10 +132,8 @@ public class IcebergMetadataCache {
         if (cacheTable != null) {
             return cacheTable;
         }
-
-        Table table = HiveMetaStoreClientHelper.ugiDoAs(catalogId,
-                () -> catalog.loadTable(TableIdentifier.of(dbName, tbName)));
-        initIcebergTableFileIO(table, props);
+        Table table = catalog.loadTable(TableIdentifier.of(dbName, tbName));
+        initIcebergTableFileIO(table);
 
         tableCache.put(key, table);
 
@@ -190,8 +185,7 @@ public class IcebergMetadataCache {
                 });
     }
 
-    private Table createIcebergTable(String uri, Map<String, String> hdfsConf, String db, String tbl,
-            Map<String, String> props) {
+    private Table createIcebergTable(String uri, Map<String, String> hdfsConf, String db, String tbl) {
         // set hdfs configure
         Configuration conf = new HdfsConfiguration();
         for (Map.Entry<String, String> entry : hdfsConf.entrySet()) {
@@ -206,9 +200,9 @@ public class IcebergMetadataCache {
         catalogProperties.put("uri", uri);
         hiveCatalog.initialize("hive", catalogProperties);
 
-        Table table = HiveMetaStoreClientHelper.ugiDoAs(conf, () -> hiveCatalog.loadTable(TableIdentifier.of(db, tbl)));
+        Table table = hiveCatalog.loadTable(TableIdentifier.of(db, tbl));
 
-        initIcebergTableFileIO(table, props);
+        initIcebergTableFileIO(table);
 
         return table;
     }
@@ -217,22 +211,17 @@ public class IcebergMetadataCache {
         return createIcebergTable(hmsTable.getMetastoreUri(),
             hmsTable.getHadoopProperties(),
             hmsTable.getDbName(),
-            hmsTable.getName(),
-            hmsTable.getCatalogProperties());
+            hmsTable.getName());
     }
 
-    private void initIcebergTableFileIO(Table table, Map<String, String> props) {
+    private void initIcebergTableFileIO(Table table) {
         Map<String, String> ioConf = new HashMap<>();
         table.properties().forEach((key, value) -> {
             if (key.startsWith("io.")) {
                 ioConf.put(key, value);
             }
         });
-
-        // This `initialize` method will directly override the properties as a whole,
-        // so we need to merge the table's io-related properties with the doris's catalog-related properties
-        props.putAll(ioConf);
-        table.io().initialize(props);
+        table.io().initialize(ioConf);
     }
 
     static class IcebergMetadataCacheKey {

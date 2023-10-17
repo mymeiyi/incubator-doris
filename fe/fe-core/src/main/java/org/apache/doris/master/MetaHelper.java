@@ -126,7 +126,8 @@ public class MetaHelper {
 
     public static String getResponse(HttpURLConnection conn) throws IOException {
         String response;
-        try (BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(conn.getInputStream()))) {
+        try (BufferedReader bufferedReader = new BufferedReader(
+                new InputStreamReader(conn.getInputStream()))) {
             String line;
             StringBuilder sb = new StringBuilder();
             while ((line = bufferedReader.readLine()) != null) {

@@ -40,20 +40,13 @@ import java.util.List;
 
 public class MetadataScanNode extends ExternalScanNode {
 
-    private final MetadataTableValuedFunction tvf;
+    private MetadataTableValuedFunction tvf;
 
-    private final List<TScanRangeLocations> scanRangeLocations = Lists.newArrayList();
+    private List<TScanRangeLocations> scanRangeLocations = Lists.newArrayList();
 
     public MetadataScanNode(PlanNodeId id, TupleDescriptor desc, MetadataTableValuedFunction tvf) {
         super(id, desc, "METADATA_SCAN_NODE", StatisticalType.METADATA_SCAN_NODE, false);
         this.tvf = tvf;
-    }
-
-    // for Nereids
-    @Override
-    public void init() throws UserException {
-        super.init();
-        createScanRangeLocations();
     }
 
     @Override
@@ -97,5 +90,26 @@ public class MetadataScanNode extends ExternalScanNode {
     @Override
     public boolean needToCheckColumnPriv() {
         return false;
+    }
+
+    private void buildScanRanges() {
+        // todo: split
+        TScanRangeLocations locations = createMetaDataTvfLocations();
+        scanRangeLocations.add(locations);
+    }
+
+    private TScanRangeLocations createMetaDataTvfLocations() {
+        TScanRange scanRange = new TScanRange();
+        scanRange.setMetaScanRange(tvf.getMetaScanRange());
+        // set location
+        TScanRangeLocation location = new TScanRangeLocation();
+        Backend backend = backendPolicy.getNextBe();
+        location.setBackendId(backend.getId());
+        location.setServer(new TNetworkAddress(backend.getHost(), backend.getBePort()));
+
+        TScanRangeLocations result = new TScanRangeLocations();
+        result.addToLocations(location);
+        result.setScanRange(scanRange);
+        return result;
     }
 }

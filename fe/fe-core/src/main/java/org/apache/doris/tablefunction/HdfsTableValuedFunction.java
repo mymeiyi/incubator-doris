@@ -25,7 +25,9 @@ import org.apache.doris.common.AnalysisException;
 import org.apache.doris.common.util.URI;
 import org.apache.doris.thrift.TFileType;
 
-import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
+import org.apache.commons.collections.map.CaseInsensitiveMap;
 import org.apache.log4j.LogManager;
 import org.apache.log4j.Logger;
 
@@ -37,41 +39,50 @@ import java.util.Map;
  */
 public class HdfsTableValuedFunction extends ExternalFileTableValuedFunction {
     public static final Logger LOG = LogManager.getLogger(HdfsTableValuedFunction.class);
+
     public static final String NAME = "hdfs";
-    private static final String PROP_URI = "uri";
+    public static final String HDFS_URI = "uri";
+    // simple or kerberos
 
-    public HdfsTableValuedFunction(Map<String, String> properties) throws AnalysisException {
-        init(properties);
-    }
+    private static final ImmutableSet<String> LOCATION_PROPERTIES = new ImmutableSet.Builder<String>()
+            .add(HDFS_URI)
+            .add(HdfsResource.HADOOP_SECURITY_AUTHENTICATION)
+            .add(HdfsResource.HADOOP_FS_NAME)
+            .add(HdfsResource.HADOOP_USER_NAME)
+            .add(HdfsResource.HADOOP_KERBEROS_PRINCIPAL)
+            .add(HdfsResource.HADOOP_KERBEROS_KEYTAB)
+            .add(HdfsResource.HADOOP_SHORT_CIRCUIT)
+            .add(HdfsResource.HADOOP_SOCKET_PATH)
+            .build();
 
-    private void init(Map<String, String> properties) throws AnalysisException {
-        // 1. analyze common properties
-        Map<String, String> otherProps = super.parseCommonProperties(properties);
+    private URI hdfsUri;
 
-        // 2. analyze uri
-        String uriStr = getOrDefaultAndRemove(otherProps, PROP_URI, null);
-        if (Strings.isNullOrEmpty(uriStr)) {
-            throw new AnalysisException(String.format("Properties '%s' is required.", PROP_URI));
-        }
-        URI uri = URI.create(uriStr);
-        StorageBackend.checkUri(uri, StorageType.HDFS);
-        filePath = uri.getScheme() + "://" + uri.getAuthority() + uri.getPath();
-
-        // 3. analyze other properties
-        for (String key : otherProps.keySet()) {
-            if (HdfsResource.HADOOP_FS_NAME.equalsIgnoreCase(key)) {
+    public HdfsTableValuedFunction(Map<String, String> params) throws AnalysisException {
+        Map<String, String> fileParams = new CaseInsensitiveMap();
+        locationProperties = Maps.newHashMap();
+        for (String key : params.keySet()) {
+            String lowerKey = key.toLowerCase();
+            if (FILE_FORMAT_PROPERTIES.contains(lowerKey)) {
+                fileParams.put(lowerKey, params.get(key));
+            } else if (LOCATION_PROPERTIES.contains(lowerKey)) {
+                locationProperties.put(lowerKey, params.get(key));
+            } else if (HdfsResource.HADOOP_FS_NAME.equalsIgnoreCase(key)) {
                 // because HADOOP_FS_NAME contains upper and lower case
-                locationProperties.put(HdfsResource.HADOOP_FS_NAME, otherProps.get(key));
+                locationProperties.put(HdfsResource.HADOOP_FS_NAME, params.get(key));
             } else {
-                locationProperties.put(key, otherProps.get(key));
+                locationProperties.put(key, params.get(key));
             }
         }
-        // If the user does not specify the HADOOP_FS_NAME, we will use the uri's scheme and authority
-        if (!locationProperties.containsKey(HdfsResource.HADOOP_FS_NAME)) {
-            locationProperties.put(HdfsResource.HADOOP_FS_NAME, uri.getScheme() + "://" + uri.getAuthority());
-        }
 
-        // 4. parse file
+        if (!locationProperties.containsKey(HDFS_URI)) {
+            throw new AnalysisException(String.format("Configuration '%s' is required.", HDFS_URI));
+        }
+        StorageBackend.checkPath(locationProperties.get(HDFS_URI), StorageType.HDFS);
+        hdfsUri = URI.create(locationProperties.get(HDFS_URI));
+        filePath = locationProperties.get(HdfsResource.HADOOP_FS_NAME) + hdfsUri.getPath();
+
+        super.parseProperties(fileParams);
+
         parseFile();
     }
 

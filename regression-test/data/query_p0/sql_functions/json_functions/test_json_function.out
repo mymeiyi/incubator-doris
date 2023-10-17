@@ -126,23 +126,44 @@ DORIS
 [6.6,[1,2,3],2]
 
 -- !sql --
-true
+"doris"
 
 -- !sql --
-false
+\N
 
 -- !sql --
-false
+{"k21":6.6,"k22":[1,2,3]}
 
 -- !sql --
-true
+3
 
 -- !sql --
-false
+[1,2,3]
 
 -- !sql --
-true
+doris
 
 -- !sql --
-true
+123
+
+-- !sql --
+1
+
+-- !sql --
+0
+
+-- !sql --
+0
+
+-- !sql --
+1
+
+-- !sql --
+0
+
+-- !sql --
+1
+
+-- !sql --
+1
 

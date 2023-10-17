@@ -31,7 +31,6 @@
 #include <utility>
 
 #include "common/logging.h"
-#include "common/status.h"
 #include "exprs/bloom_filter_func.h"
 #include "exprs/runtime_filter.h"
 #include "runtime/exec_env.h"
@@ -219,8 +218,7 @@ Status RuntimeFilterMergeControllerEntity::_init_with_desc(
 
     auto filter_id = runtime_filter_desc->filter_id;
     // LOG(INFO) << "entity filter id:" << filter_id;
-    static_cast<void>(
-            cntVal->filter->init_with_desc(&cntVal->runtime_filter_desc, query_options, -1, false));
+    cntVal->filter->init_with_desc(&cntVal->runtime_filter_desc, query_options, -1, false);
     _filter_map.emplace(filter_id, CntlValwithLock {cntVal, std::make_unique<SpinLock>()});
     return Status::OK();
 }
@@ -242,7 +240,7 @@ Status RuntimeFilterMergeControllerEntity::_init_with_desc(
 
     auto filter_id = runtime_filter_desc->filter_id;
     // LOG(INFO) << "entity filter id:" << filter_id;
-    static_cast<void>(cntVal->filter->init_with_desc(&cntVal->runtime_filter_desc, query_options));
+    cntVal->filter->init_with_desc(&cntVal->runtime_filter_desc, query_options);
     _filter_map.emplace(filter_id, CntlValwithLock {cntVal, std::make_unique<SpinLock>()});
     return Status::OK();
 }
@@ -563,7 +561,7 @@ Status RuntimeFilterMergeController::remove_entity(UniqueId query_id) {
 // auto called while call ~std::shared_ptr<RuntimeFilterMergeControllerEntity>
 void runtime_filter_merge_entity_close(RuntimeFilterMergeController* controller,
                                        RuntimeFilterMergeControllerEntity* entity) {
-    static_cast<void>(controller->remove_entity(entity->query_id()));
+    controller->remove_entity(entity->query_id());
     delete entity;
 }
 

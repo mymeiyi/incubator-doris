@@ -647,24 +647,32 @@ public final class MetricRepo {
         // update the metrics first
         updateMetrics();
 
+        StringBuilder sb = new StringBuilder();
         // jvm
         JvmService jvmService = new JvmService();
         JvmStats jvmStats = jvmService.stats();
-        visitor.visitJvm(jvmStats);
+        visitor.visitJvm(sb, jvmStats);
 
-        // doris metrics and system metrics.
-        DORIS_METRIC_REGISTER.accept(visitor);
+        visitor.setMetricNumber(DORIS_METRIC_REGISTER.getAllMetricSize());
+        // doris metrics
+        for (Metric metric : DORIS_METRIC_REGISTER.getMetrics()) {
+            visitor.visit(sb, MetricVisitor.FE_PREFIX, metric);
+        }
+        // system metric
+        for (Metric metric : DORIS_METRIC_REGISTER.getSystemMetrics()) {
+            visitor.visit(sb, MetricVisitor.SYS_PREFIX, metric);
+        }
 
         // histogram
         SortedMap<String, Histogram> histograms = METRIC_REGISTER.getHistograms();
         for (Map.Entry<String, Histogram> entry : histograms.entrySet()) {
-            visitor.visitHistogram(MetricVisitor.FE_PREFIX, entry.getKey(), entry.getValue());
+            visitor.visitHistogram(sb, MetricVisitor.FE_PREFIX, entry.getKey(), entry.getValue());
         }
 
         // node info
-        visitor.getNodeInfo();
+        visitor.getNodeInfo(sb);
 
-        return visitor.finish();
+        return sb.toString();
     }
 
     public static <M extends Metric<?>> AutoMappedMetric<M> addLabeledMetrics(String label, Supplier<M> metric) {

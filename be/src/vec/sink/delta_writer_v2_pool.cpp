@@ -22,7 +22,7 @@
 namespace doris {
 class TExpr;
 
-namespace vectorized {
+namespace stream_load {
 
 DeltaWriterV2Map::DeltaWriterV2Map(UniqueId load_id) : _load_id(load_id), _use_cnt(1) {}
 
@@ -58,9 +58,7 @@ Status DeltaWriterV2Map::close() {
 }
 
 void DeltaWriterV2Map::cancel(Status status) {
-    _map.for_each([&status](auto& entry) {
-        static_cast<void>(entry.second->cancel_with_status(status));
-    });
+    _map.for_each([&status](auto& entry) { entry.second->cancel_with_status(status); });
 }
 
 DeltaWriterV2Pool::DeltaWriterV2Pool() = default;
@@ -85,5 +83,5 @@ std::shared_ptr<DeltaWriterV2Map> DeltaWriterV2Pool::get_or_create(PUniqueId loa
     return map;
 }
 
-} // namespace vectorized
+} // namespace stream_load
 } // namespace doris

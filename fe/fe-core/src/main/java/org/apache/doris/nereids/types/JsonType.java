@@ -19,13 +19,12 @@ package org.apache.doris.nereids.types;
 
 import org.apache.doris.catalog.Type;
 import org.apache.doris.nereids.annotation.Developing;
-import org.apache.doris.nereids.types.coercion.PrimitiveType;
 
 /**
  * Json type in Nereids.
  */
 @Developing
-public class JsonType extends PrimitiveType {
+public class JsonType extends DataType {
 
     public static final JsonType INSTANCE = new JsonType();
 
@@ -62,5 +61,10 @@ public class JsonType extends PrimitiveType {
     @Override
     public int width() {
         return WIDTH;
+    }
+
+    @Override
+    public String toSql() {
+        return "JSON";
     }
 }

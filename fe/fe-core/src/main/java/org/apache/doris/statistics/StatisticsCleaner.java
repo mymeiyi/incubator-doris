@@ -55,7 +55,7 @@ public class StatisticsCleaner extends MasterDaemon {
     private OlapTable colStatsTbl;
     private OlapTable histStatsTbl;
 
-    private Map<Long, CatalogIf<? extends DatabaseIf<? extends TableIf>>> idToCatalog;
+    private Map<Long, CatalogIf> idToCatalog;
     private Map<Long, DatabaseIf> idToDb;
     private Map<Long, TableIf> idToTbl;
 
@@ -228,11 +228,11 @@ public class StatisticsCleaner extends MasterDaemon {
                         continue;
                     }
                     OlapTable olapTable = (OlapTable) t;
-                    String partId = statsId.partId;
+                    Long partId = statsId.partId;
                     if (partId == null) {
                         continue;
                     }
-                    if (!olapTable.getPartitionIds().contains(Long.parseLong(partId))) {
+                    if (!olapTable.getPartitionIds().contains(partId)) {
                         expiredStats.ids.add(id);
                     }
                 } catch (Exception e) {

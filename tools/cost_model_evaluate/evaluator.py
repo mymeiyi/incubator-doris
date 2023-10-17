@@ -48,7 +48,6 @@ class Evaluator:
         plans = self.extract_all_plans()
         res: list[tuple[float, float]] = []
         for n, (plan, cost) in plans.items():
-            print(f"run {n}-th plan")
             time = self.sql_executor.get_execute_time(plan)
             res.append((cost, time))
         if self.config.plot:
@@ -61,8 +60,7 @@ class Evaluator:
         x_values = [t[0] for t in data]
         y_values = [t[1] for t in data]
         fig, ax = plt.subplots()
-        ax.scatter(x_values[:1], y_values[:1], c='r')
-        ax.scatter(x_values[1:], y_values[1:])
+        ax.scatter(x_values, y_values)
         ax.set_xlabel('Cost')
         ax.set_ylabel('Time')
         plt.show()
@@ -74,13 +72,11 @@ class Evaluator:
     def extract_all_plans(self):
         plan_set = set()
         plan_map: dict[int, tuple[str, float]] = {}
-        n = 0
-        while len(plan_set) < self.config.plan_number:
-            n += 1
+        for n in range(1, self.config.plan_number):
             query = self.inject_nth_optimized_hint(n)
             plan, cost = self.sql_executor.get_plan_with_cost(query)
             if plan in plan_set:
-                continue
+                break
             plan_set.add(plan)
             plan_map[n] = (query, cost)
         return plan_map

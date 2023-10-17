@@ -25,7 +25,6 @@
 #include "vec/columns/column_vector.h"
 #include "vec/data_types/data_type.h"
 #include "vec/data_types/data_type_bitmap.h"
-#include "vec/data_types/data_type_jsonb.h"
 #include "vec/data_types/data_type_nullable.h"
 #include "vec/data_types/data_type_number.h"
 #include "vec/data_types/data_type_string.h"
@@ -53,7 +52,7 @@ public:
     }
 
     Status execute_impl(FunctionContext* context, Block& block, const ColumnNumbers& arguments,
-                        size_t result, size_t input_rows_count) const override {
+                        size_t result, size_t input_rows_count) override {
         return execute_impl<typename Impl::ReturnType>(block, arguments, result, input_rows_count);
     }
 
@@ -69,7 +68,7 @@ private:
     template <typename T>
         requires std::is_same_v<T, DataTypeString>
     Status execute_impl(Block& block, const ColumnNumbers& arguments, size_t result,
-                        size_t input_rows_count) const {
+                        size_t input_rows_count) {
         const ColumnPtr column = block.get_by_position(arguments[0]).column;
         if constexpr (typeindex_is_int(Impl::TYPE_INDEX)) {
             if (auto* col = check_and_get_column<ColumnVector<typename Impl::Type>>(column.get())) {
@@ -97,7 +96,7 @@ private:
     template <typename T>
         requires(!std::is_same_v<T, DataTypeString>)
     Status execute_impl(Block& block, const ColumnNumbers& arguments, size_t result,
-                        size_t input_rows_count) const {
+                        size_t input_rows_count) {
         const ColumnPtr column = block.get_by_position(arguments[0]).column;
         if constexpr (Impl::TYPE_INDEX == TypeIndex::String) {
             if (const ColumnString* col = check_and_get_column<ColumnString>(column.get())) {
@@ -144,7 +143,7 @@ public:
     }
 
     Status execute_impl(FunctionContext* context, Block& block, const ColumnNumbers& arguments,
-                        size_t result, size_t /*input_rows_count*/) const override {
+                        size_t result, size_t /*input_rows_count*/) override {
         DCHECK_EQ(arguments.size(), 2);
         const auto& [lcol, left_const] =
                 unpack_if_const(block.get_by_position(arguments[0]).column);
@@ -219,7 +218,7 @@ public:
     bool is_variadic() const override { return true; }
 
     Status execute_impl(FunctionContext* context, Block& block, const ColumnNumbers& arguments,
-                        size_t result, size_t /*input_rows_count*/) const override {
+                        size_t result, size_t /*input_rows_count*/) override {
         const auto& left = block.get_by_position(arguments[0]);
         const auto& right = block.get_by_position(arguments[1]);
         return execute_inner_impl<ResultDataType>(left, right, block, arguments, result);
@@ -229,7 +228,7 @@ private:
     template <typename ReturnDataType>
         requires(!std::is_same_v<ResultDataType, DataTypeString>)
     Status execute_inner_impl(const ColumnWithTypeAndName& left, const ColumnWithTypeAndName& right,
-                              Block& block, const ColumnNumbers& arguments, size_t result) const {
+                              Block& block, const ColumnNumbers& arguments, size_t result) {
         const auto& [lcol, left_const] = unpack_if_const(left.column);
         const auto& [rcol, right_const] = unpack_if_const(right.column);
 
@@ -243,17 +242,17 @@ private:
         if (auto col_left = check_and_get_column<ColVecLeft>(lcol.get())) {
             if (auto col_right = check_and_get_column<ColVecRight>(rcol.get())) {
                 if (left_const) {
-                    static_cast<void>(Impl<LeftDataType, RightDataType>::scalar_vector(
+                    Impl<LeftDataType, RightDataType>::scalar_vector(
                             col_left->get_data_at(0), col_right->get_chars(),
-                            col_right->get_offsets(), vec_res));
+                            col_right->get_offsets(), vec_res);
                 } else if (right_const) {
-                    static_cast<void>(Impl<LeftDataType, RightDataType>::vector_scalar(
+                    Impl<LeftDataType, RightDataType>::vector_scalar(
                             col_left->get_chars(), col_left->get_offsets(),
-                            col_right->get_data_at(0), vec_res));
+                            col_right->get_data_at(0), vec_res);
                 } else {
-                    static_cast<void>(Impl<LeftDataType, RightDataType>::vector_vector(
+                    Impl<LeftDataType, RightDataType>::vector_vector(
                             col_left->get_chars(), col_left->get_offsets(), col_right->get_chars(),
-                            col_right->get_offsets(), vec_res));
+                            col_right->get_offsets(), vec_res);
                 }
 
                 block.replace_by_position(result, std::move(col_res));
@@ -314,7 +313,7 @@ public:
     }
 
     Status execute_impl(FunctionContext* context, Block& block, const ColumnNumbers& arguments,
-                        size_t result, size_t input_rows_count) const override {
+                        size_t result, size_t input_rows_count) override {
         auto null_map = ColumnUInt8::create(input_rows_count, 0);
         DCHECK_EQ(arguments.size(), 2);
 
@@ -386,16 +385,8 @@ public:
     DataTypePtr get_return_type_impl(const DataTypes& arguments) const override {
         return make_nullable(std::make_shared<typename Impl::ReturnType>());
     }
-
-    DataTypes get_variadic_argument_types_impl() const override {
-        if constexpr (vectorized::HasGetVariadicArgumentTypesImpl<Impl>) {
-            return Impl::get_variadic_argument_types_impl();
-        } else {
-            return {};
-        }
-    }
     Status execute_impl(FunctionContext* context, Block& block, const ColumnNumbers& arguments,
-                        size_t result, size_t input_rows_count) const override {
+                        size_t result, size_t input_rows_count) override {
         auto null_map = ColumnUInt8::create(input_rows_count, 0);
         ColumnPtr argument_columns[2];
         bool col_const[2];
@@ -468,7 +459,7 @@ public:
     bool use_default_implementation_for_nulls() const override { return true; }
 
     Status execute_impl(FunctionContext* context, Block& block, const ColumnNumbers& arguments,
-                        size_t result, size_t input_rows_count) const override {
+                        size_t result, size_t input_rows_count) override {
         auto null_map = ColumnUInt8::create(input_rows_count, 0);
 
         auto& col_ptr = block.get_by_position(arguments[0]).column;
@@ -476,9 +467,8 @@ public:
         auto res = Impl::ColumnType::create();
         if (const ColumnString* col = check_and_get_column<ColumnString>(col_ptr.get())) {
             auto col_res = Impl::ColumnType::create();
-            static_cast<void>(Impl::vector(col->get_chars(), col->get_offsets(),
-                                           col_res->get_chars(), col_res->get_offsets(),
-                                           null_map->get_data()));
+            Impl::vector(col->get_chars(), col->get_offsets(), col_res->get_chars(),
+                         col_res->get_offsets(), null_map->get_data());
             block.replace_by_position(
                     result, ColumnNullable::create(std::move(col_res), std::move(null_map)));
         } else {

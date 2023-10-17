@@ -60,43 +60,37 @@ TEST(FunctionJsonbTEST, JsonbParseTest) {
              STRING(R"([{"k1":"v41","k2":400},1,"a",3.14])")}, // complex array
     };
 
-    static_cast<void>(check_function<DataTypeJsonb, true>(func_name, input_types, data_set_valid));
+    check_function<DataTypeJsonb, true>(func_name, input_types, data_set_valid);
 
     DataSet data_set_invalid = {
             {{STRING("abc")}, Null()}, // invalid string
     };
-    static_cast<void>(
-            check_function<DataTypeJsonb, true>(func_name, input_types, data_set_invalid, true));
+    check_function<DataTypeJsonb, true>(func_name, input_types, data_set_invalid, true);
 
     data_set_invalid = {
             {{STRING("'abc'")}, Null()}, // invalid string
     };
-    static_cast<void>(
-            check_function<DataTypeJsonb, true>(func_name, input_types, data_set_invalid, true));
+    check_function<DataTypeJsonb, true>(func_name, input_types, data_set_invalid, true);
 
     data_set_invalid = {
             {{STRING("100x")}, Null()}, // invalid int
     };
-    static_cast<void>(
-            check_function<DataTypeJsonb, true>(func_name, input_types, data_set_invalid, true));
+    check_function<DataTypeJsonb, true>(func_name, input_types, data_set_invalid, true);
 
     data_set_invalid = {
             {{STRING("6.a8")}, Null()}, // invalid double
     };
-    static_cast<void>(
-            check_function<DataTypeJsonb, true>(func_name, input_types, data_set_invalid, true));
+    check_function<DataTypeJsonb, true>(func_name, input_types, data_set_invalid, true);
 
     data_set_invalid = {
             {{STRING("{x")}, Null()}, // invalid object
     };
-    static_cast<void>(
-            check_function<DataTypeJsonb, true>(func_name, input_types, data_set_invalid, true));
+    check_function<DataTypeJsonb, true>(func_name, input_types, data_set_invalid, true);
 
     data_set_invalid = {
             {{STRING("[123, abc]")}, Null()} // invalid array
     };
-    static_cast<void>(
-            check_function<DataTypeJsonb, true>(func_name, input_types, data_set_invalid, true));
+    check_function<DataTypeJsonb, true>(func_name, input_types, data_set_invalid, true);
 }
 
 TEST(FunctionJsonbTEST, JsonbParseErrorToNullTest) {
@@ -131,7 +125,7 @@ TEST(FunctionJsonbTEST, JsonbParseErrorToNullTest) {
             {{STRING("[123, abc]")}, Null()}                   // invalid array
     };
 
-    static_cast<void>(check_function<DataTypeJsonb, true>(func_name, input_types, data_set));
+    check_function<DataTypeJsonb, true>(func_name, input_types, data_set);
 }
 
 TEST(FunctionJsonbTEST, JsonbParseErrorToValueTest) {
@@ -169,7 +163,7 @@ TEST(FunctionJsonbTEST, JsonbParseErrorToValueTest) {
              STRING(R"([123,"abc"])")} // invalid array
     };
 
-    static_cast<void>(check_function<DataTypeJsonb, true>(func_name, input_types, data_set));
+    check_function<DataTypeJsonb, true>(func_name, input_types, data_set);
 }
 
 TEST(FunctionJsonbTEST, JsonbParseErrorToInvalidTest) {
@@ -204,7 +198,7 @@ TEST(FunctionJsonbTEST, JsonbParseErrorToInvalidTest) {
             {{STRING("[123, abc]")}, STRING("")}               // invalid array
     };
 
-    static_cast<void>(check_function<DataTypeJsonb, true>(func_name, input_types, data_set));
+    check_function<DataTypeJsonb, true>(func_name, input_types, data_set);
 }
 
 TEST(FunctionJsonbTEST, JsonbParseNullableTest) {
@@ -233,43 +227,37 @@ TEST(FunctionJsonbTEST, JsonbParseNullableTest) {
              STRING(R"([{"k1":"v41","k2":400},1,"a",3.14])")}, // complex array
     };
 
-    static_cast<void>(check_function<DataTypeJsonb, true>(func_name, input_types, data_set_valid));
+    check_function<DataTypeJsonb, true>(func_name, input_types, data_set_valid);
 
     DataSet data_set_invalid = {
             {{STRING("abc")}, Null()}, // invalid string
     };
-    static_cast<void>(
-            check_function<DataTypeJsonb, true>(func_name, input_types, data_set_invalid, true));
+    check_function<DataTypeJsonb, true>(func_name, input_types, data_set_invalid, true);
 
     data_set_invalid = {
             {{STRING("'abc'")}, Null()}, // invalid string
     };
-    static_cast<void>(
-            check_function<DataTypeJsonb, true>(func_name, input_types, data_set_invalid, true));
+    check_function<DataTypeJsonb, true>(func_name, input_types, data_set_invalid, true);
 
     data_set_invalid = {
             {{STRING("100x")}, Null()}, // invalid int
     };
-    static_cast<void>(
-            check_function<DataTypeJsonb, true>(func_name, input_types, data_set_invalid, true));
+    check_function<DataTypeJsonb, true>(func_name, input_types, data_set_invalid, true);
 
     data_set_invalid = {
             {{STRING("6.a8")}, Null()}, // invalid double
     };
-    static_cast<void>(
-            check_function<DataTypeJsonb, true>(func_name, input_types, data_set_invalid, true));
+    check_function<DataTypeJsonb, true>(func_name, input_types, data_set_invalid, true);
 
     data_set_invalid = {
             {{STRING("{x")}, Null()}, // invalid object
     };
-    static_cast<void>(
-            check_function<DataTypeJsonb, true>(func_name, input_types, data_set_invalid, true));
+    check_function<DataTypeJsonb, true>(func_name, input_types, data_set_invalid, true);
 
     data_set_invalid = {
             {{STRING("[123, abc]")}, Null()} // invalid array
     };
-    static_cast<void>(
-            check_function<DataTypeJsonb, true>(func_name, input_types, data_set_invalid, true));
+    check_function<DataTypeJsonb, true>(func_name, input_types, data_set_invalid, true);
 }
 
 TEST(FunctionJsonbTEST, JsonbParseNullableErrorToNullTest) {
@@ -304,7 +292,7 @@ TEST(FunctionJsonbTEST, JsonbParseNullableErrorToNullTest) {
             {{STRING("[123, abc]")}, Null()}                   // invalid array
     };
 
-    static_cast<void>(check_function<DataTypeJsonb, true>(func_name, input_types, data_set));
+    check_function<DataTypeJsonb, true>(func_name, input_types, data_set);
 }
 
 TEST(FunctionJsonbTEST, JsonbParseNullableErrorToValueTest) {
@@ -342,7 +330,7 @@ TEST(FunctionJsonbTEST, JsonbParseNullableErrorToValueTest) {
              STRING(R"([123,"abc"])")} // invalid array
     };
 
-    static_cast<void>(check_function<DataTypeJsonb, true>(func_name, input_types, data_set));
+    check_function<DataTypeJsonb, true>(func_name, input_types, data_set);
 }
 
 TEST(FunctionJsonbTEST, JsonbParseNullableErrorToInvalidTest) {
@@ -377,7 +365,7 @@ TEST(FunctionJsonbTEST, JsonbParseNullableErrorToInvalidTest) {
             {{STRING("[123, abc]")}, STRING("")}               // invalid array
     };
 
-    static_cast<void>(check_function<DataTypeJsonb, true>(func_name, input_types, data_set));
+    check_function<DataTypeJsonb, true>(func_name, input_types, data_set);
 }
 
 TEST(FunctionJsonbTEST, JsonbParseNotnullTest) {
@@ -405,43 +393,37 @@ TEST(FunctionJsonbTEST, JsonbParseNotnullTest) {
              STRING(R"([{"k1":"v41","k2":400},1,"a",3.14])")}, // complex array
     };
 
-    static_cast<void>(check_function<DataTypeJsonb, false>(func_name, input_types, data_set_valid));
+    check_function<DataTypeJsonb, false>(func_name, input_types, data_set_valid);
 
     DataSet data_set_invalid = {
             {{STRING("abc")}, Null()}, // invalid string
     };
-    static_cast<void>(
-            check_function<DataTypeJsonb, false>(func_name, input_types, data_set_invalid, true));
+    check_function<DataTypeJsonb, false>(func_name, input_types, data_set_invalid, true);
 
     data_set_invalid = {
             {{STRING("'abc'")}, Null()}, // invalid string
     };
-    static_cast<void>(
-            check_function<DataTypeJsonb, false>(func_name, input_types, data_set_invalid, true));
+    check_function<DataTypeJsonb, false>(func_name, input_types, data_set_invalid, true);
 
     data_set_invalid = {
             {{STRING("100x")}, Null()}, // invalid int
     };
-    static_cast<void>(
-            check_function<DataTypeJsonb, false>(func_name, input_types, data_set_invalid, true));
+    check_function<DataTypeJsonb, false>(func_name, input_types, data_set_invalid, true);
 
     data_set_invalid = {
             {{STRING("6.a8")}, Null()}, // invalid double
     };
-    static_cast<void>(
-            check_function<DataTypeJsonb, false>(func_name, input_types, data_set_invalid, true));
+    check_function<DataTypeJsonb, false>(func_name, input_types, data_set_invalid, true);
 
     data_set_invalid = {
             {{STRING("{x")}, Null()}, // invalid object
     };
-    static_cast<void>(
-            check_function<DataTypeJsonb, false>(func_name, input_types, data_set_invalid, true));
+    check_function<DataTypeJsonb, false>(func_name, input_types, data_set_invalid, true);
 
     data_set_invalid = {
             {{STRING("[123, abc]")}, Null()} // invalid array
     };
-    static_cast<void>(
-            check_function<DataTypeJsonb, false>(func_name, input_types, data_set_invalid, true));
+    check_function<DataTypeJsonb, false>(func_name, input_types, data_set_invalid, true);
 }
 
 TEST(FunctionJsonbTEST, JsonbParseNotnullErrorToValueTest) {
@@ -478,7 +460,7 @@ TEST(FunctionJsonbTEST, JsonbParseNotnullErrorToValueTest) {
              STRING(R"([123,"abc"])")} // invalid array
     };
 
-    static_cast<void>(check_function<DataTypeJsonb, false>(func_name, input_types, data_set));
+    check_function<DataTypeJsonb, false>(func_name, input_types, data_set);
 }
 
 TEST(FunctionJsonbTEST, JsonbParseNotnullErrorToInvalidTest) {
@@ -512,7 +494,7 @@ TEST(FunctionJsonbTEST, JsonbParseNotnullErrorToInvalidTest) {
             {{STRING("[123, abc]")}, STRING("")}               // invalid array
     };
 
-    static_cast<void>(check_function<DataTypeJsonb, false>(func_name, input_types, data_set));
+    check_function<DataTypeJsonb, false>(func_name, input_types, data_set);
 }
 
 TEST(FunctionJsonbTEST, JsonbExtractTest) {
@@ -544,7 +526,7 @@ TEST(FunctionJsonbTEST, JsonbExtractTest) {
              STRING(R"([{"k1":"v41","k2":400},1,"a",3.14])")}, // complex array
     };
 
-    static_cast<void>(check_function<DataTypeJsonb, true>(func_name, input_types, data_set));
+    check_function<DataTypeJsonb, true>(func_name, input_types, data_set);
 
     // json_extract obejct
     data_set = {
@@ -569,7 +551,7 @@ TEST(FunctionJsonbTEST, JsonbExtractTest) {
              Null()}, // complex array
     };
 
-    static_cast<void>(check_function<DataTypeJsonb, true>(func_name, input_types, data_set));
+    check_function<DataTypeJsonb, true>(func_name, input_types, data_set);
 
     // json_extract array
     data_set = {
@@ -631,7 +613,7 @@ TEST(FunctionJsonbTEST, JsonbExtractTest) {
              Null()}, // complex array
     };
 
-    static_cast<void>(check_function<DataTypeJsonb, true>(func_name, input_types, data_set));
+    check_function<DataTypeJsonb, true>(func_name, input_types, data_set);
 
     // json_extract $[0].k1
     data_set = {
@@ -657,7 +639,7 @@ TEST(FunctionJsonbTEST, JsonbExtractTest) {
              STRING(R"("v41")")}, // complex array
     };
 
-    static_cast<void>(check_function<DataTypeJsonb, true>(func_name, input_types, data_set));
+    check_function<DataTypeJsonb, true>(func_name, input_types, data_set);
 }
 
 TEST(FunctionJsonbTEST, JsonbExtractStringTest) {
@@ -689,7 +671,7 @@ TEST(FunctionJsonbTEST, JsonbExtractStringTest) {
              STRING(R"([{"k1":"v41","k2":400},1,"a",3.14])")}, // complex array
     };
 
-    static_cast<void>(check_function<DataTypeString, true>(func_name, input_types, data_set));
+    check_function<DataTypeString, true>(func_name, input_types, data_set);
 
     // json_extract obejct
     data_set = {
@@ -714,7 +696,7 @@ TEST(FunctionJsonbTEST, JsonbExtractStringTest) {
              Null()}, // complex array
     };
 
-    static_cast<void>(check_function<DataTypeString, true>(func_name, input_types, data_set));
+    check_function<DataTypeString, true>(func_name, input_types, data_set);
 
     // json_extract array
     data_set = {
@@ -776,7 +758,7 @@ TEST(FunctionJsonbTEST, JsonbExtractStringTest) {
              Null()}, // complex array
     };
 
-    static_cast<void>(check_function<DataTypeString, true>(func_name, input_types, data_set));
+    check_function<DataTypeString, true>(func_name, input_types, data_set);
 
     // json_extract $[0].k1
     data_set = {
@@ -801,7 +783,7 @@ TEST(FunctionJsonbTEST, JsonbExtractStringTest) {
              STRING("v41")}, // complex array
     };
 
-    static_cast<void>(check_function<DataTypeString, true>(func_name, input_types, data_set));
+    check_function<DataTypeString, true>(func_name, input_types, data_set);
 }
 
 TEST(FunctionJsonbTEST, JsonbExtractIntTest) {
@@ -831,7 +813,7 @@ TEST(FunctionJsonbTEST, JsonbExtractIntTest) {
              Null()}, // complex array
     };
 
-    static_cast<void>(check_function<DataTypeInt32, true>(func_name, input_types, data_set));
+    check_function<DataTypeInt32, true>(func_name, input_types, data_set);
 
     // json_extract obejct
     data_set = {
@@ -856,7 +838,7 @@ TEST(FunctionJsonbTEST, JsonbExtractIntTest) {
              Null()}, // complex array
     };
 
-    static_cast<void>(check_function<DataTypeInt32, true>(func_name, input_types, data_set));
+    check_function<DataTypeInt32, true>(func_name, input_types, data_set);
 
     // json_extract array
     data_set = {
@@ -917,7 +899,7 @@ TEST(FunctionJsonbTEST, JsonbExtractIntTest) {
              Null()}, // complex array
     };
 
-    static_cast<void>(check_function<DataTypeInt32, true>(func_name, input_types, data_set));
+    check_function<DataTypeInt32, true>(func_name, input_types, data_set);
 
     // json_extract $[0].k1
     data_set = {
@@ -944,7 +926,7 @@ TEST(FunctionJsonbTEST, JsonbExtractIntTest) {
              INT(400)}, // complex array
     };
 
-    static_cast<void>(check_function<DataTypeInt32, true>(func_name, input_types, data_set));
+    check_function<DataTypeInt32, true>(func_name, input_types, data_set);
 }
 
 TEST(FunctionJsonbTEST, JsonbExtractBigIntTest) {
@@ -974,7 +956,7 @@ TEST(FunctionJsonbTEST, JsonbExtractBigIntTest) {
              Null()}, // complex array
     };
 
-    static_cast<void>(check_function<DataTypeInt64, true>(func_name, input_types, data_set));
+    check_function<DataTypeInt64, true>(func_name, input_types, data_set);
 
     // json_extract obejct
     data_set = {
@@ -999,7 +981,7 @@ TEST(FunctionJsonbTEST, JsonbExtractBigIntTest) {
              Null()}, // complex array
     };
 
-    static_cast<void>(check_function<DataTypeInt64, true>(func_name, input_types, data_set));
+    check_function<DataTypeInt64, true>(func_name, input_types, data_set);
 
     // json_extract array
     data_set = {
@@ -1060,7 +1042,7 @@ TEST(FunctionJsonbTEST, JsonbExtractBigIntTest) {
              Null()}, // complex array
     };
 
-    static_cast<void>(check_function<DataTypeInt64, true>(func_name, input_types, data_set));
+    check_function<DataTypeInt64, true>(func_name, input_types, data_set);
 
     // json_extract $[0].k1
     data_set = {
@@ -1087,7 +1069,7 @@ TEST(FunctionJsonbTEST, JsonbExtractBigIntTest) {
              BIGINT(400)}, // complex array
     };
 
-    static_cast<void>(check_function<DataTypeInt64, true>(func_name, input_types, data_set));
+    check_function<DataTypeInt64, true>(func_name, input_types, data_set);
 }
 
 TEST(FunctionJsonbTEST, JsonbExtractDoubleTest) {
@@ -1117,7 +1099,7 @@ TEST(FunctionJsonbTEST, JsonbExtractDoubleTest) {
              Null()}, // complex array
     };
 
-    static_cast<void>(check_function<DataTypeFloat64, true>(func_name, input_types, data_set));
+    check_function<DataTypeFloat64, true>(func_name, input_types, data_set);
 
     // json_extract obejct
     data_set = {
@@ -1141,7 +1123,7 @@ TEST(FunctionJsonbTEST, JsonbExtractDoubleTest) {
              Null()}, // complex array
     };
 
-    static_cast<void>(check_function<DataTypeFloat64, true>(func_name, input_types, data_set));
+    check_function<DataTypeFloat64, true>(func_name, input_types, data_set);
 
     // json_extract array
     data_set = {
@@ -1201,7 +1183,7 @@ TEST(FunctionJsonbTEST, JsonbExtractDoubleTest) {
              Null()}, // complex array
     };
 
-    static_cast<void>(check_function<DataTypeFloat64, true>(func_name, input_types, data_set));
+    check_function<DataTypeFloat64, true>(func_name, input_types, data_set);
 
     // json_extract $[0].k1
     data_set = {
@@ -1227,7 +1209,7 @@ TEST(FunctionJsonbTEST, JsonbExtractDoubleTest) {
              DOUBLE(400)}, // complex array
     };
 
-    static_cast<void>(check_function<DataTypeFloat64, true>(func_name, input_types, data_set));
+    check_function<DataTypeFloat64, true>(func_name, input_types, data_set);
 }
 
 TEST(FunctionJsonbTEST, JsonbCastToOtherTest) {
@@ -1262,8 +1244,7 @@ TEST(FunctionJsonbTEST, JsonbCastToOtherTest) {
     };
     for (const auto& row : data_set) {
         DataSet const_dataset = {row};
-        static_cast<void>(
-                check_function<DataTypeUInt8, true>(func_name, input_types, const_dataset));
+        check_function<DataTypeUInt8, true>(func_name, input_types, const_dataset);
     }
     input_types = {Nullable {TypeIndex::JSONB}, ConstedNotnull {TypeIndex::Int8}};
     // cast to TINYINT
@@ -1294,8 +1275,7 @@ TEST(FunctionJsonbTEST, JsonbCastToOtherTest) {
     };
     for (const auto& row : data_set) {
         DataSet const_dataset = {row};
-        static_cast<void>(
-                check_function<DataTypeInt8, true>(func_name, input_types, const_dataset));
+        check_function<DataTypeInt8, true>(func_name, input_types, const_dataset);
     }
 
     input_types = {Nullable {TypeIndex::JSONB}, ConstedNotnull {TypeIndex::Int16}};
@@ -1327,8 +1307,7 @@ TEST(FunctionJsonbTEST, JsonbCastToOtherTest) {
     };
     for (const auto& row : data_set) {
         DataSet const_dataset = {row};
-        static_cast<void>(
-                check_function<DataTypeInt16, true>(func_name, input_types, const_dataset));
+        check_function<DataTypeInt16, true>(func_name, input_types, const_dataset);
     }
 
     input_types = {Nullable {TypeIndex::JSONB}, ConstedNotnull {TypeIndex::Int32}};
@@ -1361,8 +1340,7 @@ TEST(FunctionJsonbTEST, JsonbCastToOtherTest) {
     };
     for (const auto& row : data_set) {
         DataSet const_dataset = {row};
-        static_cast<void>(
-                check_function<DataTypeInt32, true>(func_name, input_types, const_dataset));
+        check_function<DataTypeInt32, true>(func_name, input_types, const_dataset);
     }
 
     input_types = {Nullable {TypeIndex::JSONB}, ConstedNotnull {TypeIndex::Int64}};
@@ -1389,8 +1367,7 @@ TEST(FunctionJsonbTEST, JsonbCastToOtherTest) {
     };
     for (const auto& row : data_set) {
         DataSet const_dataset = {row};
-        static_cast<void>(
-                check_function<DataTypeInt64, true>(func_name, input_types, const_dataset));
+        check_function<DataTypeInt64, true>(func_name, input_types, const_dataset);
     }
 
     input_types = {Nullable {TypeIndex::JSONB}, ConstedNotnull {TypeIndex::Float64}};
@@ -1417,8 +1394,7 @@ TEST(FunctionJsonbTEST, JsonbCastToOtherTest) {
     };
     for (const auto& row : data_set) {
         DataSet const_dataset = {row};
-        static_cast<void>(
-                check_function<DataTypeFloat64, true>(func_name, input_types, const_dataset));
+        check_function<DataTypeFloat64, true>(func_name, input_types, const_dataset);
     }
 
     input_types = {Nullable {TypeIndex::JSONB}, ConstedNotnull {TypeIndex::String}};
@@ -1447,639 +1423,68 @@ TEST(FunctionJsonbTEST, JsonbCastToOtherTest) {
     };
     for (const auto& row : data_set) {
         DataSet const_dataset = {row};
-        static_cast<void>(
-                check_function<DataTypeString, true>(func_name, input_types, const_dataset));
+        check_function<DataTypeString, true>(func_name, input_types, const_dataset);
     }
 }
 
 TEST(FunctionJsonbTEST, JsonbCastFromOtherTest) {
     // CAST Nullable(X) to Nullable(JSONB)
-    static_cast<void>(check_function<DataTypeJsonb, true>(
+    check_function<DataTypeJsonb, true>(
             "CAST", {Nullable {TypeIndex::UInt8}, ConstedNotnull {TypeIndex::JSONB}},
-            {{{BOOLEAN(1), Null()}, STRING("true")}}));
-    static_cast<void>(check_function<DataTypeJsonb, true>(
+            {{{BOOLEAN(1), Null()}, STRING("true")}});
+    check_function<DataTypeJsonb, true>(
             "CAST", {Nullable {TypeIndex::UInt8}, ConstedNotnull {TypeIndex::JSONB}},
-            {{{BOOLEAN(0), Null()}, STRING("false")}}));
-    static_cast<void>(check_function<DataTypeJsonb, true>(
+            {{{BOOLEAN(0), Null()}, STRING("false")}});
+    check_function<DataTypeJsonb, true>(
             "CAST", {Nullable {TypeIndex::Int8}, ConstedNotnull {TypeIndex::JSONB}},
-            {{{TINYINT(100), Null()}, STRING("100")}}));
-    static_cast<void>(check_function<DataTypeJsonb, true>(
+            {{{TINYINT(100), Null()}, STRING("100")}});
+    check_function<DataTypeJsonb, true>(
             "CAST", {Nullable {TypeIndex::Int16}, ConstedNotnull {TypeIndex::JSONB}},
-            {{{SMALLINT(10000), Null()}, STRING("10000")}}));
-    static_cast<void>(check_function<DataTypeJsonb, true>(
+            {{{SMALLINT(10000), Null()}, STRING("10000")}});
+    check_function<DataTypeJsonb, true>(
             "CAST", {Nullable {TypeIndex::Int32}, ConstedNotnull {TypeIndex::JSONB}},
-            {{{INT(1000000000), Null()}, STRING("1000000000")}}));
-    static_cast<void>(check_function<DataTypeJsonb, true>(
+            {{{INT(1000000000), Null()}, STRING("1000000000")}});
+    check_function<DataTypeJsonb, true>(
             "CAST", {Nullable {TypeIndex::Int64}, ConstedNotnull {TypeIndex::JSONB}},
-            {{{BIGINT(1152921504606846976), Null()}, STRING("1152921504606846976")}}));
-    static_cast<void>(check_function<DataTypeJsonb, true>(
+            {{{BIGINT(1152921504606846976), Null()}, STRING("1152921504606846976")}});
+    check_function<DataTypeJsonb, true>(
             "CAST", {Nullable {TypeIndex::Float64}, ConstedNotnull {TypeIndex::JSONB}},
-            {{{DOUBLE(6.18), Null()}, STRING("6.18")}}));
-    static_cast<void>(check_function<DataTypeJsonb, true>(
+            {{{DOUBLE(6.18), Null()}, STRING("6.18")}});
+    check_function<DataTypeJsonb, true>(
             "CAST", {Nullable {TypeIndex::String}, ConstedNotnull {TypeIndex::JSONB}},
-            {{{STRING(R"(abcd)"), Null()}, Null()}})); // should fail
-    static_cast<void>(check_function<DataTypeJsonb, true>(
+            {{{STRING(R"(abcd)"), Null()}, Null()}}); // should fail
+    check_function<DataTypeJsonb, true>(
             "CAST", {Nullable {TypeIndex::String}, ConstedNotnull {TypeIndex::JSONB}},
-            {{{STRING(R"("abcd")"), Null()}, STRING(R"("abcd")")}}));
+            {{{STRING(R"("abcd")"), Null()}, STRING(R"("abcd")")}});
 
     // CAST X to JSONB
-    static_cast<void>(check_function<DataTypeJsonb, false>(
+    check_function<DataTypeJsonb, false>(
             "CAST", {Notnull {TypeIndex::UInt8}, ConstedNotnull {TypeIndex::JSONB}},
-            {{{BOOLEAN(1), Null()}, STRING("true")}}));
-    static_cast<void>(check_function<DataTypeJsonb, false>(
+            {{{BOOLEAN(1), Null()}, STRING("true")}});
+    check_function<DataTypeJsonb, false>(
             "CAST", {Notnull {TypeIndex::UInt8}, ConstedNotnull {TypeIndex::JSONB}},
-            {{{BOOLEAN(0), Null()}, STRING("false")}}));
-    static_cast<void>(check_function<DataTypeJsonb, false>(
+            {{{BOOLEAN(0), Null()}, STRING("false")}});
+    check_function<DataTypeJsonb, false>(
             "CAST", {Notnull {TypeIndex::Int8}, ConstedNotnull {TypeIndex::JSONB}},
-            {{{TINYINT(100), Null()}, STRING("100")}}));
-    static_cast<void>(check_function<DataTypeJsonb, false>(
+            {{{TINYINT(100), Null()}, STRING("100")}});
+    check_function<DataTypeJsonb, false>(
             "CAST", {Notnull {TypeIndex::Int16}, ConstedNotnull {TypeIndex::JSONB}},
-            {{{SMALLINT(10000), Null()}, STRING("10000")}}));
-    static_cast<void>(check_function<DataTypeJsonb, false>(
+            {{{SMALLINT(10000), Null()}, STRING("10000")}});
+    check_function<DataTypeJsonb, false>(
             "CAST", {Notnull {TypeIndex::Int32}, ConstedNotnull {TypeIndex::JSONB}},
-            {{{INT(1000000000), Null()}, STRING("1000000000")}}));
-    static_cast<void>(check_function<DataTypeJsonb, false>(
+            {{{INT(1000000000), Null()}, STRING("1000000000")}});
+    check_function<DataTypeJsonb, false>(
             "CAST", {Notnull {TypeIndex::Int64}, ConstedNotnull {TypeIndex::JSONB}},
-            {{{BIGINT(1152921504606846976), Null()}, STRING("1152921504606846976")}}));
-    static_cast<void>(check_function<DataTypeJsonb, false>(
+            {{{BIGINT(1152921504606846976), Null()}, STRING("1152921504606846976")}});
+    check_function<DataTypeJsonb, false>(
             "CAST", {Notnull {TypeIndex::Float64}, ConstedNotnull {TypeIndex::JSONB}},
-            {{{DOUBLE(6.18), Null()}, STRING("6.18")}}));
+            {{{DOUBLE(6.18), Null()}, STRING("6.18")}});
     // String to JSONB should always be Nullable
-    static_cast<void>(check_function<DataTypeJsonb, true>(
+    check_function<DataTypeJsonb, true>(
             "CAST", {Notnull {TypeIndex::String}, ConstedNotnull {TypeIndex::JSONB}},
-            {{{STRING(R"(abcd)"), Null()}, Null()}})); // should fail
-    static_cast<void>(check_function<DataTypeJsonb, true>(
+            {{{STRING(R"(abcd)"), Null()}, Null()}}); // should fail
+    check_function<DataTypeJsonb, true>(
             "CAST", {Notnull {TypeIndex::String}, ConstedNotnull {TypeIndex::JSONB}},
-            {{{STRING(R"("abcd")"), Null()}, STRING(R"("abcd")")}}));
-}
-
-TEST(FunctionJsonbTEST, GetJSONSTRINGTest) {
-    std::string func_name = "get_json_string";
-    InputTypeSet input_types = {TypeIndex::JSONB, TypeIndex::String};
-
-    // get json from root
-    DataSet data_set = {
-            {{Null(), STRING("$")}, Null()},
-            {{STRING("null"), STRING("$")}, STRING("null")},
-            {{STRING("true"), STRING("$")}, STRING("true")},
-            {{STRING("false"), STRING("$")}, STRING("false")},
-            {{STRING("100"), STRING("$")}, STRING("100")},                                 //int8
-            {{STRING("10000"), STRING("$")}, STRING("10000")},                             // int16
-            {{STRING("1000000000"), STRING("$")}, STRING("1000000000")},                   // int32
-            {{STRING("1152921504606846976"), STRING("$")}, STRING("1152921504606846976")}, // int64
-            {{STRING("6.18"), STRING("$")}, STRING("6.18")},                               // double
-            {{STRING(R"("abcd")"), STRING("$")}, STRING("abcd")},                          // string
-            {{STRING("{}"), STRING("$")}, STRING("{}")}, // empty object
-            {{STRING(R"({"k1":"v31", "k2": 300})"), STRING("$")},
-             STRING(R"({"k1":"v31","k2":300})")},                       // object
-            {{STRING("[]"), STRING("$")}, STRING("[]")},                // empty array
-            {{STRING("[123, 456]"), STRING("$")}, STRING("[123,456]")}, // int array
-            {{STRING(R"(["abc", "def"])"), STRING("$")},
-             STRING(R"(["abc","def"])")}, // string array
-            {{STRING(R"([null, true, false, 100, 6.18, "abc"])"), STRING("$")},
-             STRING(R"([null,true,false,100,6.18,"abc"])")}, // multi type array
-            {{STRING(R"([{"k1":"v41", "k2": 400}, 1, "a", 3.14])"), STRING("$")},
-             STRING(R"([{"k1":"v41","k2":400},1,"a",3.14])")}, // complex array
-    };
-
-    static_cast<void>(check_function<DataTypeString, true>(func_name, input_types, data_set));
-
-    // get json from obejct
-    data_set = {
-            {{Null(), STRING("$.k1")}, Null()},
-            {{STRING("null"), STRING("$.k1")}, Null()},
-            {{STRING("true"), STRING("$.k1")}, Null()},
-            {{STRING("false"), STRING("$.k1")}, Null()},
-            {{STRING("100"), STRING("$.k1")}, Null()},                               //int8
-            {{STRING("10000"), STRING("$.k1")}, Null()},                             // int16
-            {{STRING("1000000000"), STRING("$.k1")}, Null()},                        // int32
-            {{STRING("1152921504606846976"), STRING("$.k1")}, Null()},               // int64
-            {{STRING("6.18"), STRING("$.k1")}, Null()},                              // double
-            {{STRING(R"("abcd")"), STRING("$.k1")}, Null()},                         // string
-            {{STRING("{}"), STRING("$.k1")}, Null()},                                // empty object
-            {{STRING(R"({"k1":"v31", "k2": 300})"), STRING("$.k1")}, STRING("v31")}, // object
-            {{STRING("[]"), STRING("$.k1")}, Null()},                                // empty array
-            {{STRING("[123, 456]"), STRING("$.k1")}, Null()},                        // int array
-            {{STRING(R"(["abc", "def"])"), STRING("$.k1")}, Null()},                 // string array
-            {{STRING(R"([null, true, false, 100, 6.18, "abc"])"), STRING("$.k1")},
-             Null()}, // multi type array
-            {{STRING(R"([{"k1":"v41", "k2": 400}, 1, "a", 3.14])"), STRING("$.k1")},
-             Null()}, // complex array
-    };
-
-    static_cast<void>(check_function<DataTypeString, true>(func_name, input_types, data_set));
-
-    // get json from array
-    data_set = {
-            {{Null(), STRING("$[0]")}, Null()},
-            {{STRING("null"), STRING("$[0]")}, Null()},
-            {{STRING("true"), STRING("$[0]")}, Null()},
-            {{STRING("false"), STRING("$[0]")}, Null()},
-            {{STRING("100"), STRING("$[0]")}, Null()},                 //int8
-            {{STRING("10000"), STRING("$[0]")}, Null()},               // int16
-            {{STRING("1000000000"), STRING("$[0]")}, Null()},          // int32
-            {{STRING("1152921504606846976"), STRING("$[0]")}, Null()}, // int64
-            {{STRING("6.18"), STRING("$[0]")}, Null()},                // double
-            {{STRING(R"("abcd")"), STRING("$[0]")}, Null()},           // string
-            {{STRING("{}"), STRING("$[0]")}, STRING("{}")},            // empty object
-            {{STRING(R"({"k1":"v31", "k2": 300})"), STRING("$[0]")},
-             STRING(R"({"k1":"v31","k2":300})")},     // object
-            {{STRING("[]"), STRING("$[0]")}, Null()}, // empty array
-            {{STRING("null"), STRING("$[1]")}, Null()},
-            {{STRING("true"), STRING("$[1]")}, Null()},
-            {{STRING("false"), STRING("$[1]")}, Null()},
-            {{STRING("100"), STRING("$[1]")}, Null()},                        //int8
-            {{STRING("10000"), STRING("$[1]")}, Null()},                      // int16
-            {{STRING("1000000000"), STRING("$[1]")}, Null()},                 // int32
-            {{STRING("1152921504606846976"), STRING("$[1]")}, Null()},        // int64
-            {{STRING("6.18"), STRING("$[1]")}, Null()},                       // double
-            {{STRING(R"("abcd")"), STRING("$[1]")}, Null()},                  // string
-            {{STRING("{}"), STRING("$[1]")}, Null()},                         // empty object
-            {{STRING(R"({"k1":"v31", "k2": 300})"), STRING("$[1]")}, Null()}, // object
-            {{STRING("[]"), STRING("$[1]")}, Null()},                         // empty array
-            {{STRING("[123, 456]"), STRING("$[0]")}, STRING("123")},          // int array
-            {{STRING("[123, 456]"), STRING("$[1]")}, STRING("456")},          // int array
-            {{STRING("[123, 456]"), STRING("$[2]")}, Null()},                 // int array
-            {{STRING(R"(["abc", "def"])"), STRING("$[0]")}, STRING("abc")},   // string array
-            {{STRING(R"(["abc", "def"])"), STRING("$[1]")}, STRING("def")},   // string array
-            {{STRING(R"(["abc", "def"])"), STRING("$[2]")}, Null()},          // string array
-            {{STRING(R"([null, true, false, 100, 6.18, "abc"])"), STRING("$[0]")},
-             STRING("null")}, // multi type array
-            {{STRING(R"([null, true, false, 100, 6.18, "abc"])"), STRING("$[1]")},
-             STRING("true")}, // multi type array
-            {{STRING(R"([null, true, false, 100, 6.18, "abc"])"), STRING("$[2]")},
-             STRING("false")}, // multi type array
-            {{STRING(R"([null, true, false, 100, 6.18, "abc"])"), STRING("$[3]")},
-             STRING("100")}, // multi type array
-            {{STRING(R"([null, true, false, 100, 6.18, "abc"])"), STRING("$[4]")},
-             STRING("6.18")}, // multi type array
-            {{STRING(R"([null, true, false, 100, 6.18, "abc"])"), STRING("$[5]")},
-             STRING("abc")}, // multi type array
-            {{STRING(R"([null, true, false, 100, 6.18, "abc"])"), STRING("$[6]")},
-             Null()}, // multi type array
-            {{STRING(R"([{"k1":"v41", "k2": 400}, 1, "a", 3.14])"), STRING("$[0]")},
-             STRING(R"({"k1":"v41","k2":400})")}, // complex array
-            {{STRING(R"([{"k1":"v41", "k2": 400}, 1, "a", 3.14])"), STRING("$[1]")},
-             STRING("1")}, // complex array
-            {{STRING(R"([{"k1":"v41", "k2": 400}, 1, "a", 3.14])"), STRING("$[2]")},
-             STRING("a")}, // complex array
-            {{STRING(R"([{"k1":"v41", "k2": 400}, 1, "a", 3.14])"), STRING("$[3]")},
-             STRING("3.14")}, // complex array
-            {{STRING(R"([{"k1":"v41", "k2": 400}, 1, "a", 3.14])"), STRING("$[4]")},
-             Null()}, // complex array
-    };
-
-    static_cast<void>(check_function<DataTypeString, true>(func_name, input_types, data_set));
-
-    // get json with path $[0].k1
-    data_set = {
-            {{Null(), STRING("$[0].k1")}, Null()},
-            {{STRING("null"), STRING("$[0].k1")}, Null()},
-            {{STRING("true"), STRING("$[0].k1")}, Null()},
-            {{STRING("false"), STRING("$[0].k1")}, Null()},
-            {{STRING("100"), STRING("$[0].k1")}, Null()},                 //int8
-            {{STRING("10000"), STRING("$[0].k1")}, Null()},               // int16
-            {{STRING("1000000000"), STRING("$[0].k1")}, Null()},          // int32
-            {{STRING("1152921504606846976"), STRING("$[0].k1")}, Null()}, // int64
-            {{STRING("6.18"), STRING("$[0].k1")}, Null()},                // double
-            {{STRING(R"("abcd")"), STRING("$[0].k1")}, Null()},           // string
-            {{STRING("{}"), STRING("$[0].k1")}, Null()},                  // empty object
-            {{STRING(R"({"k1":"v31", "k2": 300})"), STRING("$[0].k1")}, STRING(R"(v31)")}, // object
-            {{STRING("[]"), STRING("$[0].k1")}, Null()},                // empty array
-            {{STRING("[123, 456]"), STRING("$[0].k1")}, Null()},        // int array
-            {{STRING(R"(["abc", "def"])"), STRING("$[0].k1")}, Null()}, // string array
-            {{STRING(R"([null, true, false, 100, 6.18, "abc"])"), STRING("$[0].k1")},
-             Null()}, // multi type array
-            {{STRING(R"([{"k1":"v41", "k2": 400}, 1, "a", 3.14])"), STRING("$[0].k1")},
-             STRING("v41")}, // complex array
-    };
-
-    static_cast<void>(check_function<DataTypeString, true>(func_name, input_types, data_set));
-}
-
-TEST(FunctionJsonbTEST, GetJsonIntTest) {
-    std::string func_name = "get_json_int";
-    InputTypeSet input_types = {TypeIndex::JSONB, TypeIndex::String};
-
-    // get json from root
-    DataSet data_set = {
-            {{Null(), STRING("$")}, Null()},
-            {{STRING("null"), STRING("$")}, Null()},
-            {{STRING("true"), STRING("$")}, Null()},
-            {{STRING("false"), STRING("$")}, Null()},
-            {{STRING("100"), STRING("$")}, INT(100)},                      //int8
-            {{STRING("10000"), STRING("$")}, INT(10000)},                  // int16
-            {{STRING("1000000000"), STRING("$")}, INT(1000000000)},        // int32
-            {{STRING("1152921504606846976"), STRING("$")}, Null()},        // int64
-            {{STRING("6.18"), STRING("$")}, Null()},                       // double
-            {{STRING(R"("abcd")"), STRING("$")}, Null()},                  // string
-            {{STRING("{}"), STRING("$")}, Null()},                         // empty object
-            {{STRING(R"({"k1":"v31", "k2": 300})"), STRING("$")}, Null()}, // object
-            {{STRING("[]"), STRING("$")}, Null()},                         // empty array
-            {{STRING("[123, 456]"), STRING("$")}, Null()},                 // int array
-            {{STRING(R"(["abc", "def"])"), STRING("$")}, Null()},          // string array
-            {{STRING(R"([null, true, false, 100, 6.18, "abc"])"), STRING("$")},
-             Null()}, // multi type array
-            {{STRING(R"([{"k1":"v41", "k2": 400}, 1, "a", 3.14])"), STRING("$")},
-             Null()}, // complex array
-    };
-
-    static_cast<void>(check_function<DataTypeInt32, true>(func_name, input_types, data_set));
-
-    // get json from obejct
-    data_set = {
-            {{Null(), STRING("$.k1")}, Null()},
-            {{STRING("null"), STRING("$.k1")}, Null()},
-            {{STRING("true"), STRING("$.k1")}, Null()},
-            {{STRING("false"), STRING("$.k1")}, Null()},
-            {{STRING("100"), STRING("$.k1")}, Null()},                        //int8
-            {{STRING("10000"), STRING("$.k1")}, Null()},                      // int16
-            {{STRING("1000000000"), STRING("$.k1")}, Null()},                 // int32
-            {{STRING("1152921504606846976"), STRING("$.k1")}, Null()},        // int64
-            {{STRING("6.18"), STRING("$.k1")}, Null()},                       // double
-            {{STRING(R"("abcd")"), STRING("$.k1")}, Null()},                  // string
-            {{STRING("{}"), STRING("$.k1")}, Null()},                         // empty object
-            {{STRING(R"({"k1":"v31", "k2": 300})"), STRING("$.k1")}, Null()}, // object
-            {{STRING("[]"), STRING("$.k1")}, Null()},                         // empty array
-            {{STRING("[123, 456]"), STRING("$.k1")}, Null()},                 // int array
-            {{STRING(R"(["abc", "def"])"), STRING("$.k1")}, Null()},          // string array
-            {{STRING(R"([null, true, false, 100, 6.18, "abc"])"), STRING("$.k1")},
-             Null()}, // multi type array
-            {{STRING(R"([{"k1":"v41", "k2": 400}, 1, "a", 3.14])"), STRING("$.k1")},
-             Null()}, // complex array
-    };
-
-    static_cast<void>(check_function<DataTypeInt32, true>(func_name, input_types, data_set));
-
-    // get json from array
-    data_set = {
-            {{Null(), STRING("$[0]")}, Null()},
-            {{STRING("null"), STRING("$[0]")}, Null()},
-            {{STRING("true"), STRING("$[0]")}, Null()},
-            {{STRING("false"), STRING("$[0]")}, Null()},
-            {{STRING("100"), STRING("$[0]")}, Null()},                        //int8
-            {{STRING("10000"), STRING("$[0]")}, Null()},                      // int16
-            {{STRING("1000000000"), STRING("$[0]")}, Null()},                 // int32
-            {{STRING("1152921504606846976"), STRING("$[0]")}, Null()},        // int64
-            {{STRING("6.18"), STRING("$[0]")}, Null()},                       // double
-            {{STRING(R"("abcd")"), STRING("$[0]")}, Null()},                  // string
-            {{STRING("{}"), STRING("$[0]")}, Null()},                         // empty object
-            {{STRING(R"({"k1":"v31", "k2": 300})"), STRING("$[0]")}, Null()}, // object
-            {{STRING("[]"), STRING("$[0]")}, Null()},                         // empty array
-            {{STRING("null"), STRING("$[1]")}, Null()},
-            {{STRING("true"), STRING("$[1]")}, Null()},
-            {{STRING("false"), STRING("$[1]")}, Null()},
-            {{STRING("100"), STRING("$[1]")}, Null()},                        //int8
-            {{STRING("10000"), STRING("$[1]")}, Null()},                      // int16
-            {{STRING("1000000000"), STRING("$[1]")}, Null()},                 // int32
-            {{STRING("1152921504606846976"), STRING("$[1]")}, Null()},        // int64
-            {{STRING("6.18"), STRING("$[1]")}, Null()},                       // double
-            {{STRING(R"("abcd")"), STRING("$[1]")}, Null()},                  // string
-            {{STRING("{}"), STRING("$[1]")}, Null()},                         // empty object
-            {{STRING(R"({"k1":"v31", "k2": 300})"), STRING("$[1]")}, Null()}, // object
-            {{STRING("[]"), STRING("$[1]")}, Null()},                         // empty array
-            {{STRING("[123, 456]"), STRING("$[0]")}, INT(123)},               // int array
-            {{STRING("[123, 456]"), STRING("$[1]")}, INT(456)},               // int array
-            {{STRING("[123, 456]"), STRING("$[2]")}, Null()},                 // int array
-            {{STRING(R"(["abc", "def"])"), STRING("$[0]")}, Null()},          // string array
-            {{STRING(R"(["abc", "def"])"), STRING("$[1]")}, Null()},          // string array
-            {{STRING(R"(["abc", "def"])"), STRING("$[2]")}, Null()},          // string array
-            {{STRING(R"([null, true, false, 100, 6.18, "abc"])"), STRING("$[0]")},
-             Null()}, // multi type array
-            {{STRING(R"([null, true, false, 100, 6.18, "abc"])"), STRING("$[1]")},
-             Null()}, // multi type array
-            {{STRING(R"([null, true, false, 100, 6.18, "abc"])"), STRING("$[2]")},
-             Null()}, // multi type array
-            {{STRING(R"([null, true, false, 100, 6.18, "abc"])"), STRING("$[3]")},
-             INT(100)}, // multi type array
-            {{STRING(R"([null, true, false, 100, 6.18, "abc"])"), STRING("$[4]")},
-             Null()}, // multi type array
-            {{STRING(R"([null, true, false, 100, 6.18, "abc"])"), STRING("$[5]")},
-             Null()}, // multi type array
-            {{STRING(R"([null, true, false, 100, 6.18, "abc"])"), STRING("$[6]")},
-             Null()}, // multi type array
-            {{STRING(R"([{"k1":"v41", "k2": 400}, 1, "a", 3.14])"), STRING("$[0]")},
-             Null()}, // complex array
-            {{STRING(R"([{"k1":"v41", "k2": 400}, 1, "a", 3.14])"), STRING("$[1]")},
-             INT(1)}, // complex array
-            {{STRING(R"([{"k1":"v41", "k2": 400}, 1, "a", 3.14])"), STRING("$[2]")},
-             Null()}, // complex array
-            {{STRING(R"([{"k1":"v41", "k2": 400}, 1, "a", 3.14])"), STRING("$[3]")},
-             Null()}, // complex array
-            {{STRING(R"([{"k1":"v41", "k2": 400}, 1, "a", 3.14])"), STRING("$[4]")},
-             Null()}, // complex array
-    };
-
-    static_cast<void>(check_function<DataTypeInt32, true>(func_name, input_types, data_set));
-
-    // get json with path $[0].k1
-    data_set = {
-            {{Null(), STRING("$[0].k1")}, Null()},
-            {{STRING("null"), STRING("$[0].k1")}, Null()},
-            {{STRING("true"), STRING("$[0].k1")}, Null()},
-            {{STRING("false"), STRING("$[0].k1")}, Null()},
-            {{STRING("100"), STRING("$[0].k1")}, Null()},                        //int8
-            {{STRING("10000"), STRING("$[0].k1")}, Null()},                      // int16
-            {{STRING("1000000000"), STRING("$[0].k1")}, Null()},                 // int32
-            {{STRING("1152921504606846976"), STRING("$[0].k1")}, Null()},        // int64
-            {{STRING("6.18"), STRING("$[0].k1")}, Null()},                       // double
-            {{STRING(R"("abcd")"), STRING("$[0].k1")}, Null()},                  // string
-            {{STRING("{}"), STRING("$[0].k1")}, Null()},                         // empty object
-            {{STRING(R"({"k1":"v31", "k2": 300})"), STRING("$[0].k1")}, Null()}, // object
-            {{STRING("[]"), STRING("$[0].k1")}, Null()},                         // empty array
-            {{STRING("[123, 456]"), STRING("$[0].k1")}, Null()},                 // int array
-            {{STRING(R"(["abc", "def"])"), STRING("$[0].k1")}, Null()},          // string array
-            {{STRING(R"([null, true, false, 100, 6.18, "abc"])"), STRING("$[0].k1")},
-             Null()}, // multi type array
-            {{STRING(R"([{"k1":"v41", "k2": 400}, 1, "a", 3.14])"), STRING("$[0].k1")},
-             Null()}, // complex array
-            {{STRING(R"([{"k1":"v41", "k2": 400}, 1, "a", 3.14])"), STRING("$[0].k2")},
-             INT(400)}, // complex array
-    };
-
-    static_cast<void>(check_function<DataTypeInt32, true>(func_name, input_types, data_set));
-}
-
-TEST(FunctionJsonbTEST, GetJsonBigIntTest) {
-    std::string func_name = "get_json_bigint";
-    InputTypeSet input_types = {TypeIndex::JSONB, TypeIndex::String};
-
-    // get json from root
-    DataSet data_set = {
-            {{Null(), STRING("$")}, Null()},
-            {{STRING("null"), STRING("$")}, Null()},
-            {{STRING("true"), STRING("$")}, Null()},
-            {{STRING("false"), STRING("$")}, Null()},
-            {{STRING("100"), STRING("$")}, BIGINT(100)},                                 //int8
-            {{STRING("10000"), STRING("$")}, BIGINT(10000)},                             // int16
-            {{STRING("1000000000"), STRING("$")}, BIGINT(1000000000)},                   // int32
-            {{STRING("1152921504606846976"), STRING("$")}, BIGINT(1152921504606846976)}, // int64
-            {{STRING("6.18"), STRING("$")}, Null()},                                     // double
-            {{STRING(R"("abcd")"), STRING("$")}, Null()},                                // string
-            {{STRING("{}"), STRING("$")}, Null()},                         // empty object
-            {{STRING(R"({"k1":"v31", "k2": 300})"), STRING("$")}, Null()}, // object
-            {{STRING("[]"), STRING("$")}, Null()},                         // empty array
-            {{STRING("[123, 456]"), STRING("$")}, Null()},                 // int array
-            {{STRING(R"(["abc", "def"])"), STRING("$")}, Null()},          // string array
-            {{STRING(R"([null, true, false, 100, 6.18, "abc"])"), STRING("$")},
-             Null()}, // multi type array
-            {{STRING(R"([{"k1":"v41", "k2": 400}, 1, "a", 3.14])"), STRING("$")},
-             Null()}, // complex array
-    };
-
-    static_cast<void>(check_function<DataTypeInt64, true>(func_name, input_types, data_set));
-
-    // get json from obejct
-    data_set = {
-            {{Null(), STRING("$.k1")}, Null()},
-            {{STRING("null"), STRING("$.k1")}, Null()},
-            {{STRING("true"), STRING("$.k1")}, Null()},
-            {{STRING("false"), STRING("$.k1")}, Null()},
-            {{STRING("100"), STRING("$.k1")}, Null()},                        //int8
-            {{STRING("10000"), STRING("$.k1")}, Null()},                      // int16
-            {{STRING("1000000000"), STRING("$.k1")}, Null()},                 // int32
-            {{STRING("1152921504606846976"), STRING("$.k1")}, Null()},        // int64
-            {{STRING("6.18"), STRING("$.k1")}, Null()},                       // double
-            {{STRING(R"("abcd")"), STRING("$.k1")}, Null()},                  // string
-            {{STRING("{}"), STRING("$.k1")}, Null()},                         // empty object
-            {{STRING(R"({"k1":"v31", "k2": 300})"), STRING("$.k1")}, Null()}, // object
-            {{STRING("[]"), STRING("$.k1")}, Null()},                         // empty array
-            {{STRING("[123, 456]"), STRING("$.k1")}, Null()},                 // int array
-            {{STRING(R"(["abc", "def"])"), STRING("$.k1")}, Null()},          // string array
-            {{STRING(R"([null, true, false, 100, 6.18, "abc"])"), STRING("$.k1")},
-             Null()}, // multi type array
-            {{STRING(R"([{"k1":"v41", "k2": 400}, 1, "a", 3.14])"), STRING("$.k1")},
-             Null()}, // complex array
-    };
-
-    static_cast<void>(check_function<DataTypeInt64, true>(func_name, input_types, data_set));
-
-    // get json from array
-    data_set = {
-            {{Null(), STRING("$[0]")}, Null()},
-            {{STRING("null"), STRING("$[0]")}, Null()},
-            {{STRING("true"), STRING("$[0]")}, Null()},
-            {{STRING("false"), STRING("$[0]")}, Null()},
-            {{STRING("100"), STRING("$[0]")}, Null()},                        //int8
-            {{STRING("10000"), STRING("$[0]")}, Null()},                      // int16
-            {{STRING("1000000000"), STRING("$[0]")}, Null()},                 // int32
-            {{STRING("1152921504606846976"), STRING("$[0]")}, Null()},        // int64
-            {{STRING("6.18"), STRING("$[0]")}, Null()},                       // double
-            {{STRING(R"("abcd")"), STRING("$[0]")}, Null()},                  // string
-            {{STRING("{}"), STRING("$[0]")}, Null()},                         // empty object
-            {{STRING(R"({"k1":"v31", "k2": 300})"), STRING("$[0]")}, Null()}, // object
-            {{STRING("[]"), STRING("$[0]")}, Null()},                         // empty array
-            {{STRING("null"), STRING("$[1]")}, Null()},
-            {{STRING("true"), STRING("$[1]")}, Null()},
-            {{STRING("false"), STRING("$[1]")}, Null()},
-            {{STRING("100"), STRING("$[1]")}, Null()},                        //int8
-            {{STRING("10000"), STRING("$[1]")}, Null()},                      // int16
-            {{STRING("1000000000"), STRING("$[1]")}, Null()},                 // int32
-            {{STRING("1152921504606846976"), STRING("$[1]")}, Null()},        // int64
-            {{STRING("6.18"), STRING("$[1]")}, Null()},                       // double
-            {{STRING(R"("abcd")"), STRING("$[1]")}, Null()},                  // string
-            {{STRING("{}"), STRING("$[1]")}, Null()},                         // empty object
-            {{STRING(R"({"k1":"v31", "k2": 300})"), STRING("$[1]")}, Null()}, // object
-            {{STRING("[]"), STRING("$[1]")}, Null()},                         // empty array
-            {{STRING("[123, 456]"), STRING("$[0]")}, BIGINT(123)},            // int array
-            {{STRING("[123, 456]"), STRING("$[1]")}, BIGINT(456)},            // int array
-            {{STRING("[123, 456]"), STRING("$[2]")}, Null()},                 // int array
-            {{STRING(R"(["abc", "def"])"), STRING("$[0]")}, Null()},          // string array
-            {{STRING(R"(["abc", "def"])"), STRING("$[1]")}, Null()},          // string array
-            {{STRING(R"(["abc", "def"])"), STRING("$[2]")}, Null()},          // string array
-            {{STRING(R"([null, true, false, 100, 6.18, "abc"])"), STRING("$[0]")},
-             Null()}, // multi type array
-            {{STRING(R"([null, true, false, 100, 6.18, "abc"])"), STRING("$[1]")},
-             Null()}, // multi type array
-            {{STRING(R"([null, true, false, 100, 6.18, "abc"])"), STRING("$[2]")},
-             Null()}, // multi type array
-            {{STRING(R"([null, true, false, 100, 6.18, "abc"])"), STRING("$[3]")},
-             BIGINT(100)}, // multi type array
-            {{STRING(R"([null, true, false, 100, 6.18, "abc"])"), STRING("$[4]")},
-             Null()}, // multi type array
-            {{STRING(R"([null, true, false, 100, 6.18, "abc"])"), STRING("$[5]")},
-             Null()}, // multi type array
-            {{STRING(R"([null, true, false, 100, 6.18, "abc"])"), STRING("$[6]")},
-             Null()}, // multi type array
-            {{STRING(R"([{"k1":"v41", "k2": 400}, 1, "a", 3.14])"), STRING("$[0]")},
-             Null()}, // complex array
-            {{STRING(R"([{"k1":"v41", "k2": 400}, 1, "a", 3.14])"), STRING("$[1]")},
-             BIGINT(1)}, // complex array
-            {{STRING(R"([{"k1":"v41", "k2": 400}, 1, "a", 3.14])"), STRING("$[2]")},
-             Null()}, // complex array
-            {{STRING(R"([{"k1":"v41", "k2": 400}, 1, "a", 3.14])"), STRING("$[3]")},
-             Null()}, // complex array
-            {{STRING(R"([{"k1":"v41", "k2": 400}, 1, "a", 3.14])"), STRING("$[4]")},
-             Null()}, // complex array
-    };
-
-    static_cast<void>(check_function<DataTypeInt64, true>(func_name, input_types, data_set));
-
-    // get json with path $[0].k1
-    data_set = {
-            {{Null(), STRING("$[0].k1")}, Null()},
-            {{STRING("null"), STRING("$[0].k1")}, Null()},
-            {{STRING("true"), STRING("$[0].k1")}, Null()},
-            {{STRING("false"), STRING("$[0].k1")}, Null()},
-            {{STRING("100"), STRING("$[0].k1")}, Null()},                        //int8
-            {{STRING("10000"), STRING("$[0].k1")}, Null()},                      // int16
-            {{STRING("1000000000"), STRING("$[0].k1")}, Null()},                 // int32
-            {{STRING("1152921504606846976"), STRING("$[0].k1")}, Null()},        // int64
-            {{STRING("6.18"), STRING("$[0].k1")}, Null()},                       // double
-            {{STRING(R"("abcd")"), STRING("$[0].k1")}, Null()},                  // string
-            {{STRING("{}"), STRING("$[0].k1")}, Null()},                         // empty object
-            {{STRING(R"({"k1":"v31", "k2": 300})"), STRING("$[0].k1")}, Null()}, // object
-            {{STRING("[]"), STRING("$[0].k1")}, Null()},                         // empty array
-            {{STRING("[123, 456]"), STRING("$[0].k1")}, Null()},                 // int array
-            {{STRING(R"(["abc", "def"])"), STRING("$[0].k1")}, Null()},          // string array
-            {{STRING(R"([null, true, false, 100, 6.18, "abc"])"), STRING("$[0].k1")},
-             Null()}, // multi type array
-            {{STRING(R"([{"k1":"v41", "k2": 400}, 1, "a", 3.14])"), STRING("$[0].k1")},
-             Null()}, // complex array
-            {{STRING(R"([{"k1":"v41", "k2": 400}, 1, "a", 3.14])"), STRING("$[0].k2")},
-             BIGINT(400)}, // complex array
-    };
-
-    static_cast<void>(check_function<DataTypeInt64, true>(func_name, input_types, data_set));
-}
-
-TEST(FunctionJsonbTEST, GetJsonDoubleTest) {
-    std::string func_name = "get_json_double";
-    InputTypeSet input_types = {TypeIndex::JSONB, TypeIndex::String};
-
-    // get json from root
-    DataSet data_set = {
-            {{Null(), STRING("$")}, Null()},
-            {{STRING("null"), STRING("$")}, Null()},
-            {{STRING("true"), STRING("$")}, Null()},
-            {{STRING("false"), STRING("$")}, Null()},
-            {{STRING("100"), STRING("$")}, DOUBLE(100)},                                 //int8
-            {{STRING("10000"), STRING("$")}, DOUBLE(10000)},                             // int16
-            {{STRING("1000000000"), STRING("$")}, DOUBLE(1000000000)},                   // int32
-            {{STRING("1152921504606846976"), STRING("$")}, DOUBLE(1152921504606846976)}, // int64
-            {{STRING("6.18"), STRING("$")}, DOUBLE(6.18)},                               // double
-            {{STRING(R"("abcd")"), STRING("$")}, Null()},                                // string
-            {{STRING("{}"), STRING("$")}, Null()},                         // empty object
-            {{STRING(R"({"k1":"v31", "k2": 300})"), STRING("$")}, Null()}, // object
-            {{STRING("[]"), STRING("$")}, Null()},                         // empty array
-            {{STRING("[123, 456]"), STRING("$")}, Null()},                 // int array
-            {{STRING(R"(["abc", "def"])"), STRING("$")}, Null()},          // string array
-            {{STRING(R"([null, true, false, 100, 6.18, "abc"])"), STRING("$")},
-             Null()}, // multi type array
-            {{STRING(R"([{"k1":"v41", "k2": 400}, 1, "a", 3.14])"), STRING("$")},
-             Null()}, // complex array
-    };
-
-    static_cast<void>(check_function<DataTypeFloat64, true>(func_name, input_types, data_set));
-
-    // get json from obejct
-    data_set = {
-            {{STRING("null"), STRING("$.k1")}, Null()},
-            {{STRING("true"), STRING("$.k1")}, Null()},
-            {{STRING("false"), STRING("$.k1")}, Null()},
-            {{STRING("100"), STRING("$.k1")}, Null()},                        //int8
-            {{STRING("10000"), STRING("$.k1")}, Null()},                      // int16
-            {{STRING("1000000000"), STRING("$.k1")}, Null()},                 // int32
-            {{STRING("1152921504606846976"), STRING("$.k1")}, Null()},        // int64
-            {{STRING("6.18"), STRING("$.k1")}, Null()},                       // double
-            {{STRING(R"("abcd")"), STRING("$.k1")}, Null()},                  // string
-            {{STRING("{}"), STRING("$.k1")}, Null()},                         // empty object
-            {{STRING(R"({"k1":"v31", "k2": 300})"), STRING("$.k1")}, Null()}, // object
-            {{STRING("[]"), STRING("$.k1")}, Null()},                         // empty array
-            {{STRING("[123, 456]"), STRING("$.k1")}, Null()},                 // int array
-            {{STRING(R"(["abc", "def"])"), STRING("$.k1")}, Null()},          // string array
-            {{STRING(R"([null, true, false, 100, 6.18, "abc"])"), STRING("$.k1")},
-             Null()}, // multi type array
-            {{STRING(R"([{"k1":"v41", "k2": 400}, 1, "a", 3.14])"), STRING("$.k1")},
-             Null()}, // complex array
-    };
-
-    static_cast<void>(check_function<DataTypeFloat64, true>(func_name, input_types, data_set));
-
-    // get json from array
-    data_set = {
-            {{STRING("null"), STRING("$[0]")}, Null()},
-            {{STRING("true"), STRING("$[0]")}, Null()},
-            {{STRING("false"), STRING("$[0]")}, Null()},
-            {{STRING("100"), STRING("$[0]")}, Null()},                        //int8
-            {{STRING("10000"), STRING("$[0]")}, Null()},                      // int16
-            {{STRING("1000000000"), STRING("$[0]")}, Null()},                 // int32
-            {{STRING("1152921504606846976"), STRING("$[0]")}, Null()},        // int64
-            {{STRING("6.18"), STRING("$[0]")}, Null()},                       // double
-            {{STRING(R"("abcd")"), STRING("$[0]")}, Null()},                  // string
-            {{STRING("{}"), STRING("$[0]")}, Null()},                         // empty object
-            {{STRING(R"({"k1":"v31", "k2": 300})"), STRING("$[0]")}, Null()}, // object
-            {{STRING("[]"), STRING("$[0]")}, Null()},                         // empty array
-            {{STRING("null"), STRING("$[1]")}, Null()},
-            {{STRING("true"), STRING("$[1]")}, Null()},
-            {{STRING("false"), STRING("$[1]")}, Null()},
-            {{STRING("100"), STRING("$[1]")}, Null()},                        //int8
-            {{STRING("10000"), STRING("$[1]")}, Null()},                      // int16
-            {{STRING("1000000000"), STRING("$[1]")}, Null()},                 // int32
-            {{STRING("1152921504606846976"), STRING("$[1]")}, Null()},        // int64
-            {{STRING("6.18"), STRING("$[1]")}, Null()},                       // double
-            {{STRING(R"("abcd")"), STRING("$[1]")}, Null()},                  // string
-            {{STRING("{}"), STRING("$[1]")}, Null()},                         // empty object
-            {{STRING(R"({"k1":"v31", "k2": 300})"), STRING("$[1]")}, Null()}, // object
-            {{STRING("[]"), STRING("$[1]")}, Null()},                         // empty array
-            {{STRING("[123, 456]"), STRING("$[0]")}, DOUBLE(123)},            // int array
-            {{STRING("[123, 456]"), STRING("$[1]")}, DOUBLE(456)},            // int array
-            {{STRING("[123, 456]"), STRING("$[2]")}, Null()},                 // int array
-            {{STRING(R"(["abc", "def"])"), STRING("$[0]")}, Null()},          // string array
-            {{STRING(R"(["abc", "def"])"), STRING("$[1]")}, Null()},          // string array
-            {{STRING(R"(["abc", "def"])"), STRING("$[2]")}, Null()},          // string array
-            {{STRING(R"([null, true, false, 100, 6.18, "abc"])"), STRING("$[0]")},
-             Null()}, // multi type array
-            {{STRING(R"([null, true, false, 100, 6.18, "abc"])"), STRING("$[1]")},
-             Null()}, // multi type array
-            {{STRING(R"([null, true, false, 100, 6.18, "abc"])"), STRING("$[2]")},
-             Null()}, // multi type array
-            {{STRING(R"([null, true, false, 100, 6.18, "abc"])"), STRING("$[3]")},
-             DOUBLE(100)}, // multi type array
-            {{STRING(R"([null, true, false, 100, 6.18, "abc"])"), STRING("$[4]")},
-             DOUBLE(6.18)}, // multi type array
-            {{STRING(R"([null, true, false, 100, 6.18, "abc"])"), STRING("$[5]")},
-             Null()}, // multi type array
-            {{STRING(R"([null, true, false, 100, 6.18, "abc"])"), STRING("$[6]")},
-             Null()}, // multi type array
-            {{STRING(R"([{"k1":"v41", "k2": 400}, 1, "a", 3.14])"), STRING("$[0]")},
-             Null()}, // complex array
-            {{STRING(R"([{"k1":"v41", "k2": 400}, 1, "a", 3.14])"), STRING("$[1]")},
-             DOUBLE(1)}, // complex array
-            {{STRING(R"([{"k1":"v41", "k2": 400}, 1, "a", 3.14])"), STRING("$[2]")},
-             Null()}, // complex array
-            {{STRING(R"([{"k1":"v41", "k2": 400}, 1, "a", 3.14])"), STRING("$[3]")},
-             DOUBLE(3.14)}, // complex array
-            {{STRING(R"([{"k1":"v41", "k2": 400}, 1, "a", 3.14])"), STRING("$[4]")},
-             Null()}, // complex array
-    };
-
-    static_cast<void>(check_function<DataTypeFloat64, true>(func_name, input_types, data_set));
-
-    // get json with path $[0].k1
-    data_set = {
-            {{STRING("null"), STRING("$[0].k1")}, Null()},
-            {{STRING("true"), STRING("$[0].k1")}, Null()},
-            {{STRING("false"), STRING("$[0].k1")}, Null()},
-            {{STRING("100"), STRING("$[0].k1")}, Null()},                        //int8
-            {{STRING("10000"), STRING("$[0].k1")}, Null()},                      // int16
-            {{STRING("1000000000"), STRING("$[0].k1")}, Null()},                 // int32
-            {{STRING("1152921504606846976"), STRING("$[0].k1")}, Null()},        // int64
-            {{STRING("6.18"), STRING("$[0].k1")}, Null()},                       // double
-            {{STRING(R"("abcd")"), STRING("$[0].k1")}, Null()},                  // string
-            {{STRING("{}"), STRING("$[0].k1")}, Null()},                         // empty object
-            {{STRING(R"({"k1":"v31", "k2": 300})"), STRING("$[0].k1")}, Null()}, // object
-            {{STRING("[]"), STRING("$[0].k1")}, Null()},                         // empty array
-            {{STRING("[123, 456]"), STRING("$[0].k1")}, Null()},                 // int array
-            {{STRING(R"(["abc", "def"])"), STRING("$[0].k1")}, Null()},          // string array
-            {{STRING(R"([null, true, false, 100, 6.18, "abc"])"), STRING("$[0].k1")},
-             Null()}, // multi type array
-            {{STRING(R"([{"k1":"v41", "k2": 400}, 1, "a", 3.14])"), STRING("$[0].k1")},
-             Null()}, // complex array
-            {{STRING(R"([{"k1":"v41", "k2": 400}, 1, "a", 3.14])"), STRING("$[0].k2")},
-             DOUBLE(400)}, // complex array
-    };
-
-    static_cast<void>(check_function<DataTypeFloat64, true>(func_name, input_types, data_set));
+            {{{STRING(R"("abcd")"), Null()}, STRING(R"("abcd")")}});
 }
 } // namespace doris::vectorized

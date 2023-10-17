@@ -56,12 +56,7 @@ template <typename T>
 struct AggregateFunctionSumData {
     T sum {};
 
-    void add(T value) {
-#ifdef __clang__
-#pragma clang fp reassociate(on)
-#endif
-        sum += value;
-    }
+    void add(T value) { sum += value; }
 
     void merge(const AggregateFunctionSumData& rhs) { sum += rhs.sum; }
 

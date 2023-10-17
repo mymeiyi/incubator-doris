@@ -76,7 +76,6 @@ none
     	"data": {
     		"queryPort": 9030,
     		"rpcPort": 9020,
-            "arrowFlightSqlPort": 9040,
     		"maxReplayedJournal": 17287
     	},
     	"count": 0
@@ -86,7 +85,6 @@ none
     * `queryPort` is the MySQL protocol port of the FE node.
     * `rpcPort` is the thrift RPC port of the FE node.
     * `maxReplayedJournal` represents the maximum metadata journal id currently played back by the FE node.
-    * `arrowFlightSqlPort` is the Arrow Flight SQL port of the FE node.
     
 ## Examples
 
@@ -116,7 +114,6 @@ none
     	"data": {
     		"queryPort": 9030,
     		"rpcPort": 9020,
-            "arrowFlightSqlPort": 9040,
     		"maxReplayedJournal": 17287
     	},
     	"count": 0

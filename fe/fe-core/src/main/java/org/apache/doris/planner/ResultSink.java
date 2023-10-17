@@ -22,7 +22,6 @@ import org.apache.doris.thrift.TDataSinkType;
 import org.apache.doris.thrift.TExplainLevel;
 import org.apache.doris.thrift.TFetchOption;
 import org.apache.doris.thrift.TResultSink;
-import org.apache.doris.thrift.TResultSinkType;
 
 /**
  * Result sink that forwards data to
@@ -34,15 +33,8 @@ public class ResultSink extends DataSink {
     // Two phase fetch option
     private TFetchOption fetchOption;
 
-    private TResultSinkType resultSinkType = TResultSinkType.MYSQL_PROTOCAL;
-
     public ResultSink(PlanNodeId exchNodeId) {
         this.exchNodeId = exchNodeId;
-    }
-
-    public ResultSink(PlanNodeId exchNodeId, TResultSinkType resultSinkType) {
-        this.exchNodeId = exchNodeId;
-        this.resultSinkType = resultSinkType;
     }
 
     @Override
@@ -57,7 +49,6 @@ public class ResultSink extends DataSink {
                 strBuilder.append(prefix).append("   ").append("FETCH ROW STORE\n");
             }
         }
-        strBuilder.append(prefix).append("   ").append(resultSinkType).append("\n");
         return strBuilder.toString();
     }
 
@@ -72,7 +63,6 @@ public class ResultSink extends DataSink {
         if (fetchOption != null) {
             tResultSink.setFetchOption(fetchOption);
         }
-        tResultSink.setType(resultSinkType);
         result.setResultSink(tResultSink);
         return result;
     }

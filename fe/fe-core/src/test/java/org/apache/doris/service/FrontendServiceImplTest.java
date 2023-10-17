@@ -153,7 +153,7 @@ public class FrontendServiceImplTest {
         TCreatePartitionResult partition = impl.createPartition(request);
 
         Assert.assertEquals(partition.getStatus().getStatusCode(), TStatusCode.OK);
-        List<Partition> pbs = (List<Partition>) table.getAllPartitions();
-        Assert.assertEquals(pbs.size(), 1);
+        Partition pbeijing = table.getPartition("pBEIJING");
+        Assert.assertNotNull(pbeijing);
     }
 }

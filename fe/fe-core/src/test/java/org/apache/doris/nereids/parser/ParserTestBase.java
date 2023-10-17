@@ -20,7 +20,6 @@ package org.apache.doris.nereids.parser;
 import org.apache.doris.nereids.util.ExpressionParseChecker;
 import org.apache.doris.nereids.util.MemoPatternMatchSupported;
 import org.apache.doris.nereids.util.PlanParseChecker;
-import org.apache.doris.nereids.util.TrinoDialectPlanParseChecker;
 
 /**
  * Base class to check SQL parsing result.
@@ -32,9 +31,5 @@ public abstract class ParserTestBase implements MemoPatternMatchSupported {
 
     public ExpressionParseChecker parseExpression(String sql) {
         return new ExpressionParseChecker(sql);
-    }
-
-    public TrinoDialectPlanParseChecker trinoDialectParsePlan(String sql) {
-        return new TrinoDialectPlanParseChecker(sql);
     }
 }

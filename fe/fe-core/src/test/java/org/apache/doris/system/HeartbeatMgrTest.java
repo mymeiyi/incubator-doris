@@ -95,7 +95,6 @@ public class HeartbeatMgrTest {
         normalResult.setReplayedJournalId(191224);
         normalResult.setQueryPort(9131);
         normalResult.setRpcPort(9121);
-        normalResult.setArrowFlightSqlPort(9141);
         normalResult.setVersion("test");
 
         TFrontendPingFrontendRequest badRequest = new TFrontendPingFrontendRequest(12345, "abcde");
@@ -124,7 +123,6 @@ public class HeartbeatMgrTest {
         Assert.assertEquals(191224, hbResponse.getReplayedJournalId());
         Assert.assertEquals(9131, hbResponse.getQueryPort());
         Assert.assertEquals(9121, hbResponse.getRpcPort());
-        Assert.assertEquals(9141, hbResponse.getArrowFlightSqlPort());
         Assert.assertEquals(HbStatus.OK, hbResponse.getStatus());
         Assert.assertEquals("test", hbResponse.getVersion());
 
@@ -137,7 +135,6 @@ public class HeartbeatMgrTest {
         Assert.assertEquals(0, hbResponse.getReplayedJournalId());
         Assert.assertEquals(0, hbResponse.getQueryPort());
         Assert.assertEquals(0, hbResponse.getRpcPort());
-        Assert.assertEquals(0, hbResponse.getArrowFlightSqlPort());
         Assert.assertEquals(HbStatus.BAD, hbResponse.getStatus());
         Assert.assertEquals("not ready", hbResponse.getMsg());
     }

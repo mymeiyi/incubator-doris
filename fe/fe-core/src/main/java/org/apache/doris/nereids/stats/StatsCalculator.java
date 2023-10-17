@@ -18,9 +18,11 @@
 package org.apache.doris.nereids.stats;
 
 import org.apache.doris.analysis.IntLiteral;
+import org.apache.doris.catalog.Column;
 import org.apache.doris.catalog.Env;
 import org.apache.doris.catalog.OlapTable;
 import org.apache.doris.catalog.PartitionType;
+import org.apache.doris.catalog.SchemaTable;
 import org.apache.doris.catalog.TableIf;
 import org.apache.doris.common.Config;
 import org.apache.doris.common.FeConstants;
@@ -220,23 +222,11 @@ public class StatsCalculator extends DefaultPlanVisitor<Statistics, Void> {
     private void estimate() {
         Plan plan = groupExpression.getPlan();
         Statistics newStats = plan.accept(this, null);
-        newStats.enforceValid();
         // We ensure that the rowCount remains unchanged in order to make the cost of each plan comparable.
         if (groupExpression.getOwnerGroup().getStatistics() == null) {
             groupExpression.getOwnerGroup().setStatistics(newStats);
             groupExpression.setEstOutputRowCount(newStats.getRowCount());
         } else {
-            // the reason why we update col stats here.
-            // consider join between 3 tables: A/B/C with join condition: A.id=B.id=C.id and a filter: C.id=1
-            // in the final join result, the ndv of A.id/B.id/C.id should be 1
-            // suppose we have 2 candidate plans
-            // plan1: (A join B on A.id=B.id) join C on B.id=C.id
-            // plan2:(B join C)join A
-            // suppose plan1 is estimated before plan2
-            //
-            // after estimate the outer join of plan1 (join C), we update B.id.ndv=1, but A.id.ndv is not updated
-            // then we estimate plan2. the stats of plan2 is denoted by stats2. obviously, stats2.A.id.ndv is 1
-            // now we update OwnerGroup().getStatistics().A.id.ndv to 1
             groupExpression.getOwnerGroup().getStatistics().updateNdv(newStats);
         }
         groupExpression.setStatDerived(true);
@@ -539,7 +529,7 @@ public class StatsCalculator extends DefaultPlanVisitor<Statistics, Void> {
 
     private Statistics computeAssertNumRows(long desiredNumOfRows) {
         Statistics statistics = groupExpression.childStatistics(0);
-        statistics.withRowCountAndEnforceValid(Math.min(1, statistics.getRowCount()));
+        statistics.withRowCount(Math.min(1, statistics.getRowCount()));
         return statistics;
     }
 
@@ -626,7 +616,7 @@ public class StatsCalculator extends DefaultPlanVisitor<Statistics, Void> {
         double rowCount = catalogRelation.getTable().estimatedRowCount();
         for (SlotReference slotReference : slotSet) {
             String colName = slotReference.getName();
-            boolean shouldIgnoreThisCol = StatisticConstants.shouldIgnoreCol(table, slotReference.getColumn().get());
+            boolean shouldIgnoreThisCol = shouldIgnoreCol(table, slotReference.getColumn().get());
 
             if (colName == null) {
                 throw new RuntimeException(String.format("Invalid slot: %s", slotReference.getExprId()));
@@ -657,7 +647,7 @@ public class StatsCalculator extends DefaultPlanVisitor<Statistics, Void> {
 
     private Statistics computeTopN(TopN topN) {
         Statistics stats = groupExpression.childStatistics(0);
-        return stats.withRowCountAndEnforceValid(Math.min(stats.getRowCount(), topN.getLimit()));
+        return stats.withRowCount(Math.min(stats.getRowCount(), topN.getLimit()));
     }
 
     private Statistics computePartitionTopN(PartitionTopN partitionTopN) {
@@ -690,12 +680,12 @@ public class StatsCalculator extends DefaultPlanVisitor<Statistics, Void> {
         // TODO: for the filter push down window situation, we will prune the row count twice
         //  because we keep the pushed down filter. And it will be calculated twice, one of them in 'PartitionTopN'
         //  and the other is in 'Filter'. It's hard to dismiss.
-        return childStats.withRowCountAndEnforceValid(rowCount);
+        return childStats.updateRowCountOnly(rowCount);
     }
 
     private Statistics computeLimit(Limit limit) {
         Statistics stats = groupExpression.childStatistics(0);
-        return stats.withRowCountAndEnforceValid(Math.min(stats.getRowCount(), limit.getLimit()));
+        return stats.withRowCount(Math.min(stats.getRowCount(), limit.getLimit()));
     }
 
     private double estimateGroupByRowCount(List<Expression> groupByExpressions, Statistics childStats) {
@@ -878,7 +868,7 @@ public class StatsCalculator extends DefaultPlanVisitor<Statistics, Void> {
         for (int i = 1; i < setOperation.getArity(); ++i) {
             rowCount = Math.min(rowCount, groupExpression.childStatistics(i).getRowCount());
         }
-        double minProd = Double.POSITIVE_INFINITY;
+        double minProd = Double.MAX_VALUE;
         for (Group group : groupExpression.children()) {
             Statistics statistics = group.getStatistics();
             double prod = 1.0;
@@ -896,7 +886,7 @@ public class StatsCalculator extends DefaultPlanVisitor<Statistics, Void> {
             leftChildStats.addColumnStats(outputs.get(i),
                     leftChildStats.findColumnStatistics(leftChildOutputs.get(i)));
         }
-        return leftChildStats.withRowCountAndEnforceValid(rowCount);
+        return leftChildStats.withRowCount(rowCount);
     }
 
     private Statistics computeGenerate(Generate generate) {
@@ -910,8 +900,8 @@ public class StatsCalculator extends DefaultPlanVisitor<Statistics, Void> {
         for (Slot output : generate.getGeneratorOutput()) {
             ColumnStatistic columnStatistic = new ColumnStatisticBuilder()
                     .setCount(count)
-                    .setMinValue(Double.NEGATIVE_INFINITY)
-                    .setMaxValue(Double.POSITIVE_INFINITY)
+                    .setMinValue(Double.MAX_VALUE)
+                    .setMaxValue(Double.MIN_VALUE)
                     .setNdv(count)
                     .setNumNulls(0)
                     .setAvgSizeByte(output.getDataType().width())
@@ -1090,5 +1080,18 @@ public class StatsCalculator extends DefaultPlanVisitor<Statistics, Void> {
     public Statistics visitPhysicalCTEAnchor(
             PhysicalCTEAnchor<? extends Plan, ? extends Plan> cteAnchor, Void context) {
         return groupExpression.childStatistics(1);
+    }
+
+    private boolean shouldIgnoreCol(TableIf tableIf, Column c) {
+        if (tableIf instanceof SchemaTable) {
+            return true;
+        }
+        if (tableIf instanceof OlapTable) {
+            OlapTable olapTable = (OlapTable) tableIf;
+            if (StatisticConstants.STATISTICS_DB_BLACK_LIST.contains(olapTable.getQualifiedDbName())) {
+                return true;
+            }
+        }
+        return !c.isVisible();
     }
 }

@@ -28,8 +28,7 @@ import java.util.Locale;
  */
 public class AnyDataType extends DataType {
 
-    public static final int INDEX_OF_INSTANCE_WITHOUT_INDEX = -1;
-    public static final AnyDataType INSTANCE_WITHOUT_INDEX = new AnyDataType(INDEX_OF_INSTANCE_WITHOUT_INDEX);
+    public static final AnyDataType INSTANCE_WITHOUT_INDEX = new AnyDataType(-1);
 
     private final int index;
 

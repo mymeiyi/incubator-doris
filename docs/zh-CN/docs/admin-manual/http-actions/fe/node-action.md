@@ -80,7 +80,6 @@ frontends:
             "HttpPort",
             "QueryPort",
             "RpcPort",
-            "ArrowFlightSqlPort",
             "Role",
             "IsMaster",
             "ClusterId",

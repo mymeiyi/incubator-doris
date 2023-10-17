@@ -37,7 +37,7 @@ This statement is used to create an external catalog
 Syntax:
 
 ```sql
-CREATE CATALOG [IF NOT EXISTS] catalog_name [comment]
+CREATE CATALOG [IF NOT EXISTS] catalog_name
 	PROPERTIES ("key"="value", ...);
 ```
 
@@ -46,7 +46,7 @@ CREATE CATALOG [IF NOT EXISTS] catalog_name [comment]
 1. Create catalog hive
 
 	```sql
-	CREATE CATALOG hive comment 'hive catalog' PROPERTIES (
+	CREATE CATALOG hive PROPERTIES (
 		'type'='hms',
 		'hive.metastore.uris' = 'thrift://127.0.0.1:7004',
 		'dfs.nameservices'='HANN',

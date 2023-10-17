@@ -36,9 +36,8 @@ suite("nereids_create_table") {
     }
     sql 'sync'
     def tables = ['test_all_types', 'test_agg_key', 'test_uni_key', 'test_uni_key_mow', 'test_not_null',
-                  'test_random', 'test_random_auto', 'test_less_than_partition', 'test_range_partition',
-                  'test_step_partition', 'test_date_step_partition', 'test_list_partition', 'test_rollup',
-                  'test_default_value']
+                             'test_random', 'test_random_auto', 'test_less_than_partition', 'test_range_partition',
+                             'test_step_partition', 'test_date_step_partition', 'test_list_partition', 'test_rollup']
     for (String t in tables) {
         qt_sql "select * from ${t} order by id"
     }

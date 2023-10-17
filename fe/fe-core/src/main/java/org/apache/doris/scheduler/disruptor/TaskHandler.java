@@ -125,7 +125,7 @@ public class TaskHandler implements WorkHandler<TaskEvent> {
             jobTask.setIsSuccessful(result.isSuccess());
             if (!result.isSuccess()) {
                 log.warn("Job execute failed, jobId: {}, msg : {}", jobId, result.getExecutorSql());
-                jobTask.setErrorMsg(result.getErrorMsg());
+                jobTask.setErrorMsg(result.getExecutorSql());
                 timerJobManager.pauseJob(jobId);
             }
             jobTask.setExecuteSql(result.getExecutorSql());
@@ -139,8 +139,7 @@ public class TaskHandler implements WorkHandler<TaskEvent> {
         if (null == jobTaskManager) {
             jobTaskManager = Env.getCurrentEnv().getJobTaskManager();
         }
-        boolean isPersistent = job.getJobCategory().isPersistent();
-        jobTaskManager.addJobTask(jobTask, isPersistent);
+        jobTaskManager.addJobTask(jobTask);
     }
 
     public void onTransientTaskHandle(TaskEvent taskEvent) {

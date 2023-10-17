@@ -72,8 +72,7 @@ public class DateTimeV2Type extends DateLikeType {
         if (dataType instanceof DateTimeV2Type) {
             return (DateTimeV2Type) dataType;
         }
-        if (dataType instanceof IntegralType || dataType instanceof BooleanType
-                || dataType instanceof NullType || dataType instanceof DateTimeType) {
+        if (dataType instanceof IntegralType || dataType instanceof BooleanType || dataType instanceof NullType) {
             return SYSTEM_DEFAULT;
         }
         return MAX;
@@ -84,6 +83,9 @@ public class DateTimeV2Type extends DateLikeType {
      * may be we need to check for validity?
      */
     public static DateTimeV2Type forTypeFromString(String s) {
+        if (!s.contains(".")) {
+            return DateTimeV2Type.SYSTEM_DEFAULT;
+        }
         int scale = DateTimeLiteral.determineScale(s);
         return DateTimeV2Type.of(scale);
     }

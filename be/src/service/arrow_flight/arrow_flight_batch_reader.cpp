@@ -57,16 +57,11 @@ arrow::Result<std::shared_ptr<ArrowFlightBatchReader>> ArrowFlightBatchReader::C
 }
 
 arrow::Status ArrowFlightBatchReader::ReadNext(std::shared_ptr<arrow::RecordBatch>* out) {
-    // *out not nullptr
-    *out = nullptr;
+    CHECK(*out == nullptr);
     auto st = ExecEnv::GetInstance()->result_mgr()->fetch_arrow_data(statement_->query_id, out);
     if (UNLIKELY(!st.ok())) {
-        LOG(WARNING) << "ArrowFlightBatchReader fetch arrow data failed: " + st.to_string();
+        LOG(WARNING) << st.to_string();
         ARROW_RETURN_NOT_OK(to_arrow_status(st));
-    }
-    if (*out != nullptr) {
-        VLOG_NOTICE << "ArrowFlightBatchReader read next: " << (*out)->num_rows() << ", "
-                    << (*out)->num_columns();
     }
     return arrow::Status::OK();
 }

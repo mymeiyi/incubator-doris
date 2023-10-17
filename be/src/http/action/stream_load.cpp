@@ -573,6 +573,13 @@ Status StreamLoadAction::_process_put(HttpRequest* http_req,
         bool value = iequal(http_req->header(HTTP_MEMTABLE_ON_SINKNODE), "true");
         request.__set_memtable_on_sink_node(value);
     }
+    if (!http_req->header(HTTP_IGNORE_MODE).empty()) {
+        if (iequal(http_req->header(HTTP_IGNORE_MODE), "true")) {
+            request.__set_ignore_mode(true);
+        } else {
+            request.__set_ignore_mode(false);
+        }
+    }
     request.__set_group_commit(ctx->group_commit);
 
 #ifndef BE_TEST
@@ -605,7 +612,7 @@ Status StreamLoadAction::_process_put(HttpRequest* http_req,
         ctx->db_id = ctx->put_result.db_id;
         ctx->table_id = ctx->put_result.table_id;
         ctx->schema_version = ctx->put_result.base_schema_version;
-        return _exec_env->group_commit_mgr()->group_commit_stream_load(ctx);
+        // return _exec_env->group_commit_mgr()->group_commit_stream_load(ctx);
     }
 
     return _exec_env->stream_load_executor()->execute_plan_fragment(ctx);

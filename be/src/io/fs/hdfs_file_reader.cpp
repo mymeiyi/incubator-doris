@@ -70,7 +70,7 @@ HdfsFileReader::HdfsFileReader(Path path, const std::string& name_node,
 }
 
 HdfsFileReader::~HdfsFileReader() {
-    static_cast<void>(close());
+    close();
 }
 
 Status HdfsFileReader::close() {

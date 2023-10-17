@@ -171,7 +171,7 @@ public class StatisticsAutoCollectorTest {
 
         new MockUp<StatisticsUtil>() {
             @Mock
-            public TableIf findTable(long catalogName, long dbName, long tblName) {
+            public TableIf findTable(String catalogName, String dbName, String tblName) {
                 return tableIf;
             }
         };
@@ -181,9 +181,9 @@ public class StatisticsAutoCollectorTest {
 
             int count = 0;
 
-            TableStatsMeta[] tableStatsArr =
-                    new TableStatsMeta[] {new TableStatsMeta(0, 0, analysisInfo),
-                            new TableStatsMeta(0, 0, analysisInfo), null};
+            TableStats[] tableStatsArr =
+                    new TableStats[] {new TableStats(0, 0, analysisInfo),
+                            new TableStats(0, 0, analysisInfo), null};
 
             {
                 tableStatsArr[0].updatedRows.addAndGet(100);
@@ -191,7 +191,7 @@ public class StatisticsAutoCollectorTest {
             }
 
             @Mock
-            public TableStatsMeta findTableStatsStatus(long tblId) {
+            public TableStats findTableStatsStatus(long tblId) {
                 return tableStatsArr[count++];
             }
         };
@@ -205,9 +205,9 @@ public class StatisticsAutoCollectorTest {
         };
         StatisticsAutoCollector statisticsAutoCollector = new StatisticsAutoCollector();
         AnalysisInfo analysisInfo2 = new AnalysisInfoBuilder()
-                .setCatalogId(0)
-                .setDBId(0)
-                .setTblId(0).build();
+                .setCatalogName("cname")
+                .setDbName("db")
+                .setTblName("tbl").build();
         Assertions.assertNotNull(statisticsAutoCollector.getReAnalyzeRequiredPart(analysisInfo2));
         // uncomment it when updatedRows gets ready
         // Assertions.assertNull(statisticsAutoCollector.getReAnalyzeRequiredPart(analysisInfo2));

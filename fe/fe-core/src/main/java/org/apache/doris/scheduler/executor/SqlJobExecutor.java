@@ -36,6 +36,7 @@ import java.util.UUID;
 
 /**
  * we use this executor to execute sql job
+ *
  */
 @Slf4j
 public class SqlJobExecutor implements JobExecutor {
@@ -70,7 +71,7 @@ public class SqlJobExecutor implements JobExecutor {
 
             return new ExecutorResult<>(result, true, null, sql);
         } catch (Exception e) {
-            log.warn("execute sql job failed, job id :{}, sql: {}, error: {}", job.getJobId(), sql, e);
+            log.warn("execute sql job failed, sql: {}, error: {}", sql, e.getMessage());
             return new ExecutorResult<>(null, false, e.getMessage(), sql);
         }
 

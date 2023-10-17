@@ -352,12 +352,7 @@ public class FoldConstantRuleOnFE extends AbstractExpressionRewriteRule {
             try {
                 return ((DateLikeType) dataType).fromString(((StringLikeLiteral) child).getStringValue());
             } catch (AnalysisException t) {
-                if (cast.isExplicitType()) {
-                    return new NullLiteral(dataType);
-                } else {
-                    // If cast is from type coercion, we don't use NULL literal and will throw exception.
-                    throw t;
-                }
+                return new NullLiteral(dataType);
             }
         }
         try {
@@ -507,8 +502,7 @@ public class FoldConstantRuleOnFE extends AbstractExpressionRewriteRule {
             return checkedExpr.get();
         }
         List<Literal> arguments = (List) array.getArguments();
-        // we should pass dataType to constructor because arguments maybe empty
-        return new ArrayLiteral(arguments, array.getDataType());
+        return new ArrayLiteral(arguments);
     }
 
     @Override

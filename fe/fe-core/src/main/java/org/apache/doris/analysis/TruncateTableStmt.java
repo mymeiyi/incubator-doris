@@ -79,11 +79,4 @@ public class TruncateTableStmt extends DdlStmt {
         return sb.toString();
     }
 
-    public String toSqlWithoutTable() {
-        StringBuilder sb = new StringBuilder();
-        if (tblRef.getPartitionNames() != null) {
-            sb.append(tblRef.getPartitionNames().toSql());
-        }
-        return sb.toString();
-    }
 }

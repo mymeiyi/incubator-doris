@@ -55,6 +55,11 @@ public class VarcharType extends CharacterType {
     }
 
     @Override
+    public boolean acceptsType(DataType other) {
+        return other instanceof VarcharType || other instanceof StringType;
+    }
+
+    @Override
     public String simpleString() {
         return "varchar";
     }

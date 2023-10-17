@@ -65,11 +65,6 @@ struct NullPresence {
     bool has_null_constant = false;
 };
 
-template <typename T>
-concept HasGetVariadicArgumentTypesImpl = requires(T t) {
-    { t.get_variadic_argument_types_impl() } -> std::same_as<DataTypes>;
-};
-
 NullPresence get_null_presence(const Block& block, const ColumnNumbers& args);
 [[maybe_unused]] NullPresence get_null_presence(const ColumnsWithTypeAndName& args);
 
@@ -111,7 +106,7 @@ protected:
 
     virtual Status execute_impl(FunctionContext* context, Block& block,
                                 const ColumnNumbers& arguments, size_t result,
-                                size_t input_rows_count) const = 0;
+                                size_t input_rows_count) = 0;
 
     /** Default implementation in presence of Nullable arguments or NULL constants as arguments is the following:
       *  if some of arguments are NULL constants then return NULL constant,
@@ -435,9 +430,9 @@ public:
 
     bool is_stateful() const override { return false; }
 
-    virtual Status execute_impl(FunctionContext* context, Block& block,
-                                const ColumnNumbers& arguments, size_t result,
-                                size_t input_rows_count) const override = 0;
+    /// TODO: make const
+    Status execute_impl(FunctionContext* context, Block& block, const ColumnNumbers& arguments,
+                        size_t result, size_t input_rows_count) override = 0;
 
     /// Override this functions to change default implementation behavior. See details in IMyFunction.
     bool use_default_implementation_for_nulls() const override { return true; }
@@ -502,7 +497,7 @@ public:
 
 protected:
     Status execute_impl(FunctionContext* context, Block& block, const ColumnNumbers& arguments,
-                        size_t result, size_t input_rows_count) const final {
+                        size_t result, size_t input_rows_count) final {
         return function->execute_impl(context, block, arguments, result, input_rows_count);
     }
     Status execute_impl_dry_run(FunctionContext* context, Block& block,

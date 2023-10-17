@@ -389,13 +389,8 @@ Status FromBlockConverter::convert(std::shared_ptr<arrow::RecordBatch>* out) {
             return to_doris_status(arrow_st);
         }
         _cur_builder = builder.get();
-        try {
-            _cur_type->get_serde()->write_column_to_arrow(*_cur_col, nullptr, _cur_builder,
-                                                          _cur_start, _cur_start + _cur_rows);
-        } catch (std::exception& e) {
-            return Status::InternalError("Fail to convert block data to arrow data, error: {}",
-                                         e.what());
-        }
+        _cur_type->get_serde()->write_column_to_arrow(*_cur_col, nullptr, _cur_builder, _cur_start,
+                                                      _cur_start + _cur_rows);
         arrow_st = _cur_builder->Finish(&_arrays[_cur_field_idx]);
         if (!arrow_st.ok()) {
             return to_doris_status(arrow_st);

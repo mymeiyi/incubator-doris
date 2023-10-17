@@ -860,7 +860,7 @@ Status RowGroupReader::_rewrite_dict_predicates() {
         }
 
         // 4. Rewrite conjuncts.
-        static_cast<void>(_rewrite_dict_conjuncts(dict_codes, slot_id, dict_column->is_nullable()));
+        _rewrite_dict_conjuncts(dict_codes, slot_id, dict_column->is_nullable());
         ++it;
     }
     return Status::OK();

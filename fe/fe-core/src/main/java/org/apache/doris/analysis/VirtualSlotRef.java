@@ -121,9 +121,4 @@ public class VirtualSlotRef extends SlotRef {
         desc = analyzer.registerVirtualColumnRef(super.getColumnName(), type, tupleDescriptor);
         numDistinctValues = desc.getStats().getNumDistinctValues();
     }
-
-    @Override
-    protected String getExprName() {
-        return super.getExprName();
-    }
 }

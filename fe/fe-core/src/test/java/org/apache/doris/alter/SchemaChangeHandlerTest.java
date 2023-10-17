@@ -197,12 +197,8 @@ public class SchemaChangeHandlerTest extends TestWithFeService {
         //process agg drop value column with rollup schema change
         String dropRollUpValColStmtStr = "alter table test.sc_agg drop column max_dwell_time";
         AlterTableStmt dropRollUpValColStmt = (AlterTableStmt) parseAndAnalyzeStmt(dropRollUpValColStmtStr);
-        try {
-            Env.getCurrentEnv().getAlterInstance().processAlterTable(dropRollUpValColStmt);
-            Assertions.assertTrue(false);
-        } catch (Exception e) {
-            LOG.info("{}", e);
-        }
+        Env.getCurrentEnv().getAlterInstance().processAlterTable(dropRollUpValColStmt);
+        jobSize++;
         //check alter job, need create job
         LOG.info("alterJobs:{}", alterJobs);
         Assertions.assertEquals(jobSize, alterJobs.size());
@@ -210,7 +206,7 @@ public class SchemaChangeHandlerTest extends TestWithFeService {
 
         tbl.readLock();
         try {
-            Assertions.assertEquals(10, tbl.getBaseSchema().size());
+            Assertions.assertEquals(9, tbl.getBaseSchema().size());
             String baseIndexName = tbl.getIndexNameById(tbl.getBaseIndexId());
             Assertions.assertEquals(baseIndexName, tbl.getName());
             MaterializedIndexMeta indexMeta = tbl.getIndexMetaByIndexId(tbl.getBaseIndexId());
@@ -230,7 +226,7 @@ public class SchemaChangeHandlerTest extends TestWithFeService {
 
         tbl.readLock();
         try {
-            Assertions.assertEquals(12, tbl.getBaseSchema().size());
+            Assertions.assertEquals(11, tbl.getBaseSchema().size());
             String baseIndexName = tbl.getIndexNameById(tbl.getBaseIndexId());
             Assertions.assertEquals(baseIndexName, tbl.getName());
             MaterializedIndexMeta indexMeta = tbl.getIndexMetaByIndexId(tbl.getBaseIndexId());

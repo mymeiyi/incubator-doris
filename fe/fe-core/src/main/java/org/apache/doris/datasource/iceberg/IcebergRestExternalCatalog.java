@@ -19,7 +19,6 @@ package org.apache.doris.datasource.iceberg;
 
 import org.apache.doris.datasource.CatalogProperty;
 import org.apache.doris.datasource.credentials.DataLakeAWSCredentialsProvider;
-import org.apache.doris.datasource.iceberg.rest.DorisIcebergRestResolvedIO;
 import org.apache.doris.datasource.property.PropertyConverter;
 
 import org.apache.hadoop.conf.Configuration;
@@ -45,12 +44,8 @@ public class IcebergRestExternalCatalog extends IcebergExternalCatalog {
         Map<String, String> restProperties = new HashMap<>();
         String restUri = catalogProperty.getProperties().getOrDefault(CatalogProperties.URI, "");
         restProperties.put(CatalogProperties.URI, restUri);
-        restProperties.put(CatalogProperties.FILE_IO_IMPL, DorisIcebergRestResolvedIO.class.getName());
-        restProperties.putAll(catalogProperty.getProperties());
-
-        Configuration conf = replaceS3Properties(getConfiguration());
-
         RESTCatalog restCatalog = new RESTCatalog();
+        Configuration conf = replaceS3Properties(getConfiguration());
         restCatalog.setConf(conf);
         restCatalog.initialize(icebergCatalogType, restProperties);
         catalog = restCatalog;

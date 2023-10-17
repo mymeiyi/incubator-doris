@@ -1010,9 +1010,11 @@ public class MaterializedViewHandler extends AlterHandler {
             for (Partition partition : olapTable.getPartitions()) {
                 MaterializedIndex rollupIndex = partition.deleteRollupIndex(rollupIndexId);
 
-                // remove from inverted index
-                for (Tablet tablet : rollupIndex.getTablets()) {
-                    invertedIndex.deleteTablet(tablet.getId());
+                if (!Env.isCheckpointThread()) {
+                    // remove from inverted index
+                    for (Tablet tablet : rollupIndex.getTablets()) {
+                        invertedIndex.deleteTablet(tablet.getId());
+                    }
                 }
             }
             String rollupIndexName = olapTable.getIndexNameById(rollupIndexId);

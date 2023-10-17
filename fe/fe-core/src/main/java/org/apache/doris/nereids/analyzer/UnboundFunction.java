@@ -22,7 +22,6 @@ import org.apache.doris.nereids.trees.expressions.Expression;
 import org.apache.doris.nereids.trees.expressions.functions.Function;
 import org.apache.doris.nereids.trees.expressions.functions.PropagateNullable;
 import org.apache.doris.nereids.trees.expressions.visitor.ExpressionVisitor;
-import org.apache.doris.nereids.util.Utils;
 
 import com.google.common.base.Joiner;
 
@@ -59,11 +58,6 @@ public class UnboundFunction extends Function implements Unbound, PropagateNulla
 
     public String getName() {
         return name;
-    }
-
-    @Override
-    protected String getExpressionName() {
-        return Utils.normalizeName(getName(), DEFAULT_EXPRESSION_NAME);
     }
 
     public String getDbName() {

@@ -65,6 +65,9 @@ void LoadPathMgr::stop() {
 
 Status LoadPathMgr::init() {
     _path_vec.clear();
+    for (auto& path : _exec_env->store_paths()) {
+        _path_vec.push_back(path.path + "/" + MINI_PREFIX);
+    }
     LOG(INFO) << "Load path configured to [" << boost::join(_path_vec, ",") << "]";
 
     // error log is saved in first root path
@@ -88,15 +91,13 @@ Status LoadPathMgr::init() {
 
 Status LoadPathMgr::allocate_dir(const std::string& db, const std::string& label,
                                  std::string* prefix) {
-    Status status = _init_once.call([this] {
-        for (auto& store_path : _exec_env->store_paths()) {
-            _path_vec.push_back(store_path.path + "/" + MINI_PREFIX);
-        }
-        return Status::OK();
-    });
+    if (_path_vec.empty()) {
+        return Status::InternalError("No load path configured.");
+    }
     std::string path;
     auto size = _path_vec.size();
     auto retry = size;
+    Status status = Status::OK();
     while (retry--) {
         {
             // add SHARD_PREFIX for compatible purpose
@@ -171,7 +172,7 @@ void LoadPathMgr::process_path(time_t now, const std::string& path, int64_t rese
         return;
     }
     LOG(INFO) << "Going to remove path. path=" << path;
-    Status status = io::global_local_filesystem()->delete_directory_or_file(path);
+    Status status = io::global_local_filesystem()->delete_directory(path);
     if (status.ok()) {
         LOG(INFO) << "Remove path success. path=" << path;
     } else {

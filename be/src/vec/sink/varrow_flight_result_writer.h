@@ -47,7 +47,7 @@ public:
 
     bool can_sink() override;
 
-    Status close(Status) override;
+    Status close() override;
 
 private:
     void _init_profile();

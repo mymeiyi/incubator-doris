@@ -143,7 +143,7 @@ public class BindExpression implements AnalysisRuleFactory {
                     boundProjections = boundProjections.stream()
                             .map(expr -> bindFunction(expr, ctx.root, ctx.cascadesContext))
                             .collect(ImmutableList.toImmutableList());
-                    return project.withProjects(boundProjections);
+                    return new LogicalProject<>(boundProjections, project.isDistinct(), project.child());
                 })
             ),
             RuleType.BINDING_FILTER_SLOT.build(
@@ -699,7 +699,7 @@ public class BindExpression implements AnalysisRuleFactory {
         String functionName = unboundTVFRelation.getFunctionName();
         Properties arguments = unboundTVFRelation.getProperties();
         FunctionBuilder functionBuilder = functionRegistry.findFunctionBuilder(functionName, arguments);
-        Expression function = functionBuilder.build(functionName, arguments);
+        BoundFunction function = functionBuilder.build(functionName, arguments);
         if (!(function instanceof TableValuedFunction)) {
             throw new AnalysisException(function.toSql() + " is not a TableValuedFunction");
         }
@@ -727,11 +727,12 @@ public class BindExpression implements AnalysisRuleFactory {
 
         String functionName = unboundFunction.getName();
         FunctionBuilder functionBuilder = functionRegistry.findFunctionBuilder(functionName, boundArguments);
-        Expression function = functionBuilder.build(functionName, boundArguments);
+        BoundFunction function = functionBuilder.build(functionName, boundArguments);
         if (!(function instanceof TableGeneratingFunction)) {
             throw new AnalysisException(function.toSql() + " is not a TableGeneratingFunction");
         }
-        return (BoundFunction) TypeCoercionUtils.processBoundFunction((BoundFunction) function);
+        function = (BoundFunction) TypeCoercionUtils.processBoundFunction(function);
+        return function;
     }
 
     private void checkIfOutputAliasNameDuplicatedForGroupBy(List<Expression> expressions,

@@ -22,6 +22,5 @@ public enum FileSystemType {
     DFS,
     OFS,
     JFS,
-    BROKER,
     FILE
 }

@@ -20,6 +20,7 @@
 #include <fmt/format.h>
 #include <glog/logging.h>
 
+#include <ostream>
 #include <vector>
 
 #include "gutil/strings/substitute.h"
@@ -41,8 +42,10 @@ BaseTablet::BaseTablet(TabletMetaSharedPtr tablet_meta, DataDir* data_dir)
     _schema = TabletSchemaCache::instance()->insert(_tablet_meta->tablet_schema()->to_key());
     _gen_tablet_path();
 
-    _full_name = fmt::format("{}.{}.{}", _tablet_meta->tablet_id(), _tablet_meta->schema_hash(),
-                             _tablet_meta->tablet_uid().to_string());
+    std::stringstream ss;
+    ss << _tablet_meta->tablet_id() << "." << _tablet_meta->schema_hash() << "."
+       << _tablet_meta->tablet_uid().to_string();
+    _full_name = ss.str();
 
     _metric_entity = DorisMetrics::instance()->metric_registry()->register_entity(
             strings::Substitute("Tablet.$0", tablet_id()),

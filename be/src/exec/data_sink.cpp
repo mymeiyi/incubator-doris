@@ -31,6 +31,8 @@
 
 #include "common/config.h"
 #include "vec/sink/async_writer_sink.h"
+#include "vec/sink/group_commit_block_sink.h"
+#include "vec/sink/group_commit_vtablet_sink.h"
 #include "vec/sink/multi_cast_data_stream_sink.h"
 #include "vec/sink/vdata_stream_sender.h"
 #include "vec/sink/vmemory_scratch_sink.h"
@@ -145,20 +147,28 @@ Status DataSink::create_data_sink(ObjectPool* pool, const TDataSink& thrift_sink
         break;
     }
     case TDataSinkType::OLAP_TABLE_SINK: {
-        Status status = Status::OK();
+        Status status;
         DCHECK(thrift_sink.__isset.olap_table_sink);
         if (state->query_options().enable_memtable_on_sink_node) {
-            sink->reset(new vectorized::VOlapTableSinkV2(pool, row_desc, output_exprs, &status));
+            sink->reset(new stream_load::VOlapTableSinkV2(pool, row_desc, output_exprs, &status));
         } else {
-            sink->reset(new vectorized::VOlapTableSink(pool, row_desc, output_exprs, false));
+            sink->reset(new stream_load::VOlapTableSink(pool, row_desc, output_exprs, &status));
         }
         RETURN_IF_ERROR(status);
         break;
     }
     case TDataSinkType::GROUP_COMMIT_OLAP_TABLE_SINK: {
-        Status status = Status::OK();
+        Status status;
         DCHECK(thrift_sink.__isset.olap_table_sink);
-        sink->reset(new vectorized::VOlapTableSink(pool, row_desc, output_exprs, true));
+        sink->reset(
+                new stream_load::GroupCommitVOlapTableSink(pool, row_desc, output_exprs, &status));
+        RETURN_IF_ERROR(status);
+        break;
+    }
+    case TDataSinkType::GROUP_COMMIT_BLOCK_SINK: {
+        Status status;
+        DCHECK(thrift_sink.__isset.olap_table_sink);
+        sink->reset(new stream_load::GroupCommitBlockSink(pool, row_desc, output_exprs, &status));
         RETURN_IF_ERROR(status);
         break;
     }
@@ -292,12 +302,12 @@ Status DataSink::create_data_sink(ObjectPool* pool, const TDataSink& thrift_sink
         break;
     }
     case TDataSinkType::OLAP_TABLE_SINK: {
-        Status status = Status::OK();
+        Status status;
         DCHECK(thrift_sink.__isset.olap_table_sink);
         if (state->query_options().enable_memtable_on_sink_node) {
-            sink->reset(new vectorized::VOlapTableSinkV2(pool, row_desc, output_exprs, &status));
+            sink->reset(new stream_load::VOlapTableSinkV2(pool, row_desc, output_exprs, &status));
         } else {
-            sink->reset(new vectorized::VOlapTableSink(pool, row_desc, output_exprs, false));
+            sink->reset(new stream_load::VOlapTableSink(pool, row_desc, output_exprs, &status));
         }
         RETURN_IF_ERROR(status);
         break;
@@ -311,9 +321,17 @@ Status DataSink::create_data_sink(ObjectPool* pool, const TDataSink& thrift_sink
         break;
     }
     case TDataSinkType::GROUP_COMMIT_OLAP_TABLE_SINK: {
-        Status status = Status::OK();
+        Status status;
         DCHECK(thrift_sink.__isset.olap_table_sink);
-        sink->reset(new vectorized::VOlapTableSink(pool, row_desc, output_exprs, true));
+        sink->reset(
+                new stream_load::GroupCommitVOlapTableSink(pool, row_desc, output_exprs, &status));
+        RETURN_IF_ERROR(status);
+        break;
+    }
+    case TDataSinkType::GROUP_COMMIT_BLOCK_SINK: {
+        Status status;
+        DCHECK(thrift_sink.__isset.olap_table_sink);
+        sink->reset(new stream_load::GroupCommitBlockSink(pool, row_desc, output_exprs, &status));
         RETURN_IF_ERROR(status);
         break;
     }

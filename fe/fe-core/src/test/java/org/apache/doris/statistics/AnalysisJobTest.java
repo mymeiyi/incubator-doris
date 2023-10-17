@@ -17,13 +17,8 @@
 
 package org.apache.doris.statistics;
 
-import org.apache.doris.catalog.Column;
-import org.apache.doris.catalog.Database;
 import org.apache.doris.catalog.InternalSchemaInitializer;
-import org.apache.doris.catalog.OlapTable;
-import org.apache.doris.catalog.PrimitiveType;
 import org.apache.doris.common.FeConstants;
-import org.apache.doris.datasource.InternalCatalog;
 import org.apache.doris.qe.AutoCloseConnectContext;
 import org.apache.doris.qe.ConnectContext;
 import org.apache.doris.qe.StmtExecutor;
@@ -31,7 +26,6 @@ import org.apache.doris.statistics.AnalysisInfo.AnalysisMethod;
 import org.apache.doris.statistics.AnalysisInfo.AnalysisMode;
 import org.apache.doris.statistics.AnalysisInfo.AnalysisType;
 import org.apache.doris.statistics.AnalysisInfo.JobType;
-import org.apache.doris.statistics.util.DBObjects;
 import org.apache.doris.statistics.util.StatisticsUtil;
 import org.apache.doris.utframe.TestWithFeService;
 
@@ -47,7 +41,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 public class AnalysisJobTest extends TestWithFeService {
@@ -102,18 +95,8 @@ public class AnalysisJobTest extends TestWithFeService {
     }
 
     @Test
-    public void testJobExecution(@Mocked StmtExecutor stmtExecutor, @Mocked InternalCatalog catalog, @Mocked
-            Database database,
-            @Mocked OlapTable olapTable)
+    public void testJobExecution(@Mocked StmtExecutor stmtExecutor)
             throws Exception {
-        new MockUp<OlapTable>() {
-
-            @Mock
-            public Column getColumn(String name) {
-                return new Column("col1", PrimitiveType.INT);
-            }
-        };
-
         new MockUp<StatisticsUtil>() {
 
             @Mock
@@ -123,11 +106,6 @@ public class AnalysisJobTest extends TestWithFeService {
 
             @Mock
             public void execUpdate(String sql) throws Exception {
-            }
-
-            @Mock
-            public DBObjects convertIdToObjects(long catalogId, long dbId, long tblId) {
-                return new DBObjects(catalog, database, olapTable);
             }
         };
         new MockUp<StatisticsCache>() {
@@ -148,18 +126,10 @@ public class AnalysisJobTest extends TestWithFeService {
                 return new ArrayList<>();
             }
         };
-
-        new MockUp<OlapAnalysisTask>() {
-
-            @Mock
-            public void execSQLs(List<String> partitionAnalysisSQLs, Map<String, String> params) throws Exception {}
-        };
         HashMap<String, Set<String>> colToPartitions = Maps.newHashMap();
         colToPartitions.put("col1", Collections.singleton("t1"));
         AnalysisInfo analysisJobInfo = new AnalysisInfoBuilder().setJobId(0).setTaskId(0)
-                .setCatalogId(0)
-                .setDBId(0)
-                .setTblId(0)
+                .setCatalogName("internal").setDbName("default_cluster:analysis_job_test").setTblName("t1")
                 .setColName("col1").setJobType(JobType.MANUAL)
                 .setAnalysisMode(AnalysisMode.FULL)
                 .setAnalysisMethod(AnalysisMethod.FULL)

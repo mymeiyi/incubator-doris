@@ -25,7 +25,6 @@
 
 // IWYU pragma: no_include <opentelemetry/common/threadlocal.h>
 #include "common/compiler_util.h" // IWYU pragma: keep
-#include "common/status.h"
 #include "runtime/exec_env.h"
 #include "runtime/thread_context.h"
 #include "util/bit_util.h"
@@ -229,7 +228,7 @@ Status StreamLoadPipe::_append(const ByteBufferPtr& buf, size_t proto_byte_size)
 Status StreamLoadPipe::finish() {
     if (_write_buf != nullptr) {
         _write_buf->flip();
-        static_cast<void>(_append(_write_buf));
+        _append(_write_buf);
         _write_buf.reset();
     }
     {

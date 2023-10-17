@@ -76,7 +76,6 @@ under the License.
     	"data": {
     		"queryPort": 9030,
     		"rpcPort": 9020,
-            "arrowFlightSqlPort": 9040,
     		"maxReplayedJournal": 17287
     	},
     	"count": 0
@@ -86,7 +85,6 @@ under the License.
     * `queryPort` 是 FE 节点的 MySQL 协议端口。
     * `rpcPort` 是 FE 节点的 thrift RPC 端口。
     * `maxReplayedJournal` 表示 FE 节点当前回放的最大元数据日志id。
-    * `arrowFlightSqlPort` 是 FE 节点的 Arrow Flight SQL 协议端口。
     
 ## Examples
 
@@ -116,7 +114,6 @@ under the License.
     	"data": {
     		"queryPort": 9030,
     		"rpcPort": 9020,
-            "arrowFlightSqlPort": 9040,
     		"maxReplayedJournal": 17287
     	},
     	"count": 0

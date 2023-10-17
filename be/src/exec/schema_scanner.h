@@ -42,17 +42,8 @@ namespace vectorized {
 class Block;
 }
 
-struct SchemaScannerCommonParam {
-    SchemaScannerCommonParam()
-            : db(nullptr),
-              table(nullptr),
-              wild(nullptr),
-              user(nullptr),
-              user_ip(nullptr),
-              current_user_ident(nullptr),
-              ip(nullptr),
-              port(0),
-              catalog(nullptr) {}
+// scanner parameter from frontend
+struct SchemaScannerParam {
     const std::string* db;
     const std::string* table;
     const std::string* wild;
@@ -63,14 +54,18 @@ struct SchemaScannerCommonParam {
     int32_t port;                            // frontend thrift port
     int64_t thread_id;
     const std::string* catalog;
-};
-
-// scanner parameter from frontend
-struct SchemaScannerParam {
-    std::shared_ptr<SchemaScannerCommonParam> common_param;
     std::unique_ptr<RuntimeProfile> profile;
 
-    SchemaScannerParam() : common_param(new SchemaScannerCommonParam()) {}
+    SchemaScannerParam()
+            : db(nullptr),
+              table(nullptr),
+              wild(nullptr),
+              user(nullptr),
+              user_ip(nullptr),
+              current_user_ident(nullptr),
+              ip(nullptr),
+              port(0),
+              catalog(nullptr) {}
 };
 
 // virtual scanner for all schema table

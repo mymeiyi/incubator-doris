@@ -17,7 +17,6 @@
 
 #include "vec/exec/scan/group_commit_scan_node.h"
 
-#include "runtime/group_commit_mgr.h"
 #include "vec/columns/column_const.h"
 #include "vec/exec/scan/new_olap_scanner.h"
 #include "vec/exec/scan/vfile_scanner.h"
@@ -37,12 +36,17 @@ Status GroupCommitScanNode::get_next(RuntimeState* state, vectorized::Block* blo
     while (!find_node && !*eos) {
         RETURN_IF_ERROR(load_block_queue->get_block(block, &find_node, eos));
     }
+    if (find_node) {
+        LOG(INFO) << "sout: data=\n" << block->dump_data(0);
+    }
     return Status::OK();
 }
 
 Status GroupCommitScanNode::init(const TPlanNode& tnode, RuntimeState* state) {
+    LOG(INFO) << "sout: get load block queue, instance_id="
+              << print_id(state->fragment_instance_id());
     RETURN_IF_ERROR(VScanNode::init(tnode, state));
-    return state->exec_env()->group_commit_mgr()->get_load_block_queue(
+    return state->exec_env()->new_group_commit_mgr()->get_load_block_queue(
             _table_id, state->fragment_instance_id(), load_block_queue);
 }
 

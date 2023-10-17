@@ -27,7 +27,6 @@ import org.apache.doris.analysis.SlotRef;
 import org.apache.doris.analysis.Subquery;
 import org.apache.doris.catalog.Type;
 import org.apache.doris.common.AnalysisException;
-import org.apache.doris.qe.ConnectContext;
 import org.apache.doris.rewrite.ExprRewriter.ClauseType;
 
 import com.google.common.collect.Lists;
@@ -99,9 +98,6 @@ public class RewriteInPredicateRule implements ExprRewriteRule {
                 try {
                     childExpr = (LiteralExpr) childExpr.castTo(Type.DECIMALV2);
                 } catch (AnalysisException e) {
-                    if (ConnectContext.get() != null) {
-                        ConnectContext.get().getState().reset();
-                    }
                     continue;
                 }
             }
@@ -120,9 +116,6 @@ public class RewriteInPredicateRule implements ExprRewriteRule {
                     newInList.add(newExpr);
                 }
             } catch (AnalysisException ignored) {
-                if (ConnectContext.get() != null) {
-                    ConnectContext.get().getState().reset();
-                }
                 // pass
             }
         }

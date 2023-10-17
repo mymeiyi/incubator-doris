@@ -21,7 +21,6 @@ import org.apache.doris.catalog.FunctionSignature;
 import org.apache.doris.nereids.exceptions.UnboundException;
 import org.apache.doris.nereids.trees.expressions.Expression;
 import org.apache.doris.nereids.trees.expressions.visitor.ExpressionVisitor;
-import org.apache.doris.nereids.util.Utils;
 
 import com.google.common.base.Suppliers;
 
@@ -53,11 +52,6 @@ public abstract class BoundFunction extends Function implements ComputeSignature
 
     public String getName() {
         return name;
-    }
-
-    @Override
-    protected String getExpressionName() {
-        return Utils.normalizeName(getName(), DEFAULT_EXPRESSION_NAME);
     }
 
     public FunctionSignature getSignature() {

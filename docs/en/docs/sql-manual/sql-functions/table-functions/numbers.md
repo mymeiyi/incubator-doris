@@ -36,12 +36,14 @@ This function is used in FROM clauses.
 
 ```sql
 numbers(
-  "number" = "n"
+  "number" = "n",
+  "backend_num" = "m"
   );
 ```
 
 parameter：
 - `number`: It means to generate rows [0, n).
+- `backend_num`: Optional parameters. It means this function is executed simultaneously on `m` be nodes (multiple BEs need to be deployed).
 
 ### example
 ```

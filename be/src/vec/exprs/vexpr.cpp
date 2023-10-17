@@ -61,80 +61,79 @@ TExprNode create_texpr_node_from(const void* data, const PrimitiveType& type, in
 
     switch (type) {
     case TYPE_BOOLEAN: {
-        static_cast<void>(create_texpr_literal_node<TYPE_BOOLEAN>(data, &node));
+        create_texpr_literal_node<TYPE_BOOLEAN>(data, &node);
         break;
     }
     case TYPE_TINYINT: {
-        static_cast<void>(create_texpr_literal_node<TYPE_TINYINT>(data, &node));
+        create_texpr_literal_node<TYPE_TINYINT>(data, &node);
         break;
     }
     case TYPE_SMALLINT: {
-        static_cast<void>(create_texpr_literal_node<TYPE_SMALLINT>(data, &node));
+        create_texpr_literal_node<TYPE_SMALLINT>(data, &node);
         break;
     }
     case TYPE_INT: {
-        static_cast<void>(create_texpr_literal_node<TYPE_INT>(data, &node));
+        create_texpr_literal_node<TYPE_INT>(data, &node);
         break;
     }
     case TYPE_BIGINT: {
-        static_cast<void>(create_texpr_literal_node<TYPE_BIGINT>(data, &node));
+        create_texpr_literal_node<TYPE_BIGINT>(data, &node);
         break;
     }
     case TYPE_LARGEINT: {
-        static_cast<void>(create_texpr_literal_node<TYPE_LARGEINT>(data, &node));
+        create_texpr_literal_node<TYPE_LARGEINT>(data, &node);
         break;
     }
     case TYPE_FLOAT: {
-        static_cast<void>(create_texpr_literal_node<TYPE_FLOAT>(data, &node));
+        create_texpr_literal_node<TYPE_FLOAT>(data, &node);
         break;
     }
     case TYPE_DOUBLE: {
-        static_cast<void>(create_texpr_literal_node<TYPE_DOUBLE>(data, &node));
+        create_texpr_literal_node<TYPE_DOUBLE>(data, &node);
         break;
     }
     case TYPE_DATEV2: {
-        static_cast<void>(create_texpr_literal_node<TYPE_DATEV2>(data, &node));
+        create_texpr_literal_node<TYPE_DATEV2>(data, &node);
         break;
     }
     case TYPE_DATETIMEV2: {
-        static_cast<void>(create_texpr_literal_node<TYPE_DATETIMEV2>(data, &node));
+        create_texpr_literal_node<TYPE_DATETIMEV2>(data, &node);
         break;
     }
     case TYPE_DATE: {
-        static_cast<void>(create_texpr_literal_node<TYPE_DATE>(data, &node));
+        create_texpr_literal_node<TYPE_DATE>(data, &node);
         break;
     }
     case TYPE_DATETIME: {
-        static_cast<void>(create_texpr_literal_node<TYPE_DATETIME>(data, &node));
+        create_texpr_literal_node<TYPE_DATETIME>(data, &node);
         break;
     }
     case TYPE_DECIMALV2: {
-        static_cast<void>(create_texpr_literal_node<TYPE_DECIMALV2>(data, &node, precision, scale));
+        create_texpr_literal_node<TYPE_DECIMALV2>(data, &node, precision, scale);
         break;
     }
     case TYPE_DECIMAL32: {
-        static_cast<void>(create_texpr_literal_node<TYPE_DECIMAL32>(data, &node, precision, scale));
+        create_texpr_literal_node<TYPE_DECIMAL32>(data, &node, precision, scale);
         break;
     }
     case TYPE_DECIMAL64: {
-        static_cast<void>(create_texpr_literal_node<TYPE_DECIMAL64>(data, &node, precision, scale));
+        create_texpr_literal_node<TYPE_DECIMAL64>(data, &node, precision, scale);
         break;
     }
     case TYPE_DECIMAL128I: {
-        static_cast<void>(
-                create_texpr_literal_node<TYPE_DECIMAL128I>(data, &node, precision, scale));
+        create_texpr_literal_node<TYPE_DECIMAL128I>(data, &node, precision, scale);
         break;
     }
     case TYPE_CHAR: {
-        static_cast<void>(create_texpr_literal_node<TYPE_CHAR>(data, &node));
+        create_texpr_literal_node<TYPE_CHAR>(data, &node);
         break;
     }
     case TYPE_VARCHAR: {
-        static_cast<void>(create_texpr_literal_node<TYPE_VARCHAR>(data, &node));
+        create_texpr_literal_node<TYPE_VARCHAR>(data, &node);
         break;
     }
     case TYPE_STRING: {
-        static_cast<void>(create_texpr_literal_node<TYPE_STRING>(data, &node));
+        create_texpr_literal_node<TYPE_STRING>(data, &node);
         break;
     }
     default:
@@ -201,9 +200,6 @@ Status VExpr::open(RuntimeState* state, VExprContext* context,
                    FunctionContext::FunctionStateScope scope) {
     for (int i = 0; i < _children.size(); ++i) {
         RETURN_IF_ERROR(_children[i]->open(state, context, scope));
-    }
-    if (scope == FunctionContext::FRAGMENT_LOCAL) {
-        RETURN_IF_ERROR(VExpr::get_const_col(context, nullptr));
     }
     return Status::OK();
 }
@@ -470,7 +466,6 @@ Status VExpr::get_const_col(VExprContext* context,
     }
 
     if (_constant_col != nullptr) {
-        DCHECK(column_wrapper != nullptr);
         *column_wrapper = _constant_col;
         return Status::OK();
     }
@@ -484,10 +479,7 @@ Status VExpr::get_const_col(VExprContext* context,
     DCHECK(result != -1);
     const auto& column = block.get_by_position(result).column;
     _constant_col = std::make_shared<ColumnPtrWrapper>(column);
-    if (column_wrapper != nullptr) {
-        *column_wrapper = _constant_col;
-    }
-
+    *column_wrapper = _constant_col;
     return Status::OK();
 }
 
@@ -525,9 +517,9 @@ void VExpr::close_function_context(VExprContext* context, FunctionContext::Funct
                                    const FunctionBasePtr& function) const {
     if (_fn_context_index != -1) {
         FunctionContext* fn_ctx = context->fn_context(_fn_context_index);
-        static_cast<void>(function->close(fn_ctx, FunctionContext::THREAD_LOCAL));
+        function->close(fn_ctx, FunctionContext::THREAD_LOCAL);
         if (scope == FunctionContext::FRAGMENT_LOCAL) {
-            static_cast<void>(function->close(fn_ctx, FunctionContext::FRAGMENT_LOCAL));
+            function->close(fn_ctx, FunctionContext::FRAGMENT_LOCAL);
         }
     }
 }

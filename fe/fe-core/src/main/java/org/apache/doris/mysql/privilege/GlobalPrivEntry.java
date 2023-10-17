@@ -18,8 +18,6 @@
 package org.apache.doris.mysql.privilege;
 
 import org.apache.doris.analysis.UserIdentity;
-import org.apache.doris.common.AnalysisException;
-import org.apache.doris.common.PatternMatcherException;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -73,10 +71,5 @@ public class GlobalPrivEntry extends PrivEntry {
         int passwordLen = in.readInt();
         password = new byte[passwordLen];
         in.readFully(password);
-    }
-
-    @Override
-    protected PrivEntry copy() throws AnalysisException, PatternMatcherException {
-        return GlobalPrivEntry.create(this.getPrivSet().copy());
     }
 }

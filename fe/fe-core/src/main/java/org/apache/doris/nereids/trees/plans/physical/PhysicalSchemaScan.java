@@ -82,10 +82,4 @@ public class PhysicalSchemaScan extends PhysicalCatalogRelation {
     public String toString() {
         return Utils.toSqlString("PhysicalSchemaScan");
     }
-
-    @Override
-    public boolean canPushDownRuntimeFilter() {
-        // currently be doesn't support schema scan rf
-        return false;
-    }
 }

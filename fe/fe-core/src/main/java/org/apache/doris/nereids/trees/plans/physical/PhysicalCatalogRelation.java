@@ -123,8 +123,4 @@ public abstract class PhysicalCatalogRelation extends PhysicalRelation implement
         return Utils.qualifiedName(qualifier, table.getName());
     }
 
-    @Override
-    public boolean canPushDownRuntimeFilter() {
-        return true;
-    }
 }

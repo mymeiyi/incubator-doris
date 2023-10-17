@@ -303,11 +303,7 @@ public class StructType extends Type {
 
     @Override
     public String toString() {
-        ArrayList<String> fieldsSql = Lists.newArrayList();
-        for (StructField f : fields) {
-            fieldsSql.add(f.toString());
-        }
-        return String.format("STRUCT<%s>", Joiner.on(",").join(fieldsSql));
+        return toSql(0);
     }
 
     @Override

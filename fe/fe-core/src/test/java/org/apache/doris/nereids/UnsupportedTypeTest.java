@@ -64,10 +64,24 @@ public class UnsupportedTypeTest extends TestWithFeService {
                 "select array_range(10)",
                 "select kmap from type_tb1",
                 "select * from type_tb1",
+                "select jsonb_parse('{\"k1\":\"v31\",\"k2\":300}')",
                 "select * from type_tb",
         };
-        for (int i = 0; i < sqls.length; ++i) {
+        Class[] exceptions = {
+                null,
+                null,
+                null,
+                null,
+                null,
+                AnalysisException.class,
+                AnalysisException.class
+        };
+        for (int i = 0; i < 5; ++i) {
             runPlanner(sqls[i]);
+        }
+        for (int i = 5; i < sqls.length; ++i) {
+            int iCopy = i;
+            Assertions.assertThrows(exceptions[i], () -> runPlanner(sqls[iCopy]));
         }
     }
 

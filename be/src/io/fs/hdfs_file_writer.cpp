@@ -40,7 +40,7 @@ HdfsFileWriter::HdfsFileWriter(Path file, FileSystemSPtr fs) : FileWriter(std::m
 
 HdfsFileWriter::~HdfsFileWriter() {
     if (_opened) {
-        static_cast<void>(close());
+        close();
     }
     CHECK(!_opened || _closed) << "open: " << _opened << ", closed: " << _closed;
 }

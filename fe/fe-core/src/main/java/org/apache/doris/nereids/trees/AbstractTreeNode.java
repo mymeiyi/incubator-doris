@@ -17,13 +17,14 @@
 
 package org.apache.doris.nereids.trees;
 
+import org.apache.doris.nereids.memo.GroupExpression;
 import org.apache.doris.nereids.trees.expressions.StatementScopeIdGenerator;
 import org.apache.doris.nereids.trees.plans.ObjectId;
-import org.apache.doris.planner.PlanNodeId;
 
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Abstract class for plan node in Nereids, include plan node and expression.
@@ -38,11 +39,11 @@ public abstract class AbstractTreeNode<NODE_TYPE extends TreeNode<NODE_TYPE>>
     // TODO: Maybe we should use a GroupPlan to avoid TreeNode hold the GroupExpression.
     // https://github.com/apache/doris/pull/9807#discussion_r884829067
 
-    protected AbstractTreeNode(NODE_TYPE... children) {
-        this.children = ImmutableList.copyOf(children);
+    public AbstractTreeNode(NODE_TYPE... children) {
+        this(Optional.empty(), ImmutableList.copyOf(children));
     }
 
-    protected AbstractTreeNode(List<NODE_TYPE> children) {
+    public AbstractTreeNode(Optional<GroupExpression> groupExpression, List<NODE_TYPE> children) {
         this.children = ImmutableList.copyOf(children);
     }
 
@@ -58,13 +59,5 @@ public abstract class AbstractTreeNode<NODE_TYPE extends TreeNode<NODE_TYPE>>
 
     public int arity() {
         return children.size();
-    }
-
-    /**
-     * used for PhysicalPlanTranslator only
-     * @return PlanNodeId
-     */
-    public PlanNodeId translatePlanNodeId() {
-        return id.toPlanNodeId();
     }
 }

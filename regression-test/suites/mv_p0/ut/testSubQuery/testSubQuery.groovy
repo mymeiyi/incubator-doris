@@ -18,7 +18,6 @@
 import org.codehaus.groovy.runtime.IOGroovyMethods
 
 suite ("testSubQuery") {
-    sql """set enable_nereids_planner=true;"""
     sql """ DROP TABLE IF EXISTS emps; """
 
     sql """

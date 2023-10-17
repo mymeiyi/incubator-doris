@@ -152,8 +152,8 @@ public class RuntimeFilterTranslator {
         if (!hasInvalidTarget) {
             org.apache.doris.planner.RuntimeFilter origFilter
                     = org.apache.doris.planner.RuntimeFilter.fromNereidsRuntimeFilter(
-                    filter, node, src, targetExprList,
-                    targetTupleIdMapList, context.getLimits());
+                    filter.getId(), node, src, filter.getExprOrder(), targetExprList,
+                    targetTupleIdMapList, filter.getType(), context.getLimits(), filter.getBuildSideNdv());
             if (node instanceof HashJoinNode) {
                 origFilter.setIsBroadcast(((HashJoinNode) node).getDistributionMode() == DistributionMode.BROADCAST);
             } else {

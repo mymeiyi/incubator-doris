@@ -323,6 +323,10 @@ public abstract class InsertStmt extends DdlStmt {
         throw new UnsupportedOperationException("only invoked in NativeInsertStmt");
     }
 
+    public boolean isGroupCommitLoad() {
+        return false;
+    }
+
     /**
      * TODO: unify the data_desc
      * the unique entrance for data_desc

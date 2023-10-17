@@ -369,7 +369,7 @@ Block* process_table_function(TableFunction* fn, Block* input_block,
 
         do {
             fn->get_value(column);
-            static_cast<void>(fn->forward());
+            fn->forward();
         } while (!fn->eos());
     }
 

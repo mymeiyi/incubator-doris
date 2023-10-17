@@ -33,11 +33,10 @@ class Arena;
 
 class DataTypeHLLSerDe : public DataTypeSerDe {
 public:
-    Status serialize_one_cell_to_json(const IColumn& column, int row_num, BufferWritable& bw,
-                                      FormatOptions& options, int nesting_level = 1) const override;
-    Status serialize_column_to_json(const IColumn& column, int start_idx, int end_idx,
-                                    BufferWritable& bw, FormatOptions& options,
-                                    int nesting_level = 1) const override;
+    void serialize_one_cell_to_json(const IColumn& column, int row_num, BufferWritable& bw,
+                                    FormatOptions& options) const override;
+    void serialize_column_to_json(const IColumn& column, int start_idx, int end_idx,
+                                  BufferWritable& bw, FormatOptions& options) const override;
     Status deserialize_one_cell_from_json(IColumn& column, Slice& slice,
                                           const FormatOptions& options,
                                           int nesting_level = 1) const override;
@@ -65,10 +64,6 @@ public:
                                  int row_idx, bool col_const) const override;
     Status write_column_to_mysql(const IColumn& column, MysqlRowBuffer<false>& row_buffer,
                                  int row_idx, bool col_const) const override;
-
-    Status write_column_to_orc(const IColumn& column, const NullMap* null_map,
-                               orc::ColumnVectorBatch* orc_col_batch, int start, int end,
-                               std::vector<StringRef>& buffer_list) const override;
 
 private:
     // Hll is binary data which is not shown by mysql.

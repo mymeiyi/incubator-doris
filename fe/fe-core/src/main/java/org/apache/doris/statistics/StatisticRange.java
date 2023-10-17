@@ -44,22 +44,14 @@ public class StatisticRange {
 
     private final DataType dataType;
 
-    private final boolean isEmpty;
-
     public StatisticRange(double low, LiteralExpr lowExpr, double high, LiteralExpr highExpr,
                           double distinctValues, DataType dataType) {
-        this(low, lowExpr, high, highExpr, distinctValues, dataType, false);
-    }
-
-    private StatisticRange(double low, LiteralExpr lowExpr, double high, LiteralExpr highExpr,
-                          double distinctValues, DataType dataType, boolean isEmpty) {
         this.low = low;
         this.lowExpr = lowExpr;
         this.high = high;
         this.highExpr = highExpr;
         this.distinctValues = distinctValues;
         this.dataType = dataType;
-        this.isEmpty = isEmpty;
     }
 
     public LiteralExpr getLowExpr() {
@@ -108,24 +100,15 @@ public class StatisticRange {
     }
 
     public static StatisticRange empty(DataType dataType) {
-        return new StatisticRange(Double.NEGATIVE_INFINITY, null, Double.POSITIVE_INFINITY,
-                null, 0, dataType, true);
+        return new StatisticRange(Double.NaN, null, Double.NaN, null, 0, dataType);
     }
 
     public boolean isEmpty() {
-        return isEmpty;
+        return Double.isNaN(low) && Double.isNaN(high);
     }
 
     public boolean isBothInfinite() {
         return Double.isInfinite(low) && Double.isInfinite(high);
-    }
-
-    public boolean isInfinite() {
-        return Double.isInfinite(low) || Double.isInfinite(high);
-    }
-
-    public boolean isFinite() {
-        return Double.isFinite(low) && Double.isFinite(high);
     }
 
     public static StatisticRange from(ColumnStatistic colStats, DataType dataType) {
@@ -212,7 +195,10 @@ public class StatisticRange {
         double overlapPercentOfRight = other.overlapPercentWith(this);
         double overlapDistinctValuesLeft = overlapPercentOfLeft * distinctValues;
         double overlapDistinctValuesRight = overlapPercentOfRight * other.distinctValues;
-        return minExcludeNaN(overlapDistinctValuesLeft, overlapDistinctValuesRight);
+        double minInputDistinctValues = minExcludeNaN(this.distinctValues, other.distinctValues);
+
+        return minExcludeNaN(minInputDistinctValues,
+                maxExcludeNaN(overlapDistinctValuesLeft, overlapDistinctValuesRight));
     }
 
     public static double minExcludeNaN(double v1, double v2) {

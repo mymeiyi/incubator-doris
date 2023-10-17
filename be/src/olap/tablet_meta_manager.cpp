@@ -29,7 +29,6 @@
 #include <vector>
 
 #include "common/logging.h"
-#include "common/status.h"
 #include "gutil/endian.h"
 #include "json2pb/json_to_pb.h"
 #include "json2pb/pb_to_json.h"
@@ -92,7 +91,7 @@ Status TabletMetaManager::save(DataDir* store, TTabletId tablet_id, TSchemaHash 
                                TabletMetaSharedPtr tablet_meta, const string& header_prefix) {
     std::string key = fmt::format("{}{}_{}", header_prefix, tablet_id, schema_hash);
     std::string value;
-    static_cast<void>(tablet_meta->serialize(&value));
+    tablet_meta->serialize(&value);
     OlapMeta* meta = store->get_meta();
     VLOG_NOTICE << "save tablet meta"
                 << ", key:" << key << ", meta length:" << value.length();
@@ -127,7 +126,7 @@ Status TabletMetaManager::traverse_headers(
         std::vector<std::string> parts;
         // old format key format: "hdr_" + tablet_id + "_" + schema_hash  0.11
         // new format key format: "tabletmeta_" + tablet_id + "_" + schema_hash  0.10
-        static_cast<void>(split_string<char>(key, '_', &parts));
+        split_string<char>(key, '_', &parts);
         if (parts.size() != 3) {
             LOG(WARNING) << "invalid tablet_meta key:" << key << ", split size:" << parts.size();
             return true;
@@ -187,7 +186,7 @@ Status TabletMetaManager::traverse_pending_publish(
     auto traverse_header_func = [&func](const std::string& key, const std::string& value) -> bool {
         std::vector<std::string> parts;
         // key format: "ppi_" + tablet_id + "_" + publish_version
-        static_cast<void>(split_string<char>(key, '_', &parts));
+        split_string<char>(key, '_', &parts);
         if (parts.size() != 3) {
             LOG(WARNING) << "invalid pending publish info key:" << key
                          << ", split size:" << parts.size();

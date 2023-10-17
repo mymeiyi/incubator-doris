@@ -19,11 +19,9 @@ package org.apache.doris.planner;
 
 import org.apache.doris.analysis.Expr;
 import org.apache.doris.analysis.SortInfo;
-import org.apache.doris.nereids.trees.plans.PartitionTopnPhase;
 import org.apache.doris.nereids.trees.plans.WindowFuncType;
 import org.apache.doris.statistics.StatisticalType;
 import org.apache.doris.thrift.TExplainLevel;
-import org.apache.doris.thrift.TPartTopNPhase;
 import org.apache.doris.thrift.TPartitionSortNode;
 import org.apache.doris.thrift.TPlanNode;
 import org.apache.doris.thrift.TPlanNodeType;
@@ -47,13 +45,12 @@ public class PartitionSortNode extends PlanNode {
     private final SortInfo info;
     private final boolean hasGlobalLimit;
     private final long partitionLimit;
-    private final PartitionTopnPhase phase;
 
     /**
      * Constructor.
      */
     public PartitionSortNode(PlanNodeId id, PlanNode input, WindowFuncType function, List<Expr> partitionExprs,
-            SortInfo info, boolean hasGlobalLimit, long partitionLimit, PartitionTopnPhase phase) {
+            SortInfo info, boolean hasGlobalLimit, long partitionLimit) {
         super(id, "PartitionTopN", StatisticalType.PARTITION_TOPN_NODE);
         Preconditions.checkArgument(info.getOrderingExprs().size() == info.getIsAscOrder().size());
         this.function = function;
@@ -61,7 +58,6 @@ public class PartitionSortNode extends PlanNode {
         this.info = info;
         this.hasGlobalLimit = hasGlobalLimit;
         this.partitionLimit = partitionLimit;
-        this.phase = phase;
         this.tupleIds.addAll(Lists.newArrayList(info.getSortTupleDescriptor().getId()));
         this.tblRefIds.addAll(Lists.newArrayList(info.getSortTupleDescriptor().getId()));
         this.nullableTupleIds.addAll(input.getNullableTupleIds());
@@ -124,9 +120,6 @@ public class PartitionSortNode extends PlanNode {
         output.append(prefix).append("has global limit: ").append(hasGlobalLimit).append("\n");
         output.append(prefix).append("partition limit: ").append(partitionLimit).append("\n");
 
-        // mark partition topn phase
-        output.append(prefix).append("partition topn phase: ").append(phase).append("\n");
-
         return output.toString();
     }
 
@@ -146,24 +139,12 @@ public class PartitionSortNode extends PlanNode {
             topNAlgorithm = TopNAlgorithm.DENSE_RANK;
         }
 
-        TPartTopNPhase pTopNPhase;
-        if (phase == PartitionTopnPhase.ONE_PHASE_GLOBAL_PTOPN) {
-            pTopNPhase = TPartTopNPhase.ONE_PHASE_GLOBAL;
-        } else if (phase == PartitionTopnPhase.TWO_PHASE_LOCAL_PTOPN) {
-            pTopNPhase = TPartTopNPhase.TWO_PHASE_LOCAL;
-        } else if (phase == PartitionTopnPhase.TWO_PHASE_GLOBAL_PTOPN) {
-            pTopNPhase = TPartTopNPhase.TWO_PHASE_GLOBAL;
-        } else {
-            pTopNPhase = TPartTopNPhase.UNKNOWN;
-        }
-
         TPartitionSortNode partitionSortNode = new TPartitionSortNode();
         partitionSortNode.setTopNAlgorithm(topNAlgorithm);
         partitionSortNode.setPartitionExprs(Expr.treesToThrift(partitionExprs));
         partitionSortNode.setSortInfo(sortInfo);
         partitionSortNode.setHasGlobalLimit(hasGlobalLimit);
         partitionSortNode.setPartitionInnerLimit(partitionLimit);
-        partitionSortNode.setPtopnPhase(pTopNPhase);
         msg.partition_sort_node = partitionSortNode;
     }
 }

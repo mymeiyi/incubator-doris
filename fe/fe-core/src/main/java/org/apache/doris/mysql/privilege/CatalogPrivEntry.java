@@ -22,7 +22,6 @@ import org.apache.doris.common.AnalysisException;
 import org.apache.doris.common.CaseSensibility;
 import org.apache.doris.common.FeMetaVersion;
 import org.apache.doris.common.PatternMatcher;
-import org.apache.doris.common.PatternMatcherException;
 import org.apache.doris.common.PatternMatcherWrapper;
 import org.apache.doris.common.io.Text;
 import org.apache.doris.datasource.InternalCatalog;
@@ -117,11 +116,6 @@ public class CatalogPrivEntry extends PrivEntry {
 
         CatalogPrivEntry otherEntry = (CatalogPrivEntry) other;
         return compareAssist(origCtl, otherEntry.origCtl);
-    }
-
-    @Override
-    protected PrivEntry copy() throws AnalysisException, PatternMatcherException {
-        return CatalogPrivEntry.create(this.getOrigCtl(), this.getPrivSet().copy());
     }
 
     @Override

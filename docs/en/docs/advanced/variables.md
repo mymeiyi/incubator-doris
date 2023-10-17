@@ -313,6 +313,7 @@ Note that the comment must start with /*+ and can only follow the SELECT.
 
     The system view table names in information_schema are case-insensitive and behave as 2 when the value of `lower_case_table_names` is 0.
 
+Translated with www.DeepL.com/Translator (free version)
 
 * `max_allowed_packet`
 
@@ -639,7 +640,7 @@ Note that the comment must start with /*+ and can only follow the SELECT.
 
     <version since="1.2.0"></version>
 
-    Use a fixed replica to query. replica starts with 0 and if use_fix_replica is 0, the smallest is used, if use_fix_replica is 1, the second smallest is used, and so on. The default value is -1, indicating that the function is disabled.
+    Use a fixed replica to query. If use_fix_replica is 1, the smallest one is used, if use_fix_replica is 2, the second smallest one is used, and so on. The default value is -1, which means it is not enabled.
 
 * `dry_run_query`
 
@@ -694,7 +695,7 @@ Note that the comment must start with /*+ and can only follow the SELECT.
 * `enable_unique_key_partial_update`
 
   <version since="2.0.2">
-  Whether to enable partial columns update semantics for native insert into statement, default is false. Please note that the default value of the session variable `enable_insert_strict`, which controls whether the insert statement operates in strict mode, is true. In other words, the insert statement is in strict mode by default, and in this mode, updating non-existing keys in partial column updates is not allowed. Therefore, when using the insert statement for partial columns update and wishing to insert non-existing keys, it is necessary to set both `enable_unique_key_partial_update` and `enable_insert_strict` to true.
+  Whether to enable partial columns update semantics for native insert into statement, default is false.
   </version>
 
 ***

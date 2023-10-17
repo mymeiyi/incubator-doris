@@ -18,7 +18,6 @@
 package org.apache.doris.mysql.privilege;
 
 import org.apache.doris.analysis.UserIdentity;
-import org.apache.doris.common.AnalysisException;
 import org.apache.doris.common.CaseSensibility;
 import org.apache.doris.common.PatternMatcher;
 import org.apache.doris.common.PatternMatcherException;
@@ -188,6 +187,4 @@ public abstract class PrivEntry implements Comparable<PrivEntry> {
         }
         return 0;
     }
-
-    protected abstract PrivEntry copy() throws AnalysisException, PatternMatcherException;
 }

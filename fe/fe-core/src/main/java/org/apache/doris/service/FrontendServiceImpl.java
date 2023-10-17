@@ -18,7 +18,6 @@
 package org.apache.doris.service;
 
 import org.apache.doris.alter.SchemaChangeHandler;
-import org.apache.doris.analysis.AbstractBackupTableRefClause;
 import org.apache.doris.analysis.AddColumnsClause;
 import org.apache.doris.analysis.AddPartitionClause;
 import org.apache.doris.analysis.Analyzer;
@@ -31,7 +30,6 @@ import org.apache.doris.analysis.SetType;
 import org.apache.doris.analysis.SqlParser;
 import org.apache.doris.analysis.SqlScanner;
 import org.apache.doris.analysis.TableName;
-import org.apache.doris.analysis.TableRef;
 import org.apache.doris.analysis.TypeDef;
 import org.apache.doris.analysis.UserIdentity;
 import org.apache.doris.backup.Snapshot;
@@ -198,7 +196,6 @@ import org.apache.doris.thrift.TStringLiteral;
 import org.apache.doris.thrift.TTableIndexQueryStats;
 import org.apache.doris.thrift.TTableMetadataNameIds;
 import org.apache.doris.thrift.TTableQueryStats;
-import org.apache.doris.thrift.TTableRef;
 import org.apache.doris.thrift.TTableStatus;
 import org.apache.doris.thrift.TTabletLocation;
 import org.apache.doris.thrift.TTxnParams;
@@ -211,7 +208,6 @@ import org.apache.doris.transaction.TabletCommitInfo;
 import org.apache.doris.transaction.TransactionState;
 import org.apache.doris.transaction.TransactionState.TxnCoordinator;
 import org.apache.doris.transaction.TransactionState.TxnSourceType;
-import org.apache.doris.transaction.TransactionStatus;
 import org.apache.doris.transaction.TxnCommitAttachment;
 
 import com.google.common.base.Preconditions;
@@ -259,13 +255,6 @@ public class FrontendServiceImpl implements FrontendService.Iface {
     // key is txn id,value is index of plan fragment instance, it's used by multi table request plan
     private ConcurrentHashMap<Long, Integer> multiTableFragmentInstanceIdIndexMap =
             new ConcurrentHashMap<>(64);
-
-    private static TNetworkAddress getMasterAddress() {
-        Env env = Env.getCurrentEnv();
-        String masterHost = env.getMasterHost();
-        int masterRpcPort = env.getMasterRpcPort();
-        return new TNetworkAddress(masterHost, masterRpcPort);
-    }
 
     public FrontendServiceImpl(ExecuteEnv exeEnv) {
         masterImpl = new MasterImpl();
@@ -1181,9 +1170,8 @@ public class FrontendServiceImpl implements FrontendService.Iface {
         if (Strings.isNullOrEmpty(cluster)) {
             cluster = SystemInfoService.DEFAULT_CLUSTER;
         }
-        if (request.isSetAuthCode()) {
-            // TODO(cmy): find a way to check
-        } else if (Strings.isNullOrEmpty(request.getToken())) {
+
+        if (Strings.isNullOrEmpty(request.getToken())) {
             checkPasswordAndPrivs(cluster, request.getUser(), request.getPasswd(), request.getDb(), request.getTbl(),
                     request.getUserIp(), PrivPredicate.LOAD);
         }
@@ -1228,7 +1216,6 @@ public class FrontendServiceImpl implements FrontendService.Iface {
         if (!Env.getCurrentEnv().isMaster()) {
             status.setStatusCode(TStatusCode.NOT_MASTER);
             status.addToErrorMsgs(NOT_MASTER_ERR_MSG);
-            result.setMasterAddress(getMasterAddress());
             LOG.error("failed to get beginTxn: {}", NOT_MASTER_ERR_MSG);
             return result;
         }
@@ -1486,21 +1473,13 @@ public class FrontendServiceImpl implements FrontendService.Iface {
 
         DatabaseTransactionMgr dbTransactionMgr = Env.getCurrentGlobalTransactionMgr()
                 .getDatabaseTransactionMgr(database.getId());
-        String txnOperation = request.getOperation().trim();
-        if (!request.isSetTxnId()) {
-            List<TransactionStatus> statusList = new ArrayList<>();
-            statusList.add(TransactionStatus.PRECOMMITTED);
-            if (txnOperation.equalsIgnoreCase("abort")) {
-                statusList.add(TransactionStatus.PREPARE);
-            }
-            request.setTxnId(dbTransactionMgr.getTransactionIdByLabel(request.getLabel(), statusList));
-        }
         TransactionState transactionState = dbTransactionMgr.getTransactionState(request.getTxnId());
         LOG.debug("txn {} has multi table {}", request.getTxnId(), transactionState.getTableIdList());
         if (transactionState == null) {
             throw new UserException("transaction [" + request.getTxnId() + "] not found");
         }
         List<Long> tableIdList = transactionState.getTableIdList();
+        String txnOperation = request.getOperation().trim();
         List<Table> tableList = new ArrayList<>();
         // if table was dropped, stream load must can abort.
         if (txnOperation.equalsIgnoreCase("abort")) {
@@ -1619,7 +1598,6 @@ public class FrontendServiceImpl implements FrontendService.Iface {
         if (!Env.getCurrentEnv().isMaster()) {
             status.setStatusCode(TStatusCode.NOT_MASTER);
             status.addToErrorMsgs(NOT_MASTER_ERR_MSG);
-            result.setMasterAddress(getMasterAddress());
             LOG.error("failed to get commitTxn: {}", NOT_MASTER_ERR_MSG);
             return result;
         }
@@ -1807,7 +1785,6 @@ public class FrontendServiceImpl implements FrontendService.Iface {
         if (!Env.getCurrentEnv().isMaster()) {
             status.setStatusCode(TStatusCode.NOT_MASTER);
             status.addToErrorMsgs(NOT_MASTER_ERR_MSG);
-            result.setMasterAddress(getMasterAddress());
             LOG.error("failed to get rollbackTxn: {}", NOT_MASTER_ERR_MSG);
             return result;
         }
@@ -1986,9 +1963,7 @@ public class FrontendServiceImpl implements FrontendService.Iface {
                 throw new MetaNotFoundException("table not found");
             }
             olapTables = new ArrayList<>(tableNames.size());
-            Map<String, OlapTable> olapTableMap = tables.stream()
-                    .filter(OlapTable.class::isInstance)
-                    .map(OlapTable.class::cast)
+            Map<String, OlapTable> olapTableMap = tables.stream().map(OlapTable.class::cast)
                     .collect(Collectors.toMap(OlapTable::getName, olapTable -> olapTable));
             for (String tableName : tableNames) {
                 if (null == olapTableMap.get(tableName)) {
@@ -2051,9 +2026,7 @@ public class FrontendServiceImpl implements FrontendService.Iface {
             cluster = SystemInfoService.DEFAULT_CLUSTER;
         }
         ConnectContext ctx = new ConnectContext();
-        if (request.isSetAuthCode()) {
-            // TODO(cmy): find a way to check
-        } else if (Strings.isNullOrEmpty(request.getToken())) {
+        if (Strings.isNullOrEmpty(request.getToken())) {
             checkPasswordAndPrivs(cluster, request.getUser(), request.getPasswd(), request.getDb(), request.getTbl(),
                     request.getUserIp(), PrivPredicate.LOAD);
         }
@@ -2073,6 +2046,7 @@ public class FrontendServiceImpl implements FrontendService.Iface {
             if (request.isGroupCommit() && parsedStmt.getLabel() != null) {
                 throw new AnalysisException("label and group_commit can't be set at the same time");
             }
+            parsedStmt.setGroupCommitLoad(request.isGroupCommit());
             StmtExecutor executor = new StmtExecutor(ctx, parsedStmt);
             ctx.setExecutor(executor);
             TQueryOptions tQueryOptions = ctx.getSessionVariable().toThrift();
@@ -2081,6 +2055,7 @@ public class FrontendServiceImpl implements FrontendService.Iface {
             Coordinator coord = new Coordinator(ctx, analyzer, executor.planner());
             coord.setLoadMemLimit(request.getExecMemLimit());
             coord.setQueryType(TQueryType.LOAD);
+            QeProcessorImpl.INSTANCE.registerQuery(request.getLoadId(), coord);
 
             TExecPlanFragmentParams plan = coord.getStreamLoadPlan();
             final long txn_id = parsedStmt.getTransactionId();
@@ -2089,7 +2064,6 @@ public class FrontendServiceImpl implements FrontendService.Iface {
             result.getParams().setTableName(parsedStmt.getTbl());
             // The txn_id here is obtained from the NativeInsertStmt
             result.getParams().setTxnConf(new TTxnParams().setTxnId(txn_id));
-            result.getParams().setImportLabel(parsedStmt.getLabel());
             if (parsedStmt.isGroupCommitTvf) {
                 result.getParams().params.setGroupCommit(true);
             }
@@ -2102,6 +2076,8 @@ public class FrontendServiceImpl implements FrontendService.Iface {
         } catch (Throwable e) {
             LOG.warn("exec sql error catch unknown result.", e);
             throw new UserException("exec sql error catch unknown result." + e);
+        } finally {
+            LOG.info("sout: coordinator size={}", QeProcessorImpl.INSTANCE.getAllCoordinators().size());
         }
     }
 
@@ -2262,7 +2238,6 @@ public class FrontendServiceImpl implements FrontendService.Iface {
                 result.setReplayedJournalId(replayedJournalId);
                 result.setQueryPort(Config.query_port);
                 result.setRpcPort(Config.rpc_port);
-                result.setArrowFlightSqlPort(Config.arrow_flight_sql_port);
                 result.setVersion(Version.DORIS_BUILD_VERSION + "-" + Version.DORIS_BUILD_SHORT_HASH);
                 result.setLastStartupTime(exeEnv.getStartupTime());
                 result.setProcessUUID(exeEnv.getProcessUUID());
@@ -2811,7 +2786,6 @@ public class FrontendServiceImpl implements FrontendService.Iface {
         if (!Env.getCurrentEnv().isMaster()) {
             status.setStatusCode(TStatusCode.NOT_MASTER);
             status.addToErrorMsgs(NOT_MASTER_ERR_MSG);
-            result.setMasterAddress(getMasterAddress());
             LOG.error("failed to get getSnapshot: {}", NOT_MASTER_ERR_MSG);
             return result;
         }
@@ -2898,7 +2872,6 @@ public class FrontendServiceImpl implements FrontendService.Iface {
         if (!Env.getCurrentEnv().isMaster()) {
             status.setStatusCode(TStatusCode.NOT_MASTER);
             status.addToErrorMsgs(NOT_MASTER_ERR_MSG);
-            result.setMasterAddress(getMasterAddress());
             LOG.error("failed to get restoreSnapshot: {}", NOT_MASTER_ERR_MSG);
             return result;
         }
@@ -2961,22 +2934,11 @@ public class FrontendServiceImpl implements FrontendService.Iface {
         TStatus status = new TStatus(TStatusCode.OK);
         result.setStatus(status);
 
+
         LabelName label = new LabelName(request.getDb(), request.getLabelName());
         String repoName = request.getRepoName();
         Map<String, String> properties = request.getProperties();
-        AbstractBackupTableRefClause restoreTableRefClause = null;
-        if (request.isSetTableRefs()) {
-            List<TableRef> tableRefs = new ArrayList<>();
-            for (TTableRef tTableRef : request.getTableRefs()) {
-                tableRefs.add(new TableRef(new TableName(tTableRef.getTable()), tTableRef.getAliasName()));
-            }
-
-            if (tableRefs.size() > 0) {
-                boolean isExclude = false;
-                restoreTableRefClause = new AbstractBackupTableRefClause(isExclude, tableRefs);
-            }
-        }
-        RestoreStmt restoreStmt = new RestoreStmt(label, repoName, restoreTableRefClause, properties, request.getMeta(),
+        RestoreStmt restoreStmt = new RestoreStmt(label, repoName, null, properties, request.getMeta(),
                 request.getJobInfo());
         restoreStmt.setIsBeingSynced();
         LOG.trace("restore snapshot info, restoreStmt: {}", restoreStmt);
@@ -3017,7 +2979,6 @@ public class FrontendServiceImpl implements FrontendService.Iface {
         if (!Env.getCurrentEnv().isMaster()) {
             status.setStatusCode(TStatusCode.NOT_MASTER);
             status.addToErrorMsgs(NOT_MASTER_ERR_MSG);
-            result.setMasterAddress(getMasterAddress());
             LOG.error("failed to get getMasterToken: {}", NOT_MASTER_ERR_MSG);
             return result;
         }

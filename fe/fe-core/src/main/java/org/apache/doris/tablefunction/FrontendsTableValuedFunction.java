@@ -44,7 +44,6 @@ public class FrontendsTableValuedFunction extends MetadataTableValuedFunction {
             new Column("HttpPort", ScalarType.createStringType()),
             new Column("QueryPort", ScalarType.createStringType()),
             new Column("RpcPort", ScalarType.createStringType()),
-            new Column("ArrowFlightSqlPort", ScalarType.createStringType()),
             new Column("Role", ScalarType.createStringType()),
             new Column("IsMaster", ScalarType.createStringType()),
             new Column("ClusterId", ScalarType.createStringType()),

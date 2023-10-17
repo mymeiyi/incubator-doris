@@ -35,7 +35,8 @@
 #include "vec/exprs/vexpr_fwd.h"
 #include "vec/sink/autoinc_buffer.h"
 
-namespace doris::vectorized {
+namespace doris {
+namespace stream_load {
 
 class OlapTableBlockConvertor {
 public:
@@ -45,7 +46,7 @@ public:
     Status validate_and_convert_block(RuntimeState* state, vectorized::Block* input_block,
                                       std::shared_ptr<vectorized::Block>& block,
                                       vectorized::VExprContextSPtrs output_vexpr_ctxs, size_t rows,
-                                      bool& has_filtered_rows);
+                                      bool eos, bool& has_filtered_rows);
 
     const Bitmap& filter_bitmap() { return _filter_bitmap; }
 
@@ -80,7 +81,7 @@ private:
     // so here need to do the convert operation
     void _convert_to_dest_desc_block(vectorized::Block* block);
 
-    Status _fill_auto_inc_cols(vectorized::Block* block, size_t rows);
+    Status _fill_auto_inc_cols(vectorized::Block* block, size_t rows, bool eos);
 
     TupleDescriptor* _output_tuple_desc = nullptr;
 
@@ -105,4 +106,5 @@ private:
     AutoIncIDAllocator _auto_inc_id_allocator;
 };
 
-} // namespace doris::vectorized
+} // namespace stream_load
+} // namespace doris

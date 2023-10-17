@@ -210,8 +210,7 @@ public class CastExpr extends Expr {
         if (isAnalyzed) {
             return "CAST(" + getChild(0).toSql() + " AS " + type.toString() + ")";
         } else {
-            return "CAST(" + getChild(0).toSql() + " AS "
-                    + (isImplicit ? type.toString() : targetTypeDef.toSql()) + ")";
+            return "CAST(" + getChild(0).toSql() + " AS " + targetTypeDef.toSql() + ")";
         }
     }
 
@@ -414,9 +413,6 @@ public class CastExpr extends Expr {
                 targetExpr.setType(type);
             }
         } catch (AnalysisException ae) {
-            if (ConnectContext.get() != null) {
-                ConnectContext.get().getState().reset();
-            }
             targetExpr = this;
         } catch (NumberFormatException nfe) {
             targetExpr = new NullLiteral();

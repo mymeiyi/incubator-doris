@@ -61,7 +61,7 @@ public:
         int i = 0;
         for (; i < max_step && !eos(); i++) {
             get_value(column);
-            static_cast<void>(forward());
+            forward();
         }
         return i;
     }

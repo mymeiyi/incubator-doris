@@ -37,17 +37,10 @@ import java.util.List;
 public class Rtrim extends ScalarFunction
         implements UnaryExpression, ExplicitlyCastableSignature, PropagateNullable {
 
-    private static final List<FunctionSignature> SIGNATURES = ImmutableList.of(
-            FunctionSignature.ret(VarcharType.SYSTEM_DEFAULT)
-                    .args(VarcharType.SYSTEM_DEFAULT, VarcharType.SYSTEM_DEFAULT),
-            FunctionSignature.ret(StringType.INSTANCE).args(StringType.INSTANCE, StringType.INSTANCE),
+    public static final List<FunctionSignature> SIGNATURES = ImmutableList.of(
             FunctionSignature.ret(VarcharType.SYSTEM_DEFAULT).args(VarcharType.SYSTEM_DEFAULT),
             FunctionSignature.ret(StringType.INSTANCE).args(StringType.INSTANCE)
     );
-
-    private Rtrim(List<Expression> args) {
-        super("rtrim", args);
-    }
 
     /**
      * constructor with 1 argument.
@@ -57,19 +50,12 @@ public class Rtrim extends ScalarFunction
     }
 
     /**
-     * constructor with 2 argument.
-     */
-    public Rtrim(Expression arg0, Expression arg1) {
-        super("rtrim", arg0, arg1);
-    }
-
-    /**
      * withChildren.
      */
     @Override
     public Rtrim withChildren(List<Expression> children) {
-        Preconditions.checkArgument(children.size() == 1 || children.size() == 2);
-        return new Rtrim(children);
+        Preconditions.checkArgument(children.size() == 1);
+        return new Rtrim(children.get(0));
     }
 
     @Override

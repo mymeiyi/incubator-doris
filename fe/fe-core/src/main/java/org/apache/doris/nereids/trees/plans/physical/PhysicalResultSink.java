@@ -22,6 +22,7 @@ import org.apache.doris.nereids.properties.LogicalProperties;
 import org.apache.doris.nereids.properties.PhysicalProperties;
 import org.apache.doris.nereids.trees.expressions.Expression;
 import org.apache.doris.nereids.trees.expressions.NamedExpression;
+import org.apache.doris.nereids.trees.expressions.Slot;
 import org.apache.doris.nereids.trees.plans.Plan;
 import org.apache.doris.nereids.trees.plans.PlanType;
 import org.apache.doris.nereids.trees.plans.algebra.Sink;
@@ -30,6 +31,7 @@ import org.apache.doris.nereids.util.Utils;
 import org.apache.doris.statistics.Statistics;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
@@ -41,6 +43,8 @@ import java.util.Optional;
  */
 public class PhysicalResultSink<CHILD_TYPE extends Plan> extends PhysicalSink<CHILD_TYPE> implements Sink {
 
+    private final List<NamedExpression> outputExprs;
+
     public PhysicalResultSink(List<NamedExpression> outputExprs, Optional<GroupExpression> groupExpression,
             LogicalProperties logicalProperties, CHILD_TYPE child) {
         this(outputExprs, groupExpression, logicalProperties, PhysicalProperties.GATHER, null, child);
@@ -49,8 +53,8 @@ public class PhysicalResultSink<CHILD_TYPE extends Plan> extends PhysicalSink<CH
     public PhysicalResultSink(List<NamedExpression> outputExprs, Optional<GroupExpression> groupExpression,
             LogicalProperties logicalProperties, @Nullable PhysicalProperties physicalProperties,
             Statistics statistics, CHILD_TYPE child) {
-        super(PlanType.PHYSICAL_RESULT_SINK, outputExprs, groupExpression,
-                logicalProperties, physicalProperties, statistics, child);
+        super(PlanType.PHYSICAL_RESULT_SINK, groupExpression, logicalProperties, physicalProperties, statistics, child);
+        this.outputExprs = outputExprs;
     }
 
     public List<NamedExpression> getOutputExprs() {
@@ -118,6 +122,13 @@ public class PhysicalResultSink<CHILD_TYPE extends Plan> extends PhysicalSink<CH
     public String toString() {
         return Utils.toSqlString("PhysicalResultSink[" + id.asInt() + "]",
                 "outputExprs", outputExprs);
+    }
+
+    @Override
+    public List<Slot> computeOutput() {
+        return outputExprs.stream()
+                .map(NamedExpression::toSlot)
+                .collect(ImmutableList.toImmutableList());
     }
 
     @Override

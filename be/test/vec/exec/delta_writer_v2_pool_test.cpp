@@ -20,7 +20,9 @@
 
 #include "olap/delta_writer_v2.h"
 
-namespace doris::vectorized {
+namespace doris {
+
+namespace stream_load {
 
 class DeltaWriterV2PoolTest : public testing::Test {
 public:
@@ -59,19 +61,19 @@ TEST_F(DeltaWriterV2PoolTest, test_map) {
     auto writer = map->get_or_create(100, [&req]() {
         RuntimeProfile profile("test");
         DeltaWriterV2* writer;
-        static_cast<void>(DeltaWriterV2::open(&req, {}, &writer, &profile));
+        DeltaWriterV2::open(&req, {}, &writer, &profile);
         return writer;
     });
     auto writer2 = map->get_or_create(101, [&req]() {
         RuntimeProfile profile("test");
         DeltaWriterV2* writer;
-        static_cast<void>(DeltaWriterV2::open(&req, {}, &writer, &profile));
+        DeltaWriterV2::open(&req, {}, &writer, &profile);
         return writer;
     });
     auto writer3 = map->get_or_create(100, [&req]() {
         RuntimeProfile profile("test");
         DeltaWriterV2* writer;
-        static_cast<void>(DeltaWriterV2::open(&req, {}, &writer, &profile));
+        DeltaWriterV2::open(&req, {}, &writer, &profile);
         return writer;
     });
     EXPECT_EQ(2, map->size());
@@ -81,4 +83,5 @@ TEST_F(DeltaWriterV2PoolTest, test_map) {
     EXPECT_EQ(0, pool.size());
 }
 
-} // namespace doris::vectorized
+} // namespace stream_load
+} // namespace doris

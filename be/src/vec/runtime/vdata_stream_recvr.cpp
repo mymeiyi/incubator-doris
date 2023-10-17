@@ -27,7 +27,6 @@
 #include <string>
 
 #include "common/logging.h"
-#include "pipeline/exec/exchange_sink_operator.h"
 #include "pipeline/exec/exchange_source_operator.h"
 #include "runtime/memory/mem_tracker.h"
 #include "runtime/runtime_state.h"
@@ -46,9 +45,7 @@ VDataStreamRecvr::SenderQueue::SenderQueue(VDataStreamRecvr* parent_recvr, int n
         : _recvr(parent_recvr),
           _is_cancelled(false),
           _num_remaining_senders(num_senders),
-          _received_first_batch(false) {
-    _cancel_status = Status::OK();
-}
+          _received_first_batch(false) {}
 
 VDataStreamRecvr::SenderQueue::~SenderQueue() {
     // Check pending closures, if it is not empty, should clear it here. but it should not happen.
@@ -83,7 +80,6 @@ Status VDataStreamRecvr::SenderQueue::get_batch(Block* block, bool* eos) {
 
 Status VDataStreamRecvr::SenderQueue::_inner_get_batch_without_lock(Block* block, bool* eos) {
     if (_is_cancelled) {
-        RETURN_IF_ERROR(_cancel_status);
         return Status::Cancelled("Cancelled");
     }
 
@@ -273,19 +269,17 @@ void VDataStreamRecvr::SenderQueue::decrement_senders(int be_number) {
     }
 }
 
-void VDataStreamRecvr::SenderQueue::cancel(Status cancel_status) {
+void VDataStreamRecvr::SenderQueue::cancel() {
     {
         std::lock_guard<std::mutex> l(_lock);
         if (_is_cancelled) {
             return;
         }
         _is_cancelled = true;
-        _cancel_status = cancel_status;
         if (_dependency) {
             _dependency->set_always_done();
         }
-        VLOG_QUERY << "cancelled stream: _fragment_instance_id="
-                   << print_id(_recvr->fragment_instance_id())
+        VLOG_QUERY << "cancelled stream: _fragment_instance_id=" << _recvr->fragment_instance_id()
                    << " node_id=" << _recvr->dest_node_id();
     }
     // Wake up all threads waiting to produce/consume batches.  They will all
@@ -423,13 +417,6 @@ bool VDataStreamRecvr::sender_queue_empty(int sender_id) {
     return _sender_queues[use_sender_id]->queue_empty();
 }
 
-void VDataStreamRecvr::set_dependency(std::shared_ptr<pipeline::ChannelDependency> dependency) {
-    _dependency = dependency;
-    for (auto& queue : _sender_queues) {
-        queue->set_channel_dependency(dependency);
-    }
-}
-
 bool VDataStreamRecvr::ready_to_read() {
     for (const auto& queue : _sender_queues) {
         if (queue->should_wait()) {
@@ -449,33 +436,14 @@ Status VDataStreamRecvr::get_next(Block* block, bool* eos) {
     }
 }
 
-void VDataStreamRecvr::remove_sender(int sender_id, int be_number, Status exec_status) {
-    if (!exec_status.ok()) {
-        cancel_stream(exec_status);
-        return;
-    }
+void VDataStreamRecvr::remove_sender(int sender_id, int be_number) {
     int use_sender_id = _is_merging ? sender_id : 0;
     _sender_queues[use_sender_id]->decrement_senders(be_number);
 }
 
-void VDataStreamRecvr::cancel_stream(Status exec_status) {
-    VLOG_QUERY << "cancel_stream: fragment_instance_id=" << print_id(_fragment_instance_id)
-               << exec_status;
-
+void VDataStreamRecvr::cancel_stream() {
     for (int i = 0; i < _sender_queues.size(); ++i) {
-        _sender_queues[i]->cancel(exec_status);
-    }
-}
-
-void VDataStreamRecvr::update_blocks_memory_usage(int64_t size) {
-    _blocks_memory_usage->add(size);
-    _blocks_memory_usage_current_value = _blocks_memory_usage->current_value();
-    if (_dependency && size > 0 &&
-        _blocks_memory_usage_current_value > config::exchg_node_buffer_size_bytes && !_is_closed) {
-        _dependency->block_writing();
-    } else if (_dependency && size < 0 &&
-               _blocks_memory_usage_current_value <= config::exchg_node_buffer_size_bytes) {
-        _dependency->set_ready_for_write();
+        _sender_queues[i]->cancel();
     }
 }
 
@@ -484,15 +452,12 @@ void VDataStreamRecvr::close() {
         return;
     }
     _is_closed = true;
-    if (_dependency) {
-        _dependency->set_ready_for_write();
-    }
     for (int i = 0; i < _sender_queues.size(); ++i) {
         _sender_queues[i]->close();
     }
     // Remove this receiver from the DataStreamMgr that created it.
     // TODO: log error msg
-    static_cast<void>(_mgr->deregister_recvr(fragment_instance_id(), dest_node_id()));
+    _mgr->deregister_recvr(fragment_instance_id(), dest_node_id());
     _mgr = nullptr;
 
     _merger.reset();

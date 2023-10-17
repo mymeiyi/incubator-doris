@@ -195,7 +195,7 @@ TEST(CsvSerde, ScalaDataTypeSerdeCsvTest) {
 
             min_wf->set_to_min();
             max_wf->set_to_max();
-            EXPECT_EQ(rand_wf->from_string(pair.second, 0, 0).ok(), true);
+            rand_wf->from_string(pair.second, 0, 0);
 
             string min_s = min_wf->to_string();
             string max_s = max_wf->to_string();
@@ -221,14 +221,11 @@ TEST(CsvSerde, ScalaDataTypeSerdeCsvTest) {
             auto ser_col = ColumnString::create();
             ser_col->reserve(3);
             VectorBufferWriter buffer_writer(*ser_col.get());
-            st = serde->serialize_one_cell_to_json(*col, 0, buffer_writer, formatOptions);
-            EXPECT_EQ(st.ok(), true);
+            serde->serialize_one_cell_to_json(*col, 0, buffer_writer, formatOptions);
             buffer_writer.commit();
-            st = serde->serialize_one_cell_to_json(*col, 1, buffer_writer, formatOptions);
-            EXPECT_EQ(st.ok(), true);
+            serde->serialize_one_cell_to_json(*col, 1, buffer_writer, formatOptions);
             buffer_writer.commit();
-            st = serde->serialize_one_cell_to_json(*col, 2, buffer_writer, formatOptions);
-            EXPECT_EQ(st.ok(), true);
+            serde->serialize_one_cell_to_json(*col, 2, buffer_writer, formatOptions);
             buffer_writer.commit();
             rtrim(min_s);
             rtrim(max_s);
@@ -254,7 +251,7 @@ TEST(CsvSerde, ScalaDataTypeSerdeCsvTest) {
         std::unique_ptr<WrapperField> rand_wf(
                 WrapperField::create_by_type(FieldType::OLAP_FIELD_TYPE_STRING));
         std::string test_str = generate(128);
-        EXPECT_EQ(rand_wf->from_string(test_str, 0, 0).ok(), true);
+        rand_wf->from_string(test_str, 0, 0);
         Field string_field(test_str);
         ColumnPtr col = nullable_ptr->create_column_const(0, string_field);
         DataTypeSerDe::FormatOptions default_format_option;
@@ -262,9 +259,7 @@ TEST(CsvSerde, ScalaDataTypeSerdeCsvTest) {
         auto ser_col = ColumnString::create();
         ser_col->reserve(1);
         VectorBufferWriter buffer_writer(*ser_col.get());
-        Status st =
-                serde->serialize_one_cell_to_json(*col, 0, buffer_writer, default_format_option);
-        EXPECT_EQ(st.ok(), true);
+        serde->serialize_one_cell_to_json(*col, 0, buffer_writer, default_format_option);
         buffer_writer.commit();
         StringRef rand_s_d = ser_col->get_data_at(0);
         EXPECT_EQ(rand_wf->to_string(), rand_s_d.to_string());

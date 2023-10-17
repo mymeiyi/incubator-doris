@@ -39,10 +39,8 @@ public class StorageBackend implements ParseNode {
         if (Strings.isNullOrEmpty(path)) {
             throw new AnalysisException("No destination path specified.");
         }
-        checkUri(URI.create(path), type);
-    }
 
-    public static void checkUri(URI uri, StorageBackend.StorageType type) throws AnalysisException {
+        URI uri = URI.create(path);
         String schema = uri.getScheme();
         if (schema == null) {
             throw new AnalysisException(

@@ -106,10 +106,6 @@ public class PhysicalProperties {
         return distributionSpec;
     }
 
-    public boolean isDistributionOnlyProperties() {
-        return orderSpec.getOrderKeys().isEmpty();
-    }
-
     @Override
     public boolean equals(Object o) {
         if (this == o) {

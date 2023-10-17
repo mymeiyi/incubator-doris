@@ -291,9 +291,8 @@ public class BackendLoadStatistic {
                 continue;
             }
 
-            // ensure: HIGH - LOW >= 2.5% * 2 = 5%
             if (Math.abs(pathStat.getUsedPercent() - avgUsedPercent)
-                    > Math.max(avgUsedPercent * Config.balance_load_score_threshold, 0.025)) {
+                    / avgUsedPercent > Config.balance_load_score_threshold) {
                 if (pathStat.getUsedPercent() > avgUsedPercent) {
                     pathStat.setClazz(Classification.HIGH);
                     highCounter++;

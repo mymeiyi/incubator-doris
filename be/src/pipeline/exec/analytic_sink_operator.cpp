@@ -103,7 +103,7 @@ Status AnalyticSinkOperatorX::init(const TPlanNode& tnode, RuntimeState* state) 
 
 Status AnalyticSinkOperatorX::prepare(RuntimeState* state) {
     for (const auto& ctx : _agg_expr_ctxs) {
-        static_cast<void>(vectorized::VExpr::prepare(ctx, state, _child_x->row_desc()));
+        vectorized::VExpr::prepare(ctx, state, _child_x->row_desc());
     }
     if (!_partition_by_eq_expr_ctxs.empty() || !_order_by_eq_expr_ctxs.empty()) {
         vector<TTupleId> tuple_ids;
@@ -122,9 +122,10 @@ Status AnalyticSinkOperatorX::prepare(RuntimeState* state) {
     return Status::OK();
 }
 
-WriteDependency* AnalyticSinkOperatorX::wait_for_dependency(RuntimeState* state) {
-    CREATE_SINK_LOCAL_STATE_RETURN_NULL_IF_ERROR(local_state);
-    return local_state._dependency->write_blocked_by();
+bool AnalyticSinkOperatorX::can_write(RuntimeState* state) {
+    return state->get_sink_local_state(id())
+            ->cast<AnalyticSinkLocalState>()
+            ._shared_state->need_more_input;
 }
 
 Status AnalyticSinkOperatorX::open(RuntimeState* state) {
@@ -138,13 +139,13 @@ Status AnalyticSinkOperatorX::open(RuntimeState* state) {
 
 Status AnalyticSinkOperatorX::sink(doris::RuntimeState* state, vectorized::Block* input_block,
                                    SourceState source_state) {
-    CREATE_SINK_LOCAL_STATE_RETURN_IF_ERROR(local_state);
+    auto& local_state = state->get_sink_local_state(id())->cast<AnalyticSinkLocalState>();
     SCOPED_TIMER(local_state.profile()->total_time_counter());
     COUNTER_UPDATE(local_state.rows_input_counter(), (int64_t)input_block->rows());
     local_state._shared_state->input_eos = source_state == SourceState::FINISHED;
     if (local_state._shared_state->input_eos && input_block->rows() == 0) {
+        local_state._shared_state->need_more_input = false;
         local_state._dependency->set_ready_for_read();
-        local_state._dependency->block_writing();
         return Status::OK();
     }
 
@@ -214,7 +215,5 @@ Status AnalyticSinkOperatorX::_insert_range_column(vectorized::Block* block,
     dst_column->insert_range_from(*column, 0, length);
     return Status::OK();
 }
-
-template class DataSinkOperatorX<AnalyticSinkLocalState>;
 
 } // namespace doris::pipeline

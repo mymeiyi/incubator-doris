@@ -17,7 +17,6 @@
 
 package org.apache.doris.analysis;
 
-import org.apache.doris.catalog.Column;
 import org.apache.doris.catalog.ScalarType;
 import org.apache.doris.catalog.Type;
 import org.apache.doris.common.Config;
@@ -72,7 +71,6 @@ public class CreateTableAsSelectStmt extends DdlStmt {
         // To avoid duplicate registrations of table/colRefs,
         // create a new root analyzer and clone the query statement for this initial pass.
         Analyzer dummyRootAnalyzer = new Analyzer(analyzer.getEnv(), analyzer.getContext());
-        super.analyze(dummyRootAnalyzer);
         QueryStmt tmpStmt = queryStmt.clone();
         tmpStmt.analyze(dummyRootAnalyzer);
         this.queryStmt = tmpStmt;
@@ -84,9 +82,8 @@ public class CreateTableAsSelectStmt extends DdlStmt {
         Preconditions.checkArgument(outputs.size() == queryStmt.getResultExprs().size());
         for (int i = 0; i < outputs.size(); ++i) {
             if (queryStmt.getResultExprs().get(i).getSrcSlotRef() != null) {
-                Column columnCopy =  new Column(queryStmt.getResultExprs().get(i).getSrcSlotRef().getColumn());
-                columnCopy.setIsAllowNull(outputs.get(i).isNullable());
-                queryStmt.getResultExprs().get(i).getSrcSlotRef().getDesc().setColumn(columnCopy);
+                queryStmt.getResultExprs().get(i).getSrcSlotRef().getColumn()
+                        .setIsAllowNull(outputs.get(i).isNullable());
             }
             if (Config.enable_date_conversion) {
                 if (queryStmt.getResultExprs().get(i).getType() == Type.DATE) {

@@ -118,14 +118,7 @@ suite ("test_agg_mv_schema_change") {
 
         qt_sc """ select * from ${tableName} order by user_id"""
 
-        test {
-            sql "ALTER TABLE ${tableName} DROP COLUMN cost"
-            exception "Can not drop column contained by mv, mv=mv1"
-        }
-
-        sql""" drop materialized view mv1 on ${tableName}; """
-
-        // drop column
+        // drop value column with mv, not light schema change
         sql """
             ALTER TABLE ${tableName} DROP COLUMN cost
             """

@@ -24,9 +24,8 @@ import org.apache.doris.nereids.trees.expressions.Expression;
 import org.apache.doris.nereids.trees.expressions.InPredicate;
 import org.apache.doris.nereids.trees.expressions.literal.DateTimeV2Literal;
 import org.apache.doris.nereids.trees.expressions.literal.DateV2Literal;
-import org.apache.doris.nereids.types.DateTimeV2Type;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 
 import java.util.List;
 
@@ -47,25 +46,12 @@ public class SimplifyInPredicate extends AbstractExpressionRewriteRule {
                     List<Expression> literals = expr.children().subList(1, expr.children().size());
                     if (literals.stream().allMatch(literal -> literal instanceof DateTimeV2Literal
                             && canLosslessConvertToDateV2Literal((DateTimeV2Literal) literal))) {
-                        ImmutableList.Builder<Expression> children = ImmutableList.builder();
+                        List<Expression> children = Lists.newArrayList();
                         children.add(cast.child());
-                        literals.forEach(l -> children.add(convertToDateV2Literal((DateTimeV2Literal) l)));
-                        return expr.withChildren(children.build());
+                        literals.stream().forEach(
+                                l -> children.add(convertToDateV2Literal((DateTimeV2Literal) l)));
+                        return expr.withChildren(children);
                     }
-                } else if (cast.child().getDataType().isDateTimeV2Type()
-                        && expr.child(1) instanceof DateTimeV2Literal) {
-                    List<Expression> literals = expr.children().subList(1, expr.children().size());
-                    DateTimeV2Type compareType = (DateTimeV2Type) cast.child().getDataType();
-                    if (literals.stream().allMatch(literal -> literal instanceof DateTimeV2Literal
-                            && canLosslessConvertToLowScaleLiteral(
-                                    (DateTimeV2Literal) literal, compareType.getScale()))) {
-                        ImmutableList.Builder<Expression> children = ImmutableList.builder();
-                        children.add(cast.child());
-                        literals.forEach(l -> children.add(new DateTimeV2Literal(compareType,
-                                ((DateTimeV2Literal) l).getStringValue())));
-                        return expr.withChildren(children.build());
-                    }
-
                 }
             }
         }
@@ -88,9 +74,5 @@ public class SimplifyInPredicate extends AbstractExpressionRewriteRule {
 
     private DateV2Literal convertToDateV2Literal(DateTimeV2Literal literal) {
         return new DateV2Literal(literal.getYear(), literal.getMonth(), literal.getDay());
-    }
-
-    private static boolean canLosslessConvertToLowScaleLiteral(DateTimeV2Literal literal, int targetScale) {
-        return literal.getMicroSecond() % (1L << (DateTimeV2Type.MAX_SCALE - targetScale)) == 0;
     }
 }

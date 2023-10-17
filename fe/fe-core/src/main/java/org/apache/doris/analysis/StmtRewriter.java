@@ -1312,9 +1312,6 @@ public class StmtRewriter {
                 }
                 continue;
             }
-            if (!(tableRef instanceof BaseTableRef)) {
-                continue;
-            }
             TableIf table = tableRef.getTable();
             String dbName = tableRef.getName().getDb();
             if (dbName == null) {

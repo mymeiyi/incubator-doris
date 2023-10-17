@@ -35,7 +35,6 @@ import com.google.common.collect.TreeMultimap;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.security.SecureRandom;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableSet;
@@ -142,7 +141,7 @@ public class PartitionRebalancer extends Rebalancer {
             }
 
             // Random pick one candidate to create tabletSchedCtx
-            Random rand = new SecureRandom();
+            Random rand = new Random();
             Object[] keys = tabletCandidates.keySet().toArray();
             long pickedTabletId = (long) keys[rand.nextInt(keys.length)];
             LOG.debug("Picked tablet id for move {}: {}", move, pickedTabletId);

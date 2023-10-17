@@ -83,8 +83,4 @@ public abstract class PhysicalRelation extends PhysicalLeaf implements Relation 
     public RelationId getRelationId() {
         return relationId;
     }
-
-    public boolean canPushDownRuntimeFilter() {
-        return false;
-    }
 }

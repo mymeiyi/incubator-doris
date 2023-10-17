@@ -27,7 +27,6 @@
 #include "pipeline/exec/operator.h"
 #include "pipeline/pipeline.h"
 #include "pipeline/pipeline_task.h"
-#include "pipeline/pipeline_x/dependency.h"
 #include "runtime/task_group/task_group.h"
 #include "util/runtime_profile.h"
 #include "util/stopwatch.hpp"
@@ -57,17 +56,16 @@ public:
         return Status::InternalError("Should not reach here!");
     }
 
-    Status prepare(RuntimeState* state, const TPipelineInstanceParams& local_params,
-                   const TDataSink& tsink);
+    Status prepare(RuntimeState* state, const TPipelineInstanceParams& local_params);
 
     Status execute(bool* eos) override;
 
     // Try to close this pipeline task. If there are still some resources need to be released after `try_close`,
     // this task will enter the `PENDING_FINISH` state.
-    Status try_close(Status exec_status) override;
+    Status try_close() override;
     // if the pipeline create a bunch of pipeline task
     // must be call after all pipeline task is finish to release resource
-    Status close(Status exec_status) override;
+    Status close() override;
 
     bool source_can_read() override {
         if (_dry_run) {
@@ -87,60 +85,49 @@ public:
         return _source->runtime_filters_are_ready_or_timeout(_state);
     }
 
-    bool sink_can_write() override {
-        auto dep = _sink->wait_for_dependency(_state);
-        if (dep != nullptr) {
-            dep->start_write_watcher();
-            return false;
-        }
-        return true;
-    }
+    bool sink_can_write() override { return _sink->can_write(_state); }
 
     Status finalize() override;
 
     std::string debug_string() override;
 
     bool is_pending_finish() override {
-        for (auto& op : _operators) {
-            auto dep = op->finish_blocked_by(_state);
-            if (dep != nullptr) {
-                dep->start_finish_watcher();
-                return true;
-            }
-        }
-        auto dep = _sink->finish_blocked_by(_state);
-        if (dep != nullptr) {
-            dep->start_finish_watcher();
+        bool source_ret = _source->is_pending_finish(_state);
+        if (source_ret) {
             return true;
+        } else {
+            set_src_pending_finish_time();
+        }
+
+        bool sink_ret = _sink->is_pending_finish(_state);
+        if (sink_ret) {
+            return true;
+        } else {
+            set_dst_pending_finish_time();
         }
         return false;
     }
 
-    std::vector<DependencySPtr>& get_downstream_dependency() { return _downstream_dependency; }
-
-    void add_upstream_dependency(std::vector<DependencySPtr>& multi_upstream_dependency) {
-        for (auto dep : multi_upstream_dependency) {
-            int dst_id = dep->id();
-            if (!_upstream_dependency.contains(dst_id)) {
-                _upstream_dependency.insert({dst_id, {dep}});
-            } else {
-                _upstream_dependency[dst_id].push_back(dep);
-            }
+    DependencySPtr& get_downstream_dependency() { return _downstream_dependency; }
+    void set_upstream_dependency(DependencySPtr& upstream_dependency) {
+        if (_upstream_dependency.contains(upstream_dependency->id())) {
+            upstream_dependency = _upstream_dependency[upstream_dependency->id()];
+        } else {
+            _upstream_dependency.insert({upstream_dependency->id(), upstream_dependency});
         }
     }
 
-    std::vector<DependencySPtr>& get_upstream_dependency(int id) {
-        if (_upstream_dependency.find(id) == _upstream_dependency.end()) {
-            _upstream_dependency.insert({id, {DependencySPtr {}}});
-        }
-        return _upstream_dependency[id];
+    Dependency* get_upstream_dependency(int id) {
+        return _upstream_dependency.find(id) == _upstream_dependency.end()
+                       ? (Dependency*)nullptr
+                       : _upstream_dependency.find(id)->second.get();
     }
 
 private:
     void set_close_pipeline_time() override {}
     void _init_profile() override;
     void _fresh_profile_counter() override;
-    using DependencyMap = std::map<int, std::vector<DependencySPtr>>;
+    using DependencyMap = std::map<int, DependencySPtr>;
     Status _open() override;
 
     OperatorXs _operators; // left is _source, right is _root
@@ -149,8 +136,7 @@ private:
     DataSinkOperatorXPtr _sink;
 
     DependencyMap _upstream_dependency;
-
-    std::vector<DependencySPtr> _downstream_dependency;
+    DependencySPtr _downstream_dependency;
 
     bool _dry_run = false;
 };

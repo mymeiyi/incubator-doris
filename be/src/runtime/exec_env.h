@@ -25,6 +25,7 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <shared_mutex>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -35,12 +36,13 @@
 #include "olap/options.h"
 #include "runtime/frontend_info.h" // TODO(zhiqiang): find a way to remove this include header
 #include "util/threadpool.h"
+#include "vec/common/hash_table/phmap_fwd_decl.h"
 
 namespace doris {
 namespace vectorized {
 class VDataStreamMgr;
 class ScannerScheduler;
-class DeltaWriterV2Pool;
+using ZoneList = std::unordered_map<std::string, cctz::time_zone>;
 } // namespace vectorized
 namespace pipeline {
 class TaskScheduler;
@@ -49,6 +51,7 @@ namespace taskgroup {
 class TaskGroupManager;
 }
 namespace stream_load {
+class DeltaWriterV2Pool;
 class LoadStreamStubPool;
 } // namespace stream_load
 namespace io {
@@ -91,6 +94,7 @@ class HeartbeatFlags;
 class FrontendServiceClient;
 class FileMetaCache;
 class GroupCommitMgr;
+class NewGroupCommitMgr;
 class TabletSchemaCache;
 class UserFunctionCache;
 class SchemaCache;
@@ -99,7 +103,6 @@ class SegmentLoader;
 class LookupConnectionCache;
 class RowCache;
 class CacheManager;
-class WalManager;
 
 inline bool k_doris_exit = false;
 
@@ -114,8 +117,7 @@ public:
     ~ExecEnv();
 
     // Initial exec environment. must call this to init all
-    [[nodiscard]] static Status init(ExecEnv* env, const std::vector<StorePath>& store_paths,
-                                     const std::set<std::string>& broken_paths);
+    [[nodiscard]] static Status init(ExecEnv* env, const std::vector<StorePath>& store_paths);
 
     // Stop all threads and delete resources.
     void destroy();
@@ -162,7 +164,6 @@ public:
     ThreadPool* buffered_reader_prefetch_thread_pool() {
         return _buffered_reader_prefetch_thread_pool.get();
     }
-    ThreadPool* s3_file_upload_thread_pool() { return _s3_file_upload_thread_pool.get(); }
     ThreadPool* send_report_thread_pool() { return _send_report_thread_pool.get(); }
     ThreadPool* join_node_thread_pool() { return _join_node_thread_pool.get(); }
 
@@ -202,6 +203,7 @@ public:
     SmallFileMgr* small_file_mgr() { return _small_file_mgr; }
     BlockSpillManager* block_spill_mgr() { return _block_spill_mgr; }
     GroupCommitMgr* group_commit_mgr() { return _group_commit_mgr; }
+    NewGroupCommitMgr* new_group_commit_mgr() { return _new_group_commit_mgr; }
 
     const std::vector<StorePath>& store_paths() const { return _store_paths; }
 
@@ -211,7 +213,6 @@ public:
     doris::vectorized::ScannerScheduler* scanner_scheduler() { return _scanner_scheduler; }
     FileMetaCache* file_meta_cache() { return _file_meta_cache; }
     MemTableMemoryLimiter* memtable_memory_limiter() { return _memtable_memory_limiter.get(); }
-    WalManager* wal_mgr() { return _wal_manager.get(); }
 #ifdef BE_TEST
     void set_ready() { this->_s_ready = true; }
     void set_not_ready() { this->_s_ready = false; }
@@ -236,11 +237,13 @@ public:
     }
 
 #endif
+    vectorized::ZoneList& global_zone_cache() { return *_global_zone_cache; }
+    std::shared_mutex& zone_cache_rw_lock() { return _zone_cache_rw_lock; }
+
     stream_load::LoadStreamStubPool* load_stream_stub_pool() {
         return _load_stream_stub_pool.get();
     }
-
-    vectorized::DeltaWriterV2Pool* delta_writer_v2_pool() { return _delta_writer_v2_pool.get(); }
+    stream_load::DeltaWriterV2Pool* delta_writer_v2_pool() { return _delta_writer_v2_pool.get(); }
 
     void wait_for_all_tasks_done();
 
@@ -264,13 +267,10 @@ public:
         return _inverted_index_query_cache;
     }
 
-    CgroupCpuCtl* get_cgroup_cpu_ctl() { return _cgroup_cpu_ctl.get(); }
-
 private:
     ExecEnv();
 
-    [[nodiscard]] Status _init(const std::vector<StorePath>& store_paths,
-                               const std::set<std::string>& broken_paths);
+    [[nodiscard]] Status _init(const std::vector<StorePath>& store_paths);
     void _destroy();
 
     Status _init_mem_env();
@@ -310,8 +310,6 @@ private:
     std::unique_ptr<ThreadPool> _download_cache_thread_pool;
     // Threadpool used to prefetch remote file for buffered reader
     std::unique_ptr<ThreadPool> _buffered_reader_prefetch_thread_pool;
-    // Threadpool used to upload local file to s3
-    std::unique_ptr<ThreadPool> _s3_file_upload_thread_pool;
     // A token used to submit download cache task serially
     std::unique_ptr<ThreadPoolToken> _serial_download_cache_thread_token;
     // Pool used by fragment manager to send profile or status to FE coordinator
@@ -348,12 +346,15 @@ private:
     FileMetaCache* _file_meta_cache = nullptr;
     std::unique_ptr<MemTableMemoryLimiter> _memtable_memory_limiter;
     std::unique_ptr<stream_load::LoadStreamStubPool> _load_stream_stub_pool;
-    std::unique_ptr<vectorized::DeltaWriterV2Pool> _delta_writer_v2_pool;
-    std::shared_ptr<WalManager> _wal_manager;
+    std::unique_ptr<stream_load::DeltaWriterV2Pool> _delta_writer_v2_pool;
+
+    std::unique_ptr<vectorized::ZoneList> _global_zone_cache;
+    std::shared_mutex _zone_cache_rw_lock;
 
     std::mutex _frontends_lock;
     std::map<TNetworkAddress, FrontendInfo> _frontends;
     GroupCommitMgr* _group_commit_mgr = nullptr;
+    NewGroupCommitMgr* _new_group_commit_mgr = nullptr;
 
     // Maybe we should use unique_ptr, but it need complete type, which means we need
     // to include many headers, and for some cpp file that do not need class like TabletSchemaCache,
@@ -370,8 +371,6 @@ private:
     CacheManager* _cache_manager = nullptr;
     segment_v2::InvertedIndexSearcherCache* _inverted_index_searcher_cache = nullptr;
     segment_v2::InvertedIndexQueryCache* _inverted_index_query_cache = nullptr;
-
-    std::unique_ptr<CgroupCpuCtl> _cgroup_cpu_ctl = nullptr;
 };
 
 template <>

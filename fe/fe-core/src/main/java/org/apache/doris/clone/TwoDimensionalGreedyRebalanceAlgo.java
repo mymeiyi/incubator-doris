@@ -29,7 +29,6 @@ import com.google.common.collect.TreeMultimap;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.security.SecureRandom;
 import java.util.List;
 import java.util.NavigableSet;
 import java.util.Random;
@@ -53,7 +52,7 @@ public class TwoDimensionalGreedyRebalanceAlgo {
     private static final Logger LOG = LogManager.getLogger(TwoDimensionalGreedyRebalanceAlgo.class);
 
     private final EqualSkewOption equalSkewOption;
-    private static final Random rand = new SecureRandom();
+    private static final Random rand = new Random(System.currentTimeMillis());
 
     public static class PartitionMove {
         Long partitionId;

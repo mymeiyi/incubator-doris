@@ -234,11 +234,7 @@ Status LoadStreamStub::_send_with_buffer(butil::IOBuf& buf, bool eos) {
 
 Status LoadStreamStub::_send_with_retry(butil::IOBuf& buf) {
     for (;;) {
-        int ret;
-        {
-            SCOPED_SWITCH_THREAD_MEM_TRACKER_LIMITER(ExecEnv::GetInstance()->orphan_mem_tracker());
-            ret = brpc::StreamWrite(_stream_id, buf);
-        }
+        int ret = brpc::StreamWrite(_stream_id, buf);
         switch (ret) {
         case 0:
             return Status::OK();

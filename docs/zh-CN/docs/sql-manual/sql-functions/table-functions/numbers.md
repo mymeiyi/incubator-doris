@@ -35,12 +35,14 @@ under the License.
 #### syntax
 ```sql
 numbers(
-  "number" = "n"
+  "number" = "n",
+  "backend_num" = "m"
   );
 ```
 
 参数：
 - `number`: 代表生成[0,n)的行。
+- `backend_num`: 可选参数,代表`m`个be节点同时执行该函数（需要部署多个be）。
 
 ### example
 ```

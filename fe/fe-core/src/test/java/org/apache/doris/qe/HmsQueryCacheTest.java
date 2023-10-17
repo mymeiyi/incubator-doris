@@ -64,8 +64,6 @@ public class HmsQueryCacheTest extends AnalyzeCheckTestBase {
     @Mocked
     private HMSExternalTable tbl;
     @Mocked
-    private HMSExternalTable tbl2;
-    @Mocked
     private HMSExternalTable view1;
     @Mocked
     private HMSExternalTable view2;
@@ -75,8 +73,6 @@ public class HmsQueryCacheTest extends AnalyzeCheckTestBase {
     private HiveScanNode hiveScanNode2;
     @Mocked
     private HiveScanNode hiveScanNode3;
-    @Mocked
-    private HiveScanNode hiveScanNode4;
 
     @Override
     protected void runBeforeAll() throws Exception {
@@ -154,52 +150,9 @@ public class HmsQueryCacheTest extends AnalyzeCheckTestBase {
                 minTimes = 0;
                 result = DLAType.HIVE;
 
-                tbl.getUpdateTime();
+                tbl.getLastUpdateTime();
                 minTimes = 0;
                 result = NOW;
-            }
-        };
-
-        Deencapsulation.setField(tbl2, "objectCreated", true);
-        Deencapsulation.setField(tbl2, "rwLock", new ReentrantReadWriteLock(true));
-
-        new Expectations(tbl2) {
-            {
-                tbl2.getId();
-                minTimes = 0;
-                result = 10004;
-
-                tbl2.getName();
-                minTimes = 0;
-                result = "hms_tbl2";
-
-                tbl2.getDbName();
-                minTimes = 0;
-                result = "hms_db";
-
-                tbl2.getFullSchema();
-                minTimes = 0;
-                result = schema;
-
-                tbl2.isSupportedHmsTable();
-                minTimes = 0;
-                result = true;
-
-                tbl2.isView();
-                minTimes = 0;
-                result = false;
-
-                tbl2.getType();
-                minTimes = 0;
-                result = TableIf.TableType.HMS_EXTERNAL_TABLE;
-
-                tbl2.getDlaType();
-                minTimes = 0;
-                result = DLAType.HIVE;
-
-                // mock init schema and do nothing
-                tbl2.initSchema();
-                minTimes = 0;
             }
         };
 
@@ -248,7 +201,7 @@ public class HmsQueryCacheTest extends AnalyzeCheckTestBase {
                 minTimes = 0;
                 result = DLAType.HIVE;
 
-                view1.getUpdateTime();
+                view1.getLastUpdateTime();
                 minTimes = 0;
                 result = NOW;
             }
@@ -298,14 +251,13 @@ public class HmsQueryCacheTest extends AnalyzeCheckTestBase {
                 minTimes = 0;
                 result = DLAType.HIVE;
 
-                view2.getUpdateTime();
+                view2.getLastUpdateTime();
                 minTimes = 0;
                 result = NOW;
             }
         };
 
         db.addTableForTest(tbl);
-        db.addTableForTest(tbl2);
         db.addTableForTest(view1);
         db.addTableForTest(view2);
         hmsCatalog.addDatabaseForTest(db);
@@ -334,14 +286,6 @@ public class HmsQueryCacheTest extends AnalyzeCheckTestBase {
             }
         };
 
-        new Expectations(hiveScanNode4) {
-            {
-                hiveScanNode4.getTargetTable();
-                minTimes = 0;
-                result = tbl2;
-            }
-        };
-
         TupleDescriptor desc = new TupleDescriptor(new TupleId(1));
         desc.setTable(mgr.getInternalCatalog().getDbNullable("default_cluster:test").getTableNullable("tbl1"));
         olapScanNode = new OlapScanNode(new PlanNodeId(1), desc, "tb1ScanNode");
@@ -353,94 +297,18 @@ public class HmsQueryCacheTest extends AnalyzeCheckTestBase {
         StatementBase parseStmt = parseAndAnalyzeStmt("select * from hms_ctl.hms_db.hms_tbl", connectContext);
         List<ScanNode> scanNodes = Arrays.asList(hiveScanNode1);
         CacheAnalyzer ca = new CacheAnalyzer(connectContext, parseStmt, scanNodes);
-        ca.checkCacheMode(System.currentTimeMillis() + Config.cache_last_version_interval_second * 1000L * 2);
+        ca.checkCacheMode(NOW + Config.cache_last_version_interval_second * 1000L * 2);
         Assert.assertEquals(ca.getCacheMode(), CacheAnalyzer.CacheMode.Sql);
-        SqlCache sqlCache = (SqlCache) ca.getCache();
-        Assert.assertEquals(sqlCache.getLatestTime(), NOW);
     }
 
     @Test
-    public void testHitSqlCacheAfterPartitionUpdateTimeChanged() throws Exception {
-        init((HMSExternalCatalog) mgr.getCatalog(HMS_CATALOG));
-        StatementBase parseStmt = parseAndAnalyzeStmt("select * from hms_ctl.hms_db.hms_tbl2", connectContext);
-        List<ScanNode> scanNodes = Arrays.asList(hiveScanNode4);
-
-        // invoke initSchemaAndUpdateTime first and init schemaUpdateTime
-        tbl2.initSchemaAndUpdateTime();
-
-        CacheAnalyzer ca = new CacheAnalyzer(connectContext, parseStmt, scanNodes);
-        ca.checkCacheMode(System.currentTimeMillis() + Config.cache_last_version_interval_second * 1000L * 2);
-        Assert.assertEquals(ca.getCacheMode(), CacheAnalyzer.CacheMode.Sql);
-        SqlCache sqlCache1 = (SqlCache) ca.getCache();
-
-        // latestTime is equals to the schema update time if not set partition update time
-        Assert.assertEquals(sqlCache1.getLatestTime(), tbl2.getSchemaUpdateTime());
-
-        // wait a second and set partition update time
-        try {
-            Thread.sleep(1000);
-        } catch (Throwable throwable) {
-            // do nothing
-        }
-        long later = System.currentTimeMillis();
-        tbl2.setPartitionUpdateTime(later);
-
-        // check cache mode again
-        ca.checkCacheMode(System.currentTimeMillis() + Config.cache_last_version_interval_second * 1000L * 2);
-        SqlCache sqlCache2 = (SqlCache) ca.getCache();
-        Assert.assertEquals(ca.getCacheMode(), CacheAnalyzer.CacheMode.Sql);
-
-        // the latest time will be changed and is equals to the partition update time
-        Assert.assertEquals(later, sqlCache2.getLatestTime());
-        Assert.assertTrue(sqlCache2.getLatestTime() > sqlCache1.getLatestTime());
-    }
-
-    @Test
-    public void testHitSqlCacheByNereids() {
+    public void testHitSqlCacheByNereids() throws Exception {
         init((HMSExternalCatalog) mgr.getCatalog(HMS_CATALOG));
         StatementBase parseStmt = analyzeAndGetStmtByNereids("select * from hms_ctl.hms_db.hms_tbl", connectContext);
         List<ScanNode> scanNodes = Arrays.asList(hiveScanNode1);
         CacheAnalyzer ca = new CacheAnalyzer(connectContext, parseStmt, scanNodes);
-        ca.checkCacheModeForNereids(System.currentTimeMillis() + Config.cache_last_version_interval_second * 1000L * 2);
+        ca.checkCacheModeForNereids(NOW + Config.cache_last_version_interval_second * 1000L * 2);
         Assert.assertEquals(ca.getCacheMode(), CacheAnalyzer.CacheMode.Sql);
-        SqlCache sqlCache = (SqlCache) ca.getCache();
-        Assert.assertEquals(sqlCache.getLatestTime(), NOW);
-    }
-
-    @Test
-    public void testHitSqlCacheByNereidsAfterPartitionUpdateTimeChanged() {
-        init((HMSExternalCatalog) mgr.getCatalog(HMS_CATALOG));
-        StatementBase parseStmt = analyzeAndGetStmtByNereids("select * from hms_ctl.hms_db.hms_tbl2", connectContext);
-        List<ScanNode> scanNodes = Arrays.asList(hiveScanNode4);
-
-        // invoke initSchemaAndUpdateTime first and init schemaUpdateTime
-        tbl2.initSchemaAndUpdateTime();
-
-        CacheAnalyzer ca = new CacheAnalyzer(connectContext, parseStmt, scanNodes);
-        ca.checkCacheModeForNereids(System.currentTimeMillis() + Config.cache_last_version_interval_second * 1000L * 2);
-        Assert.assertEquals(ca.getCacheMode(), CacheAnalyzer.CacheMode.Sql);
-        SqlCache sqlCache1 = (SqlCache) ca.getCache();
-
-        // latestTime is equals to the schema update time if not set partition update time
-        Assert.assertEquals(sqlCache1.getLatestTime(), tbl2.getSchemaUpdateTime());
-
-        // wait a second and set partition update time
-        try {
-            Thread.sleep(1000);
-        } catch (Throwable throwable) {
-            // do nothing
-        }
-        long later = System.currentTimeMillis();
-        tbl2.setPartitionUpdateTime(later);
-
-        // check cache mode again
-        ca.checkCacheModeForNereids(System.currentTimeMillis() + Config.cache_last_version_interval_second * 1000L * 2);
-        SqlCache sqlCache2 = (SqlCache) ca.getCache();
-        Assert.assertEquals(ca.getCacheMode(), CacheAnalyzer.CacheMode.Sql);
-
-        // the latest time will be changed and is equals to the partition update time
-        Assert.assertEquals(later, sqlCache2.getLatestTime());
-        Assert.assertTrue(sqlCache2.getLatestTime() > sqlCache1.getLatestTime());
     }
 
     @Test
@@ -449,22 +317,18 @@ public class HmsQueryCacheTest extends AnalyzeCheckTestBase {
         StatementBase parseStmt = parseAndAnalyzeStmt("select * from hms_ctl.hms_db.hms_view1", connectContext);
         List<ScanNode> scanNodes = Arrays.asList(hiveScanNode2);
         CacheAnalyzer ca = new CacheAnalyzer(connectContext, parseStmt, scanNodes);
-        ca.checkCacheMode(System.currentTimeMillis() + Config.cache_last_version_interval_second * 1000L * 2);
+        ca.checkCacheMode(NOW + Config.cache_last_version_interval_second * 1000L * 2);
         Assert.assertEquals(ca.getCacheMode(), CacheAnalyzer.CacheMode.Sql);
-        SqlCache sqlCache = (SqlCache) ca.getCache();
-        Assert.assertEquals(sqlCache.getLatestTime(), NOW);
     }
 
     @Test
-    public void testHitSqlCacheWithHiveViewByNereids() {
+    public void testHitSqlCacheWithHiveViewByNereids() throws Exception {
         init((HMSExternalCatalog) mgr.getCatalog(HMS_CATALOG));
         StatementBase parseStmt = analyzeAndGetStmtByNereids("select * from hms_ctl.hms_db.hms_view1", connectContext);
         List<ScanNode> scanNodes = Arrays.asList(hiveScanNode2);
         CacheAnalyzer ca = new CacheAnalyzer(connectContext, parseStmt, scanNodes);
-        ca.checkCacheModeForNereids(System.currentTimeMillis() + Config.cache_last_version_interval_second * 1000L * 2);
+        ca.checkCacheModeForNereids(NOW + Config.cache_last_version_interval_second * 1000L * 2);
         Assert.assertEquals(ca.getCacheMode(), CacheAnalyzer.CacheMode.Sql);
-        SqlCache sqlCache = (SqlCache) ca.getCache();
-        Assert.assertEquals(sqlCache.getLatestTime(), NOW);
     }
 
     @Test
@@ -473,29 +337,27 @@ public class HmsQueryCacheTest extends AnalyzeCheckTestBase {
         StatementBase parseStmt = parseAndAnalyzeStmt("select * from hms_ctl.hms_db.hms_view2", connectContext);
         List<ScanNode> scanNodes = Arrays.asList(hiveScanNode3);
         CacheAnalyzer ca = new CacheAnalyzer(connectContext, parseStmt, scanNodes);
-        ca.checkCacheMode(System.currentTimeMillis() + Config.cache_last_version_interval_second * 1000L * 2);
+        ca.checkCacheMode(NOW + Config.cache_last_version_interval_second * 1000L * 2);
         Assert.assertEquals(ca.getCacheMode(), CacheAnalyzer.CacheMode.Sql);
         SqlCache sqlCache = (SqlCache) ca.getCache();
         String cacheKey = sqlCache.getSqlWithViewStmt();
         Assert.assertEquals(cacheKey, "SELECT `hms_ctl`.`default_cluster:hms_db`.`hms_view2`.`k1` AS `k1` "
                     + "FROM `hms_ctl`.`default_cluster:hms_db`.`hms_view2`"
                     + "|SELECT * FROM hms_db.hms_tbl|SELECT * FROM hms_db.hms_view1");
-        Assert.assertEquals(sqlCache.getLatestTime(), NOW);
     }
 
     @Test
-    public void testHitSqlCacheWithNestedHiveViewByNereids() {
+    public void testHitSqlCacheWithNestedHiveViewByNereids() throws Exception {
         init((HMSExternalCatalog) mgr.getCatalog(HMS_CATALOG));
         StatementBase parseStmt = analyzeAndGetStmtByNereids("select * from hms_ctl.hms_db.hms_view2", connectContext);
         List<ScanNode> scanNodes = Arrays.asList(hiveScanNode3);
         CacheAnalyzer ca = new CacheAnalyzer(connectContext, parseStmt, scanNodes);
-        ca.checkCacheModeForNereids(System.currentTimeMillis() + Config.cache_last_version_interval_second * 1000L * 2);
+        ca.checkCacheModeForNereids(NOW + Config.cache_last_version_interval_second * 1000L * 2);
         Assert.assertEquals(ca.getCacheMode(), CacheAnalyzer.CacheMode.Sql);
         SqlCache sqlCache = (SqlCache) ca.getCache();
         String cacheKey = sqlCache.getSqlWithViewStmt();
         Assert.assertEquals(cacheKey, "select * from hms_ctl.hms_db.hms_view2"
                     + "|SELECT * FROM hms_db.hms_tbl|SELECT * FROM hms_db.hms_view1");
-        Assert.assertEquals(sqlCache.getLatestTime(), NOW);
     }
 
     @Test
@@ -504,17 +366,17 @@ public class HmsQueryCacheTest extends AnalyzeCheckTestBase {
         StatementBase parseStmt = parseAndAnalyzeStmt("select * from hms_ctl.hms_db.hms_tbl", connectContext);
         List<ScanNode> scanNodes = Arrays.asList(hiveScanNode1);
         CacheAnalyzer ca = new CacheAnalyzer(connectContext, parseStmt, scanNodes);
-        ca.checkCacheMode(0);
+        ca.checkCacheMode(NOW);
         Assert.assertEquals(ca.getCacheMode(), CacheAnalyzer.CacheMode.None);
     }
 
     @Test
-    public void testNotHitSqlCacheByNereids() {
+    public void testNotHitSqlCacheByNereids() throws Exception {
         init((HMSExternalCatalog) mgr.getCatalog(HMS_CATALOG));
         StatementBase parseStmt = analyzeAndGetStmtByNereids("select * from hms_ctl.hms_db.hms_tbl", connectContext);
         List<ScanNode> scanNodes = Arrays.asList(hiveScanNode1);
         CacheAnalyzer ca = new CacheAnalyzer(connectContext, parseStmt, scanNodes);
-        ca.checkCacheModeForNereids(0);
+        ca.checkCacheModeForNereids(NOW);
         Assert.assertEquals(ca.getCacheMode(), CacheAnalyzer.CacheMode.None);
     }
 
@@ -526,19 +388,19 @@ public class HmsQueryCacheTest extends AnalyzeCheckTestBase {
                 + "inner join internal.test.tbl1", connectContext);
         List<ScanNode> scanNodes = Arrays.asList(hiveScanNode1, olapScanNode);
         CacheAnalyzer ca = new CacheAnalyzer(connectContext, parseStmt, scanNodes);
-        ca.checkCacheMode(System.currentTimeMillis() + Config.cache_last_version_interval_second * 1000L * 2);
+        ca.checkCacheMode(NOW + Config.cache_last_version_interval_second * 1000L * 2);
         Assert.assertEquals(ca.getCacheMode(), CacheAnalyzer.CacheMode.None);
     }
 
     @Test
-    public void testNotHitSqlCacheWithFederatedQueryByNereids() {
+    public void testNotHitSqlCacheWithFederatedQueryByNereids() throws Exception {
         init((HMSExternalCatalog) mgr.getCatalog(HMS_CATALOG));
         // cache mode is None if this query is a federated query
         StatementBase parseStmt = analyzeAndGetStmtByNereids("select * from hms_ctl.hms_db.hms_tbl "
                 + "inner join internal.test.tbl1", connectContext);
         List<ScanNode> scanNodes = Arrays.asList(hiveScanNode1, olapScanNode);
         CacheAnalyzer ca = new CacheAnalyzer(connectContext, parseStmt, scanNodes);
-        ca.checkCacheModeForNereids(System.currentTimeMillis() + Config.cache_last_version_interval_second * 1000L * 2);
+        ca.checkCacheModeForNereids(NOW + Config.cache_last_version_interval_second * 1000L * 2);
         Assert.assertEquals(ca.getCacheMode(), CacheAnalyzer.CacheMode.None);
     }
 }
