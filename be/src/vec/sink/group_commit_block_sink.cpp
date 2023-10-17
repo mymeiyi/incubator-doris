@@ -47,6 +47,7 @@ Status GroupCommitBlockSink::init(const TDataSink& t_sink) {
 
     _db_id = table_sink.db_id;
     _table_id = table_sink.table_id;
+    _base_schema_version = 0; // TODO
     LOG(INFO) << "sout: db_id=" << _db_id << ", table_id=" << _table_id;
     return Status::OK();
 }
@@ -129,21 +130,17 @@ Status GroupCommitBlockSink::_add_block(RuntimeState* state,
             std::make_shared<doris::vectorized::FutureBlock>();
 
     future_block->swap(*(block.get()));
-    int64_t schema_version = 0;
-    int64_t db_id = 63012;
-    int64_t table_id = 63023; // 12241;
     TUniqueId load_id;
     load_id.__set_hi(load_id.hi);
     load_id.__set_lo(load_id.lo);
-    future_block->set_info(schema_version, load_id, _first_block, eos);
+    future_block->set_info(_base_schema_version, load_id, _first_block, eos);
     _first_block = false;
     // TODO what to do if add one block error
     if (_load_block_queue == nullptr) {
         RETURN_IF_ERROR(state->exec_env()->group_commit_mgr()->get_first_block_load_queue(
-                db_id, table_id, future_block, _load_block_queue));
-        /*ctx->label = _load_block_queue->label;
-        ctx->txn_id = _load_block_queue->txn_id;*/
+                _db_id, _table_id, future_block, _load_block_queue));
         state->set_import_label(_load_block_queue->label);
+        state->set_wal_id(_load_block_queue->txn_id);
     }
     LOG(INFO) << "sout: add block to queue=\n" << future_block->dump_data(0);
     _future_blocks.emplace_back(future_block);
