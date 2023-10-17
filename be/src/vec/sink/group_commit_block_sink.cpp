@@ -48,7 +48,7 @@ Status GroupCommitBlockSink::init(const TDataSink& t_sink) {
     _db_id = table_sink.db_id;
     _table_id = table_sink.table_id;
     _base_schema_version = 0; // TODO
-    LOG(INFO) << "sout: db_id=" << _db_id << ", table_id=" << _table_id;
+    // LOG(INFO) << "sout: db_id=" << _db_id << ", table_id=" << _table_id;
     return Status::OK();
 }
 
@@ -114,7 +114,7 @@ Status GroupCommitBlockSink::send(RuntimeState* state, vectorized::Block* input_
     bool has_filtered_rows = false;
     RETURN_IF_ERROR(_block_convertor->validate_and_convert_block(
             state, input_block, block, _output_vexpr_ctxs, rows, has_filtered_rows));
-    block->swap(*input_block);
+    // block->swap(*input_block);
     // add block into block queue
     return _add_block(state, block, eos);
 }

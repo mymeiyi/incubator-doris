@@ -1667,12 +1667,14 @@ Status VTabletWriter::append_block(doris::vectorized::Block& input_block) {
     DorisMetrics::instance()->load_rows->increment(rows);
     DorisMetrics::instance()->load_bytes->increment(bytes);
 
+    LOG(INFO) << "sout: input_block=" << input_block.dump_data(0);
     std::shared_ptr<vectorized::Block> block;
     bool has_filtered_rows = false;
     int64_t filtered_rows =
             _block_convertor->num_filtered_rows() + _tablet_finder->num_filtered_rows();
     RETURN_IF_ERROR(_block_convertor->validate_and_convert_block(
             _state, &input_block, block, _vec_output_expr_ctxs, rows, has_filtered_rows));
+    LOG(INFO) << "sout: block=" << block->dump_data(0);
 
     SCOPED_RAW_TIMER(&_send_data_ns);
     // This is just for passing compilation.
