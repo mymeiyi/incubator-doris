@@ -100,7 +100,11 @@ Status GroupCommitBlockSink::close(RuntimeState* state, Status close_status) {
         total_rows += future_block->get_total_rows();
         loaded_rows += future_block->get_loaded_rows();
     }
-    LOG(INFO) << "sout: total_rows=" << total_rows << ", loaded_rows=" << loaded_rows;
+    LOG(INFO) << "sout: total_rows=" << total_rows << ", loaded_rows=" << loaded_rows
+              << ", unselectd=" << state->num_rows_load_unselected()
+              << ", filtered=" << state->num_rows_load_filtered();
+    state->set_num_rows_load_total(total_rows + state->num_rows_load_unselected() +
+                                   state->num_rows_load_filtered());
     /*LOG(INFO) << "sout: add a eos block";
     std::shared_ptr<vectorized::Block> block = std::make_shared<vectorized::Block>();
     return _add_block(state, block, true);*/

@@ -176,8 +176,8 @@ suite("test_group_commit_http_stream") {
                 assertTrue(json.Label.startsWith("group_commit_"))
                 // assertEquals(2, json.NumberTotalRows)
                 // TODO
-                /*assertEquals(1, json.NumberLoadedRows)
-                assertEquals(0, json.NumberFilteredRows)*/
+                assertEquals(1, json.NumberLoadedRows)
+                assertEquals(0, json.NumberFilteredRows)
                 // assertEquals(1, json.NumberUnselectedRows)
             }
         }
