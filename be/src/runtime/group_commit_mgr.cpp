@@ -223,10 +223,10 @@ Status GroupCommitTable::_create_group_commit_load(
             10000L);
     RETURN_IF_ERROR(st);
     st = Status::create(result.status);
-    if (!st.ok()) {
+    if (UNLIKELY(!st.ok())) {
         LOG(WARNING) << "create group commit load error, st=" << st.to_string();
+        return st;
     }
-    RETURN_IF_ERROR(st);
     auto schema_version = result.base_schema_version;
     auto is_pipeline = result.__isset.pipeline_params;
     auto& params = result.params;

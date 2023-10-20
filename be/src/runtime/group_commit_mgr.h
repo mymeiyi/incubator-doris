@@ -73,6 +73,8 @@ private:
     std::list<std::shared_ptr<vectorized::FutureBlock>> _block_queue;
 
     Status _status = Status::OK();
+    std::condition_variable _put_cond;
+    std::condition_variable _get_cond;
 };
 
 class GroupCommitTable {
