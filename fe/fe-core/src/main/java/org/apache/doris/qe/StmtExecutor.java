@@ -1831,6 +1831,8 @@ public class StmtExecutor {
                     rows.add(data);
                 }
                 TUniqueId loadId = nativeInsertStmt.getLoadId();
+                LOG.info("sout: StmtExecutor, query_id={}, load_id={}", DebugUtil.printId(context.queryId),
+                        DebugUtil.printId(loadId));
                 PGroupCommitInsertRequest request = PGroupCommitInsertRequest.newBuilder()
                         .setDbId(insertStmt.getTargetTable().getDatabase().getId())
                         .setTableId(insertStmt.getTargetTable().getId())
@@ -1838,6 +1840,7 @@ public class StmtExecutor {
                         .setBaseSchemaVersion(nativeInsertStmt.getBaseSchemaVersion())
                         .setPlanNode(nativeInsertStmt.getPlanBytes())
                         .setScanRangeParams(nativeInsertStmt.getRangeBytes())
+                        .setExecPlanFragmentRequest(nativeInsertStmt.getExecPlanFragmentRequest())
                         .setLoadId(Types.PUniqueId.newBuilder().setHi(loadId.hi).setLo(loadId.lo)
                                 .build()).addAllData(rows)
                         .build();

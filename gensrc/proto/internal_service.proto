@@ -729,6 +729,8 @@ message PGroupCommitInsertRequest {
 
     optional PUniqueId load_id = 7;
     repeated PDataRow data = 8;
+    // TExecPlanFragmentParams
+    optional PExecPlanFragmentRequest exec_plan_fragment_request = 9;
 }
 
 message PGroupCommitInsertResponse {

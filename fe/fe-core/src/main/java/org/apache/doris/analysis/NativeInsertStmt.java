@@ -53,12 +53,15 @@ import org.apache.doris.planner.GroupCommitOlapTableSink;
 import org.apache.doris.planner.OlapTableSink;
 import org.apache.doris.planner.StreamLoadPlanner;
 import org.apache.doris.planner.external.jdbc.JdbcTableSink;
+import org.apache.doris.proto.InternalService;
+import org.apache.doris.proto.InternalService.PExecPlanFragmentRequest;
 import org.apache.doris.qe.ConnectContext;
 import org.apache.doris.rewrite.ExprRewriter;
 import org.apache.doris.service.FrontendOptions;
 import org.apache.doris.tablefunction.GroupCommitTableValuedFunction;
 import org.apache.doris.task.StreamLoadTask;
 import org.apache.doris.thrift.TExecPlanFragmentParams;
+import org.apache.doris.thrift.TExecPlanFragmentParamsList;
 import org.apache.doris.thrift.TFileCompressType;
 import org.apache.doris.thrift.TFileFormatType;
 import org.apache.doris.thrift.TFileType;
@@ -165,6 +168,7 @@ public class NativeInsertStmt extends InsertStmt {
     private ByteString planBytes = null;
     private ByteString tableBytes = null;
     private ByteString rangeBytes = null;
+    private ByteString execPlanFragmentParamsBytes = null;
     private long tableId = -1;
     // true if be generates an insert from group commit tvf stmt and executes to load data
     public boolean isGroupCommitTvf = false;
@@ -1098,6 +1102,7 @@ public class NativeInsertStmt extends InsertStmt {
         if (targetColumnNames != null) {
             streamLoadPutRequest.setColumns(String.join(",", targetColumnNames));
         }
+        LOG.info("sout: query id={}", DebugUtil.printId(queryId));
         streamLoadPutRequest.setDb(db.getFullName()).setMaxFilterRatio(1)
                 .setTbl(getTbl())
                 .setFileType(TFileType.FILE_STREAM).setFormatType(TFileFormatType.FORMAT_CSV_PLAIN)
@@ -1127,6 +1132,15 @@ public class NativeInsertStmt extends InsertStmt {
         tableBytes = ByteString.copyFrom(new TSerializer().serialize(descTable.toThrift()));
         rangeBytes = ByteString.copyFrom(new TSerializer().serialize(scanRangeParams.get(0)));
         baseSchemaVersion = olapTable.getBaseSchemaVersion();
+        // see BackendServiceProxy#execPlanFragmentsAsync
+        TExecPlanFragmentParamsList paramsList = new TExecPlanFragmentParamsList();
+        paramsList.addToParamsList(tRequest);
+        execPlanFragmentParamsBytes = ByteString.copyFrom(new TSerializer().serialize(paramsList));
+    }
+
+    public PExecPlanFragmentRequest getExecPlanFragmentRequest() {
+        return PExecPlanFragmentRequest.newBuilder().setRequest(execPlanFragmentParamsBytes)
+                .setCompact(false).setVersion(InternalService.PFragmentRequestVersion.VERSION_2).build();
     }
 
     public TUniqueId getLoadId() {

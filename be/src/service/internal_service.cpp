@@ -525,6 +525,7 @@ Status PInternalServiceImpl::_exec_plan_fragment_impl(const std::string& ser_req
         }
 
         for (const TExecPlanFragmentParams& params : t_request.paramsList) {
+            LOG(INFO) << "sout: exec plan fragment";
             RETURN_IF_ERROR(_exec_env->fragment_mgr()->exec_plan_fragment(params));
         }
         return Status::OK();
@@ -537,6 +538,7 @@ Status PInternalServiceImpl::_exec_plan_fragment_impl(const std::string& ser_req
         }
 
         for (const TPipelineFragmentParams& params : t_request.params_list) {
+            LOG(INFO) << "sout: exec plan fragment";
             RETURN_IF_ERROR(_exec_env->fragment_mgr()->exec_plan_fragment(params));
         }
         return Status::OK();
@@ -1827,6 +1829,30 @@ void PInternalServiceImpl::group_commit_insert(google::protobuf::RpcController* 
         }
         st = _exec_env->group_commit_mgr()->group_commit_insert(
                 table_id, plan, tdesc_tbl, tscan_range_params, request, response);
+        if (!st.ok()) {
+            LOG(WARNING) << "sout: group commit insert failed, errmsg=" << st;
+        }
+
+        try {
+            bool compact = request->exec_plan_fragment_request().has_compact()
+                                   ? request->exec_plan_fragment_request().compact()
+                                   : false;
+            PFragmentRequestVersion version =
+                    request->exec_plan_fragment_request().has_version()
+                            ? request->exec_plan_fragment_request().version()
+                            : PFragmentRequestVersion::VERSION_1;
+            st = _exec_plan_fragment_impl(request->exec_plan_fragment_request().request(), version,
+                                          compact);
+        } catch (const Exception& e) {
+            st = e.to_status();
+        } catch (...) {
+            st = Status::Error(ErrorCode::INTERNAL_ERROR,
+                               "_exec_plan_fragment_impl meet unknown error");
+        }
+        LOG(INFO) << "sout: finish exec plan fragment,st=" << st;
+        if (!st.ok()) {
+            LOG(WARNING) << "sout: exec plan fragment failed, errmsg=" << st;
+        }
         st.to_protobuf(response->mutable_status());
     });
     if (!ret) {

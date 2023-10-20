@@ -39,6 +39,7 @@ GroupCommitBlockSink::GroupCommitBlockSink(ObjectPool* pool, const RowDescriptor
 GroupCommitBlockSink::~GroupCommitBlockSink() = default;
 
 Status GroupCommitBlockSink::init(const TDataSink& t_sink) {
+    LOG(INFO) << "sout: init GroupCommitBlockSink";
     DCHECK(t_sink.__isset.olap_table_sink);
     auto& table_sink = t_sink.olap_table_sink;
     _tuple_desc_id = table_sink.tuple_id;

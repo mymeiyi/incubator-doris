@@ -42,6 +42,7 @@ import org.apache.doris.common.DdlException;
 import org.apache.doris.common.ErrorCode;
 import org.apache.doris.common.ErrorReport;
 import org.apache.doris.common.UserException;
+import org.apache.doris.common.util.DebugUtil;
 import org.apache.doris.common.util.TimeUtils;
 import org.apache.doris.load.BrokerFileGroup;
 import org.apache.doris.load.loadv2.LoadTask;
@@ -259,8 +260,10 @@ public class StreamLoadPlanner {
         if (taskInfo instanceof StreamLoadTask && ((StreamLoadTask) taskInfo).isGroupCommit()) {
             olapTableSink = new GroupCommitBlockSink(destTable, tupleDesc, partitionIds,
                     Config.enable_single_replica_load);
+            LOG.info("sout: sink is GroupCommitBlockSink, loadId={}", DebugUtil.printId(loadId));
         } else {
             olapTableSink = new OlapTableSink(destTable, tupleDesc, partitionIds, Config.enable_single_replica_load);
+            LOG.info("sout: sink is OlapTableSink");
         }
         olapTableSink.init(loadId, taskInfo.getTxnId(), db.getId(), timeout, taskInfo.getSendBatchParallelism(),
                 taskInfo.isLoadToSingleTablet(), taskInfo.isStrictMode());
