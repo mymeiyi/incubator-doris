@@ -29,10 +29,10 @@
 
 namespace doris {
 class ExecEnv;
-class TPlan;
-class TDescriptorTable;
+// class TPlan;
+// class TDescriptorTable;
 class TUniqueId;
-class TExecPlanFragmentParams;
+// class TExecPlanFragmentParams;
 class ObjectPool;
 class RuntimeState;
 class StreamLoadContext;
@@ -115,10 +115,7 @@ public:
     void stop();
 
     // insert into
-    Status group_commit_insert(int64_t table_id, const TPlan& plan,
-                               const TDescriptorTable& desc_tbl,
-                               const TScanRangeParams& scan_range_params,
-                               const PGroupCommitInsertRequest* request,
+    Status group_commit_insert(int64_t table_id, const PGroupCommitInsertRequest* request,
                                PGroupCommitInsertResponse* response);
 
     // used when init group_commit_scan_node

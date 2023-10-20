@@ -1788,7 +1788,7 @@ void PInternalServiceImpl::group_commit_insert(google::protobuf::RpcController* 
         brpc::ClosureGuard closure_guard(done);
         auto table_id = request->table_id();
         Status st = Status::OK();
-        TPlan plan;
+        /*TPlan plan;
         {
             auto& plan_node = request->plan_node();
             const uint8_t* buf = (const uint8_t*)plan_node.data();
@@ -1826,9 +1826,8 @@ void PInternalServiceImpl::group_commit_insert(google::protobuf::RpcController* 
                 response->mutable_status()->set_error_msgs(0, st.to_string());
                 return;
             }
-        }
-        st = _exec_env->group_commit_mgr()->group_commit_insert(
-                table_id, plan, tdesc_tbl, tscan_range_params, request, response);
+        }*/
+        st = _exec_env->group_commit_mgr()->group_commit_insert(table_id, request, response);
         if (!st.ok()) {
             LOG(WARNING) << "sout: group commit insert failed, errmsg=" << st;
         }

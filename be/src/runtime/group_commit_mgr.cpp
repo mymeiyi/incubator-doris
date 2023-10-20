@@ -33,13 +33,13 @@
 #include "runtime/runtime_state.h"
 #include "runtime/stream_load/new_load_stream_mgr.h"
 #include "runtime/stream_load/stream_load_context.h"
-#include "util/thrift_rpc_helper.h"
+//#include "util/thrift_rpc_helper.h"
 #include "vec/exec/scan/new_file_scan_node.h"
 #include "vec/sink/group_commit_block_sink.h"
 
 namespace doris {
 
-class TPlan;
+// class TPlan;
 
 Status LoadBlockQueue::add_block(std::shared_ptr<vectorized::FutureBlock> block) {
     DCHECK(block->get_schema_version() == schema_version);
@@ -410,9 +410,7 @@ void GroupCommitMgr::stop() {
     LOG(INFO) << "GroupCommitMgr is stopped";
 }
 
-Status GroupCommitMgr::group_commit_insert(int64_t table_id, const TPlan& plan,
-                                           const TDescriptorTable& tdesc_tbl,
-                                           const TScanRangeParams& scan_range_params,
+Status GroupCommitMgr::group_commit_insert(int64_t table_id,
                                            const PGroupCommitInsertRequest* request,
                                            PGroupCommitInsertResponse* response) {
     // auto& nodes = plan.nodes;

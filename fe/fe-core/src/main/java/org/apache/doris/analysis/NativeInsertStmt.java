@@ -165,9 +165,9 @@ public class NativeInsertStmt extends InsertStmt {
     private boolean isGroupCommit = false;
     private int baseSchemaVersion = -1;
     private TUniqueId loadId = null;
-    private ByteString planBytes = null;
-    private ByteString tableBytes = null;
-    private ByteString rangeBytes = null;
+    // private ByteString planBytes = null;
+    // private ByteString tableBytes = null;
+    // private ByteString rangeBytes = null;
     private ByteString execPlanFragmentParamsBytes = null;
     private long tableId = -1;
     // true if be generates an insert from group commit tvf stmt and executes to load data
@@ -1089,9 +1089,9 @@ public class NativeInsertStmt extends InsertStmt {
 
     public void planForGroupCommit(TUniqueId queryId) throws UserException, TException {
         OlapTable olapTable = (OlapTable) getTargetTable();
-        if (planBytes != null && olapTable.getBaseSchemaVersion() == baseSchemaVersion) {
+        /*if (planBytes != null && olapTable.getBaseSchemaVersion() == baseSchemaVersion) {
             return;
-        }
+        }*/
         if (!targetColumns.isEmpty()) {
             Analyzer analyzerTmp = analyzer;
             reset();
@@ -1128,9 +1128,9 @@ public class NativeInsertStmt extends InsertStmt {
         Preconditions.checkState(scanRangeParams.size() == 1);
         // save plan message to be reused for prepare stmt
         loadId = queryId;
-        planBytes = ByteString.copyFrom(new TSerializer().serialize(plan));
-        tableBytes = ByteString.copyFrom(new TSerializer().serialize(descTable.toThrift()));
-        rangeBytes = ByteString.copyFrom(new TSerializer().serialize(scanRangeParams.get(0)));
+        // planBytes = ByteString.copyFrom(new TSerializer().serialize(plan));
+        // tableBytes = ByteString.copyFrom(new TSerializer().serialize(descTable.toThrift()));
+        // rangeBytes = ByteString.copyFrom(new TSerializer().serialize(scanRangeParams.get(0)));
         baseSchemaVersion = olapTable.getBaseSchemaVersion();
         // see BackendServiceProxy#execPlanFragmentsAsync
         TExecPlanFragmentParamsList paramsList = new TExecPlanFragmentParamsList();
@@ -1147,21 +1147,21 @@ public class NativeInsertStmt extends InsertStmt {
         return loadId;
     }
 
-    public ByteString getPlanBytes() {
+    /*public ByteString getPlanBytes() {
         return planBytes;
     }
 
     public ByteString getTableBytes() {
         return tableBytes;
-    }
+    }*/
 
     public int getBaseSchemaVersion() {
         return baseSchemaVersion;
     }
 
-    public ByteString getRangeBytes() {
+    /*public ByteString getRangeBytes() {
         return rangeBytes;
-    }
+    }*/
 
     public void setIsFromDeleteOrUpdateStmt(boolean isFromDeleteOrUpdateStmt) {
         this.isFromDeleteOrUpdateStmt = isFromDeleteOrUpdateStmt;
