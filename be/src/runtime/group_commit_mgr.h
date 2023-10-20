@@ -75,6 +75,7 @@ private:
     Status _status = Status::OK();
     std::condition_variable _put_cond;
     std::condition_variable _get_cond;
+    size_t _max_buffered_bytes = ;
 };
 
 class GroupCommitTable {
