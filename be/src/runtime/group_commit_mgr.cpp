@@ -33,7 +33,7 @@
 #include "runtime/runtime_state.h"
 #include "runtime/stream_load/new_load_stream_mgr.h"
 #include "runtime/stream_load/stream_load_context.h"
-//#include "util/thrift_rpc_helper.h"
+#include "util/thrift_rpc_helper.h"
 #include "vec/exec/scan/new_file_scan_node.h"
 #include "vec/sink/group_commit_block_sink.h"
 
