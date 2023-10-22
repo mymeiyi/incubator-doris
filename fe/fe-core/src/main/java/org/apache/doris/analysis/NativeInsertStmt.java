@@ -1075,10 +1075,34 @@ public class NativeInsertStmt extends InsertStmt {
     }
 
     private void analyzeGroupCommit() {
-        if (ConnectContext.get().getSessionVariable().enableInsertGroupCommit && targetTable instanceof OlapTable
+        if (ConnectContext.get().getSessionVariable().enableInsertGroupCommit
+                && targetTable instanceof OlapTable
                 && !ConnectContext.get().isTxnModel()
                 && getQueryStmt() instanceof SelectStmt
-                && ((SelectStmt) getQueryStmt()).getTableRefs().isEmpty() && targetPartitionNames == null) {
+                && ((SelectStmt) getQueryStmt()).getTableRefs().isEmpty() && targetPartitionNames == null &&
+                (analyzer == null || analyzer != null && !analyzer.isReAnalyze())) {
+            SelectStmt selectStmt = (SelectStmt) queryStmt;
+            if (selectStmt.getValueList() != null) {
+                for (List<Expr> row : selectStmt.getValueList().getRows()) {
+                    for (Expr expr : row) {
+                        if (!expr.isLiteralOrCastExpr()) {
+                            return;
+                        }
+                    }
+                }
+            } else {
+                SelectList selectList = selectStmt.getSelectList();
+                if (selectList != null) {
+                    List<SelectListItem> items = selectList.getItems();
+                    if (items != null) {
+                        for (SelectListItem item : items) {
+                            if (item.getExpr() != null && !item.getExpr().isLiteralOrCastExpr()) {
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
             isGroupCommit = true;
         }
     }
