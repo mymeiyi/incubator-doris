@@ -1786,51 +1786,23 @@ void PInternalServiceImpl::group_commit_insert(google::protobuf::RpcController* 
                                                google::protobuf::Closure* done) {
     bool ret = _light_work_pool.try_offer([this, request, response, done]() {
         brpc::ClosureGuard closure_guard(done);
-        auto table_id = request->table_id();
+        // auto table_id = request->table_id();
         Status st = Status::OK();
-        /*TPlan plan;
-        {
-            auto& plan_node = request->plan_node();
-            const uint8_t* buf = (const uint8_t*)plan_node.data();
-            uint32_t len = plan_node.size();
-            st = deserialize_thrift_msg(buf, &len, false, &plan);
-            if (UNLIKELY(!st.ok())) {
-                LOG(WARNING) << "deserialize plan failed, msg=" << st;
-                response->mutable_status()->set_status_code(st.code());
-                response->mutable_status()->set_error_msgs(0, st.to_string());
-                return;
-            }
-        }
-        TDescriptorTable tdesc_tbl;
-        {
-            auto& desc_tbl = request->desc_tbl();
-            const uint8_t* buf = (const uint8_t*)desc_tbl.data();
-            uint32_t len = desc_tbl.size();
-            st = deserialize_thrift_msg(buf, &len, false, &tdesc_tbl);
-            if (UNLIKELY(!st.ok())) {
-                LOG(WARNING) << "deserialize desc tbl failed, msg=" << st;
-                response->mutable_status()->set_status_code(st.code());
-                response->mutable_status()->set_error_msgs(0, st.to_string());
-                return;
-            }
-        }
-        TScanRangeParams tscan_range_params;
-        {
-            auto& bytes = request->scan_range_params();
-            const uint8_t* buf = (const uint8_t*)bytes.data();
-            uint32_t len = bytes.size();
-            st = deserialize_thrift_msg(buf, &len, false, &tscan_range_params);
-            if (UNLIKELY(!st.ok())) {
-                LOG(WARNING) << "deserialize scan range failed, msg=" << st;
-                response->mutable_status()->set_status_code(st.code());
-                response->mutable_status()->set_error_msgs(0, st.to_string());
-                return;
-            }
-        }*/
-        st = _exec_env->group_commit_mgr()->group_commit_insert(table_id, request, response);
+
+        TUniqueId load_id;
+        load_id.__set_hi(request->load_id().hi());
+        load_id.__set_lo(request->load_id().lo());
+        auto pipe = std::make_shared<io::StreamLoadPipe>(
+                io::kMaxPipeBufferedBytes /* max_buffered_bytes */, 64 * 1024 /* min_chunk_size */,
+                -1 /* total_length */, true /* use_proto */);
+        std::shared_ptr<StreamLoadContext> ctx = std::make_shared<StreamLoadContext>(_exec_env);
+        ctx->pipe = pipe;
+        RETURN_IF_ERROR(_exec_env->new_load_stream_mgr()->put(load_id, ctx));
+
+        /*st = _exec_env->group_commit_mgr()->group_commit_insert(table_id, request, response);
         if (!st.ok()) {
             LOG(WARNING) << "sout: group commit insert failed, errmsg=" << st;
-        }
+        }*/
 
         try {
             bool compact = request->exec_plan_fragment_request().has_compact()
@@ -1851,8 +1823,19 @@ void PInternalServiceImpl::group_commit_insert(google::protobuf::RpcController* 
         LOG(INFO) << "sout: finish exec plan fragment,st=" << st;
         if (!st.ok()) {
             LOG(WARNING) << "sout: exec plan fragment failed, errmsg=" << st;
+            return st;
         }
         st.to_protobuf(response->mutable_status());
+
+        for (int i = 0; i < request->data().size(); ++i) {
+            std::unique_ptr<PDataRow> row(new PDataRow());
+            row->CopyFrom(request->data(i));
+            // TODO append may error when pipe is cancelled
+            RETURN_IF_ERROR(pipe->append(std::move(row)));
+        }
+        static_cast<void>(pipe->finish());
+        LOG(INFO) << "sout: pipe is finished";
+        return st;
     });
     if (!ret) {
         offer_failed(response, done, _light_work_pool);

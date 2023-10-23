@@ -390,10 +390,10 @@ Status GroupCommitTable::get_load_block_queue(const TUniqueId& instance_id,
 }
 
 GroupCommitMgr::GroupCommitMgr(ExecEnv* exec_env) : _exec_env(exec_env) {
-    static_cast<void>(ThreadPoolBuilder("InsertIntoGroupCommitThreadPool")
+    /*static_cast<void>(ThreadPoolBuilder("InsertIntoGroupCommitThreadPool")
                               .set_min_threads(config::group_commit_insert_threads)
                               .set_max_threads(config::group_commit_insert_threads)
-                              .build(&_insert_into_thread_pool));
+                              .build(&_insert_into_thread_pool));*/
     static_cast<void>(ThreadPoolBuilder("GroupCommitThreadPool")
                               .set_min_threads(1)
                               .set_max_threads(config::group_commit_insert_threads)
@@ -405,12 +405,12 @@ GroupCommitMgr::~GroupCommitMgr() {
 }
 
 void GroupCommitMgr::stop() {
-    _insert_into_thread_pool->shutdown();
+    // _insert_into_thread_pool->shutdown();
     _thread_pool->shutdown();
     LOG(INFO) << "GroupCommitMgr is stopped";
 }
 
-Status GroupCommitMgr::group_commit_insert(int64_t table_id,
+/*Status GroupCommitMgr::group_commit_insert(int64_t table_id,
                                            const PGroupCommitInsertRequest* request,
                                            PGroupCommitInsertResponse* response) {
     // auto& nodes = plan.nodes;
@@ -427,22 +427,22 @@ Status GroupCommitMgr::group_commit_insert(int64_t table_id,
         // then scan node scans from the pipe, like stream load.
         // std::shared_ptr<LoadBlockQueue> load_block_queue;
         auto pipe = std::make_shared<io::StreamLoadPipe>(
-                io::kMaxPipeBufferedBytes /* max_buffered_bytes */, 64 * 1024 /* min_chunk_size */,
-                -1 /* total_length */, true /* use_proto */);
+                io::kMaxPipeBufferedBytes *//* max_buffered_bytes *//*, 64 * 1024 *//* min_chunk_size *//*,
+                -1 *//* total_length *//*, true *//* use_proto *//*);
         std::shared_ptr<StreamLoadContext> ctx = std::make_shared<StreamLoadContext>(_exec_env);
         ctx->pipe = pipe;
         RETURN_IF_ERROR(_exec_env->new_load_stream_mgr()->put(load_id, ctx));
-        /*(std::unique_ptr<int, std::function<void(int*)>> remove_pipe_func((int*)0x01, [&](int*) {
+        *//*(std::unique_ptr<int, std::function<void(int*)>> remove_pipe_func((int*)0x01, [&](int*) {
             if (load_block_queue != nullptr) {
                 load_block_queue->remove_load_id(load_id);
             }
             _exec_env->new_load_stream_mgr()->remove(load_id);
-        });*/
+        });*//*
         static_cast<void>(_insert_into_thread_pool->submit_func(
                 std::bind<void>(&GroupCommitMgr::_append_row, this, pipe, request)));
 
         // 2. FileScanNode consumes data from the pipe.
-        /*std::unique_ptr<RuntimeState> runtime_state = RuntimeState::create_unique();
+        *//*std::unique_ptr<RuntimeState> runtime_state = RuntimeState::create_unique();
         TQueryOptions query_options;
         query_options.query_type = TQueryType::LOAD;
         TQueryGlobals query_globals;
@@ -495,12 +495,12 @@ Status GroupCommitMgr::group_commit_insert(int64_t table_id,
                       << ", filter rows=" << runtime_state->num_rows_load_filtered()
                       << ", unselect rows=" << runtime_state->num_rows_load_unselected()
                       << ", success rows=" << runtime_state->num_rows_load_success();
-        }*/
+        }*//*
     }
     // int64_t total_rows = 0;
     // int64_t loaded_rows = 0;
     // 4. wait to wal
-    /*for (const auto& future_block : future_blocks) {
+    *//*for (const auto& future_block : future_blocks) {
         std::unique_lock<doris::Mutex> l(*(future_block->lock));
         if (!future_block->is_handled()) {
             future_block->cv->wait(l);
@@ -510,11 +510,11 @@ Status GroupCommitMgr::group_commit_insert(int64_t table_id,
         loaded_rows += future_block->get_loaded_rows();
     }
     response->set_loaded_rows(loaded_rows);
-    response->set_filtered_rows(total_rows - loaded_rows);*/
+    response->set_filtered_rows(total_rows - loaded_rows);*//*
     return Status::OK();
-}
+}*/
 
-Status GroupCommitMgr::_append_row(std::shared_ptr<io::StreamLoadPipe> pipe,
+/*Status GroupCommitMgr::_append_row(std::shared_ptr<io::StreamLoadPipe> pipe,
                                    const PGroupCommitInsertRequest* request) {
     for (int i = 0; i < request->data().size(); ++i) {
         std::unique_ptr<PDataRow> row(new PDataRow());
@@ -525,7 +525,7 @@ Status GroupCommitMgr::_append_row(std::shared_ptr<io::StreamLoadPipe> pipe,
     static_cast<void>(pipe->finish());
     LOG(INFO) << "sout: pipe is finished";
     return Status::OK();
-}
+}*/
 
 Status GroupCommitMgr::get_first_block_load_queue(
         int64_t db_id, int64_t table_id, std::shared_ptr<vectorized::FutureBlock> block,

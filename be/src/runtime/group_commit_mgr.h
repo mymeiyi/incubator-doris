@@ -115,8 +115,8 @@ public:
     void stop();
 
     // insert into
-    Status group_commit_insert(int64_t table_id, const PGroupCommitInsertRequest* request,
-                               PGroupCommitInsertResponse* response);
+    /*Status group_commit_insert(int64_t table_id, const PGroupCommitInsertRequest* request,
+                               PGroupCommitInsertResponse* response);*/
 
     // used when init group_commit_scan_node
     Status get_load_block_queue(int64_t table_id, const TUniqueId& instance_id,
@@ -127,8 +127,8 @@ public:
 
 private:
     // used by insert into
-    Status _append_row(std::shared_ptr<io::StreamLoadPipe> pipe,
-                       const PGroupCommitInsertRequest* request);
+    /*Status _append_row(std::shared_ptr<io::StreamLoadPipe> pipe,
+                       const PGroupCommitInsertRequest* request);*/
 
     ExecEnv* _exec_env;
 
@@ -137,7 +137,7 @@ private:
     std::unordered_map<int64_t, std::shared_ptr<GroupCommitTable>> _table_map;
 
     // thread pool to handle insert into: append data to pipe
-    std::unique_ptr<doris::ThreadPool> _insert_into_thread_pool;
+    // std::unique_ptr<doris::ThreadPool> _insert_into_thread_pool;
     std::unique_ptr<doris::ThreadPool> _thread_pool;
 };
 
