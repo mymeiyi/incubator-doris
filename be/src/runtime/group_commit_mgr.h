@@ -16,6 +16,7 @@
 // under the License.
 
 #pragma once
+#include <gen_cpp/PaloInternalService_types.h>
 
 #include "common/status.h"
 #include "util/lock.h"
