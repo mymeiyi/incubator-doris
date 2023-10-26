@@ -26,15 +26,15 @@ under the License.
 
 # Group Commit
 
-攒批写入没有引入一种新的导入方式，而是对`INSERT INTO tbl VALUS(...)`、`Stream Load`、`Http Stream`的扩展。
+Group commit load does not introduce a new import method, but an extension of `INSERT INTO tbl VALUS(...)`、`Stream Load`、`Http Stream`.
 
-在 Doris 中，所有的数据写入都是一个独立的导入作业，发起一个新的事务，产生一个新的数据版本。在高频写入的场景下，对transaction和compaction都产生了较大的压力。攒批写通过把多个小的写入合成一个写入作业，减少了transaction和compaction的次数，缓解了系统内部的压力，提高了写入的性能。
+In Doris, all methods of data loading are independent jobs which initiate a new transaction and generate a new data version. In the scenario of high-frequency writes, both transactions and compactions are under great pressure. Group commit load reduces the number of transactions and compactions by combining multiple small load tasks into one load job, and thus improve write performance.
 
-需要注意的是，攒批写入在数据写入WAL后即返回，此时不能立刻读出数据，默认为10秒后可以读出。
+It should be noted that the group commit is returned after the data is writed to WAL, at this time, the data is not visible for users, the default time interval is 10 seconds.
 
-## 基本操作
+## Basic operations
 
-假如表的结构为：
+If the table schema is:
 ```sql
 CREATE TABLE `dt` (
     `id` int(11) NOT NULL,
@@ -51,24 +51,24 @@ PROPERTIES (
 ### INSERT INTO VALUES
 
 ```sql
-# 配置session变量开启攒批,默认为false
+# Config session variable to enable the group commit, the default value is false
 mysql> set enable_insert_group_commit = true;
 
-# 这里返回的label是group_commit开头的，是真正消费数据的导入关联的label，可以区分出是否攒批了
+# The retured label is start with 'group_commit', which is the label of the real load job
 mysql> insert into dt values(1, 'Bob', 90), (2, 'Alice', 99);
 Query OK, 2 rows affected (0.05 sec)
 {'label':'group_commit_a145ce07f1c972fc-bd2c54597052a9ad', 'status':'PREPARE', 'txnId':'181508'}
 
-# 可以看出这个label, txn_id和上一个相同，说明是攒到了同一个导入任务中
+# The returned label and txn_id are the same as the above, which means they are handled in on load job  
 mysql> insert into dt(id, name) values(3, 'John');
 Query OK, 1 row affected (0.01 sec)
 {'label':'group_commit_a145ce07f1c972fc-bd2c54597052a9ad', 'status':'PREPARE', 'txnId':'181508'}
 
-# 不能立刻查询到
+# The data is not visible
 mysql> select * from dt;
 Empty set (0.01 sec)
 
-# 10秒后可以查询到
+# After about 10 seconds, the data is visible
 mysql> select * from dt;
 +------+-------+-------+
 | id   | name  | score |
@@ -82,14 +82,14 @@ mysql> select * from dt;
 
 ### Stream Load
 
-假如`data.csv`的内容为：
+If the content of `data.csv` is:
 ```sql
 4,Amy,60
 5,Ross,98
 ```
 
 ```sql
-# 导入时在header中增加"group_commit:true"配置
+# Add 'group_commit:true' configuration in the http header
 
 curl --location-trusted -u {user}:{passwd} -T data.csv -H "group_commit:true"  -H "column_separator:,"  http://{fe_host}:{http_port}/api/db/dt/_stream_load
 {
@@ -110,14 +110,14 @@ curl --location-trusted -u {user}:{passwd} -T data.csv -H "group_commit:true"  -
     "WriteDataTimeMs": 26
 }
 
-# 返回的GroupCommit为true，说明进入了攒批的流程
-# 返回的Label是group_commit开头的，是真正消费数据的导入关联的label
+# The returned 'GroupCommit' is 'true', which means this is a group commit load
+# The retured label is start with 'group_commit', which is the label of the real load job
 ```
 
 ### Http Stream
 
 ```sql
-# 导入时在header中增加"group_commit:true"配置
+# Add 'group_commit:true' configuration in the http header
 
 curl --location-trusted -u {user}:{passwd} -T data.csv  -H "group_commit:true" -H "sql:insert into db.dt select * from http_stream('column_separator'=',', 'format' = 'CSV')"  http://{fe_host}:{http_port}/api/_http_stream
 {
@@ -138,21 +138,21 @@ curl --location-trusted -u {user}:{passwd} -T data.csv  -H "group_commit:true" -
     "WriteDataTimeMs": 23
 }
 
-# 返回的GroupCommit为true，说明进入了攒批的流程
-# 返回的Label是group_commit开头的，是真正消费数据的导入关联的label
+# The returned 'GroupCommit' is 'true', which means this is a group commit load
+# The retured label is start with 'group_commit', which is the label of the real load job
 ```
 
-### 使用`PreparedStatement`
+### Use `PreparedStatement`
 
-为了减少 SQL 解析和生成规划的开销， 我们在 FE 端支持了 MySQL 协议的`PreparedStatement`特性。当使用`PreparedStatement`时，SQL 和其导入规划将被缓存到 Session 级别的内存缓存中，后续的导入直接使用缓存对象，降低了 FE 的 CPU 压力。下面是在 JDBC 中使用 PreparedStatement 的例子：
+To reduce the CPU cost of SQL parsing and query planning, we provide the `PreparedStatement` in the FE. When using `PreparedStatement`, the SQL and its plan will be cached in the session level memory cache and will be reused later on, which reduces the CPU cost of FE. The following is an example of using PreparedStatement in JDBC:
 
-1. 设置 JDBC url 并在 Server 端开启 prepared statement
+1. Setup JDBC url and enable server side prepared statement
 
 ```
 url = jdbc:mysql://127.0.0.1:9030/db?useServerPrepStmts=true
 ```
 
-2. 使用 `PreparedStatement`
+2. Using `PreparedStatement`
 
 ```java
 PreparedStatement statement = conn.prepareStatement("INSERT INTO dt VALUES (?, ?, ?)");
@@ -162,25 +162,25 @@ statement.setInt(3, 100);
 int rows = statement.executeUpdate();
 ```
 
-## 相关系统配置
+## Relevant system configuration
 
-### Session变量
+### Session variable
 
 + enable_insert_group_commit
 
-  当该参数设置为 true 时，会判断用户发起的`INSERT INTO VALUES`语句是否符合攒批的条件，如果符合，该语句的执行会进入到攒批写入中。主要的判断逻辑包括：
-  + 不是事务写入，即`Begin`; `INSERT INTO VALUES`; `COMMIT`方式
-  + 不指定partition，即`INSERT INTO dt PARTITION()`等指定partition的语句
-  + 不指定label，即`INSERT INTO dt WITH LABEL {label} VALUES`
-  + VALUES中不能包含表达式，即`INSERT INTO dt VALUES (1 + 100)`
+  If this configuration is true, FE will judge whether the `INSERT INTO VALUES` can be group commit, the conditions are as follows:
+  + Not a transaction insert, as `Begin`; `INSERT INTO VALUES`; `COMMIT`
+  + Not specifying partition, as `INSERT INTO dt PARTITION()`
+  + Not specifying label, as `INSERT INTO dt WITH LABEL {label} VALUES`
+  + VALUES does not contain any expression, as `INSERT INTO dt VALUES (1 + 100)`
 
-  默认为 false。可通过 `SET enable_insert_group_commit = true;` 来设置。
+  The default value is false, use `SET enable_insert_group_commit = true;` command to enable it.
 
-### BE 配置
+### BE configuration
 
 + group_commit_interval_ms
 
-  攒批写入开启多久后结束，默认为10000，即10秒。
+  The time interval of the internal group commit load job will stop and start a new internal job, the default value is 10000 milliseconds.
 
 + group_commit_replay_wal_dir
 + group_commit_sync_wal_batch
