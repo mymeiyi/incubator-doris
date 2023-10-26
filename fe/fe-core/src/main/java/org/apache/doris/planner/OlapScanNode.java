@@ -103,6 +103,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 
 // Full scan of an Olap table.
@@ -1349,6 +1350,29 @@ public class OlapScanNode extends ScanNode {
         List<TColumn> columnsDesc = new ArrayList<TColumn>();
         olapTable.getColumnDesc(selectedIndexId, columnsDesc, keyColumnNames, keyColumnTypes);
         List<TOlapTableIndex> indexDesc = Lists.newArrayList();
+
+        List<String> clusterKeyColumnNames = new ArrayList<>();
+        List<TPrimitiveType> clusterKeyColumnTypes = new ArrayList<>();
+        if (selectedIndexId != -1 && olapTable.getEnableUniqueKeyMergeOnWrite()) {
+            Map<Integer, String> clusterKeyColumnNameMap = new TreeMap<>();
+            Map<Integer, TPrimitiveType> clusterKeyColumnTypeMap = new TreeMap<>();
+            for (Column col : olapTable.getSchemaByIndexId(selectedIndexId, false)) {
+                if (col.isClusterKey()) {
+                    if (clusterKeyColumnNames != null) {
+                        clusterKeyColumnNameMap.put(col.getClusterKeyId(), col.getName());
+                    }
+                    if (clusterKeyColumnTypes != null) {
+                        clusterKeyColumnTypeMap.put(col.getClusterKeyId(), col.getDataType().toThrift());
+                    }
+                }
+            }
+            clusterKeyColumnNames = clusterKeyColumnNameMap.values().stream().collect(Collectors.toList());
+            clusterKeyColumnTypes = clusterKeyColumnTypeMap.values().stream().collect(Collectors.toList());
+        }
+        if (!clusterKeyColumnNames.isEmpty()) {
+            keyColumnNames = clusterKeyColumnNames;
+            keyColumnTypes = clusterKeyColumnTypes;
+        }
 
         // Add extra row id column
         ArrayList<SlotDescriptor> slots = desc.getSlots();
