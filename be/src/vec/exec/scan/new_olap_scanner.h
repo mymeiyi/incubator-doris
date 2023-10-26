@@ -56,19 +56,22 @@ class NewOlapScanner : public VScanner {
 public:
     NewOlapScanner(RuntimeState* state, NewOlapScanNode* parent, int64_t limit, bool aggregation,
                    const TPaloScanRange& scan_range, const std::vector<OlapScanRange*>& key_ranges,
-                   RuntimeProfile* profile);
+                   const std::vector<OlapScanRange*>& cluster_key_ranges, RuntimeProfile* profile);
 
     NewOlapScanner(RuntimeState* state, NewOlapScanNode* parent, int64_t limit, bool aggregation,
                    const TPaloScanRange& scan_range, const std::vector<OlapScanRange*>& key_ranges,
+                   const std::vector<OlapScanRange*>& cluster_key_ranges,
                    TabletReader::ReadSource read_source, RuntimeProfile* profile);
 
     NewOlapScanner(RuntimeState* state, pipeline::ScanLocalStateBase* parent, int64_t limit,
                    bool aggregation, const TPaloScanRange& scan_range,
-                   const std::vector<OlapScanRange*>& key_ranges, RuntimeProfile* profile);
+                   const std::vector<OlapScanRange*>& key_ranges,
+                   const std::vector<OlapScanRange*>& cluster_key_ranges, RuntimeProfile* profile);
 
     NewOlapScanner(RuntimeState* state, pipeline::ScanLocalStateBase* parent, int64_t limit,
                    bool aggregation, const TPaloScanRange& scan_range,
                    const std::vector<OlapScanRange*>& key_ranges,
+                   const std::vector<OlapScanRange*>& cluster_key_ranges,
                    TabletReader::ReadSource read_source, RuntimeProfile* profile);
 
     Status init() override;
@@ -91,6 +94,7 @@ private:
     void _update_realtime_counters();
 
     Status _init_tablet_reader_params(const std::vector<OlapScanRange*>& key_ranges,
+                                      const std::vector<OlapScanRange*>& cluster_key_ranges,
                                       const std::vector<TCondition>& filters,
                                       const FilterPredicates& filter_predicates,
                                       const std::vector<FunctionFilter>& function_filters);
@@ -104,6 +108,7 @@ private:
     int64_t _version;
     const TPaloScanRange& _scan_range;
     std::vector<OlapScanRange*> _key_ranges;
+    std::vector<OlapScanRange*> _cluster_key_ranges;
 
     TabletReader::ReaderParams _tablet_reader_params;
     std::unique_ptr<TabletReader> _tablet_reader;

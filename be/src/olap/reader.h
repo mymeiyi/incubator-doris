@@ -86,6 +86,11 @@ class TabletReader {
         std::vector<RowCursor> end_keys;
         bool start_key_include = false;
         bool end_key_include = false;
+
+        std::vector<RowCursor> start_cluster_keys;
+        std::vector<RowCursor> end_cluster_keys;
+        bool start_cluster_key_include = false;
+        bool end_cluster_key_include = false;
     };
 
 public:
@@ -127,6 +132,10 @@ public:
         std::vector<OlapTuple> end_key;
         bool start_key_include = false;
         bool end_key_include = false;
+        std::vector<OlapTuple> start_cluster_key;
+        std::vector<OlapTuple> end_cluster_key;
+        bool start_cluster_key_include = false;
+        bool end_cluster_key_include = false;
 
         std::vector<TCondition> conditions;
         std::vector<std::pair<string, std::shared_ptr<BloomFilterFuncBase>>> bloom_filters;
@@ -233,6 +242,7 @@ protected:
     bool _optimize_for_single_rowset(const std::vector<RowsetReaderSharedPtr>& rs_readers);
 
     Status _init_keys_param(const ReaderParams& read_params);
+    Status _init_cluster_keys_param(const ReaderParams& read_params);
 
     Status _init_orderby_keys_param(const ReaderParams& read_params);
 
@@ -273,6 +283,9 @@ protected:
     KeysParam _keys_param;
     std::vector<bool> _is_lower_keys_included;
     std::vector<bool> _is_upper_keys_included;
+    // cluster key
+    std::vector<bool> _is_lower_cluster_keys_included;
+    std::vector<bool> _is_upper_cluster_keys_included;
     std::vector<ColumnPredicate*> _col_predicates;
     std::vector<ColumnPredicate*> _col_preds_except_leafnode_of_andnode;
     std::vector<ColumnPredicate*> _value_col_predicates;

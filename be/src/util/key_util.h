@@ -96,6 +96,41 @@ void encode_key_with_padding(std::string* buf, const RowType& row, size_t num_ke
     }
 }
 
+template <typename RowType, bool null_first = true, bool full_encode = false>
+void encode_key_with_padding(std::string* buf, const RowType& row, std::vector<uint32_t> key_ids,
+                             bool padding_minimal, bool padding_normal_marker = false) {
+    for (auto cid : key_ids) {
+        auto field = row.schema()->column(cid);
+        if (field == nullptr) {
+            if (padding_minimal) {
+                buf->push_back(KEY_MINIMAL_MARKER);
+            } else {
+                if (padding_normal_marker) {
+                    buf->push_back(KEY_NORMAL_MARKER);
+                }
+                buf->push_back(KEY_MAXIMAL_MARKER);
+            }
+            break;
+        }
+
+        auto cell = row.cell(cid);
+        if (cell.is_null()) {
+            if (null_first) {
+                buf->push_back(KEY_NULL_FIRST_MARKER);
+            } else {
+                buf->push_back(KEY_NULL_LAST_MARKER);
+            }
+            continue;
+        }
+        buf->push_back(KEY_NORMAL_MARKER);
+        if (full_encode) {
+            field->full_encode_ascending(cell.cell_ptr(), buf);
+        } else {
+            field->encode_ascending(cell.cell_ptr(), buf);
+        }
+    }
+}
+
 // Encode one row into binary according given num_keys.
 // Client call this function must assure that row contains the first
 // num_keys columns.

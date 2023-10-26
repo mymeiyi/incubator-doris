@@ -100,6 +100,9 @@ Status Segment::_open() {
     _pk_index_meta.reset(footer.has_primary_key_index_meta()
                                  ? new PrimaryKeyIndexMetaPB(footer.primary_key_index_meta())
                                  : nullptr);
+    LOG(INFO) << "sout: footer has primary key index meta=" << footer.has_primary_key_index_meta()
+              << ", path=" << _file_reader->path()
+              << ", pk index meta is null=" << (_pk_index_meta == nullptr);
     // delete_bitmap_calculator_test.cpp
     // DCHECK(footer.has_short_key_index_page());
     _sk_index_page = footer.short_key_index_page();
@@ -293,8 +296,11 @@ Status Segment::_load_index_impl() {
             RETURN_IF_ERROR(_pk_index_reader->parse_index(_file_reader, *_pk_index_meta));
             _meta_mem_usage += _pk_index_reader->get_memory_size();
             _segment_meta_mem_tracker->consume(_pk_index_reader->get_memory_size());
+            LOG(INFO) << "sout: Segment::load_index, load pk index, segment_id=" << _segment_id;
         }
         if (load_short_key_index) {
+            LOG(INFO) << "sout: PagePointer, offset=" << _sk_index_page.offset()
+                      << ", size=" << _sk_index_page.size();
             // read and parse short key index page
             OlapReaderStatistics tmp_stats;
             PageReadOptions opts {
@@ -309,8 +315,17 @@ Status Segment::_load_index_impl() {
             };
             Slice body;
             PageFooterPB footer;
-            RETURN_IF_ERROR(
-                    PageIO::read_and_decompress_page(opts, &_sk_index_handle, &body, &footer));
+            auto st = PageIO::read_and_decompress_page(opts, &_sk_index_handle, &body, &footer);
+            if (!st.ok()) {
+                LOG(INFO) << "sout: PageIO::read_and_decompress_page error, load_short_key="
+                          << load_short_key_index
+                          << ", _pk_index_meta is null=" << (_pk_index_meta == nullptr)
+                          << ", cluster key size=" << _tablet_schema->cluster_key_idxes().size()
+                          << ", table_id=" << _tablet_schema->table_id()
+                          << ", path=" << _file_reader->path()
+                          << ", st=" << st.to_string();
+            }
+            RETURN_IF_ERROR(st);
             DCHECK_EQ(footer.type(), SHORT_KEY_PAGE);
             DCHECK(footer.has_short_key_page_footer());
 
@@ -318,6 +333,7 @@ Status Segment::_load_index_impl() {
             _segment_meta_mem_tracker->consume(body.get_size());
             _sk_index_decoder.reset(new ShortKeyIndexDecoder);
             RETURN_IF_ERROR(_sk_index_decoder->parse(body, footer.short_key_page_footer()));
+            LOG(INFO) << "sout: Segment::load_index, load short key index, segment_id=" << _segment_id;
         }
         return Status::OK();
     });

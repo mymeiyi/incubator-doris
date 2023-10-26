@@ -109,6 +109,8 @@ public:
     // read next range into [*from, *to) whose size <= max_range_size.
     // return false when there is no more range.
     virtual bool next_range(const uint32_t max_range_size, uint32_t* from, uint32_t* to) {
+        LOG(INFO) << "sout: next_range, eof=" << _eof << ", buf_size=" << _buf_size
+                  << ", buf_pos=" << _buf_pos;
         if (_eof) {
             return false;
         }
@@ -149,6 +151,8 @@ private:
         _buf_pos = 0;
         _buf_size = roaring::api::roaring_read_uint32_iterator(&_iter, _buf, kBatchSize);
         _eof = (_buf_size == 0);
+        LOG(INFO) << "sout: _read_next_batch, buf_size=" << _buf_size << ", eof=" << _eof
+                  << ", kBatchSize=" << kBatchSize;
     }
 
     static const uint32_t kBatchSize = 256;
@@ -175,6 +179,7 @@ public:
     // read next range into [*from, *to) whose size <= max_range_size.
     // return false when there is no more range.
     bool next_range(const uint32_t max_range_size, uint32_t* from, uint32_t* to) override {
+        LOG(INFO) << "sout: next_range";
         if (!_riter.has_value) {
             return false;
         }
@@ -280,19 +285,31 @@ Status SegmentIterator::_lazy_init() {
     SCOPED_RAW_TIMER(&_opts.stats->block_init_ns);
     DorisMetrics::instance()->segment_read_total->increment(1);
     _row_bitmap.addRange(0, _segment->num_rows());
+    LOG(INFO) << "sout: SegmentIterator::_lazy_init, segment rows=" << _segment->num_rows()
+              << ", segment_id=" << segment_id()
+              << ", sort type=" << _segment->_tablet_schema->sort_type()
+              << ", _opts.read_orderby_key_reverse=" << _opts.read_orderby_key_reverse;
     // z-order can not use prefix index
+    LOG(INFO) << "sout: _row_bitmap 0 size=" << _row_bitmap.cardinality()
+              << ", empty=" << _row_bitmap.isEmpty();
     if (_segment->_tablet_schema->sort_type() != SortType::ZORDER) {
         RETURN_IF_ERROR(_get_row_ranges_by_keys());
     }
+    LOG(INFO) << "sout: _row_bitmap 1 size=" << _row_bitmap.cardinality()
+              << ", empty=" << _row_bitmap.isEmpty();
     RETURN_IF_ERROR(_get_row_ranges_by_column_conditions());
+    LOG(INFO) << "sout: _row_bitmap 2 size=" << _row_bitmap.cardinality()
+              << ", empty=" << _row_bitmap.isEmpty();
     RETURN_IF_ERROR(_vec_init_lazy_materialization());
+    LOG(INFO) << "sout: _row_bitmap 3 size=" << _row_bitmap.cardinality()
+              << ", empty=" << _row_bitmap.isEmpty();
     // Remove rows that have been marked deleted
     if (_opts.delete_bitmap.count(segment_id()) > 0 &&
         _opts.delete_bitmap.at(segment_id()) != nullptr) {
         size_t pre_size = _row_bitmap.cardinality();
         _row_bitmap -= *(_opts.delete_bitmap.at(segment_id()));
         _opts.stats->rows_del_by_bitmap += (pre_size - _row_bitmap.cardinality());
-        VLOG_DEBUG << "read on segment: " << segment_id() << ", delete bitmap cardinality: "
+        VLOG_DEBUG << "sout: read on segment: " << segment_id() << ", delete bitmap cardinality: "
                    << _opts.delete_bitmap.at(segment_id())->cardinality() << ", "
                    << _opts.stats->rows_del_by_bitmap << " rows deleted by bitmap";
     }
@@ -308,7 +325,7 @@ Status SegmentIterator::_get_row_ranges_by_keys() {
     DorisMetrics::instance()->segment_row_total->increment(num_rows());
 
     // fast path for empty segment or empty key ranges
-    if (_row_bitmap.isEmpty() || _opts.key_ranges.empty()) {
+    if (_row_bitmap.isEmpty() || (_opts.key_ranges.empty() && _opts.cluster_key_ranges.empty())) {
         return Status::OK();
     }
 
@@ -316,11 +333,13 @@ Status SegmentIterator::_get_row_ranges_by_keys() {
     if (std::none_of(_schema->columns().begin(), _schema->columns().end(), [&](const Field* col) {
             return col && _opts.tablet_schema->column_by_uid(col->unique_id()).is_key();
         })) {
+        LOG(INFO) << "sout: SegmentIterator::_get_row_ranges_by_keys return";
         return Status::OK();
     }
 
     // pre-condition: _row_ranges == [0, num_rows)
     size_t pre_size = _row_bitmap.cardinality();
+    LOG(INFO) << "sout: key range size=" << _opts.key_ranges.size();
     if (_segment->_tablet_schema->keys_type() != KeysType::UNIQUE_KEYS ||
         (_segment->_tablet_schema->keys_type() == KeysType::UNIQUE_KEYS &&
          _segment->_tablet_schema->cluster_key_idxes().empty())) {
@@ -329,6 +348,10 @@ Status SegmentIterator::_get_row_ranges_by_keys() {
             rowid_t lower_rowid = 0;
             rowid_t upper_rowid = num_rows();
             RETURN_IF_ERROR(_prepare_seek(key_range));
+            LOG(INFO) << "sout: range size 0="
+                      << RowRanges::ranges_to_roaring(result_ranges).cardinality()
+                      << ", low_key=" << key_range.lower_key
+                      << ", upper_key=" << key_range.upper_key;
             if (key_range.upper_key != nullptr) {
                 // If client want to read upper_bound, the include_upper is true. So we
                 // should get the first ordinal at which key is larger than upper_bound.
@@ -340,17 +363,68 @@ Status SegmentIterator::_get_row_ranges_by_keys() {
                 RETURN_IF_ERROR(_lookup_ordinal(*key_range.lower_key, key_range.include_lower,
                                                 upper_rowid, &lower_rowid));
             }
+            LOG(INFO) << "sout: range size 1="
+                      << RowRanges::ranges_to_roaring(result_ranges).cardinality()
+                      << ", low_id=" << lower_rowid << ", upper_id=" << upper_rowid;
             auto row_range = RowRanges::create_single(lower_rowid, upper_rowid);
             RowRanges::ranges_union(result_ranges, row_range, &result_ranges);
+            LOG(INFO) << "sout: range size 2="
+                      << RowRanges::ranges_to_roaring(result_ranges).cardinality();
         }
         _row_bitmap = RowRanges::ranges_to_roaring(result_ranges);
     } else {
+        LOG(INFO) << "sout: key range size=" << _opts.key_ranges.size();
+        for (const auto& key_range : _opts.key_ranges) {
+            LOG(INFO) << "sout: key range, lower=" << key_range.lower_key->to_string()
+                      << ", upper=" << key_range.upper_key->to_string();
+        }
+        LOG(INFO) << "sout: cluster key range size=" << _opts.cluster_key_ranges.size();
+        for (const auto& key_range : _opts.cluster_key_ranges) {
+            LOG(INFO) << "sout: cluster key range, lower=" << key_range.lower_key->to_string()
+                      << ", upper=" << key_range.upper_key->to_string();
+        }
+
         roaring::Roaring row_bitmap;
         for (auto& key_range : _opts.key_ranges) {
+            LOG(INFO) << "sout: key range, low_key=" << key_range.lower_key->to_string()
+                      << ", upper_key=" << key_range.upper_key->to_string();
             RETURN_IF_ERROR(_prepare_seek(key_range));
-            RETURN_IF_ERROR(_lookup_ordinal(key_range, &row_bitmap));
+            RETURN_IF_ERROR(_lookup_ordinal_from_pk_index(key_range, &row_bitmap));
         }
         _row_bitmap = row_bitmap;
+        LOG(INFO) << "sout: after filter key range, num=" << _row_bitmap.cardinality();
+
+        if (_opts.cluster_key_ranges.size() > 0) {
+            // deal cluster key ranges
+            RowRanges result_ranges;
+            for (const auto& key_range : _opts.cluster_key_ranges) {
+                rowid_t lower_rowid = 0;
+                rowid_t upper_rowid = num_rows();
+                RETURN_IF_ERROR(_prepare_seek(key_range));
+                LOG(INFO) << "sout: range size before="
+                          << RowRanges::ranges_to_roaring(result_ranges).cardinality()
+                          << ", low_key=" << key_range.lower_key->to_string()
+                          << ", upper_key=" << key_range.upper_key->to_string();
+                if (key_range.upper_key != nullptr) {
+                    RETURN_IF_ERROR(_lookup_ordinal_from_sk_index(*key_range.upper_key,
+                                                                  !key_range.include_upper,
+                                                                  num_rows(), &upper_rowid));
+                }
+                if (upper_rowid > 0 && key_range.lower_key != nullptr) {
+                    RETURN_IF_ERROR(_lookup_ordinal_from_sk_index(*key_range.lower_key,
+                                                                  key_range.include_lower,
+                                                                  upper_rowid, &lower_rowid));
+                }
+                LOG(INFO) << "sout: range size after="
+                          << RowRanges::ranges_to_roaring(result_ranges).cardinality()
+                          << ", low_id=" << lower_rowid << ", upper_id=" << upper_rowid;
+                auto row_range = RowRanges::create_single(lower_rowid, upper_rowid);
+                RowRanges::ranges_union(result_ranges, row_range, &result_ranges);
+                LOG(INFO) << "sout: after filter cluster key range size="
+                          << RowRanges::ranges_to_roaring(result_ranges).cardinality();
+            }
+            auto row_bitmap2 = RowRanges::ranges_to_roaring(result_ranges);
+        }
     }
     _opts.stats->rows_key_range_filtered += (pre_size - _row_bitmap.cardinality());
 
@@ -434,6 +508,9 @@ Status SegmentIterator::_get_row_ranges_by_column_conditions() {
         auto query_ctx = _opts.runtime_state->get_query_ctx();
         runtime_predicate = query_ctx->get_runtime_predicate().get_predictate();
     }
+    LOG(INFO) << "sout: col_id_to_predicates size=" << _opts.col_id_to_predicates.size()
+              << ", delete_condition_predicates size="
+              << _opts.delete_condition_predicates->num_of_column_predicate();
 
     if (!_row_bitmap.isEmpty() &&
         (runtime_predicate || !_opts.col_id_to_predicates.empty() ||
@@ -1114,6 +1191,7 @@ Status SegmentIterator::_init_inverted_index_iterators() {
 Status SegmentIterator::_lookup_ordinal(const RowCursor& key, bool is_include, rowid_t upper_bound,
                                         rowid_t* rowid) {
     if (_segment->_tablet_schema->keys_type() == UNIQUE_KEYS &&
+        /*_segment->_tablet_schema->cluster_key_idxes().empty() &&*/
         _segment->get_primary_key_index() != nullptr) {
         return _lookup_ordinal_from_pk_index(key, is_include, rowid);
     }
@@ -1135,11 +1213,23 @@ Status SegmentIterator::_lookup_ordinal_from_sk_index(const RowCursor& key, bool
     DCHECK(sk_index_decoder != nullptr);
 
     std::string index_key;
-    encode_key_with_padding(&index_key, key, _segment->_tablet_schema->num_short_key_columns(),
-                            is_include);
+    if (_segment->_tablet_schema->cluster_key_idxes().empty()) {
+        encode_key_with_padding(&index_key, key, _segment->_tablet_schema->num_short_key_columns(),
+                                is_include);
+    } else {
+        encode_key_with_padding(&index_key, key, _segment->_tablet_schema->cluster_key_idxes(),
+                                is_include);
+    }
+    LOG(INFO) << "sout: index_key=" << index_key;
 
-    const auto& key_col_ids = key.schema()->column_ids();
-    _convert_rowcursor_to_short_key(key, key_col_ids.size());
+    const auto& key_col_ids = _segment->_tablet_schema->cluster_key_idxes().empty()
+                                      ? key.schema()->column_ids()
+                                      : _segment->_tablet_schema->cluster_key_idxes();
+    if (_segment->_tablet_schema->cluster_key_idxes().empty()) {
+        _convert_rowcursor_to_short_key(key, key_col_ids.size());
+    } else {
+        _convert_rowcursor_to_short_key(key, _segment->_tablet_schema->cluster_key_idxes());
+    }
 
     uint32_t start_block_id = 0;
     auto start_iter = sk_index_decoder->lower_bound(index_key);
@@ -1188,8 +1278,8 @@ Status SegmentIterator::_lookup_ordinal_from_sk_index(const RowCursor& key, bool
     return Status::OK();
 }
 
-Status SegmentIterator::_lookup_ordinal(const StorageReadOptions::KeyRange& key_range,
-                                        roaring::Roaring* row_bitmap) {
+Status SegmentIterator::_lookup_ordinal_from_pk_index(const StorageReadOptions::KeyRange& key_range,
+                                                      roaring::Roaring* row_bitmap) {
     rowid_t lower_rowid = 0;
     rowid_t upper_rowid = num_rows();
     DCHECK(_segment->_tablet_schema->keys_type() == UNIQUE_KEYS &&
@@ -1199,12 +1289,12 @@ Status SegmentIterator::_lookup_ordinal(const StorageReadOptions::KeyRange& key_
         // If client want to read upper_bound, the include_upper is true. So we
         // should get the first ordinal at which key is larger than upper_bound.
         // So we call _lookup_ordinal with include_upper's negate
-        RETURN_IF_ERROR(_lookup_ordinal(*key_range.upper_key, !key_range.include_upper, num_rows(),
-                                        &upper_rowid));
+        RETURN_IF_ERROR(_lookup_ordinal_from_pk_index(*key_range.upper_key,
+                                                      !key_range.include_upper, &upper_rowid));
     }
     if (upper_rowid > 0 && key_range.lower_key != nullptr) {
-        RETURN_IF_ERROR(_lookup_ordinal(*key_range.lower_key, key_range.include_lower, upper_rowid,
-                                        &lower_rowid));
+        RETURN_IF_ERROR(_lookup_ordinal_from_pk_index(*key_range.lower_key, key_range.include_lower,
+                                                      &lower_rowid));
     }
     DCHECK(lower_rowid <= upper_rowid);
     if (lower_rowid == 0 && upper_rowid == num_rows()) {
@@ -1227,6 +1317,7 @@ Status SegmentIterator::_lookup_ordinal(const StorageReadOptions::KeyRange& key_
     const auto* type_info = get_scalar_type_info<FieldType::OLAP_FIELD_TYPE_UNSIGNED_INT>();
     auto rowid_coder = get_key_coder(type_info->type());
 
+    LOG(INFO) << "sout: lower_rowid=" << lower_rowid << ", upper_rowid=" << upper_rowid;
     size_t num_read = 1;
     for (auto cur_rowid = lower_rowid; cur_rowid < upper_rowid; ++cur_rowid) {
         Status st = index_iterator->seek_to_ordinal(cur_rowid);
@@ -1242,6 +1333,7 @@ Status SegmentIterator::_lookup_ordinal(const StorageReadOptions::KeyRange& key_
             RETURN_IF_ERROR(
                     rowid_coder->decode_ascending(&rowid_slice, rowid_length, (uint8_t*)&rowid));
             row_bitmap->add(rowid);
+            LOG(INFO) << "sout: get row_id=" << rowid;
         } else if (st.is<ENTRY_NOT_FOUND>()) {
             // to the end
             return Status::OK();
@@ -1720,6 +1812,9 @@ Status SegmentIterator::_read_columns_by_index(uint32_t nrows_read_limit, uint32
         uint32_t range_to = 0;
         bool has_next_range =
                 _range_iter->next_range(nrows_read_limit - nrows_read, &range_from, &range_to);
+        LOG(INFO) << "sout: _range_iter->next_range, nrows_read=" << nrows_read
+                  << ", limit=" << nrows_read_limit << ", from=" << range_from
+                  << ", to=" << range_to << ", has_next_range=" << has_next_range;
         if (!has_next_range) {
             break;
         }
@@ -1953,9 +2048,11 @@ Status SegmentIterator::_next_batch_internal(vectorized::Block* block) {
     }
     _split_row_ranges.clear();
     _split_row_ranges.reserve(nrows_read_limit / 2);
+    LOG(INFO) << "sout: before read_columns_by_index, rows=" << _current_batch_rows_read;
     RETURN_IF_ERROR(_read_columns_by_index(
             nrows_read_limit, _current_batch_rows_read,
             _lazy_materialization_read || _opts.record_rowids || _is_need_expr_eval));
+    LOG(INFO) << "sout: after read_columns_by_index, rows=" << _current_batch_rows_read;
     if (std::find(_first_read_column_ids.begin(), _first_read_column_ids.end(),
                   _schema->version_col_idx()) != _first_read_column_ids.end()) {
         _replace_version_col(_current_batch_rows_read);

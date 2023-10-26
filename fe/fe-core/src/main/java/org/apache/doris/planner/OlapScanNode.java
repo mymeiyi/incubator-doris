@@ -103,6 +103,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 
 // Full scan of an Olap table.
@@ -1350,6 +1351,25 @@ public class OlapScanNode extends ScanNode {
         olapTable.getColumnDesc(selectedIndexId, columnsDesc, keyColumnNames, keyColumnTypes);
         List<TOlapTableIndex> indexDesc = Lists.newArrayList();
 
+        List<String> clusterKeyColumnNames = new ArrayList<>();
+        List<TPrimitiveType> clusterKeyColumnTypes = new ArrayList<>();
+        if (selectedIndexId != -1 && olapTable.getEnableUniqueKeyMergeOnWrite()) {
+            Map<Integer, String> clusterKeyColumnNameMap = new TreeMap<>();
+            Map<Integer, TPrimitiveType> clusterKeyColumnTypeMap = new TreeMap<>();
+            for (Column col : olapTable.getSchemaByIndexId(selectedIndexId, false)) {
+                if (col.isClusterKey()) {
+                    if (clusterKeyColumnNames != null) {
+                        clusterKeyColumnNameMap.put(col.getClusterKeyId(), col.getName());
+                    }
+                    if (clusterKeyColumnTypes != null) {
+                        clusterKeyColumnTypeMap.put(col.getClusterKeyId(), col.getDataType().toThrift());
+                    }
+                }
+            }
+            clusterKeyColumnNames = clusterKeyColumnNameMap.values().stream().collect(Collectors.toList());
+            clusterKeyColumnTypes = clusterKeyColumnTypeMap.values().stream().collect(Collectors.toList());
+        }
+
         // Add extra row id column
         ArrayList<SlotDescriptor> slots = desc.getSlots();
         Column lastColumn = slots.get(slots.size() - 1).getColumn();
@@ -1373,6 +1393,8 @@ public class OlapScanNode extends ScanNode {
 
         msg.node_type = TPlanNodeType.OLAP_SCAN_NODE;
         msg.olap_scan_node = new TOlapScanNode(desc.getId().asInt(), keyColumnNames, keyColumnTypes, isPreAggregation);
+        msg.olap_scan_node.setClusterKeyColumnName(clusterKeyColumnNames);
+        msg.olap_scan_node.setClusterKeyColumnType(clusterKeyColumnTypes);
         msg.olap_scan_node.setColumnsDesc(columnsDesc);
         msg.olap_scan_node.setIndexesDesc(indexDesc);
         if (selectedIndexId != -1) {

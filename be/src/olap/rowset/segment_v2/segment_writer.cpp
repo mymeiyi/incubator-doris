@@ -1077,15 +1077,22 @@ Status SegmentWriter::finalize_columns_index(uint64_t* index_size) {
                                      (_tablet_schema->keys_type() == UNIQUE_KEYS &&
                                       _opts.enable_unique_key_merge_on_write &&
                                       !_tablet_schema->cluster_key_idxes().empty());
+        LOG(INFO) << "sout: index_start=" << index_start
+                  << ", bytes append=" << _file_writer->bytes_appended();
         if (_tablet_schema->keys_type() == UNIQUE_KEYS && _opts.enable_unique_key_merge_on_write) {
             RETURN_IF_ERROR(_write_primary_key_index());
             // IndexedColumnWriter write data pages mixed with segment data, we should use
             // the stat from primary key index builder.
             *index_size += _primary_key_index_builder->disk_size();
+            LOG(INFO) << "sout: primary key index size=" << _primary_key_index_builder->disk_size()
+                      << ", index_start=" << index_start
+                      << ", bytes append=" << _file_writer->bytes_appended();
         }
         if (write_short_key_index) {
             RETURN_IF_ERROR(_write_short_key_index());
             *index_size = _file_writer->bytes_appended() - index_start;
+            LOG(INFO) << "sout: after write short key index, index_start=" << index_start
+                      << ", bytes append=" << _file_writer->bytes_appended();
         }
     }
     _inverted_index_file_size = try_get_inverted_index_file_size();
@@ -1188,6 +1195,9 @@ Status SegmentWriter::_write_short_key_index() {
     PagePointer pp;
     // short key index page is not compressed right now
     RETURN_IF_ERROR(PageIO::write_page(_file_writer, body, footer, &pp));
+    LOG(INFO) << "sout: write short key index, page point offset=" << pp.offset
+              << ", size=" << pp.size << ", table_id=" << _tablet_schema->table_id()
+              << ", path=" << _file_writer->path();
     pp.to_proto(_footer.mutable_short_key_index_page());
     return Status::OK();
 }
