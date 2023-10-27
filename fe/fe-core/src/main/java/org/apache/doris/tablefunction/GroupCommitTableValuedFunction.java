@@ -74,6 +74,7 @@ public class GroupCommitTableValuedFunction extends ExternalFileTableValuedFunct
         if (deleteSignColumn != null) {
             fileColumns.add(new Column("c" + (tableColumns.size() + 1), deleteSignColumn.getType(), true));
         }
+        // TODO sequence column
         return fileColumns;
     }
 
