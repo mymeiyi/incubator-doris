@@ -343,7 +343,7 @@ Status NewOlapScanNode::_build_key_ranges_and_filters() {
         _runtime_profile->add_info_string("TabletIds", tablets_id_to_string(_scan_ranges));
     }
     VLOG_CRITICAL << _scan_keys.debug_string();
-
+    LOG(INFO) << "sout: scan_keys=" << _scan_keys.debug_string();
     return Status::OK();
 }
 

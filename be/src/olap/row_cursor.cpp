@@ -153,6 +153,7 @@ Status RowCursor::init(TabletSchemaSPtr schema, size_t column_count) {
     for (size_t i = 0; i < column_count; ++i) {
         columns.push_back(i);
     }
+    LOG(INFO) << "sout: init schema 0";
     RETURN_IF_ERROR(_init(schema->columns(), columns));
     return Status::OK();
 }
@@ -169,11 +170,13 @@ Status RowCursor::init(const std::vector<TabletColumn>& schema, size_t column_co
     for (size_t i = 0; i < column_count; ++i) {
         columns.push_back(i);
     }
+    LOG(INFO) << "sout: init schema 1";
     RETURN_IF_ERROR(_init(schema, columns));
     return Status::OK();
 }
 
 Status RowCursor::init(TabletSchemaSPtr schema, const std::vector<uint32_t>& columns) {
+    LOG(INFO) << "sout: init schema 2";
     RETURN_IF_ERROR(_init(schema->columns(), columns));
     return Status::OK();
 }
@@ -191,6 +194,7 @@ Status RowCursor::init_scan_key(TabletSchemaSPtr schema,
     std::vector<uint32_t> columns(scan_key_size);
     std::iota(columns.begin(), columns.end(), 0);
 
+    LOG(INFO) << "sout: init schema 3";
     RETURN_IF_ERROR(_init(schema->columns(), columns));
 
     return _init_scan_key(schema, scan_keys);
@@ -202,9 +206,11 @@ Status RowCursor::init_scan_key(TabletSchemaSPtr schema, const std::vector<std::
 
     std::vector<uint32_t> columns;
     for (size_t i = 0; i < scan_key_size; ++i) {
+        LOG(INFO) << "sout: scan key=" << scan_keys.at(i);
         columns.push_back(i);
     }
 
+    LOG(INFO) << "sout: init schema 4";
     RETURN_IF_ERROR(_init(shared_schema, columns));
 
     return _init_scan_key(schema, scan_keys);
