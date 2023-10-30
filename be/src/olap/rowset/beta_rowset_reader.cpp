@@ -145,7 +145,9 @@ Status BetaRowsetReader::get_segment_iterators(RowsetReaderContext* read_context
         SchemaCache::instance()->insert_schema(schema_key, _input_schema);
     }
 
+    LOG(INFO) << "sout: predicate is null=" << (_read_context->predicates == nullptr);
     if (_read_context->predicates != nullptr) {
+        LOG(INFO) << "sout: predicate size=" << _read_context->predicates->size();
         _read_options.column_predicates.insert(_read_options.column_predicates.end(),
                                                _read_context->predicates->begin(),
                                                _read_context->predicates->end());
@@ -153,10 +155,12 @@ Status BetaRowsetReader::get_segment_iterators(RowsetReaderContext* read_context
             if (_read_options.col_id_to_predicates.count(pred->column_id()) < 1) {
                 _read_options.col_id_to_predicates.insert(
                         {pred->column_id(), std::make_shared<AndBlockColumnPredicate>()});
+                LOG(INFO) << "sout: add a pred, col_id=" << pred->column_id();
             }
             auto single_column_block_predicate = new SingleColumnBlockPredicate(pred);
             _read_options.col_id_to_predicates[pred->column_id()]->add_column_predicate(
                     single_column_block_predicate);
+            LOG(INFO) << "sout: add a pred, col_id=" << pred->column_id();
         }
     }
 
@@ -192,10 +196,12 @@ Status BetaRowsetReader::get_segment_iterators(RowsetReaderContext* read_context
                 if (_read_options.col_id_to_predicates.count(pred->column_id()) < 1) {
                     _read_options.col_id_to_predicates.insert(
                             {pred->column_id(), std::make_shared<AndBlockColumnPredicate>()});
+                    LOG(INFO) << "sout: add a pred, col_id=" << pred->column_id();
                 }
                 auto single_column_block_predicate = new SingleColumnBlockPredicate(pred);
                 _read_options.col_id_to_predicates[pred->column_id()]->add_column_predicate(
                         single_column_block_predicate);
+                LOG(INFO) << "sout: add a pred, col_id=" << pred->column_id();
             }
         }
     }

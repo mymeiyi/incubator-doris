@@ -255,8 +255,9 @@ Status NewOlapScanNode::_process_conjuncts() {
 }
 
 Status NewOlapScanNode::_build_key_ranges_and_filters() {
-    if (_push_down_agg_type == TPushAggOp::NONE ||
-        _push_down_agg_type == TPushAggOp::COUNT_ON_INDEX) {
+    if ((_push_down_agg_type == TPushAggOp::NONE ||
+         _push_down_agg_type == TPushAggOp::COUNT_ON_INDEX) &&
+        !_olap_scan_node.has_cluster_key) {
         const std::vector<std::string>& column_names = _olap_scan_node.key_column_name;
         const std::vector<TPrimitiveType::type>& column_types = _olap_scan_node.key_column_type;
         DCHECK(column_types.size() == column_names.size());
@@ -423,7 +424,7 @@ Status NewOlapScanNode::_init_scanners(std::list<VScannerSPtr>* scanners) {
     }
     SCOPED_TIMER(_scanner_init_timer);
     auto span = opentelemetry::trace::Tracer::GetCurrentSpan();
-
+    LOG(INFO) << "sout: conjuncts=" << _conjuncts.size();
     if (!_conjuncts.empty()) {
         std::string message;
         for (auto& conjunct : _conjuncts) {
@@ -443,6 +444,7 @@ Status NewOlapScanNode::_init_scanners(std::list<VScannerSPtr>* scanners) {
         }
     }
 
+    LOG(INFO) << "sout: cond ranges=" << _cond_ranges.size();
     // ranges constructed from scan keys
     RETURN_IF_ERROR(_scan_keys.get_key_range(&_cond_ranges));
     // if we can't get ranges from conditions, we give it a total range

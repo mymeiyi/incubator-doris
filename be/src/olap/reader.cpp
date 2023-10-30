@@ -467,6 +467,8 @@ Status TabletReader::_init_orderby_keys_param(const ReaderParams& read_params) {
 }
 
 Status TabletReader::_init_conditions_param(const ReaderParams& read_params) {
+    LOG(INFO) << "sout: reader_context pre size 0=" << _col_predicates.size()
+              << ", condition size=" << read_params.conditions.size();
     for (auto& condition : read_params.conditions) {
         TCondition tmp_cond = condition;
         RETURN_IF_ERROR(_tablet_schema->have_column(tmp_cond.column_name));
@@ -542,6 +544,7 @@ Status TabletReader::_init_conditions_param(const ReaderParams& read_params) {
             }
         }
     }
+    LOG(INFO) << "sout: reader_context pre size 1=" << _col_predicates.size();
     return Status::OK();
 }
 

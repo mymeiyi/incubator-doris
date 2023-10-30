@@ -147,6 +147,7 @@ Status ExecNode::prepare(RuntimeState* state) {
             "PeakMemoryUsage", TUnit::BYTES, "MemoryUsage");
     _mem_tracker = std::make_unique<MemTracker>("ExecNode:" + _runtime_profile->name());
 
+    LOG(INFO) << "sout: conjuncts size=" << _conjuncts.size();
     for (auto& conjunct : _conjuncts) {
         RETURN_IF_ERROR(conjunct->prepare(state, intermediate_row_desc()));
     }

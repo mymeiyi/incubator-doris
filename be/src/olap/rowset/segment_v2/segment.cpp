@@ -179,10 +179,12 @@ Status Segment::new_iterator(SchemaSPtr schema, const StorageReadOptions& read_o
                             pred->column_id())) {
                     options_with_pruned_predicates.col_id_to_predicates.insert(
                             {pred->column_id(), std::make_shared<AndBlockColumnPredicate>()});
+                    LOG(INFO) << "sout: add a pred, col_id=" << pred->column_id();
                 }
                 auto* single_column_block_predicate = new SingleColumnBlockPredicate(pred);
                 options_with_pruned_predicates.col_id_to_predicates[pred->column_id()]
                         ->add_column_predicate(single_column_block_predicate);
+                LOG(INFO) << "sout: add a pred, col_id=" << pred->column_id();
             }
             LOG(INFO) << "column_predicates pruned from " << read_options.column_predicates.size()
                       << " to " << pruned_predicates.size();
