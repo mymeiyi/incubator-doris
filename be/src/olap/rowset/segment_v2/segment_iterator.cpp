@@ -277,6 +277,8 @@ Status SegmentIterator::init_iterators() {
 }
 
 Status SegmentIterator::_lazy_init() {
+    LOG(INFO) << "sout: SegmentIterator::_lazy_init, _opts.delete_bitmap size="
+              << _opts.delete_bitmap.size();
     SCOPED_RAW_TIMER(&_opts.stats->block_init_ns);
     DorisMetrics::instance()->segment_read_total->increment(1);
     _row_bitmap.addRange(0, _segment->num_rows());
@@ -293,7 +295,7 @@ Status SegmentIterator::_lazy_init() {
         size_t pre_size = _row_bitmap.cardinality();
         _row_bitmap -= *(_opts.delete_bitmap.at(segment_id()));
         _opts.stats->rows_del_by_bitmap += (pre_size - _row_bitmap.cardinality());
-        VLOG_DEBUG << "read on segment: " << segment_id() << ", delete bitmap cardinality: "
+        LOG(INFO) << "sout: read on segment: " << segment_id() << ", delete bitmap cardinality: "
                    << _opts.delete_bitmap.at(segment_id())->cardinality() << ", "
                    << _opts.stats->rows_del_by_bitmap << " rows deleted by bitmap";
     }

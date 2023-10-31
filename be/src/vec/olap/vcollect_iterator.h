@@ -251,9 +251,13 @@ private:
 
         Status _refresh() {
             if (_get_data_by_ref) {
-                return _rs_reader->next_block_view(&_block_view);
+                auto st = _rs_reader->next_block_view(&_block_view);
+                LOG(INFO) << "sout: _refresh 1, block=\n";
+                return st;
             } else {
-                return _rs_reader->next_block(_block.get());
+                auto st = _rs_reader->next_block(_block.get());
+                LOG(INFO) << "sout: _refresh 2, block=\n" << _block->dump_data(0);
+                return st;
             }
         }
 
