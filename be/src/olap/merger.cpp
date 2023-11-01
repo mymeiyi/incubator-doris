@@ -181,13 +181,14 @@ void Merger::vertical_split_columns(TabletSchemaSPtr tablet_schema,
     if (!key_columns.empty()) {
         column_groups->emplace_back(std::move(key_columns));
     }
-    std::vector<uint32_t> value_columns;
     for (auto i = num_key_cols; i < total_cols; ++i) {
         if (i == sequence_col_idx || i == delete_sign_idx ||
             key_columns.end() != std::find(key_columns.begin(), key_columns.end(), i)) {
             continue;
         }
         if ((i - num_key_cols) % config::vertical_compaction_num_columns_per_group == 0) {
+        /*if (column_groups->empty() ||
+            column_groups->back().size() >= config::vertical_compaction_num_columns_per_group) {*/
             column_groups->emplace_back();
         }
         column_groups->back().emplace_back(i);
@@ -256,6 +257,7 @@ Status Merger::vertical_compact_one_group(
         RETURN_NOT_OK_STATUS_WITH_WARN(reader.next_block_with_aggregation(&block, &eof),
                                        "failed to read next block when merging rowsets of tablet " +
                                                std::to_string(tablet->tablet_id()));
+        LOG(INFO) << "sout: block=\n" << block.dump_data(0);
         RETURN_NOT_OK_STATUS_WITH_WARN(
                 dst_rowset_writer->add_columns(&block, column_group, is_key, max_rows_per_segment),
                 "failed to write block when merging rowsets of tablet " +
