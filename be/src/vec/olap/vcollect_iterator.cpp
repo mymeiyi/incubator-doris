@@ -497,6 +497,7 @@ int64_t VCollectIterator::Level0Iterator::version() const {
 }
 
 Status VCollectIterator::Level0Iterator::refresh_current_row() {
+    LOG(INFO) << "sout: Level0Iterator::refresh_current_row";
     do {
         if (_block == nullptr && !_get_data_by_ref) {
             _block = std::make_shared<Block>(_schema.create_block(
@@ -527,6 +528,7 @@ Status VCollectIterator::Level0Iterator::refresh_current_row() {
 }
 
 Status VCollectIterator::Level0Iterator::next(IteratorRowRef* ref) {
+    LOG(INFO) << "sout: Level0Iterator::next";
     if (_get_data_by_ref) {
         _current++;
     } else {
@@ -548,6 +550,7 @@ Status VCollectIterator::Level0Iterator::next(Block* block) {
     if (_ref.row_pos <= 0 && _ref.block != nullptr && UNLIKELY(_ref.block->rows() > 0)) {
         block->swap(*_ref.block);
         _ref.reset();
+        LOG(INFO) << "sout: Level0Iterator::next, block=\n" << block->dump_data(0);
         return Status::OK();
     } else {
         if (_rs_reader == nullptr) {
@@ -563,6 +566,7 @@ Status VCollectIterator::Level0Iterator::next(Block* block) {
         if (UNLIKELY(_reader->_reader_context.record_rowids)) {
             RETURN_IF_ERROR(_rs_reader->current_block_row_locations(&_block_row_locations));
         }
+        LOG(INFO) << "sout: Level0Iterator::next, block=\n" << block->dump_data(0);
         return Status::OK();
     }
 }
@@ -615,6 +619,7 @@ VCollectIterator::Level1Iterator::~Level1Iterator() {
 //      Status::Error<END_OF_FILE>("") and set *row to nullptr when EOF is reached.
 //      Others when error happens
 Status VCollectIterator::Level1Iterator::next(IteratorRowRef* ref) {
+    LOG(INFO) << "sout: Level1Iterator::next";
     if (UNLIKELY(_cur_child == nullptr)) {
         _ref.reset();
         return Status::Error<END_OF_FILE>("");
@@ -636,8 +641,10 @@ Status VCollectIterator::Level1Iterator::next(Block* block) {
         return Status::Error<END_OF_FILE>("");
     }
     if (_merge) {
+        LOG(INFO) << "sout: Level1Iterator::next, merge block=\n" << block->dump_data(0);
         return _merge_next(block);
     } else {
+        LOG(INFO) << "sout: Level1Iterator::next, next block=\n" << block->dump_data(0);
         return _normal_next(block);
     }
 }

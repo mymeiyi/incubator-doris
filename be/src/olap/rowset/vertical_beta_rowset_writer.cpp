@@ -64,6 +64,7 @@ VerticalBetaRowsetWriter::~VerticalBetaRowsetWriter() {
 Status VerticalBetaRowsetWriter::add_columns(const vectorized::Block* block,
                                              const std::vector<uint32_t>& col_ids, bool is_key,
                                              uint32_t max_rows_per_segment) {
+    LOG(INFO) << "sout: block=" << block->dump_data(0);
     VLOG_NOTICE << "VerticalBetaRowsetWriter::add_columns, columns: " << block->columns();
     size_t num_rows = block->rows();
     if (num_rows == 0) {
@@ -122,6 +123,9 @@ Status VerticalBetaRowsetWriter::add_columns(const vectorized::Block* block,
         if (limit > 0) {
             RETURN_IF_ERROR(
                     _segment_writers[_cur_writer_idx]->append_block(block, start_offset, limit));
+            LOG(INFO) << "sout: rows written: "
+                      << _segment_writers[_cur_writer_idx]->num_rows_written()
+                      << ", row count=" << _segment_writers[_cur_writer_idx]->row_count();
             DCHECK(_segment_writers[_cur_writer_idx]->num_rows_written() <=
                    _segment_writers[_cur_writer_idx]->row_count());
         }

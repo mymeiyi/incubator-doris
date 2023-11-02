@@ -187,6 +187,8 @@ void Merger::vertical_split_columns(TabletSchemaSPtr tablet_schema,
             continue;
         }
         if ((i - num_key_cols) % config::vertical_compaction_num_columns_per_group == 0) {
+        /*if (column_groups->empty() ||
+            column_groups->back().size() >= config::vertical_compaction_num_columns_per_group) {*/
             column_groups->emplace_back();
         }
         column_groups->back().emplace_back(i);
@@ -257,6 +259,7 @@ Status Merger::vertical_compact_one_group(
         RETURN_NOT_OK_STATUS_WITH_WARN(reader.next_block_with_aggregation(&block, &eof),
                                        "failed to read next block when merging rowsets of tablet " +
                                                std::to_string(tablet->tablet_id()));
+        LOG(INFO) << "sout: block=\n" << block.dump_data(0);
         RETURN_NOT_OK_STATUS_WITH_WARN(
                 dst_rowset_writer->add_columns(&block, column_group, is_key, max_rows_per_segment),
                 "failed to write block when merging rowsets of tablet " +
@@ -360,17 +363,30 @@ Status Merger::vertical_merge_rowsets(TabletSharedPtr tablet, ReaderType reader_
     if (column_groups.size() > 0) {
         if (!tablet_schema->cluster_key_idxes().empty()) {
             auto& key_column_group = column_groups[0];
+            std::stringstream ss;
+            for (auto i : key_column_group) {
+                ss << i << ", ";
+            }
+            LOG(INFO) << "sout: key_group=" << ss.str();
+
             for (const auto& index_in_tablet_schema : tablet_schema->cluster_key_idxes()) {
                 for (auto j = 0; j < key_column_group.size(); ++j) {
                     auto cid = key_column_group[j];
                     if (cid == index_in_tablet_schema) {
                         key_group_cluster_key_idxes.emplace_back(j);
+                        /*LOG(INFO) << "sout: index_in_tablet_schema=" << index_in_tablet_schema
+                                  << ", cid=" << cid << ", j=" << j;*/
                         break;
                     }
                 }
             }
         }
     }
+    std::stringstream ss;
+    for (auto id : key_group_cluster_key_idxes) {
+        ss << id << ", ";
+    }
+    LOG(INFO) << "sout: key_group_cluster_key_idxes: " << ss.str();
 
     vectorized::RowSourcesBuffer row_sources_buf(tablet->tablet_id(), tablet->tablet_path(),
                                                  reader_type);
