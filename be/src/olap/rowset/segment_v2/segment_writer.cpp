@@ -773,6 +773,7 @@ Status SegmentWriter::append_block(const vectorized::Block* block, size_t row_po
                     last_key = std::move(key);
                 }
             } else {
+                LOG(INFO) << "sout: segment writer create primary key index";
                 std::vector<vectorized::IOlapColumnDataAccessor*> primary_key_columns;
                 primary_key_columns.swap(key_columns);
                 key_columns.clear();
@@ -826,6 +827,7 @@ Status SegmentWriter::append_block(const vectorized::Block* block, size_t row_po
                     }
                 }
             }
+            LOG(INFO) << "sout: segment writer write short key index";
             // create short key indexes'
             // for min_max key
             set_min_key(_full_encode_keys(key_columns, 0));

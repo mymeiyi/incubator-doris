@@ -268,7 +268,7 @@ bool VerticalMergeIteratorContext::compare(const VerticalMergeIteratorContext& r
         cmp_res = _block->compare_at(_index_in_block, rhs._index_in_block,
                                      &_key_group_cluster_key_idxes, *rhs._block, -1);
     }
-    LOG(INFO) << "sout: compare, res=" << cmp_res;
+    // LOG(INFO) << "sout: compare, res=" << cmp_res;
     if (cmp_res != 0) {
         return cmp_res > 0;
     }
@@ -281,7 +281,7 @@ bool VerticalMergeIteratorContext::compare(const VerticalMergeIteratorContext& r
     }
     auto result = (col_cmp_res == 0) ? (_order < rhs.order()) : (col_cmp_res < 0);
     result ? set_is_same(true) : rhs.set_is_same(true);
-    LOG(INFO) << "sout: compare, res=" << result;
+    // LOG(INFO) << "sout: compare, res=" << result;
     return result;
 }
 

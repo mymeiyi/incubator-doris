@@ -215,7 +215,7 @@ Status BlockReader::init(const ReaderParams& read_params) {
     RETURN_IF_ERROR(TabletReader::init(read_params));
 
     int32_t return_column_size = read_params.origin_return_columns->size();
-    LOG(INFO) << "sout: return column size=" << return_column_size;
+    // LOG(INFO) << "sout: return column size=" << return_column_size;
     _return_columns_loc.resize(read_params.return_columns.size());
     for (int i = 0; i < return_column_size; ++i) {
         auto cid = read_params.origin_return_columns->at(i);
@@ -223,10 +223,10 @@ Status BlockReader::init(const ReaderParams& read_params) {
             if (read_params.return_columns[j] == cid) {
                 if (j < _tablet->num_key_columns() || _tablet->keys_type() != AGG_KEYS) {
                     _normal_columns_idx.emplace_back(j);
-                    LOG(INFO) << "sout: normal column idx:" << j;
+                    // LOG(INFO) << "sout: normal column idx:" << j;
                 } else {
                     _agg_columns_idx.emplace_back(j);
-                    LOG(INFO) << "sout: agg column idx:" << j;
+                    // LOG(INFO) << "sout: agg column idx:" << j;
                 }
                 _return_columns_loc[j] = i;
                 break;
@@ -256,11 +256,11 @@ Status BlockReader::init(const ReaderParams& read_params) {
         if (read_params.reader_type == ReaderType::READER_QUERY &&
             _reader_context.enable_unique_key_merge_on_write) {
             // TODO cluster key
-            LOG(INFO) << "sout: block function= direct";
+            // LOG(INFO) << "sout: block function= direct";
             _next_block_func = &BlockReader::_direct_next_block;
         } else {
             _next_block_func = &BlockReader::_unique_key_next_block;
-            LOG(INFO) << "sout: block function= unique";
+            // LOG(INFO) << "sout: block function= unique";
             if (_filter_delete) {
                 _delete_filter_column = ColumnUInt8::create();
             }

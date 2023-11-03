@@ -123,9 +123,9 @@ Status VerticalBetaRowsetWriter::add_columns(const vectorized::Block* block,
         if (limit > 0) {
             RETURN_IF_ERROR(
                     _segment_writers[_cur_writer_idx]->append_block(block, start_offset, limit));
-            LOG(INFO) << "sout: rows written: "
+            /*LOG(INFO) << "sout: rows written: "
                       << _segment_writers[_cur_writer_idx]->num_rows_written()
-                      << ", row count=" << _segment_writers[_cur_writer_idx]->row_count();
+                      << ", row count=" << _segment_writers[_cur_writer_idx]->row_count();*/
             DCHECK(_segment_writers[_cur_writer_idx]->num_rows_written() <=
                    _segment_writers[_cur_writer_idx]->row_count());
         }
