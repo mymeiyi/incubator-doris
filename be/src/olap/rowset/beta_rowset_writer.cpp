@@ -450,6 +450,7 @@ Status BetaRowsetWriter::flush_memtable(vectorized::Block* block, int32_t segmen
     }
     {
         SCOPED_RAW_TIMER(&_segment_writer_ns);
+        LOG(INFO) << "sout: block=\n" << block->dump_data(0);
         RETURN_IF_ERROR(
                 _segment_creator.flush_single_block(block, segment_id, flush_size, flush_schema));
     }

@@ -168,6 +168,7 @@ int RowInBlockComparator::operator()(const RowInBlock* left, const RowInBlock* r
 
 void MemTable::insert(const vectorized::Block* input_block, const std::vector<int>& row_idxs,
                       bool is_append) {
+    LOG(INFO) << "sout: block=\n" << input_block->dump_data(0);
     SCOPED_CONSUME_MEM_TRACKER(_insert_mem_tracker_use_hook.get());
     vectorized::Block target_block = *input_block;
     target_block = input_block->copy_block(_column_offset);

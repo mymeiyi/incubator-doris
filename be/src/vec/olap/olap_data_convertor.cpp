@@ -57,22 +57,29 @@ namespace doris::vectorized {
 OlapBlockDataConvertor::OlapBlockDataConvertor(const TabletSchema* tablet_schema) {
     assert(tablet_schema);
     const auto& columns = tablet_schema->columns();
+    int i = 0;
     for (const auto& col : columns) {
         _convertors.emplace_back(create_olap_column_data_convertor(col));
+        LOG(INFO) << "sout: add convert, i=" << i << ", col=" << col.name();
+        ++i;
     }
 }
 
 OlapBlockDataConvertor::OlapBlockDataConvertor(const TabletSchema* tablet_schema,
                                                const std::vector<uint32_t>& col_ids) {
     assert(tablet_schema);
+    int i = 0;
     for (const auto& id : col_ids) {
         const auto& col = tablet_schema->column(id);
         _convertors.emplace_back(create_olap_column_data_convertor(col));
+        LOG(INFO) << "sout: add convert, i=" << i << ", col=" << col.name();
+        ++i;
     }
 }
 
 void OlapBlockDataConvertor::add_column_data_convertor(const TabletColumn& column) {
     _convertors.emplace_back(create_olap_column_data_convertor(column));
+    LOG(INFO) << "sout: add convert, col=" << column.name();
 }
 
 OlapBlockDataConvertor::OlapColumnDataConvertorBaseUPtr
@@ -211,6 +218,8 @@ void OlapBlockDataConvertor::set_source_content(const vectorized::Block* block, 
                             block->dump_structure());
         }
         _convertors[cid]->set_source_column(typed_column, row_pos, num_rows);
+        LOG(INFO) << "sout: set convert column, cid=" << cid
+                  << ", col=" << typed_column.column->get_name();
         ++cid;
     }
 }
@@ -222,6 +231,8 @@ void OlapBlockDataConvertor::set_source_content_with_specifid_columns(
            block->columns() <= _convertors.size());
     for (auto i : cids) {
         _convertors[i]->set_source_column(block->get_by_position(i), row_pos, num_rows);
+        LOG(INFO) << "sout: set convert column, i=" << i
+                  << ", col=" << block->get_by_position(i).column->get_name();
     }
 }
 

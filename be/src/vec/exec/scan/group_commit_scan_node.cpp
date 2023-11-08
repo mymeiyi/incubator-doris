@@ -36,6 +36,7 @@ Status GroupCommitScanNode::get_next(RuntimeState* state, vectorized::Block* blo
     bool find_node = false;
     while (!find_node && !*eos) {
         RETURN_IF_ERROR(load_block_queue->get_block(block, &find_node, eos));
+        LOG(INFO) << "sout: block=\n" << block->dump_data(0);
     }
     return Status::OK();
 }

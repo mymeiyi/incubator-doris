@@ -65,6 +65,7 @@ Status OlapTableBlockConvertor::validate_and_convert_block(
         // Do vectorized expr here to speed up load
         RETURN_IF_ERROR(vectorized::VExprContext::get_output_block_after_execute_exprs(
                 output_vexpr_ctxs, *input_block, block.get()));
+        LOG(INFO) << "sout: block 0=" << block->dump_data(0);
     }
 
     // fill the valus for auto-increment columns
@@ -79,6 +80,7 @@ Status OlapTableBlockConvertor::validate_and_convert_block(
         _filter_map.resize(rows, 0);
         bool stop_processing = false;
         RETURN_IF_ERROR(_validate_data(state, block.get(), rows, filtered_rows, &stop_processing));
+        LOG(INFO) << "sout: block 1=" << block->dump_data(0);
         _num_filtered_rows += filtered_rows;
         has_filtered_rows = filtered_rows > 0;
         if (stop_processing) {
@@ -87,6 +89,7 @@ Status OlapTableBlockConvertor::validate_and_convert_block(
             return Status::EndOfFile("Encountered unqualified data, stop processing");
         }
         _convert_to_dest_desc_block(block.get());
+        LOG(INFO) << "sout: block 2=" << block->dump_data(0);
     }
 
     return Status::OK();

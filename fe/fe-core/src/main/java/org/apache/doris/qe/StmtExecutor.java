@@ -78,6 +78,7 @@ import org.apache.doris.analysis.UseStmt;
 import org.apache.doris.catalog.Column;
 import org.apache.doris.catalog.Database;
 import org.apache.doris.catalog.Env;
+import org.apache.doris.catalog.OlapTable;
 import org.apache.doris.catalog.PrimitiveType;
 import org.apache.doris.catalog.ScalarType;
 import org.apache.doris.catalog.Table;
@@ -1735,6 +1736,10 @@ public class StmtExecutor {
         if (selectStmt.getValueList() != null) {
             Table tbl = txnEntry.getTable();
             int schemaSize = tbl.getBaseSchema(false).size();
+            OlapTable olapTable = (OlapTable) tbl;
+            if (olapTable.hasSequenceCol() && olapTable.getSequenceMapCol() == null) {
+                schemaSize++;
+            }
             for (List<Expr> row : selectStmt.getValueList().getRows()) {
                 // the value columns are columns which are visible to user, so here we use
                 // getBaseSchema(), not getFullSchema()
@@ -1797,6 +1802,10 @@ public class StmtExecutor {
         }
 
         TStreamLoadPutRequest request = new TStreamLoadPutRequest();
+        OlapTable olapTable = (OlapTable) tblObj;
+        if (olapTable.hasSequenceCol() && olapTable.getSequenceMapCol() == null) {
+            request.setSequenceCol(Column.SEQUENCE_COL);
+        }
 
         long maxExecMemByte = sessionVariable.getMaxExecMemByte();
         String timeZone = sessionVariable.getTimeZone();

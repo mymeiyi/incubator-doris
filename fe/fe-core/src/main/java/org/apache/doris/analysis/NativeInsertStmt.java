@@ -260,9 +260,15 @@ public class NativeInsertStmt extends InsertStmt {
             tblName.setDb(olapTable.getDatabase().getFullName());
             tblName.setTbl(olapTable.getName());
             if (olapTable.getDeleteSignColumn() != null) {
-                List<Column> columns = olapTable.getBaseSchema(false);
+                List<Column> columns = Lists.newArrayList(olapTable.getBaseSchema(false));
+                // sequence col
+                if (olapTable.hasSequenceCol() && olapTable.getSequenceMapCol() == null) {
+                    columns.add(olapTable.getSequenceCol());
+                }
+                // delete sign col
                 columns.add(olapTable.getDeleteSignColumn());
                 targetColumnNames = columns.stream().map(c -> c.getName()).collect(Collectors.toList());
+                LOG.info("sout: target column names={}", targetColumnNames);
             }
         }
 
@@ -1126,6 +1132,9 @@ public class NativeInsertStmt extends InsertStmt {
         TStreamLoadPutRequest streamLoadPutRequest = new TStreamLoadPutRequest();
         if (targetColumnNames != null) {
             streamLoadPutRequest.setColumns(String.join(",", targetColumnNames));
+            if (targetColumnNames.stream().anyMatch(col -> col.equalsIgnoreCase(Column.SEQUENCE_COL))) {
+                streamLoadPutRequest.setSequenceCol(Column.SEQUENCE_COL);
+            }
         }
         streamLoadPutRequest.setDb(db.getFullName()).setMaxFilterRatio(1)
                 .setTbl(getTbl())
