@@ -89,7 +89,8 @@ public:
     Status init();
 
     // for vertical compaction
-    Status init(const std::vector<uint32_t>& col_ids, bool has_key);
+    Status init(const std::vector<uint32_t>& col_ids, bool has_key,
+                std::vector<uint32_t> key_group_cluster_key_idxes = {});
 
     template <typename RowType>
     Status append_row(const RowType& row);

@@ -76,7 +76,8 @@ public:
                 "RowsetWriter not support add_block");
     }
     virtual Status add_columns(const vectorized::Block* block, const std::vector<uint32_t>& col_ids,
-                               bool is_key, uint32_t max_rows_per_segment) {
+                               bool is_key, uint32_t max_rows_per_segment,
+                               std::vector<uint32_t> key_group_cluster_key_idxes = {}) {
         return Status::Error<ErrorCode::NOT_IMPLEMENTED_ERROR>(
                 "RowsetWriter not support add_columns");
     }

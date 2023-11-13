@@ -62,7 +62,8 @@ VerticalBetaRowsetWriter::~VerticalBetaRowsetWriter() {
 
 Status VerticalBetaRowsetWriter::add_columns(const vectorized::Block* block,
                                              const std::vector<uint32_t>& col_ids, bool is_key,
-                                             uint32_t max_rows_per_segment) {
+                                             uint32_t max_rows_per_segment,
+                                             std::vector<uint32_t> key_group_cluster_key_idxes) {
     VLOG_NOTICE << "VerticalBetaRowsetWriter::add_columns, columns: " << block->columns();
     size_t num_rows = block->rows();
     if (num_rows == 0) {
@@ -76,7 +77,8 @@ Status VerticalBetaRowsetWriter::add_columns(const vectorized::Block* block,
         // it must be key columns
         DCHECK(is_key);
         std::unique_ptr<segment_v2::SegmentWriter> writer;
-        RETURN_IF_ERROR(_create_segment_writer(col_ids, is_key, &writer));
+        RETURN_IF_ERROR(
+                _create_segment_writer(col_ids, is_key, &writer, key_group_cluster_key_idxes));
         _segment_writers.emplace_back(std::move(writer));
         _cur_writer_idx = 0;
         RETURN_IF_ERROR(_segment_writers[_cur_writer_idx]->append_block(block, 0, num_rows));
@@ -168,7 +170,8 @@ Status VerticalBetaRowsetWriter::flush_columns(bool is_key) {
 
 Status VerticalBetaRowsetWriter::_create_segment_writer(
         const std::vector<uint32_t>& column_ids, bool is_key,
-        std::unique_ptr<segment_v2::SegmentWriter>* writer) {
+        std::unique_ptr<segment_v2::SegmentWriter>* writer,
+        std::vector<uint32_t> key_group_cluster_key_idxes) {
     auto path =
             BetaRowset::segment_file_path(_context.rowset_dir, _context.rowset_id, _num_segment++);
     auto fs = _rowset_meta->fs();
@@ -194,7 +197,7 @@ Status VerticalBetaRowsetWriter::_create_segment_writer(
         _file_writers.push_back(std::move(file_writer));
     }
 
-    auto s = (*writer)->init(column_ids, is_key);
+    auto s = (*writer)->init(column_ids, is_key, key_group_cluster_key_idxes);
     if (!s.ok()) {
         LOG(WARNING) << "failed to init segment writer: " << s.to_string();
         writer->reset(nullptr);

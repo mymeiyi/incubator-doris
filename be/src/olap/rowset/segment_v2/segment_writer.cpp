@@ -156,7 +156,8 @@ Status SegmentWriter::init() {
     return init(column_ids, true);
 }
 
-Status SegmentWriter::init(const std::vector<uint32_t>& col_ids, bool has_key) {
+Status SegmentWriter::init(const std::vector<uint32_t>& col_ids, bool has_key,
+                           std::vector<uint32_t> key_group_cluster_key_idxes) {
     DCHECK(_column_writers.empty());
     DCHECK(_column_ids.empty());
     _has_key = has_key;
@@ -727,77 +728,67 @@ Status SegmentWriter::append_block(const vectorized::Block* block, size_t row_po
         bool need_short_key_indexes =
                 !need_primary_key_indexes ||
                 (need_primary_key_indexes && _tablet_schema->cluster_key_idxes().size() > 0);
-        if (need_primary_key_indexes) {
-            // create primary indexes
-            if (!need_short_key_indexes) {
-                std::string last_key;
-                for (size_t pos = 0; pos < num_rows; pos++) {
-                    std::string key = _full_encode_keys(key_columns, pos);
-                    if (_tablet_schema->has_sequence_col()) {
-                        _encode_seq_column(seq_column, pos, &key);
-                    }
-                    DCHECK(key.compare(last_key) > 0)
-                            << "found duplicate key or key is not sorted! current key: " << key
-                            << ", last key" << last_key;
-                    RETURN_IF_ERROR(_primary_key_index_builder->add_item(key));
-                    last_key = std::move(key);
+        if (need_primary_key_indexes && !need_short_key_indexes) { // mow table without cluster keys
+            std::string last_key;
+            for (size_t pos = 0; pos < num_rows; pos++) {
+                std::string key = _full_encode_keys(key_columns, pos);
+                if (_tablet_schema->has_sequence_col()) {
+                    _encode_seq_column(seq_column, pos, &key);
                 }
-            } else {
-                std::vector<vectorized::IOlapColumnDataAccessor*> primary_key_columns;
-                primary_key_columns.swap(key_columns);
-                key_columns.clear();
-                for (const auto& cid : _tablet_schema->cluster_key_idxes()) {
-                    for (size_t id = 0; id < _column_writers.size(); ++id) {
-                        // olap data convertor alway start from id = 0
-                        auto converted_result = _olap_data_convertor->convert_column_data(id);
-                        if (cid == _column_ids[id]) {
-                            key_columns.push_back(converted_result.second);
-                            break;
-                        }
-                    }
-                }
-                std::vector<std::string> primary_keys;
-                // keep primary keys in memory
-                for (uint32_t pos = 0; pos < num_rows; pos++) {
-                    std::string key =
-                            _full_encode_keys(_primary_key_coders, primary_key_columns, pos);
-                    Slice slice(key);
-                    if (_tablet_schema->has_sequence_col()) {
-                        _encode_seq_column(seq_column, pos, &key);
-                    }
-                    _encode_rowid(pos, &key);
-                    primary_keys.emplace_back(std::move(key));
-                }
-                // sort primary keys
-                std::sort(primary_keys.begin(), primary_keys.end());
-                // write primary keys
-                std::string last_key;
-                for (const auto& key : primary_keys) {
-                    DCHECK(key.compare(last_key) > 0)
-                            << "found duplicate key or key is not sorted! current key: " << key
-                            << ", last key" << last_key;
-                    RETURN_IF_ERROR(_primary_key_index_builder->add_item(key));
-                }
+                DCHECK(key.compare(last_key) > 0)
+                        << "found duplicate key or key is not sorted! current key: " << key
+                        << ", last key" << last_key;
+                RETURN_IF_ERROR(_primary_key_index_builder->add_item(key));
+                last_key = std::move(key);
             }
-        }
-        if (need_short_key_indexes) {
-            if (need_primary_key_indexes) {
-                // short key is cluster key, key columns should be cluster key + min_max key
-                key_columns.clear();
-                for (auto cid : _tablet_schema->cluster_key_idxes()) {
-                    /*auto converted_result = _olap_data_convertor->convert_column_data(cid);
-                    key_columns.push_back(converted_result.second);*/
-                    for (size_t id = 0; id < _column_writers.size(); ++id) {
-                        // olap data convertor alway start from id = 0
-                        auto converted_result = _olap_data_convertor->convert_column_data(id);
-                        if (cid == _column_ids[id]) {
-                            key_columns.push_back(converted_result.second);
-                        }
-                    }
-                }
-            }
-            // create short key indexes'
+        } else if (!need_primary_key_indexes && need_short_key_indexes) { // other tables
+            // create short key indexes
             // for min_max key
+            set_min_key(_full_encode_keys(key_columns, 0));
+            set_max_key(_full_encode_keys(key_columns, num_rows - 1));
+
+            key_columns.resize(_num_short_key_columns);
+            for (const auto pos : short_key_pos) {
+                RETURN_IF_ERROR(_short_key_index_builder->add_item(_encode_keys(key_columns, pos)));
+            }
+        } else if (need_primary_key_indexes && need_short_key_indexes) { // mow with cluster keys
+            // write primary key index
+            std::vector<vectorized::IOlapColumnDataAccessor*> primary_key_columns;
+            primary_key_columns.swap(key_columns);
+            std::vector<std::string> primary_keys;
+            // keep primary keys in memory
+            for (uint32_t pos = 0; pos < num_rows; pos++) {
+                std::string key = _full_encode_keys(_primary_key_coders, primary_key_columns, pos);
+                Slice slice(key);
+                if (_tablet_schema->has_sequence_col()) {
+                    _encode_seq_column(seq_column, pos, &key);
+                }
+                _encode_rowid(pos, &key);
+                primary_keys.emplace_back(std::move(key));
+            }
+            // sort primary keys
+            std::sort(primary_keys.begin(), primary_keys.end());
+            // write primary keys
+            std::string last_key;
+            for (const auto& key : primary_keys) {
+                DCHECK(key.compare(last_key) > 0)
+                        << "found duplicate key or key is not sorted! current key: " << key
+                        << ", last key" << last_key;
+                RETURN_IF_ERROR(_primary_key_index_builder->add_item(key));
+            }
+            // write short key index
+            // short key is cluster key, key columns should be cluster key + min_max key
+            key_columns.clear();
+            for (const auto& cid : _tablet_schema->cluster_key_idxes()) {
+                for (size_t id = 0; id < _column_writers.size(); ++id) {
+                    // olap data convertor alway start from id = 0
+                    auto converted_result = _olap_data_convertor->convert_column_data(id);
+                    if (cid == _column_ids[id]) {
+                        key_columns.push_back(converted_result.second);
+                        break;
+                    }
+                }
+            }
             set_min_key(_full_encode_keys(key_columns, 0));
             set_max_key(_full_encode_keys(key_columns, num_rows - 1));
 
