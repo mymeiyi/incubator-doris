@@ -138,6 +138,7 @@ Status GroupCommitBlockSink::_add_block(RuntimeState* state,
     if (block->rows() == 0) {
         return Status::OK();
     }
+    LOG(INFO) << "sout: add block=\n" << block->dump_data(0);
     // add block to queue
     auto _cur_mutable_block = vectorized::MutableBlock::create_unique(block->clone_empty());
     {

@@ -321,6 +321,7 @@ Status VFileScanner::_get_block_impl(RuntimeState* state, Block* block, bool* eo
         // For query job, simply set _src_block_ptr to block.
         size_t read_rows = 0;
         RETURN_IF_ERROR(_init_src_block(block));
+        LOG(INFO) << "sout: before get src block=\n" << _src_block_ptr->dump_data(0);
         {
             SCOPED_TIMER(_get_block_timer);
 
@@ -333,6 +334,7 @@ Status VFileScanner::_get_block_impl(RuntimeState* state, Block* block, bool* eo
             block->swap(*_src_block_ptr);
             break;
         }
+        LOG(INFO) << "sout: after get src block=\n" << _src_block_ptr->dump_data(0);
         // use read_rows instead of _src_block_ptr->rows(), because the first column of _src_block_ptr
         // may not be filled after calling `get_next_block()`, so _src_block_ptr->rows() may return wrong result.
         if (read_rows > 0) {
@@ -341,6 +343,7 @@ Status VFileScanner::_get_block_impl(RuntimeState* state, Block* block, bool* eo
             if (_get_push_down_agg_type() != TPushAggOp::type::COUNT) {
                 // Convert the src block columns type to string in-place.
                 RETURN_IF_ERROR(_cast_to_input_block(block));
+                LOG(INFO) << "sout: after cast src block=\n" << _src_block_ptr->dump_data(0);
                 // FileReader can fill partition and missing columns itself
                 if (!_cur_reader->fill_all_columns()) {
                     // Fill rows in src block with partition columns from path. (e.g. Hive partition columns)
@@ -556,6 +559,7 @@ Status VFileScanner::_convert_to_output_block(Block* block) {
         return Status::OK();
     }
 
+    LOG(INFO) << "sout: before convert, block=\n" << _src_block_ptr->dump_data(0);
     SCOPED_TIMER(_convert_to_output_block_timer);
     // The block is passed from scanner context's free blocks,
     // which is initialized by output columns
@@ -571,6 +575,7 @@ Status VFileScanner::_convert_to_output_block(Block* block) {
     // Can not use block->insert() because it may cause use_count() non-zero bug
     MutableBlock mutable_output_block =
             VectorizedUtils::build_mutable_mem_reuse_block(block, *_dest_row_desc);
+    LOG(INFO) << "sout: output block 0=\n" << mutable_output_block.dump_data(0);
     auto& mutable_output_columns = mutable_output_block.mutable_columns();
 
     // for (auto slot_desc : _output_tuple_desc->slots()) {
@@ -659,6 +664,7 @@ Status VFileScanner::_convert_to_output_block(Block* block) {
                                                     "filter column"));
     RETURN_IF_ERROR(vectorized::Block::filter_block(block, dest_size, dest_size));
 
+    LOG(INFO) << "sout: output block 1=\n" << block->dump_data(0);
     _counter.num_rows_filtered += rows - block->rows();
     return Status::OK();
 }
