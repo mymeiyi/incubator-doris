@@ -119,8 +119,10 @@ void LoadBlockQueue::cancel(const Status& st) {
     while (!_block_queue.empty()) {
         {
             auto& future_block = _block_queue.front();
-            std::unique_lock<std::mutex> l0(*(future_block->lock));
-            future_block->set_result(st, future_block->rows(), 0);
+            {
+                std::unique_lock<std::mutex> l0(*(future_block->lock));
+                future_block->set_result(st, future_block->rows(), 0);
+            }
             *_all_block_queues_bytes -= future_block->bytes();
             *_single_block_queue_bytes -= future_block->bytes();
             future_block->cv->notify_all();
@@ -180,8 +182,10 @@ Status GroupCommitTable::_create_group_commit_load(
     Status st = Status::OK();
     std::unique_ptr<int, std::function<void(int*)>> finish_plan_func((int*)0x01, [&](int*) {
         if (!st.ok()) {
-            std::unique_lock l(_lock);
-            _need_plan_fragment = false;
+            {
+                std::unique_lock l(_lock);
+                _need_plan_fragment = false;
+            }
             _cv.notify_all();
         }
     });
@@ -243,10 +247,12 @@ Status GroupCommitTable::_create_group_commit_load(
     {
         load_block_queue = std::make_shared<LoadBlockQueue>(
                 instance_id, label, txn_id, schema_version, _all_block_queues_bytes,
-                result.wait_internal_group_commit_finish, result.group_commit_interval_ms);
-        std::unique_lock l(_lock);
-        _load_block_queues.emplace(instance_id, load_block_queue);
-        _need_plan_fragment = false;
+                result.wait_internal_group_commit_finish);
+        {
+            std::unique_lock l(_lock);
+            _load_block_queues.emplace(instance_id, load_block_queue);
+            _need_plan_fragment = false;
+        }
         _cv.notify_all();
     }
     if (_exec_env->wal_mgr()->is_running()) {
@@ -315,7 +321,10 @@ Status GroupCommitTable::_finish_group_commit_load(int64_t db_id, int64_t table_
                 load_block_queue->cancel(status);
             }
             if (load_block_queue->wait_internal_group_commit_finish) {
-                std::unique_lock l2(load_block_queue->mutex);
+                {
+                    std::unique_lock l2(load_block_queue->mutex);
+                    load_block_queue->wait_internal_group_commit_finish = false;
+                }
                 load_block_queue->internal_group_commit_finish_cv.notify_all();
             }
         }
