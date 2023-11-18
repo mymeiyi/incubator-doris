@@ -212,6 +212,7 @@ public class PlanFragment extends TreeNode<PlanFragment> {
 
     public void setOutputExprs(List<Expr> outputExprs) {
         this.outputExprs = Expr.cloneList(outputExprs, null);
+        LOG.info("sout: set output exprs: {}", outputExprs);
     }
 
     public void resetOutputExprs(TupleDescriptor tupleDescriptor) {
@@ -220,6 +221,7 @@ public class PlanFragment extends TreeNode<PlanFragment> {
             SlotRef slotRef = new SlotRef(slotDescriptor);
             outputExprs.add(slotRef);
         }
+        LOG.info("sout: reset output={}", outputExprs);
     }
 
     public ArrayList<Expr> getOutputExprs() {

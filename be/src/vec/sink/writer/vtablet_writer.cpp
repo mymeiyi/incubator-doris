@@ -1653,54 +1653,5 @@ Status VTabletWriter::append_block(doris::vectorized::Block& input_block) {
     return Status::OK();
 }
 
-<<<<<<< HEAD
-=======
-Status VTabletWriter::write_wal(OlapTableBlockConvertor* block_convertor,
-                                OlapTabletFinder* tablet_finder, vectorized::Block* block,
-                                RuntimeState* state, int64_t num_rows, int64_t filtered_rows) {
-    PBlock pblock;
-    size_t uncompressed_bytes = 0, compressed_bytes = 0;
-    if (filtered_rows == 0) {
-        RETURN_IF_ERROR(block->serialize(state->be_exec_version(), &pblock, &uncompressed_bytes,
-                                         &compressed_bytes, segment_v2::CompressionTypePB::SNAPPY));
-        RETURN_IF_ERROR(_wal_writer->append_blocks(std::vector<PBlock*> {&pblock}));
-    } else {
-        auto cloneBlock = block->clone_without_columns();
-        auto res_block = vectorized::MutableBlock::build_mutable_block(&cloneBlock);
-        for (int i = 0; i < num_rows; ++i) {
-            if (block_convertor->num_filtered_rows() > 0 && block_convertor->filter_map()[i]) {
-                continue;
-            }
-            if (tablet_finder->num_filtered_rows() > 0 && tablet_finder->filter_bitmap().Get(i)) {
-                continue;
-            }
-            res_block.add_row(block, i);
-        }
-        RETURN_IF_ERROR(res_block.to_block().serialize(state->be_exec_version(), &pblock,
-                                                       &uncompressed_bytes, &compressed_bytes,
-                                                       segment_v2::CompressionTypePB::SNAPPY));
-        RETURN_IF_ERROR(_wal_writer->append_blocks(std::vector<PBlock*> {&pblock}));
-    }
-    return Status::OK();
-}
-
-void VTabletWriter::_group_commit_block(vectorized::Block* input_block, int64_t num_rows,
-                                        int64_t filter_rows, RuntimeState* state,
-                                        vectorized::Block* block,
-                                        OlapTableBlockConvertor* block_convertor,
-                                        OlapTabletFinder* tablet_finder) {
-    static_cast<void>(
-            write_wal(block_convertor, tablet_finder, block, state, num_rows, filter_rows));
-#ifndef BE_TEST
-    auto* future_block = assert_cast<FutureBlock*>(input_block);
-    {
-        std::unique_lock<doris::Mutex> l(*(future_block->lock));
-        future_block->set_result(Status::OK(), num_rows, num_rows - filter_rows);
-    }
-    future_block->cv->notify_all();
-#endif
-}
-
->>>>>>> 4eb75e9924 (modify)
 } // namespace vectorized
 } // namespace doris

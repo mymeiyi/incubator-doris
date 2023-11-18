@@ -320,11 +320,19 @@ Status GroupCommitTable::_finish_group_commit_load(int64_t db_id, int64_t table_
             if (prepare_failed || !status.ok()) {
                 load_block_queue->cancel(status);
             }
+            LOG(INFO) << "sout: wait_internal="
+                      << load_block_queue->wait_internal_group_commit_finish;
             if (load_block_queue->wait_internal_group_commit_finish) {
                 {
                     std::unique_lock l2(load_block_queue->mutex);
                     load_block_queue->wait_internal_group_commit_finish = false;
+                    LOG(INFO) << "sout: set wait_internal="
+                              << load_block_queue->wait_internal_group_commit_finish;
                 }
+                LOG(INFO) << "sout: finish load plan fragment, db_id=" << _db_id
+                          << ", table=" << _table_id << ", label=" << label
+                          << ", instance_id=" << print_id(instance_id)
+                          << ", status=" << st.to_string();
                 load_block_queue->internal_group_commit_finish_cv.notify_all();
             }
         }
@@ -366,11 +374,11 @@ Status GroupCommitTable::_finish_group_commit_load(int64_t db_id, int64_t table_
     ss << "finish group commit, db_id=" << db_id << ", table_id=" << table_id << ", label=" << label
        << ", txn_id=" << txn_id << ", instance_id=" << print_id(instance_id);
     if (prepare_failed) {
-        ss << ", prepare status=" << status.to_string();
+        ss << ", prepare status=" << status;
     } else {
-        ss << ", execute status=" << status.to_string();
+        ss << ", execute status=" << status;
     }
-    ss << ", commit status=" << result_status.to_string();
+    ss << ", commit status=" << result_status;
     if (state && !(state->get_error_log_file_path().empty())) {
         ss << ", error_url=" << state->get_error_log_file_path();
     }

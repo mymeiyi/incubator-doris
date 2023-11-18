@@ -60,11 +60,13 @@ Status OlapTableBlockConvertor::validate_and_convert_block(
     DCHECK(input_block->rows() > 0);
 
     block = vectorized::Block::create_shared(input_block->get_columns_with_type_and_name());
+    LOG(INFO) << "sout: block 0=" << block->dump_data(0);
     if (!output_vexpr_ctxs.empty()) {
         // Do vectorized expr here to speed up load
         RETURN_IF_ERROR(vectorized::VExprContext::get_output_block_after_execute_exprs(
                 output_vexpr_ctxs, *input_block, block.get()));
     }
+    LOG(INFO) << "sout: block 1=" << block->dump_data(0);
 
     // fill the valus for auto-increment columns
     if (_auto_inc_col_idx.has_value()) {
@@ -77,7 +79,9 @@ Status OlapTableBlockConvertor::validate_and_convert_block(
         _filter_map.clear();
         _filter_map.resize(rows, 0);
         bool stop_processing = false;
+        LOG(INFO) << "sout: block 2=" << block->dump_data(0);
         RETURN_IF_ERROR(_validate_data(state, block.get(), rows, filtered_rows, &stop_processing));
+        LOG(INFO) << "sout: block 3=" << block->dump_data(0);
         _num_filtered_rows += filtered_rows;
         has_filtered_rows = filtered_rows > 0;
         if (stop_processing) {
@@ -440,15 +444,23 @@ Status OlapTableBlockConvertor::_validate_data(RuntimeState* state, vectorized::
 }
 
 void OlapTableBlockConvertor::_convert_to_dest_desc_block(doris::vectorized::Block* block) {
+    // LOG(INFO) << "sout: before convert=\n" << block->dump_data(0);
     for (int i = 0; i < _output_tuple_desc->slots().size() && i < block->columns(); ++i) {
         SlotDescriptor* desc = _output_tuple_desc->slots()[i];
+        LOG(INFO) << "sout: i=" << i << ", desc=" << desc->col_name()
+                  << ", is null=" << desc->is_nullable()
+                  << ", block type=" << block->get_by_position(i).type->get_name()
+                  << ", block name=" << block->get_by_position(i).name
+                  << ", block i is null=" << block->get_by_position(i).type->is_nullable();
         if (desc->is_nullable() != block->get_by_position(i).type->is_nullable()) {
             if (desc->is_nullable()) {
+                LOG(INFO) << "sout: 0, i=" << i;
                 block->get_by_position(i).type =
                         vectorized::make_nullable(block->get_by_position(i).type);
                 block->get_by_position(i).column =
                         vectorized::make_nullable(block->get_by_position(i).column);
             } else {
+                LOG(INFO) << "sout: 1, i=" << i;
                 block->get_by_position(i).type = assert_cast<const vectorized::DataTypeNullable&>(
                                                          *block->get_by_position(i).type)
                                                          .get_nested_type();

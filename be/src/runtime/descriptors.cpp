@@ -550,6 +550,9 @@ int RowDescriptor::get_column_id(int slot_id, bool force_materialize_slot) const
                 continue;
             }
             if (slot->id() == slot_id) {
+                /*LOG(INFO) << "sout: find slot_id=" << slot_id
+                          << ", col_id=" << slot->col_unique_id()
+                          << ", column_id_cnt=" << column_id_counter;*/
                 return column_id_counter;
             }
             column_id_counter++;

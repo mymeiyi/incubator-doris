@@ -118,6 +118,7 @@ Status GroupCommitBlockSink::send(RuntimeState* state, vectorized::Block* input_
     if (UNLIKELY(rows == 0)) {
         return status;
     }
+    LOG(INFO) << "sout: block=\n" << input_block->dump_data(0);
     SCOPED_TIMER(_profile->total_time_counter());
     // update incrementally so that FE can get the progress.
     // the real 'num_rows_load_total' will be set when sink being closed.

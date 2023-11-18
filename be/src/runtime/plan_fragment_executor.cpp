@@ -343,6 +343,7 @@ Status PlanFragmentExecutor::open_vectorized_internal() {
                 return st;
             }
 
+            // LOG(INFO) << "sout: block=\n" << block->dump_data(0);
             // Collect this plan and sub plan statistics, and send to parent plan.
             if (_collect_query_statistics_with_every_batch) {
                 _collect_query_statistics();

@@ -300,13 +300,21 @@ Status VExprContext::get_output_block_after_execute_exprs(
     for (auto& vexpr_ctx : output_vexpr_ctxs) {
         int result_column_id = -1;
         RETURN_IF_ERROR(vexpr_ctx->execute(&tmp_block, &result_column_id));
+        LOG(INFO) << "sout: result block=\n" << Block(result_columns).dump_data(0);
         DCHECK(result_column_id != -1);
         const auto& col = tmp_block.get_by_position(result_column_id);
+        LOG(INFO) << "sout: result column id=" << result_column_id;
         if (do_projection) {
             result_columns.emplace_back(col.column->clone_resized(rows), col.type, col.name);
         } else {
             result_columns.emplace_back(tmp_block.get_by_position(result_column_id));
         }
+        LOG(INFO) << "sout: result column nullable=" << result_columns.back().type->is_nullable()
+                  << ", name=" << result_columns.back().type->get_name()
+                  << ", column=" << result_columns.back().column->dump_structure()
+                  << ", column is nullable=" << result_columns.back().column->is_nullable()
+                  << ", type 0=" << typeid(result_columns.back().column).name()
+                  << ", type=" << demangle(typeid(result_columns.back().column).name());
     }
     *output_block = {result_columns};
     return Status::OK();
