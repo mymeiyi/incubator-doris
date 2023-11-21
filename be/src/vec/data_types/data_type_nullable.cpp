@@ -58,7 +58,8 @@ std::string DataTypeNullable::to_string(const IColumn& column, size_t row_num) c
     row_num = result.second;
 
     LOG(INFO) << "sout: column type=" << demangle(typeid(column).name())
-              << ", ptr type=" << demangle(typeid(ptr).name());
+              << ", ptr type=" << demangle(typeid(ptr).name())
+              << ", ptr type2=" << typeid(ptr).name();
     const auto& col_null = assert_cast<const ColumnNullable&>(*ptr);
     if (col_null.is_null_at(row_num)) {
         return "NULL";
@@ -73,8 +74,6 @@ void DataTypeNullable::to_string(const IColumn& column, size_t row_num,
     ColumnPtr ptr = result.first;
     row_num = result.second;
 
-    LOG(INFO) << "sout: column type=" << demangle(typeid(column).name())
-              << ", ptr type=" << demangle(typeid(ptr).name());
     const auto& col_null = assert_cast<const ColumnNullable&>(*ptr);
     if (col_null.is_null_at(row_num)) {
         ostr.write("NULL", 4);

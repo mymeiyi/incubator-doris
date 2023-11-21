@@ -142,6 +142,9 @@ public:
     }
 
     bool check_overflow_for_decimal() const {
+        LOG(INFO) << "sout: check_overflow_for_decimal="
+                  << (_query_options.__isset.check_overflow_for_decimal &&
+                      _query_options.check_overflow_for_decimal);
         return _query_options.__isset.check_overflow_for_decimal &&
                _query_options.check_overflow_for_decimal;
     }
