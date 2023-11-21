@@ -29,6 +29,8 @@
 #include "olap/rowset/segment_v2/bloom_filter_index_writer.h"
 #include "olap/rowset/segment_v2/encoding_info.h"
 #include "olap/types.h"
+#include "vec/data_types/data_type.h"
+#include "vec/data_types/data_type_factory.hpp"
 
 namespace doris {
 
@@ -113,5 +115,75 @@ Status PrimaryKeyIndexReader::parse_bf(io::FileReaderSPtr file_reader,
 
     return Status::OK();
 }
+
+Status PrimaryKeyIndexReader::seek_at_or_after(Slice& key_without_seq, bool* exact_match,
+                                               PrimaryKeyItem* item) const {
+    std::unique_ptr<segment_v2::IndexedColumnIterator> index_iterator;
+    RETURN_IF_ERROR(new_iterator(&index_iterator));
+    auto st = index_iterator->seek_at_or_after(&key_without_seq, exact_match);
+    if (!st.ok() && !st.is<ErrorCode::ENTRY_NOT_FOUND>()) {
+        return st;
+    }
+    if (st.is<ErrorCode::ENTRY_NOT_FOUND>()) {
+        return Status::Error<ErrorCode::KEY_NOT_FOUND>("Can't find key in the segment");
+    }
+    item->row_id = index_iterator->get_current_ordinal();
+
+    size_t num_to_read = 1;
+    auto index_type =
+            vectorized::DataTypeFactory::instance().create_data_type(type_info()->type(), 1, 0);
+    auto index_column = index_type->create_column();
+    size_t num_read = num_to_read;
+    RETURN_IF_ERROR(index_iterator->next_batch(&num_read, index_column));
+    DCHECK(num_to_read == num_read);
+    item->key_with_sequence =
+            Slice(index_column->get_data_at(0).data, index_column->get_data_at(0).size).to_string();
+    _process_primary_key_item(item);
+    return Status::OK();
+}
+
+void PrimaryKeyIndexReader::_process_primary_key_item(PrimaryKeyItem* item) const {
+    if (_seq_col_length == 0) {
+        item->key_without_sequence = item->key_with_sequence;
+    } else {
+        item->key_without_sequence = Slice(item->key_with_sequence.get_data(),
+                                           item->key_with_sequence.get_size() - _seq_col_length);
+        item->sequence_id = Slice(
+                item->key_with_sequence.get_data() + item->key_without_sequence.get_size() + 1,
+                _seq_col_length - 1);
+    }
+    LOG(INFO) << "sout: key len=" << item->key_with_sequence.get_size()
+              << ", key_without_seq=" << item->key_without_sequence.get_size()
+              << ", seq=" << item->sequence_id.get_size() << ", rowid=" << item->row_id
+              << ", seq_col_len=" << _seq_col_length;
+}
+
+/*Status PrimaryKeyIndexReader::next_batch(NextBatchIterator* next_batch_iterator) {
+    std::unique_ptr<segment_v2::IndexedColumnIterator> iter;
+    RETURN_IF_ERROR(new_iterator(&iter));
+
+    size_t num_to_read = std::min(next_batch_iterator->batch_size, next_batch_iterator->remaining);
+    auto index_type =
+            vectorized::DataTypeFactory::instance().create_data_type(type_info()->type(), 1, 0);
+    auto index_column = index_type->create_column();
+    RETURN_IF_ERROR(iter->seek_at_or_after(&next_batch_iterator->last_key_slice,
+                                           &next_batch_iterator->exact_match));
+    auto current_ordinal = iter->get_current_ordinal();
+    DCHECK(next_batch_iterator->total == next_batch_iterator->remaining + current_ordinal)
+            << "total: " << next_batch_iterator->total
+            << ", remaining: " << next_batch_iterator->remaining
+            << ", current_ordinal: " << current_ordinal;
+
+    size_t num_read = num_to_read;
+    RETURN_IF_ERROR(iter->next_batch(&num_read, index_column));
+    DCHECK(num_to_read == num_read)
+            << "num_to_read: " << num_to_read << ", num_read: " << num_read;
+    last_key = index_column->get_data_at(num_read - 1).to_string();
+
+    // exclude last_key, last_key will be read in next batch.
+    if (num_read == next_batch_iterator->batch_size && num_read != next_batch_iterator->remaining) {
+        num_read -= 1;
+    }
+}*/
 
 } // namespace doris

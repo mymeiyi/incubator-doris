@@ -194,7 +194,8 @@ Status ExecEnv::_init(const std::vector<StorePath>& store_paths,
                               .set_max_queue_size(config::fragment_pool_queue_size)
                               .build(&_join_node_thread_pool));
     init_file_cache_factory();
-    RETURN_IF_ERROR(init_pipeline_task_scheduler());
+    //
+    // RETURN_IF_ERROR(init_pipeline_task_scheduler());
     _task_group_manager = new taskgroup::TaskGroupManager();
     _scanner_scheduler = new doris::vectorized::ScannerScheduler();
     _fragment_mgr = new FragmentMgr(this);

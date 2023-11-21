@@ -42,6 +42,23 @@ namespace segment_v2 {
 class PrimaryKeyIndexMetaPB;
 } // namespace segment_v2
 
+struct PrimaryKeyItem {
+    Slice key_with_sequence;
+    Slice key_without_sequence;
+    Slice sequence_id;
+    uint32_t row_id;
+};
+
+struct PrimaryKeyIterator {
+    int total;
+    int32_t remaining = total;
+    int batch_size = 1024;
+
+    bool exact_match = false;
+    std::string last_key;
+    Slice last_key_slice;
+};
+
 // Build index for primary key.
 // The primary key index is designed in a similar way like RocksDB
 // Partitioned Index, which is created in the segment file when MemTable flushes.
@@ -90,7 +107,8 @@ private:
 
 class PrimaryKeyIndexReader {
 public:
-    PrimaryKeyIndexReader() : _index_parsed(false), _bf_parsed(false) {}
+    PrimaryKeyIndexReader(size_t seq_col_length)
+            : _seq_col_length(seq_col_length), _index_parsed(false), _bf_parsed(false) {}
 
     Status parse_index(io::FileReaderSPtr file_reader,
                        const segment_v2::PrimaryKeyIndexMetaPB& meta);
@@ -129,7 +147,14 @@ public:
         return _index_reader->get_memory_size();
     }
 
+    Status seek_at_or_after(Slice& key_without_seq, bool* exact_match, PrimaryKeyItem* item) const;
+
+    // Status next_batch(NextBatchIterator* next_batch_iterator);
+
 private:
+    void _process_primary_key_item(PrimaryKeyItem* item) const;
+
+    size_t _seq_col_length;
     bool _index_parsed;
     bool _bf_parsed;
     std::unique_ptr<segment_v2::IndexedColumnReader> _index_reader;

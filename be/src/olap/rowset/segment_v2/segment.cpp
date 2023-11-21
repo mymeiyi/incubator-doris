@@ -285,7 +285,14 @@ Status Segment::load_index() {
 Status Segment::_load_index_impl() {
     return _load_index_once.call([this] {
         if (_tablet_schema->keys_type() == UNIQUE_KEYS && _pk_index_meta != nullptr) {
-            _pk_index_reader.reset(new PrimaryKeyIndexReader());
+            size_t seq_col_length =
+                    _tablet_schema->has_sequence_col()
+                            ? seq_col_length =
+                                      _tablet_schema->column(_tablet_schema->sequence_col_idx())
+                                              .length() +
+                                      1
+                            : 0;
+            _pk_index_reader.reset(new PrimaryKeyIndexReader(seq_col_length));
             RETURN_IF_ERROR(_pk_index_reader->parse_index(_file_reader, *_pk_index_meta));
             _meta_mem_usage += _pk_index_reader->get_memory_size();
             _segment_meta_mem_tracker->consume(_pk_index_reader->get_memory_size());
@@ -417,52 +424,25 @@ Status Segment::lookup_row_key(const Slice& key, bool with_seq_col, RowLocation*
         return Status::Error<ErrorCode::KEY_NOT_FOUND>("Can't find key in the segment");
     }
     bool exact_match = false;
-    std::unique_ptr<segment_v2::IndexedColumnIterator> index_iterator;
-    RETURN_IF_ERROR(_pk_index_reader->new_iterator(&index_iterator));
-    auto st = index_iterator->seek_at_or_after(&key_without_seq, &exact_match);
-    if (!st.ok() && !st.is<ErrorCode::ENTRY_NOT_FOUND>()) {
-        return st;
-    }
-    if (st.is<ErrorCode::ENTRY_NOT_FOUND>() || (!has_seq_col && !exact_match)) {
+    PrimaryKeyItem primary_key_item;
+    RETURN_IF_ERROR(
+            _pk_index_reader->seek_at_or_after(key_without_seq, &exact_match, &primary_key_item));
+    row_location->row_id = primary_key_item.row_id;
+    // compare key
+    if (key_without_seq.compare(primary_key_item.key_without_sequence) != 0) {
         return Status::Error<ErrorCode::KEY_NOT_FOUND>("Can't find key in the segment");
     }
-    row_location->row_id = index_iterator->get_current_ordinal();
-    row_location->segment_id = _segment_id;
-    row_location->rowset_id = _rowset_id;
-
-    if (has_seq_col) {
-        size_t num_to_read = 1;
-        auto index_type = vectorized::DataTypeFactory::instance().create_data_type(
-                _pk_index_reader->type_info()->type(), 1, 0);
-        auto index_column = index_type->create_column();
-        size_t num_read = num_to_read;
-        RETURN_IF_ERROR(index_iterator->next_batch(&num_read, index_column));
-        DCHECK(num_to_read == num_read);
-
-        Slice sought_key =
-                Slice(index_column->get_data_at(0).data, index_column->get_data_at(0).size);
-        Slice sought_key_without_seq =
-                Slice(sought_key.get_data(), sought_key.get_size() - seq_col_length);
-
-        // compare key
-        if (key_without_seq.compare(sought_key_without_seq) != 0) {
-            return Status::Error<ErrorCode::KEY_NOT_FOUND>("Can't find key in the segment");
-        }
-
-        if (!with_seq_col) {
-            return Status::OK();
-        }
-
+    if (with_seq_col && has_seq_col) {
         // compare sequence id
         Slice sequence_id =
                 Slice(key.get_data() + key_without_seq.get_size() + 1, seq_col_length - 1);
-        Slice previous_sequence_id = Slice(
-                sought_key.get_data() + sought_key_without_seq.get_size() + 1, seq_col_length - 1);
-        if (sequence_id.compare(previous_sequence_id) < 0) {
+        if (sequence_id.compare(primary_key_item.sequence_id) < 0) {
             return Status::Error<ErrorCode::KEY_ALREADY_EXISTS>(
                     "key with higher sequence id exists");
         }
     }
+    row_location->segment_id = _segment_id;
+    row_location->rowset_id = _rowset_id;
 
     return Status::OK();
 }
