@@ -43,6 +43,7 @@ class PrimaryKeyIndexMetaPB;
 } // namespace segment_v2
 
 struct PrimaryKeyItem {
+    std::string full_key;
     Slice key_with_sequence;
     Slice key_without_sequence;
     Slice sequence_id;

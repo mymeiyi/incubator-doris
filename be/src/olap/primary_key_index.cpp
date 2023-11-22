@@ -136,8 +136,12 @@ Status PrimaryKeyIndexReader::seek_at_or_after(Slice& key_without_seq, bool* exa
     size_t num_read = num_to_read;
     RETURN_IF_ERROR(index_iterator->next_batch(&num_read, index_column));
     DCHECK(num_to_read == num_read);
-    item->key_with_sequence =
-            Slice(index_column->get_data_at(0).data, index_column->get_data_at(0).size).to_string();
+    LOG(INFO) << "";
+    item->full_key = index_column->get_data_at(0).to_string();
+    item->key_with_sequence = item->full_key;
+    LOG(INFO) << "sout: key=" << static_cast<const void*>(item->key_with_sequence.get_data())
+              << ", data=" << index_column->get_data_at(0).data
+              << ", data_p=" << static_cast<const void*>(index_column->get_data_at(0).data);
     _process_primary_key_item(item);
     return Status::OK();
 }
