@@ -140,6 +140,14 @@ Status GroupCommitBlockSink::_add_block(RuntimeState* state,
     if (block->rows() == 0) {
         return Status::OK();
     }
+    for (int i = 0; i < block->columns(); ++i) {
+        if (block->get_by_position(i).type->is_nullable()) {
+            continue;
+        }
+        block->get_by_position(i).column = make_nullable(block->get_by_position(i).column);
+        block->get_by_position(i).type = make_nullable(block->get_by_position(i).type);
+    }
+    LOG(INFO) << "sout: block=\n" << block->dump_data(0);
     // add block to queue
     auto _cur_mutable_block = vectorized::MutableBlock::create_unique(block->clone_empty());
     {
@@ -150,17 +158,30 @@ Status GroupCommitBlockSink::_add_block(RuntimeState* state,
         block->append_to_block_by_selector(_cur_mutable_block.get(), selector);
     }
 
+    /*auto dst_block = vectorized::MutableBlock::create_unique(block->clone_empty());
     for (int i = 0; i < _cur_mutable_block->columns(); ++i) {
-        if (!_cur_mutable_block->get_by_position(i).type->is_nullable()) {
+        auto column_ptr = _cur_mutable_block->get_column_by_position(i);
+        if (!column_ptr->is_nullable()) {
+            column_ptr = make_nullable(column_ptr);
+        }
+        dst_block->insert(i, vectorized::ColumnWithTypeAndName(std::move(column_ptr),
+                                                                  column.type, column.name));
+    }*/
+    for (int i = 0; i < _cur_mutable_block->columns(); ++i) {
+        /*if (_cur_mutable_block->get_column_by_position(i)->is_nullable()) {
+            continue;
+        }*/
+        // make_nullable(_cur_mutable_block->get_column_by_position(i));
+        /*if (!_cur_mutable_block->get_by_position(i).type->is_nullable()) {
             _cur_mutable_block->get_by_position(i).column =
                     make_nullable(block->get_by_position(i).column);
             _cur_mutable_block->get_by_position(i).type = make_nullable(block->get_by_position(i).type);
-            /*const auto ptr = std::move(output_block->get_by_position(i));
+        }*/
+        /*const auto ptr = std::move(output_block->get_by_position(i));
             ptr = make_nullable(ptr, true);
             columns[i] = ptr->assume_mutable();*/
-        }
     }
-    LOG(INFO) << "sout: block=\n" << _cur_mutable_block->dump_data(0);
+    LOG(INFO) << "sout: cur block=\n" << _cur_mutable_block->dump_data(0);
 
     std::shared_ptr<vectorized::Block> output_block =
             std::make_shared<vectorized::Block>(_cur_mutable_block->to_block());
