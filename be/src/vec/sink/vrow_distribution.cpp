@@ -297,7 +297,7 @@ Status VRowDistribution::generate_rows_distribution(
         // LOG(INFO) << "sout: partition_col_idx 0=" << partition_col_idx;
         RETURN_IF_ERROR(part_func->execute(part_ctx.get(), block.get(), &partition_col_idx));
         // LOG(INFO) << "sout: partition_col_idx 1=" << partition_col_idx;
-        VLOG_DEBUG << "sout: Partition-calculated block:" << block->dump_data();
+        // VLOG_DEBUG << "sout: Partition-calculated block:" << block->dump_data();
         // change the column to compare to transformed.
         _vpartition->set_transformed_slots({(uint16_t)partition_col_idx});
     }

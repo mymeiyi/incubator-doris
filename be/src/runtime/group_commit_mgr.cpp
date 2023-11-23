@@ -17,7 +17,7 @@
 
 #include "runtime/group_commit_mgr.h"
 
-#include <gen_cpp/Types_types.h>
+// #include <gen_cpp/Types_types.h>
 
 #include "client_cache.h"
 #include "common/config.h"
@@ -247,7 +247,7 @@ Status GroupCommitTable::_create_group_commit_load(
     {
         load_block_queue = std::make_shared<LoadBlockQueue>(
                 instance_id, label, txn_id, schema_version, _all_block_queues_bytes,
-                result.wait_internal_group_commit_finish);
+                result.wait_internal_group_commit_finish, result.group_commit_interval_ms);
         {
             std::unique_lock l(_lock);
             _load_block_queues.emplace(instance_id, load_block_queue);

@@ -149,6 +149,19 @@ Status GroupCommitBlockSink::_add_block(RuntimeState* state,
         }
         block->append_to_block_by_selector(_cur_mutable_block.get(), selector);
     }
+
+    for (int i = 0; i < _cur_mutable_block->columns(); ++i) {
+        if (!_cur_mutable_block->get_by_position(i).type->is_nullable()) {
+            _cur_mutable_block->get_by_position(i).column =
+                    make_nullable(block->get_by_position(i).column);
+            _cur_mutable_block->get_by_position(i).type = make_nullable(block->get_by_position(i).type);
+            /*const auto ptr = std::move(output_block->get_by_position(i));
+            ptr = make_nullable(ptr, true);
+            columns[i] = ptr->assume_mutable();*/
+        }
+    }
+    LOG(INFO) << "sout: block=\n" << _cur_mutable_block->dump_data(0);
+
     std::shared_ptr<vectorized::Block> output_block =
             std::make_shared<vectorized::Block>(_cur_mutable_block->to_block());
 

@@ -68,7 +68,8 @@ public class GroupCommitTableValuedFunction extends ExternalFileTableValuedFunct
         }
         List<Column> tableColumns = table.getBaseSchema(true);
         for (int i = 1; i <= tableColumns.size(); i++) {
-            fileColumns.add(new Column("c" + i, tableColumns.get(i - 1).getType(), true));
+            fileColumns.add(
+                    new Column("c" + i, tableColumns.get(i - 1).getType(), tableColumns.get(i - 1).isAllowNull()));
         }
         return fileColumns;
     }
