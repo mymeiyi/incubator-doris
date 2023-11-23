@@ -54,6 +54,7 @@ public:
     const std::string& expr_name() const override { return _expr_name; }
 
     Status execute(VExprContext* context, Block* block, int* result_column_id) override {
+        LOG(INFO) << "sout: Lamda:exe";
         return _lambda_function->execute(context, block, result_column_id, _data_type, _children);
     }
 

@@ -1836,9 +1836,10 @@ void PInternalServiceImpl::group_commit_insert(google::protobuf::RpcController* 
                 if (st.ok()) {
                     static_cast<void>(pipe->finish());
                     std::unique_lock l(mutex);
-                    if (!handled) {
+                    /*if (!handled) {
                         cv.wait(l);
-                    }
+                    }*/
+                    cv.wait(l, [&] { return handled; });
                 }
             }
         }

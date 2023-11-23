@@ -65,7 +65,9 @@ Status VSlotRef::prepare(doris::RuntimeState* state, const doris::RowDescriptor&
         _column_id = -1;
         return Status::OK();
     }
+    // LOG(INFO) << "sout: _slot_id=" << _slot_id;
     _column_id = desc.get_column_id(_slot_id, context->force_materialize_slot());
+    // LOG(INFO) << "sout: _slot_id=" << _slot_id << ", col_id=" << _column_id;
     if (_column_id < 0) {
         return Status::Error<ErrorCode::INTERNAL_ERROR>(
                 "VSlotRef {} have invalid slot id: {}, desc: {}, slot_desc: {}, desc_tbl: {}",
@@ -76,6 +78,7 @@ Status VSlotRef::prepare(doris::RuntimeState* state, const doris::RowDescriptor&
 }
 
 Status VSlotRef::execute(VExprContext* context, Block* block, int* result_column_id) {
+    LOG(INFO) << "sout: VSlotRef:exe";
     if (_column_id >= 0 && _column_id >= block->columns()) {
         return Status::Error<ErrorCode::INTERNAL_ERROR>(
                 "input block not contain slot column {}, column_id={}, block={}", *_column_name,

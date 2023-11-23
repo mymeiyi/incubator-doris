@@ -381,8 +381,10 @@ public class OlapTableSink extends DataSink {
                     tupleDescriptor.setTable(table);
                     funcAnalyzer.registerTupleDescriptor(tupleDescriptor);
                     for (Expr e : exprs) {
+                        LOG.info("sout: e={}, isAnalyzed={}", e.debugString(), e.isAnalyzed());
                         e.reset();
                         e.analyze(funcAnalyzer);
+                        LOG.info("sout: e={}, td={}", e.debugString(), tupleDescriptor);
                     }
                     partitionParam.setPartitionFunctionExprs(Expr.treesToThrift(exprs));
                 }

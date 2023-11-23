@@ -95,6 +95,7 @@ void VCaseExpr::close(VExprContext* context, FunctionContext::FunctionStateScope
 }
 
 Status VCaseExpr::execute(VExprContext* context, Block* block, int* result_column_id) {
+    LOG(INFO) << "sout: VCaseExpr:exe";
     ColumnNumbers arguments(_children.size());
     for (int i = 0; i < _children.size(); i++) {
         int column_id = -1;

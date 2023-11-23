@@ -205,9 +205,11 @@ Status VRowDistribution::_generate_rows_distribution_for_auto_parititon(
     _missing_map.reserve(partition_col.column->size());
     bool stop_processing = false;
     //TODO: we could use the buffer to save tablets we found so that no need to find them again when we created partitions and try to append block next time.
+    // LOG(INFO) << "sout: find partition 1, partition_col_idx=" << partition_col_idx;
     RETURN_IF_ERROR(_tablet_finder->find_tablets(_state, block, num_rows, _partitions,
                                                  _tablet_indexes, stop_processing, _skip,
                                                  &_missing_map));
+    // LOG(INFO) << "sout: find partition 2";
     if (_missing_map.empty()) {
         // we don't calculate it distribution when have missing values
         if (has_filtered_rows) {
@@ -215,21 +217,29 @@ Status VRowDistribution::_generate_rows_distribution_for_auto_parititon(
                 _skip[i] = _skip[i] || _block_convertor->filter_map()[i];
             }
         }
+        // LOG(INFO) << "sout: find partition 3";
         RETURN_IF_ERROR(_filter_block(block, row_part_tablet_ids));
     } else { // for missing partition keys, calc the missing partition and save in _partitions_need_create
         auto [part_ctx, part_func] = _get_partition_function();
         auto return_type = part_func->data_type();
 
         // expose the data column
+        // LOG(INFO) << "sout: find partition 4";
         vectorized::ColumnPtr range_left_col = block->get_by_position(partition_col_idx).column;
+        /*LOG(INFO) << "sout: find partition 5, col_idx=" << partition_col_idx
+                  << ", name=" << range_left_col->get_name();*/
         if (const auto* nullable =
                     check_and_get_column<vectorized::ColumnNullable>(*range_left_col)) {
+            // LOG(INFO) << "sout: find partition 5.1";
             range_left_col = nullable->get_nested_column_ptr();
+            // LOG(INFO) << "sout: find partition 5.2, nested name=" << range_left_col->get_name();
             return_type = assert_cast<const vectorized::DataTypeNullable*>(return_type.get())
                                   ->get_nested_type();
         }
+        // LOG(INFO) << "sout: find partition 6";
         // calc the end value and save them.
         _save_missing_values(range_left_col, return_type);
+        // LOG(INFO) << "sout: find partition 7";
         // then call FE to create it. then FragmentExecutor will redo the load.
         RETURN_IF_ERROR(_automatic_create_partition());
         // In the next round, we will _generate_rows_distribution_payload again to get right payload of new tablet
@@ -268,6 +278,7 @@ Status VRowDistribution::generate_rows_distribution(
             _block_convertor->num_filtered_rows() + _tablet_finder->num_filtered_rows();
     RETURN_IF_ERROR(_block_convertor->validate_and_convert_block(
             _state, &input_block, block, *_vec_output_expr_ctxs, input_rows, has_filtered_rows));
+    LOG(INFO) << "sout: block=\n" << block->dump_data(0);
 
     _row_distribution_watch.start();
     auto num_rows = block->rows();
@@ -283,8 +294,10 @@ Status VRowDistribution::generate_rows_distribution(
     int partition_col_idx = -1;
     if (_vpartition->is_projection_partition()) {
         // calc the start value of missing partition ranges.
+        // LOG(INFO) << "sout: partition_col_idx 0=" << partition_col_idx;
         RETURN_IF_ERROR(part_func->execute(part_ctx.get(), block.get(), &partition_col_idx));
-        VLOG_DEBUG << "Partition-calculated block:" << block->dump_data();
+        // LOG(INFO) << "sout: partition_col_idx 1=" << partition_col_idx;
+        // VLOG_DEBUG << "sout: Partition-calculated block:" << block->dump_data();
         // change the column to compare to transformed.
         _vpartition->set_transformed_slots({(uint16_t)partition_col_idx});
     }

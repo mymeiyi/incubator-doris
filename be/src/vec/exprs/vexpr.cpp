@@ -180,6 +180,8 @@ VExpr::VExpr(const TExprNode& node)
         CHECK(is_nullable);
     }
     _data_type = DataTypeFactory::instance().create_data_type(_type, is_nullable);
+    LOG(INFO) << "sout: create data type 0: " << _data_type->get_name()
+              << " is_nullable: " << is_nullable << ", node.is_nullable=" << node.is_nullable;
 }
 
 VExpr::VExpr(const VExpr& vexpr) = default;
@@ -194,6 +196,8 @@ VExpr::VExpr(const TypeDescriptor& type, bool is_slotref, bool is_nullable)
     }
 
     _data_type = DataTypeFactory::instance().create_data_type(_type, is_nullable);
+    LOG(INFO) << "sout: create data type 1: " << _data_type->get_name()
+              << " is_nullable: " << is_nullable;
 }
 
 Status VExpr::prepare(RuntimeState* state, const RowDescriptor& row_desc, VExprContext* context) {
