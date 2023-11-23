@@ -38,9 +38,15 @@ To assert_cast(From&& from) {
 #ifndef NDEBUG
     try {
         if constexpr (std::is_pointer_v<To>) {
-            if (typeid(*from) == typeid(std::remove_pointer_t<To>)) return static_cast<To>(from);
+            LOG(INFO) << "sout: assert case 0";
+            if (typeid(*from) == typeid(std::remove_pointer_t<To>)) {
+                LOG(INFO) << "sout: assert case 1";
+                return static_cast<To>(from);
+            }
             if constexpr (std::is_pointer_v<std::remove_reference_t<From>>) {
+                LOG(INFO) << "sout: assert case 2";
                 if (auto ptr = dynamic_cast<To>(from); ptr != nullptr) {
+                    LOG(INFO) << "sout: assert case 3";
                     return ptr;
                 }
                 LOG(FATAL) << fmt::format("Bad cast from type:{}* to {}",
@@ -48,7 +54,11 @@ To assert_cast(From&& from) {
                                           demangle(typeid(To).name()));
             }
         } else {
-            if (typeid(from) == typeid(To)) return static_cast<To>(from);
+            LOG(INFO) << "sout: assert case 4";
+            if (typeid(from) == typeid(To)) {
+                LOG(INFO) << "sout: assert case 5";
+                return static_cast<To>(from);
+            }
         }
     } catch (const std::exception& e) {
         LOG(FATAL) << "assert cast err:" << e.what();

@@ -318,11 +318,19 @@ Status GroupCommitTable::_finish_group_commit_load(int64_t db_id, int64_t table_
             if (prepare_failed || !status.ok()) {
                 load_block_queue->cancel(status);
             }
+            LOG(INFO) << "sout: wait_internal="
+                      << load_block_queue->wait_internal_group_commit_finish;
             if (load_block_queue->wait_internal_group_commit_finish) {
                 {
                     std::unique_lock l2(load_block_queue->mutex);
                     load_block_queue->wait_internal_group_commit_finish = false;
+                    LOG(INFO) << "sout: set wait_internal="
+                              << load_block_queue->wait_internal_group_commit_finish;
                 }
+                LOG(INFO) << "sout: finish load plan fragment, db_id=" << _db_id
+                          << ", table=" << _table_id << ", label=" << label
+                          << ", instance_id=" << print_id(instance_id)
+                          << ", status=" << st.to_string();
                 load_block_queue->internal_group_commit_finish_cv.notify_all();
             }
         }

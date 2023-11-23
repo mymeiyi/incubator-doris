@@ -387,8 +387,10 @@ public class OlapTableSink extends DataSink {
                         exprs.add(e.clone());
                     }
                     for (Expr e : exprs) {
+                        LOG.info("sout: e={}, isAnalyzed={}", e.debugString(), e.isAnalyzed());
                         e.reset();
                         e.analyze(funcAnalyzer);
+                        LOG.info("sout: e={}, td={}", e.debugString(), tupleDescriptor);
                     }
                     partitionParam.setPartitionFunctionExprs(Expr.treesToThrift(exprs));
                 }
