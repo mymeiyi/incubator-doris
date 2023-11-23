@@ -1814,8 +1814,10 @@ void PInternalServiceImpl::group_commit_insert(google::protobuf::RpcController* 
                             response->set_loaded_rows(state->num_rows_load_success());
                             response->set_filtered_rows(state->num_rows_load_filtered());
                             st = *status;
-                            std::unique_lock l(mutex);
-                            handled = true;
+                            {
+                                std::unique_lock l(mutex);
+                                handled = true;
+                            }
                             cv.notify_one();
                         });
             } catch (const Exception& e) {
