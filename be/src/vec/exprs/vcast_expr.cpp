@@ -98,7 +98,7 @@ void VCastExpr::close(VExprContext* context, FunctionContext::FunctionStateScope
 
 doris::Status VCastExpr::execute(VExprContext* context, doris::vectorized::Block* block,
                                  int* result_column_id) {
-    LOG(INFO) << "sout: VCastExpr:exe";
+    // LOG(INFO) << "sout: VCastExpr:exe";
     // for each child call execute
     int column_id = 0;
     RETURN_IF_ERROR(_children[0]->execute(context, block, &column_id));

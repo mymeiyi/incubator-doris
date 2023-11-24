@@ -146,7 +146,7 @@ Status GroupCommitBlockSink::_add_block(RuntimeState* state,
         block->get_by_position(i).column = make_nullable(block->get_by_position(i).column);
         block->get_by_position(i).type = make_nullable(block->get_by_position(i).type);
     }
-    LOG(INFO) << "sout: block=\n" << block->dump_data(0);
+    // LOG(INFO) << "sout: block=\n" << block->dump_data(0);
     // add block to queue
     auto _cur_mutable_block = vectorized::MutableBlock::create_unique(block->clone_empty());
     {
@@ -180,7 +180,7 @@ Status GroupCommitBlockSink::_add_block(RuntimeState* state,
             ptr = make_nullable(ptr, true);
             columns[i] = ptr->assume_mutable();*/
     }
-    LOG(INFO) << "sout: cur block=\n" << _cur_mutable_block->dump_data(0);
+    // LOG(INFO) << "sout: cur block=\n" << _cur_mutable_block->dump_data(0);
 
     std::shared_ptr<vectorized::Block> output_block =
             std::make_shared<vectorized::Block>(_cur_mutable_block->to_block());

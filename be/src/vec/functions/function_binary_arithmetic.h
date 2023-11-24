@@ -810,9 +810,9 @@ public:
         auto* left_generic = block.get_by_position(arguments[0]).type.get();
         auto* right_generic = block.get_by_position(arguments[1]).type.get();
         auto* result_generic = block.get_by_position(result).type.get();
-        LOG(INFO) << "sout: execute_impl, result name=" << result_generic->get_name()
+        /*LOG(INFO) << "sout: execute_impl, result name=" << result_generic->get_name()
                   << ", is null=" << result_generic->is_nullable()
-                  << ", type=" << typeid(result_generic).name() << ", result=" << result;
+                  << ", type=" << typeid(result_generic).name() << ", result=" << result;*/
         if (left_generic->is_nullable()) {
             left_generic =
                     static_cast<const DataTypeNullable*>(left_generic)->get_nested_type().get();
@@ -822,8 +822,8 @@ public:
                     static_cast<const DataTypeNullable*>(right_generic)->get_nested_type().get();
         }
         bool result_is_nullable = context->check_overflow_for_decimal();
-        LOG(INFO) << "sout: result is nullable=" << result_is_nullable
-                  << ", is null=" << result_generic->is_nullable();
+        /*LOG(INFO) << "sout: result is nullable=" << result_is_nullable
+                  << ", is null=" << result_generic->is_nullable();*/
         if (result_generic->is_nullable()) {
             result_generic =
                     static_cast<const DataTypeNullable*>(result_generic)->get_nested_type().get();
@@ -857,8 +857,8 @@ public:
                                                    remove_nullable(
                                                            block.get_by_position(result).type));
                             block.replace_by_position(result, std::move(column_result));
-                            LOG(INFO) << "sout: column in position 0, is null="
-                                      << block.get_by_position(result).column->is_nullable();
+                            /*LOG(INFO) << "sout: column in position 0, is null="
+                                      << block.get_by_position(result).column->is_nullable();*/
                         } else {
                             auto column_result = ConstOrVectorAdapter<
                                     LeftDataType, RightDataType,
@@ -871,8 +871,8 @@ public:
                                                     remove_nullable(
                                                             block.get_by_position(result).type));
                             block.replace_by_position(result, std::move(column_result));
-                            LOG(INFO) << "sout: column in position 1, is null="
-                                      << block.get_by_position(result).column->is_nullable();
+                            /*LOG(INFO) << "sout: column in position 1, is null="
+                                      << block.get_by_position(result).column->is_nullable();*/
                         }
                         return true;
                     }

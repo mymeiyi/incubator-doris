@@ -60,7 +60,7 @@ VectorizedFnCall::VectorizedFnCall(const TExprNode& node) : VExpr(node) {}
 
 Status VectorizedFnCall::prepare(RuntimeState* state, const RowDescriptor& desc,
                                  VExprContext* context) {
-    LOG(INFO) << "sout: VectorizedFnCall::prepare";
+    // LOG(INFO) << "sout: VectorizedFnCall::prepare";
     RETURN_IF_ERROR_OR_PREPARED(VExpr::prepare(state, desc, context));
     ColumnsWithTypeAndName argument_template;
     argument_template.reserve(_children.size());
@@ -139,7 +139,7 @@ void VectorizedFnCall::close(VExprContext* context, FunctionContext::FunctionSta
 
 Status VectorizedFnCall::execute(VExprContext* context, vectorized::Block* block,
                                  int* result_column_id) {
-    LOG(INFO) << "sout: VectorizedFnCall::execute";
+    // LOG(INFO) << "sout: VectorizedFnCall::execute";
     // TODO: not execute const expr again, but use the const column in function context
     vectorized::ColumnNumbers arguments(_children.size());
     for (int i = 0; i < _children.size(); ++i) {
@@ -153,17 +153,17 @@ Status VectorizedFnCall::execute(VExprContext* context, vectorized::Block* block
     size_t num_columns_without_result = block->columns();
     // prepare a column to save result
     block->insert({nullptr, _data_type, _expr_name});
-    LOG(INFO) << "sout: data type=" << _data_type->get_name()
+    /*LOG(INFO) << "sout: data type=" << _data_type->get_name()
               << ", nullable=" << _data_type->is_nullable()
               << ", num_columns_without_result=" << num_columns_without_result
-              << ", _can_fast_execute=" << _can_fast_execute;
+              << ", _can_fast_execute=" << _can_fast_execute;*/
     if (_can_fast_execute) {
         // if not find fast execute result column, means do not need check fast execute again
         _can_fast_execute = fast_execute(context->fn_context(_fn_context_index), *block, arguments,
                                          num_columns_without_result, block->rows());
         if (_can_fast_execute) {
             *result_column_id = num_columns_without_result;
-            LOG(INFO) << "sout: return 0, id=" << *result_column_id;
+            // LOG(INFO) << "sout: return 0, id=" << *result_column_id;
             return Status::OK();
         }
     }
@@ -171,10 +171,10 @@ Status VectorizedFnCall::execute(VExprContext* context, vectorized::Block* block
     RETURN_IF_ERROR(_function->execute(context->fn_context(_fn_context_index), *block, arguments,
                                        num_columns_without_result, block->rows(), false));
     *result_column_id = num_columns_without_result;
-    LOG(INFO) << "sout: return 1, id=" << *result_column_id
+    /*LOG(INFO) << "sout: return 1, id=" << *result_column_id
               << ", nullable=" << block->get_data_type(*result_column_id)->is_nullable() << ", "
               << block->get_by_position(*result_column_id).column->is_nullable() << ", "
-              << block->get_by_position(*result_column_id).type->is_nullable();
+              << block->get_by_position(*result_column_id).type->is_nullable();*/
     return Status::OK();
 }
 

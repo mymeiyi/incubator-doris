@@ -139,22 +139,22 @@ inline Status PreparedFunctionImpl::_execute_skipped_constant_deal(
         FunctionContext* context, Block& block, const ColumnNumbers& args, size_t result,
         size_t input_rows_count, bool dry_run) {
     bool executed = false;
-    LOG(INFO) << "sout: PreparedFunctionImpl::_execute_skipped_constant_deal 1";
+    // LOG(INFO) << "sout: PreparedFunctionImpl::_execute_skipped_constant_deal 1";
     RETURN_IF_ERROR(default_implementation_for_nulls(context, block, args, result, input_rows_count,
                                                      dry_run, &executed));
     if (executed) {
-        LOG(INFO) << "sout: PreparedFunctionImpl::_execute_skipped_constant_deal 1, return";
+        // LOG(INFO) << "sout: PreparedFunctionImpl::_execute_skipped_constant_deal 1, return";
         return Status::OK();
     }
 
     if (dry_run) {
-        LOG(INFO) << "sout: PreparedFunctionImpl::_execute_skipped_constant_deal 2";
+        // LOG(INFO) << "sout: PreparedFunctionImpl::_execute_skipped_constant_deal 2";
         return execute_impl_dry_run(context, block, args, result, input_rows_count);
     } else {
-        LOG(INFO) << "sout: PreparedFunctionImpl::_execute_skipped_constant_deal 3";
+        // LOG(INFO) << "sout: PreparedFunctionImpl::_execute_skipped_constant_deal 3";
         auto st = execute_impl(context, block, args, result, input_rows_count);
-        LOG(INFO) << "sout: PreparedFunctionImpl::_execute_skipped_constant_deal 3, is null="
-                  << block.get_by_position(result).column->is_nullable();
+        /*LOG(INFO) << "sout: PreparedFunctionImpl::_execute_skipped_constant_deal 3, is null="
+                  << block.get_by_position(result).column->is_nullable();*/
         return st;
     }
 }
@@ -162,7 +162,7 @@ inline Status PreparedFunctionImpl::_execute_skipped_constant_deal(
 Status PreparedFunctionImpl::default_implementation_for_constant_arguments(
         FunctionContext* context, Block& block, const ColumnNumbers& args, size_t result,
         size_t input_rows_count, bool dry_run, bool* executed) {
-    LOG(INFO) << "sout: PreparedFunctionImpl::default_implementation_for_constant_arguments";
+    // LOG(INFO) << "sout: PreparedFunctionImpl::default_implementation_for_constant_arguments";
     *executed = false;
     ColumnNumbers args_expect_const = get_arguments_that_are_always_constant();
 
@@ -227,7 +227,7 @@ Status PreparedFunctionImpl::default_implementation_for_constant_arguments(
 Status PreparedFunctionImpl::default_implementation_for_nulls(
         FunctionContext* context, Block& block, const ColumnNumbers& args, size_t result,
         size_t input_rows_count, bool dry_run, bool* executed) {
-    LOG(INFO) << "sout: PreparedFunctionImpl::default_implementation_for_nulls";
+    // LOG(INFO) << "sout: PreparedFunctionImpl::default_implementation_for_nulls";
     *executed = false;
     if (args.empty() || !use_default_implementation_for_nulls()) {
         return Status::OK();
@@ -247,7 +247,7 @@ Status PreparedFunctionImpl::default_implementation_for_nulls(
                 create_block_with_nested_columns(block, args, result);
         RETURN_IF_ERROR(execute_without_low_cardinality_columns(
                 context, temporary_block, new_args, new_result, temporary_block.rows(), dry_run));
-        LOG(INFO) << "sout: wrap null";
+        // LOG(INFO) << "sout: wrap null";
         block.get_by_position(result).column =
                 wrap_in_nullable(temporary_block.get_by_position(new_result).column, block, args,
                                  result, input_rows_count);
@@ -261,7 +261,7 @@ Status PreparedFunctionImpl::default_implementation_for_nulls(
 Status PreparedFunctionImpl::execute_without_low_cardinality_columns(
         FunctionContext* context, Block& block, const ColumnNumbers& args, size_t result,
         size_t input_rows_count, bool dry_run) {
-    LOG(INFO) << "sout: PreparedFunctionImpl::execute_without_low_cardinality_columns";
+    // LOG(INFO) << "sout: PreparedFunctionImpl::execute_without_low_cardinality_columns";
     bool executed = false;
 
     RETURN_IF_ERROR(default_implementation_for_constant_arguments(
@@ -270,7 +270,7 @@ Status PreparedFunctionImpl::execute_without_low_cardinality_columns(
         return Status::OK();
     }
 
-    LOG(INFO) << "sout: PreparedFunctionImpl::execute_without_low_cardinality_columns 2";
+    // LOG(INFO) << "sout: PreparedFunctionImpl::execute_without_low_cardinality_columns 2";
     return _execute_skipped_constant_deal(context, block, args, result, input_rows_count, dry_run);
 }
 

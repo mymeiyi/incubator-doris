@@ -158,11 +158,11 @@ public:
 
         if (function_alias.count(name)) {
             key_str = function_alias[name];
-            LOG(INFO) << "sout: find function 0=" << name << ", alias=" << key_str;
+            // LOG(INFO) << "sout: find function 0=" << name << ", alias=" << key_str;
         }
 
         temporary_function_update(be_version, key_str);
-        LOG(INFO) << "sout: find function 1=" << name << ", alias=" << key_str;
+        // LOG(INFO) << "sout: find function 1=" << name << ", alias=" << key_str;
 
         // if function is variadic, added types_str as key
         if (function_variadic_set.count(key_str)) {
@@ -172,11 +172,11 @@ public:
                                                  ->get_nested_type()
                                                  ->get_family_name()
                                        : arg.type->get_family_name());
-                LOG(INFO) << "sout: arg=" << arg.name << ", type=" << typeid(arg.type).name()
-                          << ", is null=" << arg.type->is_nullable();
+                /*LOG(INFO) << "sout: arg=" << arg.name << ", type=" << typeid(arg.type).name()
+                          << ", is null=" << arg.type->is_nullable();*/
             }
         }
-        LOG(INFO) << "sout: find function 2=" << name << ", alias=" << key_str;
+        // LOG(INFO) << "sout: find function 2=" << name << ", alias=" << key_str;
 
         auto iter = function_creators.find(key_str);
         if (iter == function_creators.end()) {

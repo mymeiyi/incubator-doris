@@ -1327,6 +1327,7 @@ Status VTabletWriter::_send_new_partition_batch() {
         RETURN_IF_ERROR(_row_distribution.automatic_create_partition());
 
         Block tmp_block = _row_distribution._batching_block->to_block(); // Borrow out, for lval ref
+        LOG(INFO) << "sout: tmp block=" << tmp_block.rows();
 
         // these order is only.
         //  1. clear batching stats(and flag goes true) so that we won't make a new batching process in dealing batched block.

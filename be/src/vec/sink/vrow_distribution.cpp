@@ -291,7 +291,7 @@ Status VRowDistribution::generate_rows_distribution(
             _block_convertor->num_filtered_rows() + _tablet_finder->num_filtered_rows();
     RETURN_IF_ERROR(_block_convertor->validate_and_convert_block(
             _state, &input_block, block, *_vec_output_expr_ctxs, input_rows, has_filtered_rows));
-    LOG(INFO) << "sout: block=\n" << block->dump_data(0);
+    // LOG(INFO) << "sout: block=\n" << block->dump_data(0);
 
     // batching block rows which need new partitions. deal together at finish.
     if (!_batching_block) [[unlikely]] {

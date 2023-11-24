@@ -47,7 +47,7 @@ public:
     }
 
     Status execute(VExprContext* context, Block* block, int* result_column_id) override {
-        LOG(INFO) << "sout: VColRef:exe";
+        // LOG(INFO) << "sout: VColRef:exe";
         *result_column_id = _column_id;
         return Status::OK();
     }
