@@ -110,7 +110,9 @@ suite("load") {
     ) AGGREGATE KEY(user_id, date, city, age, sex)
     DISTRIBUTED BY HASH(user_id) PROPERTIES("replication_num" = "1");"""
 
+    sql "SET enable_fallback_to_original_planner=true"
     sql """insert into compaction_tbl values(123,"1999-10-10",'aaa',123,123,"1970-01-01 00:00:00","1970-01-01 00:00:00","1970-01-01 00:00:00",123,123,123,hll_hash(""),bitmap_from_string(""));"""
+    sql "SET enable_fallback_to_original_planner=false"
 
     def baseall_count = sql "select count(*) from ${dbName}.baseall"
     assertEquals(16, baseall_count[0][0])
