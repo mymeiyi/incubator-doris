@@ -141,16 +141,16 @@ Status GroupCommitBlockSink::_add_block(RuntimeState* state,
         return Status::OK();
     }
     // add block to queue
-    auto _cur_mutable_block = vectorized::MutableBlock::create_unique(block->clone_empty());
+    auto cur_mutable_block = vectorized::MutableBlock::create_unique(block->clone_empty());
     {
         vectorized::IColumn::Selector selector;
         for (auto i = 0; i < block->rows(); i++) {
             selector.emplace_back(i);
         }
-        block->append_to_block_by_selector(_cur_mutable_block.get(), selector);
+        block->append_to_block_by_selector(cur_mutable_block.get(), selector);
     }
-    std::shared_ptr<vectorized::Block> output_block = std::make_shared<vectorized::Block>();
-    output_block->swap(_cur_mutable_block->to_block());
+    std::shared_ptr<vectorized::Block> output_block = vectorized::Block::create_shared();
+    output_block->swap(cur_mutable_block->to_block());
     TUniqueId load_id;
     load_id.__set_hi(_load_id.hi);
     load_id.__set_lo(_load_id.lo);
