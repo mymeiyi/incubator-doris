@@ -50,7 +50,7 @@ import org.apache.doris.planner.DataPartition;
 import org.apache.doris.planner.DataSink;
 import org.apache.doris.planner.ExportSink;
 import org.apache.doris.planner.GroupCommitBlockSink;
-import org.apache.doris.planner.GroupCommitOlapTableSink;
+//import org.apache.doris.planner.GroupCommitOlapTableSink;
 import org.apache.doris.planner.GroupCommitPlanner;
 import org.apache.doris.planner.OlapTableSink;
 import org.apache.doris.planner.external.jdbc.JdbcTableSink;
@@ -154,7 +154,7 @@ public class NativeInsertStmt extends InsertStmt {
     private ByteString execPlanFragmentParamsBytes = null;
     private long tableId = -1;
     // true if be generates an insert from group commit tvf stmt and executes to load data
-    public boolean isGroupCommitTvf = false;
+    //public boolean isGroupCommitTvf = false;
     public boolean isGroupCommitStreamLoadSql = false;
     private GroupCommitPlanner groupCommitPlanner;
 
@@ -943,12 +943,12 @@ public class NativeInsertStmt extends InsertStmt {
             return dataSink;
         }
         if (targetTable instanceof OlapTable) {
-            checkInnerGroupCommit();
+            //checkInnerGroupCommit();
             OlapTableSink sink;
-            if (isGroupCommitTvf) {
+            /*if (isGroupCommitTvf) {
                 sink = new GroupCommitOlapTableSink((OlapTable) targetTable, olapTuple,
                         targetPartitionIds, analyzer.getContext().getSessionVariable().isEnableSingleReplicaInsert());
-            } else if (isGroupCommitStreamLoadSql) {
+            } else*/ if (isGroupCommitStreamLoadSql) {
                 sink = new GroupCommitBlockSink((OlapTable) targetTable, olapTuple,
                         targetPartitionIds, analyzer.getContext().getSessionVariable().isEnableSingleReplicaInsert());
             } else {
@@ -986,7 +986,7 @@ public class NativeInsertStmt extends InsertStmt {
         return dataSink;
     }
 
-    private void checkInnerGroupCommit() {
+    /*private void checkInnerGroupCommit() {
         List<TableRef> tableRefs = new ArrayList<>();
         queryStmt.collectTableRefs(tableRefs);
         if (tableRefs.size() == 1 && tableRefs.get(0) instanceof TableValuedFunctionRef) {
@@ -995,7 +995,7 @@ public class NativeInsertStmt extends InsertStmt {
                 isGroupCommitTvf = true;
             }
         }
-    }
+    }*/
 
     public void complete() throws UserException {
         if (!isExplain() && targetTable instanceof OlapTable) {

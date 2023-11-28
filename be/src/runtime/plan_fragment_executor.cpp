@@ -60,7 +60,7 @@
 #include "util/time.h"
 #include "util/uid_util.h"
 #include "vec/core/block.h"
-#include "vec/core/future_block.h"
+//#include "vec/core/future_block.h"
 #include "vec/exec/scan/new_es_scan_node.h"
 #include "vec/exec/scan/new_file_scan_node.h"
 #include "vec/exec/scan/new_jdbc_scan_node.h"
@@ -318,13 +318,14 @@ Status PlanFragmentExecutor::open_vectorized_internal() {
             return Status::OK();
         }
         RETURN_IF_ERROR(_sink->open(runtime_state()));
-        std::unique_ptr<doris::vectorized::Block> block =
+        /*std::unique_ptr<doris::vectorized::Block> block =
                 _group_commit ? doris::vectorized::FutureBlock::create_unique()
-                              : doris::vectorized::Block::create_unique();
+                              : doris::vectorized::Block::create_unique();*/
+        std::unique_ptr<doris::vectorized::Block> block = doris::vectorized::Block::create_unique();
         bool eos = false;
 
         auto st = Status::OK();
-        auto handle_group_commit = [&]() {
+        /*auto handle_group_commit = [&]() {
             if (UNLIKELY(_group_commit && !st.ok() && block != nullptr)) {
                 auto* future_block = dynamic_cast<vectorized::FutureBlock*>(block.get());
                 std::unique_lock<std::mutex> l(*(future_block->lock));
@@ -333,13 +334,13 @@ Status PlanFragmentExecutor::open_vectorized_internal() {
                     future_block->cv->notify_all();
                 }
             }
-        };
+        };*/
 
         while (!eos) {
             RETURN_IF_CANCELLED(_runtime_state);
             st = get_vectorized_internal(block.get(), &eos);
             if (UNLIKELY(!st.ok())) {
-                handle_group_commit();
+                // handle_group_commit();
                 return st;
             }
 
@@ -350,7 +351,7 @@ Status PlanFragmentExecutor::open_vectorized_internal() {
 
             if (!eos || block->rows() > 0) {
                 st = _sink->send(runtime_state(), block.get());
-                handle_group_commit();
+                // handle_group_commit();
                 if (st.is<END_OF_FILE>()) {
                     break;
                 }

@@ -37,7 +37,7 @@
 #include "util/thrift_util.h"
 #include "vec/common/assert_cast.h"
 #include "vec/core/block.h"
-#include "vec/core/future_block.h"
+//#include "vec/core/future_block.h"
 #include "vec/sink/vtablet_block_convertor.h"
 #include "vec/sink/vtablet_finder.h"
 
@@ -102,12 +102,12 @@ Status VWalWriter::append_block(vectorized::Block* input_block, int64_t num_rows
                                 OlapTabletFinder* tablet_finder) {
     RETURN_IF_ERROR(
             write_wal(block_convertor, tablet_finder, block, _state, num_rows, filter_rows));
-#ifndef BE_TEST
+/*#ifndef BE_TEST
     auto* future_block = assert_cast<FutureBlock*>(input_block);
     std::unique_lock<std::mutex> l(*(future_block->lock));
     future_block->set_result(Status::OK(), num_rows, num_rows - filter_rows);
     future_block->cv->notify_all();
-#endif
+#endif*/
     return Status::OK();
 }
 Status VWalWriter::close() {
