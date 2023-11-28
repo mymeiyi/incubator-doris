@@ -123,19 +123,12 @@ void LoadBlockQueue::cancel(const Status& st) {
     while (!_block_queue.empty()) {
         {
             auto& future_block = _block_queue.front();
-<<<<<<< HEAD
-            std::unique_lock<std::mutex> l0(*(future_block->lock));
-            future_block->set_result(st, future_block->rows(), 0);
-            _all_block_queues_bytes->fetch_sub(future_block->bytes(), std::memory_order_relaxed);
-            _single_block_queue_bytes->fetch_sub(future_block->bytes(), std::memory_order_relaxed);
-=======
             {
                 std::unique_lock<std::mutex> l0(*(future_block->lock));
                 future_block->set_result(st, future_block->rows(), 0);
             }
-            *_all_block_queues_bytes -= future_block->bytes();
-            *_single_block_queue_bytes -= future_block->bytes();
->>>>>>> f5a81ffdbc (modify some cv)
+            _all_block_queues_bytes->fetch_sub(future_block->bytes(), std::memory_order_relaxed);
+            _single_block_queue_bytes->fetch_sub(future_block->bytes(), std::memory_order_relaxed);
             future_block->cv->notify_all();
         }
         _block_queue.pop_front();

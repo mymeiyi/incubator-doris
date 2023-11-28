@@ -32,7 +32,9 @@ suite("load") {
         sql new File("""${context.file.parent}/ddl/${table}.sql""").text
     }
 
+    sql "SET enable_fallback_to_original_planner=true"
     sql """ insert into test_join values(1),(2),(3),(4),(5) """
+    sql "SET enable_fallback_to_original_planner=false"
 
     sql """ ALTER TABLE test_bucket_shuffle_join ADD PARTITION p202112 
             VALUES LESS THAN ("2022-01-01 00:00:00") DISTRIBUTED BY HASH(id) BUCKETS 2;"""
