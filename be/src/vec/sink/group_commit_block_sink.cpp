@@ -149,8 +149,8 @@ Status GroupCommitBlockSink::_add_block(RuntimeState* state,
         }
         block->append_to_block_by_selector(_cur_mutable_block.get(), selector);
     }
-    std::shared_ptr<vectorized::Block> output_block =
-            std::make_shared<vectorized::Block>(_cur_mutable_block->to_block());
+    std::shared_ptr<vectorized::Block> output_block = std::make_shared<vectorized::Block>();
+    output_block->swap(_cur_mutable_block->to_block());
     TUniqueId load_id;
     load_id.__set_hi(_load_id.hi);
     load_id.__set_lo(_load_id.lo);
@@ -160,7 +160,7 @@ Status GroupCommitBlockSink::_add_block(RuntimeState* state,
         state->set_import_label(_load_block_queue->label);
         state->set_wal_id(_load_block_queue->txn_id);
     }
-    RETURN_IF_ERROR(_load_block_queue->add_block(block));
+    RETURN_IF_ERROR(_load_block_queue->add_block(output_block));
     // _future_blocks.emplace_back(future_block);
     return Status::OK();
 }
