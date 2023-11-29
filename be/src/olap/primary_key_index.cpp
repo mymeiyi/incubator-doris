@@ -136,10 +136,11 @@ Status PrimaryKeyIndexReader::seek_at_or_after(Slice& key_without_seq, bool* exa
     size_t num_read = num_to_read;
     RETURN_IF_ERROR(index_iterator->next_batch(&num_read, index_column));
     DCHECK(num_to_read == num_read);
-    LOG(INFO) << "";
+    LOG(INFO) << "sout: 0 key size=" << index_column->get_data_at(0).size;
     item->full_key = index_column->get_data_at(0).to_string();
+    LOG(INFO) << "sout: 1 full key size=" << item->full_key.size();
     item->key_with_sequence = item->full_key;
-    LOG(INFO) << "sout: key=" << static_cast<const void*>(item->key_with_sequence.get_data())
+    LOG(INFO) << "sout: 2 key=" << static_cast<const void*>(item->key_with_sequence.get_data())
               << ", data=" << index_column->get_data_at(0).data
               << ", data_p=" << static_cast<const void*>(index_column->get_data_at(0).data);
     _process_primary_key_item(item);
@@ -150,8 +151,11 @@ void PrimaryKeyIndexReader::_process_primary_key_item(PrimaryKeyItem* item) cons
     if (_seq_col_length == 0) {
         item->key_without_sequence = item->key_with_sequence;
     } else {
+        LOG(INFO) << "sout: 3, seq_col_len=" << _seq_col_length
+                  << ", key size=" << item->key_with_sequence.get_size();
         item->key_without_sequence = Slice(item->key_with_sequence.get_data(),
                                            item->key_with_sequence.get_size() - _seq_col_length);
+        LOG(INFO) << "sout: 4, key without seq size=" << item->key_without_sequence.get_size();
         item->sequence_id = Slice(
                 item->key_with_sequence.get_data() + item->key_without_sequence.get_size() + 1,
                 _seq_col_length - 1);
