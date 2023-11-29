@@ -1108,7 +1108,8 @@ public class NativeInsertStmt extends InsertStmt {
             LOG.warn("analyze group commit failed", e);
             return;
         }
-        if (ConnectContext.get().getSessionVariable().isEnableInsertGroupCommit()
+        boolean partialUpdate = ConnectContext.get().getSessionVariable().isEnableUniqueKeyPartialUpdate();
+        if (!partialUpdate && ConnectContext.get().getSessionVariable().isEnableInsertGroupCommit()
                 && targetTable instanceof OlapTable
                 && !ConnectContext.get().isTxnModel()
                 && getQueryStmt() instanceof SelectStmt
