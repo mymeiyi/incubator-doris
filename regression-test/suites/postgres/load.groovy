@@ -19,7 +19,6 @@
 // /testing/trino-product-tests/src/main/resources/sql-tests/testcases/tpcds
 // and modified by Doris.
 suite("load") {
-    sql """ set global enable_nereids_dml = false; """
     // sql new File("""${context.file.parent}/ddl/numeric1.sql""").text
     // decimal
     sql """drop table if exists num_data;"""
