@@ -16,8 +16,6 @@
 // under the License.
 
 suite("load") {
-    sql """ set global enable_nereids_dml = false; """
-
     def test_basic_tables=["articles_uk", "articles_dk"]
     def test_fulltext_tables=["fulltext_t1_uk", "fulltext_t1_dk"]
 
