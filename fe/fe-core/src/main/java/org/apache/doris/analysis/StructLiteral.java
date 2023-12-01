@@ -80,7 +80,7 @@ public class StructLiteral extends LiteralExpr {
 
     @Override
     public String getStringValueForArray() {
-        return null;
+        return getStringValue();
     }
 
     @Override
