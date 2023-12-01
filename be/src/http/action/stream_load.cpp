@@ -201,8 +201,9 @@ int StreamLoadAction::on_header(HttpRequest* req) {
     }
     auto partial_columns = !req->header(HTTP_PARTIAL_COLUMNS).empty() &&
                            iequal(req->header(HTTP_PARTIAL_COLUMNS), "true");
-    if (!partial_columns && (!group_commit_mode.empty() ||
-                             config::wait_internal_group_commit_finish)) {
+    ctx->two_phase_commit = req->header(HTTP_TWO_PHASE_COMMIT) == "true";
+    if (!partial_columns && !ctx->two_phase_commit &&
+        (!group_commit_mode.empty() || config::wait_internal_group_commit_finish)) {
         if (!group_commit_mode.empty() && !ctx->label.empty()) {
             st = Status::InternalError("label and group_commit can't be set at the same time");
         }
@@ -219,8 +220,6 @@ int StreamLoadAction::on_header(HttpRequest* req) {
     if (!ctx->group_commit && ctx->label.empty()) {
         ctx->label = generate_uuid_string();
     }
-
-    ctx->two_phase_commit = req->header(HTTP_TWO_PHASE_COMMIT) == "true";
 
     LOG(INFO) << "new income streaming load request." << ctx->brief() << ", db=" << ctx->db
               << ", tbl=" << ctx->table;
