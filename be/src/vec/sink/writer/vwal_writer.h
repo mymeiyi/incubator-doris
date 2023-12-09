@@ -100,8 +100,6 @@ private:
     int64_t _wal_id;
     uint32_t _version = 0;
     std::string _label;
-//    RuntimeState* _state = nullptr;
-//    TupleDescriptor* _output_tuple_desc = nullptr;
     WalManager* _wal_manager;
     std::vector<TSlotDescriptor>& _slot_descs;
     int _be_exe_version;
