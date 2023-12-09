@@ -27,7 +27,6 @@
 
 #include "common/compiler_util.h"
 #include "common/status.h"
-#include "olap/wal_manager.h"
 #include "runtime/client_cache.h"
 #include "runtime/descriptors.h"
 #include "runtime/runtime_state.h"
@@ -43,38 +42,43 @@
 namespace doris {
 namespace vectorized {
 
-VWalWriter::VWalWriter(int64_t db_id, int64_t tb_id, int64_t wal_id, RuntimeState* state,
-                       TupleDescriptor* output_tuple_desc)
+VWalWriter::VWalWriter(int64_t db_id, int64_t tb_id, int64_t wal_id,
+                       const std::string& import_label, WalManager* wal_manager,
+                       std::vector<TSlotDescriptor>& slot_desc, int be_exe_version)
         : _db_id(db_id),
           _tb_id(tb_id),
           _wal_id(wal_id),
-          _state(state),
-          _output_tuple_desc(output_tuple_desc) {}
+          _label(import_label),
+          _wal_manager(wal_manager),
+          _slot_descs(slot_desc),
+          _be_exe_version(be_exe_version) {}
 
 VWalWriter::~VWalWriter() {}
 
 Status VWalWriter::init() {
-    RETURN_IF_ERROR(_state->exec_env()->wal_mgr()->add_wal_path(_db_id, _tb_id, _wal_id,
-                                                                _state->import_label()));
-    RETURN_IF_ERROR(_state->exec_env()->wal_mgr()->create_wal_writer(_wal_id, _wal_writer));
-    _state->exec_env()->wal_mgr()->add_wal_status_queue(_tb_id, _wal_id,
-                                                        WalManager::WAL_STATUS::CREATE);
+    RETURN_IF_ERROR(_wal_manager->add_wal_path(_db_id, _tb_id, _wal_id, _label));
+    RETURN_IF_ERROR(_wal_manager->create_wal_writer(_wal_id, _wal_writer));
+    _wal_manager->add_wal_status_queue(_tb_id, _wal_id, WalManager::WAL_STATUS::CREATE);
     std::stringstream ss;
-    for (auto slot_desc : _output_tuple_desc->slots()) {
-        ss << std::to_string(slot_desc->col_unique_id()) << ",";
+    for (auto slot_desc : _slot_descs) {
+        if (slot_desc.col_unique_id < 0) {
+            continue;
+        }
+        ss << std::to_string(slot_desc.col_unique_id) << ",";
     }
     std::string col_ids = ss.str().substr(0, ss.str().size() - 1);
+    LOG(INFO) << "col_ids:" << col_ids;
     RETURN_IF_ERROR(_wal_writer->append_header(_version, col_ids));
     return Status::OK();
 }
 
 Status VWalWriter::write_wal(OlapTableBlockConvertor* block_convertor,
                              OlapTabletFinder* tablet_finder, vectorized::Block* block,
-                             RuntimeState* state, int64_t num_rows, int64_t filtered_rows) {
+                             int64_t num_rows, int64_t filtered_rows) {
     PBlock pblock;
     size_t uncompressed_bytes = 0, compressed_bytes = 0;
     if (filtered_rows == 0) {
-        RETURN_IF_ERROR(block->serialize(state->be_exec_version(), &pblock, &uncompressed_bytes,
+        RETURN_IF_ERROR(block->serialize(_be_exe_version, &pblock, &uncompressed_bytes,
                                          &compressed_bytes, segment_v2::CompressionTypePB::SNAPPY));
         RETURN_IF_ERROR(_wal_writer->append_blocks(std::vector<PBlock*> {&pblock}));
     } else {
@@ -89,7 +93,7 @@ Status VWalWriter::write_wal(OlapTableBlockConvertor* block_convertor,
             }
             res_block.add_row(block, i);
         }
-        RETURN_IF_ERROR(res_block.to_block().serialize(state->be_exec_version(), &pblock,
+        RETURN_IF_ERROR(res_block.to_block().serialize(_be_exe_version, &pblock,
                                                        &uncompressed_bytes, &compressed_bytes,
                                                        segment_v2::CompressionTypePB::SNAPPY));
         RETURN_IF_ERROR(_wal_writer->append_blocks(std::vector<PBlock*> {&pblock}));
@@ -97,11 +101,10 @@ Status VWalWriter::write_wal(OlapTableBlockConvertor* block_convertor,
     return Status::OK();
 }
 
-Status VWalWriter::append_block(vectorized::Block* input_block, int64_t num_rows,
-                                int64_t filter_rows, vectorized::Block* block,
+Status VWalWriter::append_block(int64_t num_rows, int64_t filter_rows, vectorized::Block* block,
                                 OlapTableBlockConvertor* block_convertor,
                                 OlapTabletFinder* tablet_finder) {
-    return write_wal(block_convertor, tablet_finder, block, _state, num_rows, filter_rows);
+    return write_wal(block_convertor, tablet_finder, block, num_rows, filter_rows);
 }
 
 Status VWalWriter::close() {
