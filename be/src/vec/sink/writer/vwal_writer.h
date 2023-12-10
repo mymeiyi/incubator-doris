@@ -89,7 +89,6 @@ public:
     ~VWalWriter();
     Status init();
     Status write_wal(vectorized::Block* block);
-    Status append_block(vectorized::Block* block);
     Status close();
 
 private:
@@ -100,7 +99,7 @@ private:
     std::string _label;
     WalManager* _wal_manager;
     std::vector<TSlotDescriptor>& _slot_descs;
-    int _be_exe_version;
+    int _be_exe_version = 0;
     std::shared_ptr<WalWriter> _wal_writer;
 };
 } // namespace vectorized

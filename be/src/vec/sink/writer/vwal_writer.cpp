@@ -67,7 +67,6 @@ Status VWalWriter::init() {
         ss << std::to_string(slot_desc.col_unique_id) << ",";
     }
     std::string col_ids = ss.str().substr(0, ss.str().size() - 1);
-    LOG(INFO) << "col_ids:" << col_ids;
     RETURN_IF_ERROR(_wal_writer->append_header(_version, col_ids));
     return Status::OK();
 }
@@ -79,10 +78,6 @@ Status VWalWriter::write_wal(vectorized::Block* block) {
                                      &compressed_bytes, segment_v2::CompressionTypePB::SNAPPY));
     RETURN_IF_ERROR(_wal_writer->append_blocks(std::vector<PBlock*> {&pblock}));
     return Status::OK();
-}
-
-Status VWalWriter::append_block(vectorized::Block* block) {
-    return write_wal(block);
 }
 
 Status VWalWriter::close() {

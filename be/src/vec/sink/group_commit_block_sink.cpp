@@ -165,11 +165,15 @@ Status GroupCommitBlockSink::_add_block(RuntimeState* state,
     load_id.__set_hi(_load_id.hi);
     load_id.__set_lo(_load_id.lo);
     if (_load_block_queue == nullptr) {
-        RETURN_IF_ERROR(state->exec_env()->group_commit_mgr()->get_first_block_load_queue(
-                _db_id, _table_id, _base_schema_version, load_id, block, _load_block_queue,
-                state->be_exec_version()));
-        state->set_import_label(_load_block_queue->label);
-        state->set_wal_id(_load_block_queue->txn_id);
+        if (state->exec_env()->wal_mgr()->is_running()) {
+            RETURN_IF_ERROR(state->exec_env()->group_commit_mgr()->get_first_block_load_queue(
+                    _db_id, _table_id, _base_schema_version, load_id, block, _load_block_queue,
+                    state->be_exec_version()));
+            state->set_import_label(_load_block_queue->label);
+            state->set_wal_id(_load_block_queue->txn_id);
+        } else {
+            return Status::InternalError("be is stopping");
+        }
     }
     RETURN_IF_ERROR(_load_block_queue->add_block(output_block));
     return Status::OK();

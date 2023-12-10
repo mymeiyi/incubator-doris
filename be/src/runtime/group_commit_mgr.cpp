@@ -42,6 +42,8 @@ Status LoadBlockQueue::add_block(std::shared_ptr<vectorized::Block> block) {
     }
     if (block->rows() > 0) {
         _block_queue.push_back(block);
+        //write wal
+        RETURN_IF_ERROR(_v_wal_writer->write_wal(block.get()));
         _all_block_queues_bytes->fetch_add(block->bytes(), std::memory_order_relaxed);
         _single_block_queue_bytes->fetch_add(block->bytes(), std::memory_order_relaxed);
     }
@@ -85,8 +87,6 @@ Status LoadBlockQueue::get_block(vectorized::Block* block, bool* find_block, boo
         _block_queue.pop_front();
         _all_block_queues_bytes->fetch_sub(fblock->bytes(), std::memory_order_relaxed);
         _single_block_queue_bytes->fetch_sub(block->bytes(), std::memory_order_relaxed);
-        //append block
-        RETURN_IF_ERROR(append_block(block));
     }
     if (_block_queue.empty() && need_commit && _load_ids.empty()) {
         CHECK_EQ(_single_block_queue_bytes->load(), 0);
@@ -249,20 +249,16 @@ Status GroupCommitTable::_create_group_commit_load(
         std::unique_lock l(_lock);
         _load_block_queues.emplace(instance_id, load_block_queue);
         _need_plan_fragment = false;
-        _cv.notify_all();
-    }
-    if (_exec_env->wal_mgr()->is_running()) {
         _exec_env->wal_mgr()->add_wal_status_queue(_table_id, txn_id,
                                                    WalManager::WAL_STATUS::PREPARE);
         //create wal
         RETURN_IF_ERROR(
                 load_block_queue->create_wal(_db_id, _table_id, txn_id, label, _exec_env->wal_mgr(),
                                              params.desc_tbl.slotDescriptors, be_exe_version));
-        st = _exec_plan_fragment(_db_id, _table_id, label, txn_id, is_pipeline, params,
-                                 pipeline_params);
-    } else {
-        st = Status::InternalError("be is stopping");
+        _cv.notify_all();
     }
+    st = _exec_plan_fragment(_db_id, _table_id, label, txn_id, is_pipeline, params,
+                             pipeline_params);
     if (!st.ok()) {
         static_cast<void>(_finish_group_commit_load(_db_id, _table_id, label, txn_id, instance_id,
                                                     st, true, nullptr));
@@ -462,13 +458,9 @@ Status LoadBlockQueue::create_wal(int64_t db_id, int64_t tb_id, int64_t wal_id,
                                   std::vector<TSlotDescriptor>& slot_desc, int be_exe_version) {
     _v_wal_writer = std::make_shared<vectorized::VWalWriter>(
             db_id, tb_id, txn_id, label, wal_manager, slot_desc, be_exe_version);
-    RETURN_IF_ERROR(_v_wal_writer->init());
-    return Status::OK();
+    return _v_wal_writer->init();
 }
-Status LoadBlockQueue::append_block(vectorized::Block* block) {
-    RETURN_IF_ERROR(_v_wal_writer->append_block(block));
-    return Status::OK();
-}
+
 Status LoadBlockQueue::close_wal() {
     if (_v_wal_writer != nullptr) {
         RETURN_IF_ERROR(_v_wal_writer->close());
