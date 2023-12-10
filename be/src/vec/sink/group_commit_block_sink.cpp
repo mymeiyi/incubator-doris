@@ -127,7 +127,6 @@ Status GroupCommitBlockSink::send(RuntimeState* state, vectorized::Block* input_
         auto res_block = vectorized::MutableBlock::build_mutable_block(&cloneBlock);
         for (int i = 0; i < rows; ++i) {
             if (_block_convertor->filter_map()[i]) {
-                LOG(INFO) << "skip " << i;
                 continue;
             }
             res_block.add_row(block.get(), i);
