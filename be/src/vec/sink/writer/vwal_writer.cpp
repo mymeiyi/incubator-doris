@@ -72,39 +72,17 @@ Status VWalWriter::init() {
     return Status::OK();
 }
 
-Status VWalWriter::write_wal(OlapTableBlockConvertor* block_convertor,
-                             OlapTabletFinder* tablet_finder, vectorized::Block* block,
-                             int64_t num_rows, int64_t filtered_rows) {
+Status VWalWriter::write_wal(vectorized::Block* block) {
     PBlock pblock;
     size_t uncompressed_bytes = 0, compressed_bytes = 0;
-    if (filtered_rows == 0) {
-        RETURN_IF_ERROR(block->serialize(_be_exe_version, &pblock, &uncompressed_bytes,
-                                         &compressed_bytes, segment_v2::CompressionTypePB::SNAPPY));
-        RETURN_IF_ERROR(_wal_writer->append_blocks(std::vector<PBlock*> {&pblock}));
-    } else {
-        auto cloneBlock = block->clone_without_columns();
-        auto res_block = vectorized::MutableBlock::build_mutable_block(&cloneBlock);
-        for (int i = 0; i < num_rows; ++i) {
-            if (block_convertor->num_filtered_rows() > 0 && block_convertor->filter_map()[i]) {
-                continue;
-            }
-            if (tablet_finder->num_filtered_rows() > 0 && tablet_finder->filter_bitmap().Get(i)) {
-                continue;
-            }
-            res_block.add_row(block, i);
-        }
-        RETURN_IF_ERROR(res_block.to_block().serialize(_be_exe_version, &pblock,
-                                                       &uncompressed_bytes, &compressed_bytes,
-                                                       segment_v2::CompressionTypePB::SNAPPY));
-        RETURN_IF_ERROR(_wal_writer->append_blocks(std::vector<PBlock*> {&pblock}));
-    }
+    RETURN_IF_ERROR(block->serialize(_be_exe_version, &pblock, &uncompressed_bytes,
+                                     &compressed_bytes, segment_v2::CompressionTypePB::SNAPPY));
+    RETURN_IF_ERROR(_wal_writer->append_blocks(std::vector<PBlock*> {&pblock}));
     return Status::OK();
 }
 
-Status VWalWriter::append_block(int64_t num_rows, int64_t filter_rows, vectorized::Block* block,
-                                OlapTableBlockConvertor* block_convertor,
-                                OlapTabletFinder* tablet_finder) {
-    return write_wal(block_convertor, tablet_finder, block, num_rows, filter_rows);
+Status VWalWriter::append_block(vectorized::Block* block) {
+    return write_wal(block);
 }
 
 Status VWalWriter::close() {

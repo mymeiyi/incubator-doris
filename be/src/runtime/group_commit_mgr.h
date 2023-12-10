@@ -25,8 +25,6 @@
 #include "common/status.h"
 #include "util/threadpool.h"
 #include "vec/core/block.h"
-#include "vec/sink/vtablet_block_convertor.h"
-#include "vec/sink/vtablet_finder.h"
 #include "vec/sink/writer/vwal_writer.h"
 
 namespace doris {
@@ -59,9 +57,7 @@ public:
     Status create_wal(int64_t db_id, int64_t tb_id, int64_t wal_id, const std::string& import_label,
                       WalManager* wal_manager, std::vector<TSlotDescriptor>& slot_desc,
                       int be_exe_version);
-    Status append_block(int64_t num_rows, int64_t filter_rows, vectorized::Block* block,
-                        vectorized::OlapTableBlockConvertor* block_convertor,
-                        vectorized::OlapTabletFinder* tablet_finder);
+    Status append_block(vectorized::Block* block);
     Status close_wal();
 
     static constexpr size_t MAX_BLOCK_QUEUE_ADD_WAIT_TIME = 1000;

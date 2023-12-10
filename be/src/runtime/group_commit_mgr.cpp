@@ -86,7 +86,7 @@ Status LoadBlockQueue::get_block(vectorized::Block* block, bool* find_block, boo
         _all_block_queues_bytes->fetch_sub(fblock->bytes(), std::memory_order_relaxed);
         _single_block_queue_bytes->fetch_sub(block->bytes(), std::memory_order_relaxed);
         //append block
-        RETURN_IF_ERROR(append_block(0, 0, block, nullptr, nullptr));
+        RETURN_IF_ERROR(append_block(block));
     }
     if (_block_queue.empty() && need_commit && _load_ids.empty()) {
         CHECK_EQ(_single_block_queue_bytes->load(), 0);
@@ -465,11 +465,8 @@ Status LoadBlockQueue::create_wal(int64_t db_id, int64_t tb_id, int64_t wal_id,
     RETURN_IF_ERROR(_v_wal_writer->init());
     return Status::OK();
 }
-Status LoadBlockQueue::append_block(int64_t num_rows, int64_t filter_rows, vectorized::Block* block,
-                                    vectorized::OlapTableBlockConvertor* block_convertor,
-                                    vectorized::OlapTabletFinder* tablet_finder) {
-    RETURN_IF_ERROR(_v_wal_writer->append_block(num_rows, filter_rows, block, block_convertor,
-                                                tablet_finder));
+Status LoadBlockQueue::append_block(vectorized::Block* block) {
+    RETURN_IF_ERROR(_v_wal_writer->append_block(block));
     return Status::OK();
 }
 Status LoadBlockQueue::close_wal() {

@@ -122,6 +122,18 @@ Status GroupCommitBlockSink::send(RuntimeState* state, vectorized::Block* input_
     bool has_filtered_rows = false;
     RETURN_IF_ERROR(_block_convertor->validate_and_convert_block(
             state, input_block, block, _output_vexpr_ctxs, rows, has_filtered_rows));
+    if (_block_convertor->num_filtered_rows() > 0) {
+        auto cloneBlock = block->clone_without_columns();
+        auto res_block = vectorized::MutableBlock::build_mutable_block(&cloneBlock);
+        for (int i = 0; i < rows; ++i) {
+            if (_block_convertor->filter_map()[i]) {
+                LOG(INFO) << "skip " << i;
+                continue;
+            }
+            res_block.add_row(block.get(), i);
+        }
+        block->swap(res_block.to_block());
+    }
     // add block into block queue
     return _add_block(state, block);
 }

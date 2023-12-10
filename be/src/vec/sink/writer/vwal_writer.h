@@ -88,10 +88,8 @@ public:
                int be_exe_version);
     ~VWalWriter();
     Status init();
-    Status write_wal(OlapTableBlockConvertor* block_convertor, OlapTabletFinder* tablet_finder,
-                     vectorized::Block* block, int64_t num_rows, int64_t filtered_rows);
-    Status append_block(int64_t num_rows, int64_t filter_rows, vectorized::Block* block,
-                        OlapTableBlockConvertor* block_convertor, OlapTabletFinder* tablet_finder);
+    Status write_wal(vectorized::Block* block);
+    Status append_block(vectorized::Block* block);
     Status close();
 
 private:
