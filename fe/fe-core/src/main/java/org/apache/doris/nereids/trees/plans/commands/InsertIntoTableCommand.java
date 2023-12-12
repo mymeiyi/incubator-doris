@@ -46,6 +46,7 @@ import org.apache.doris.planner.UnionNode;
 import org.apache.doris.proto.InternalService;
 import org.apache.doris.proto.InternalService.PGroupCommitInsertResponse;
 import org.apache.doris.qe.ConnectContext;
+import org.apache.doris.qe.SqlModeHelper;
 import org.apache.doris.qe.StmtExecutor;
 import org.apache.doris.rpc.RpcException;
 import org.apache.doris.thrift.TStatusCode;
@@ -223,10 +224,10 @@ public class InsertIntoTableCommand extends Command implements ForwardWithSync, 
             return false;
         }
         return ConnectContext.get().getSessionVariable().isEnableInsertGroupCommit()
-            && physicalOlapTableSink.getTargetTable() instanceof OlapTable
-            && !ConnectContext.get().isTxnModel()
-            && sink.getFragment().getPlanRoot() instanceof UnionNode
-            && physicalOlapTableSink.getPartitionIds().isEmpty();
+                && ConnectContext.get().getSessionVariable().getSqlMode() == SqlModeHelper.MODE_DEFAULT
+                && physicalOlapTableSink.getTargetTable() instanceof OlapTable && !ConnectContext.get().isTxnModel()
+                && sink.getFragment().getPlanRoot() instanceof UnionNode && physicalOlapTableSink.getPartitionIds()
+                .isEmpty();
     }
 
     @Override

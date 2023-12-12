@@ -54,6 +54,7 @@ import org.apache.doris.planner.GroupCommitPlanner;
 import org.apache.doris.planner.OlapTableSink;
 import org.apache.doris.planner.external.jdbc.JdbcTableSink;
 import org.apache.doris.qe.ConnectContext;
+import org.apache.doris.qe.SqlModeHelper;
 import org.apache.doris.rewrite.ExprRewriter;
 import org.apache.doris.service.FrontendOptions;
 import org.apache.doris.thrift.TQueryOptions;
@@ -1110,6 +1111,7 @@ public class NativeInsertStmt extends InsertStmt {
         }
         boolean partialUpdate = ConnectContext.get().getSessionVariable().isEnableUniqueKeyPartialUpdate();
         if (!partialUpdate && ConnectContext.get().getSessionVariable().isEnableInsertGroupCommit()
+                && ConnectContext.get().getSessionVariable().getSqlMode() == SqlModeHelper.MODE_DEFAULT
                 && targetTable instanceof OlapTable
                 && !ConnectContext.get().isTxnModel()
                 && getQueryStmt() instanceof SelectStmt
