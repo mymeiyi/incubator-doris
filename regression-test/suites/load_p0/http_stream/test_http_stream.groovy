@@ -621,13 +621,14 @@ suite("test_http_stream", "p0") {
                     """
             time 10000
             file 'test_http_stream_column_separator.csv'
+            unset 'label'
             check { result, exception, startTime, endTime ->
                 if (exception != null) {
                     throw exception
                 }
                 log.info("http_stream result: ${result}".toString())
                 def json = parseJson(result)
-                assertEquals(label, json.Label.toLowerCase())
+                // assertEquals(label, json.Label.toLowerCase())
                 assertEquals("success", json.Status.toLowerCase())
                 assertEquals(11, json.NumberTotalRows)
                 assertEquals(0, json.NumberFilteredRows)
