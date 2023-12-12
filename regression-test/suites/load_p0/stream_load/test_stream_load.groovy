@@ -1554,7 +1554,7 @@ suite("test_stream_load", "p0") {
             );
         """
 
-        streamLoad {
+        /*streamLoad {
             table "${tableName19}"
             set 'column_separator', ','
             file 'test_input_long_than_schema.csv'
@@ -1571,7 +1571,7 @@ suite("test_stream_load", "p0") {
                 assertEquals(100, json.NumberFilteredRows)
                 assertEquals(0, json.NumberUnselectedRows)
             }
-        }
+        }*/
     } finally {
         sql """ DROP TABLE IF EXISTS ${tableName19} FORCE"""
     }

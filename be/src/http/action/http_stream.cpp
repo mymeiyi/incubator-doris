@@ -180,8 +180,10 @@ int HttpStreamAction::on_header(HttpRequest* req) {
         }
     }
     ctx->two_phase_commit = req->header(HTTP_TWO_PHASE_COMMIT) == "true";
-    if (!ctx->two_phase_commit && (!group_commit_mode.empty() ||
-                                   config::wait_internal_group_commit_finish)) {
+    auto temp_partitions = !req->header(HTTP_TEMP_PARTITIONS).empty();
+    auto partitions = !req->header(HTTP_PARTITIONS).empty();
+    if (!temp_partitions && !partitions && !ctx->two_phase_commit &&
+        (!group_commit_mode.empty() || config::wait_internal_group_commit_finish)) {
         if (config::wait_internal_group_commit_finish) {
             ctx->group_commit = true;
         } else {
