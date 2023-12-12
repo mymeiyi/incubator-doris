@@ -441,7 +441,7 @@ suite("test_multi_partition_key", "p0") {
     sql "insert into test_multi_col_insert values (30, -32768)"
     test {
         sql "insert into test_multi_col_insert values (30, -32769)"
-        // exception "Number out of range[-32769]. type: SMALLINT"
+        exception "filtered"
     }
     test {
         sql "insert into test_multi_col_insert values (50, -300)"

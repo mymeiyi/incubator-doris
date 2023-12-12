@@ -27,7 +27,6 @@ suite("test_json_load", "p0") {
 		    def beIp = backendId_to_backendIP.get(id)
 		    def bePort = backendId_to_backendHttpPort.get(id)
 		    def (code, out, err) = curl("POST", String.format("http://%s:%s/api/update_config?%s=%s", beIp, bePort, paramName, paramValue))
-            logger.info("code=" + code + ", out=" + out + ", err=" + err)
 		    assertTrue(out.contains("OK"))
 	    }
     }
@@ -481,12 +480,12 @@ suite("test_json_load", "p0") {
                             '$.item', '', 'true', 'nest_json.json')
 
         // invalid nest_json
-        /*load_json_data.call("${testTable}", "${testTable}_case14_3", '', 'true', 'json', 'id= id * 10', '[\"$.id\",  \"$.city\", \"$.code\"]',
-                            '$.item', '', 'true', 'invalid_nest_json1.json', true)*/
+        load_json_data.call("${testTable}", "${testTable}_case14_3", '', 'true', 'json', 'id= id * 10', '[\"$.id\",  \"$.city\", \"$.code\"]',
+                            '$.item', '', 'true', 'invalid_nest_json1.json', true)
         load_json_data.call("${testTable}", "${testTable}_case14_4", '', 'true', 'json', 'id= id * 10', '[\"$.id\",  \"$.city\", \"$.code\"]',
                             '$.item', '', 'true', 'invalid_nest_json2.json', false, 7)
-        /*load_json_data.call("${testTable}", "${testTable}_case14_5", '', 'true', 'json', 'id= id * 10', '[\"$.id\",  \"$.city\", \"$.code\"]',
-                            '$.item', '', 'true', 'invalid_nest_json3.json', true)*/
+        load_json_data.call("${testTable}", "${testTable}_case14_5", '', 'true', 'json', 'id= id * 10', '[\"$.id\",  \"$.city\", \"$.code\"]',
+                            '$.item', '', 'true', 'invalid_nest_json3.json', true)
 
         sql "sync"
         qt_select14 "select * from ${testTable} order by id, code, city"
@@ -733,7 +732,7 @@ suite("test_json_load", "p0") {
         sql "DROP TABLE IF EXISTS ${testTable}"
 
         create_json_test_table.call(testTable)
-        /*streamLoad {
+        streamLoad {
             table "${testTable}"
             set 'jsonpaths', '[\"Name\", \"Age\", \"Agent_id\"]'
             set 'format', 'json'
@@ -758,7 +757,7 @@ suite("test_json_load", "p0") {
                 def reason = "Reason: There is no column matching jsonpaths in the json file, columns:[name, age, agent_id, ], jsonpaths:[\"Name\", \"Age\", \"Agent_id\"], please check columns and jsonpaths. src line [{\"name\":\"Name1\",\"age\":21,\"agent_id\":\"1\"}]; \n"
                 assertEquals("${reason}", "${out}")
             }
-        }*/
+        }
 
     } finally {
         try_sql("DROP TABLE IF EXISTS ${testTable}")
@@ -769,7 +768,7 @@ suite("test_json_load", "p0") {
         sql "DROP TABLE IF EXISTS ${testTable}"
 
         create_json_test_table.call(testTable)
-        /*streamLoad {
+        streamLoad {
             table "${testTable}"
             set 'columns', 'Name, Age, Agent_id'
             set 'format', 'json'
@@ -794,7 +793,7 @@ suite("test_json_load", "p0") {
                 def reason = "Reason: There is no column matching jsonpaths in the json file, columns:[Name, Age, Agent_id, ], jsonpaths:, please check columns and jsonpaths. src line [{\"name\":\"Name1\",\"age\":21,\"agent_id\":\"1\"}]; \n"
                 assertEquals("${reason}", "${out}")
             }
-        }*/
+        }
 
     } finally {
         try_sql("DROP TABLE IF EXISTS ${testTable}")
