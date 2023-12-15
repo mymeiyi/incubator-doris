@@ -2142,8 +2142,8 @@ public class StmtExecutor {
 
     private void handlePrepareStmt() throws Exception {
         // register prepareStmt
-        LOG.debug("add prepared statement {}, isBinaryProtocol {}",
-                prepareStmt.getName(), prepareStmt.isBinaryProtocol());
+        LOG.info("add prepared statement {}, isBinaryProtocol {}", prepareStmt.getName(),
+                prepareStmt.isBinaryProtocol());
         context.addPreparedStmt(prepareStmt.getName(),
                 new PrepareStmtContext(prepareStmt,
                         context, planner, analyzer, prepareStmt.getName()));

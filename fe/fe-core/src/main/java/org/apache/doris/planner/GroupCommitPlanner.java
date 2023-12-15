@@ -230,6 +230,7 @@ public class GroupCommitPlanner {
                     .collect(Collectors.joining(",")));
             rows.add(data);
         }
+        LOG.info("sout: row size={}", rows.size());
         return rows;
     }
 }
