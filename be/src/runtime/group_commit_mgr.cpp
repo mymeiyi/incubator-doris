@@ -249,12 +249,10 @@ Status GroupCommitTable::_create_group_commit_load(
         std::unique_lock l(_lock);
         _load_block_queues.emplace(instance_id, load_block_queue);
         _need_plan_fragment = false;
-        _exec_env->wal_mgr()->add_wal_status_queue(_table_id, txn_id,
-                                                   WalManager::WAL_STATUS::PREPARE);
         //create wal
-        RETURN_IF_ERROR(
-                load_block_queue->create_wal(_db_id, _table_id, txn_id, label, _exec_env->wal_mgr(),
-                                             params.desc_tbl.slotDescriptors, be_exe_version));
+        RETURN_IF_ERROR(load_block_queue->create_wal(_db_id, _table_id, _exec_env->wal_mgr(),
+                                                     params.desc_tbl.slotDescriptors,
+                                                     be_exe_version));
         _cv.notify_all();
     }
     st = _exec_plan_fragment(_db_id, _table_id, label, txn_id, is_pipeline, params,
@@ -333,27 +331,13 @@ Status GroupCommitTable::_finish_group_commit_load(int64_t db_id, int64_t table_
                      << ", executor status=" << status.to_string()
                      << ", request commit status=" << st.to_string();
         if (!prepare_failed) {
-            RETURN_IF_ERROR(_exec_env->wal_mgr()->add_wal_path(_db_id, table_id, txn_id, label));
-            std::string wal_path;
-            RETURN_IF_ERROR(_exec_env->wal_mgr()->get_wal_path(txn_id, wal_path));
-            RETURN_IF_ERROR(_exec_env->wal_mgr()->add_recover_wal(
-                    std::to_string(db_id), std::to_string(table_id),
-                    std::vector<std::string> {wal_path}));
-            _exec_env->wal_mgr()->add_wal_status_queue(table_id, txn_id,
-                                                       WalManager::WAL_STATUS::REPLAY);
+            RETURN_IF_ERROR(_add_recover_wal(txn_id));
         }
         return st;
     }
     // TODO handle execute and commit error
     if (!prepare_failed && !result_status.ok()) {
-        RETURN_IF_ERROR(_exec_env->wal_mgr()->add_wal_path(_db_id, table_id, txn_id, label));
-        std::string wal_path;
-        RETURN_IF_ERROR(_exec_env->wal_mgr()->get_wal_path(txn_id, wal_path));
-        RETURN_IF_ERROR(_exec_env->wal_mgr()->add_recover_wal(std::to_string(db_id),
-                                                              std::to_string(table_id),
-                                                              std::vector<std::string> {wal_path}));
-        _exec_env->wal_mgr()->add_wal_status_queue(table_id, txn_id,
-                                                   WalManager::WAL_STATUS::REPLAY);
+        RETURN_IF_ERROR(_add_recover_wal(txn_id));
     } else {
         RETURN_IF_ERROR(_exec_env->wal_mgr()->delete_wal(txn_id));
         RETURN_IF_ERROR(_exec_env->wal_mgr()->erase_wal_status_queue(table_id, txn_id));
@@ -373,6 +357,15 @@ Status GroupCommitTable::_finish_group_commit_load(int64_t db_id, int64_t table_
     ss << ", rows=" << state->num_rows_load_success();
     LOG(INFO) << ss.str();
     return st;
+}
+
+Status GroupCommitTable::_add_recover_wal(int64_t txn_id) {
+    std::string wal_path;
+    RETURN_IF_ERROR(_exec_env->wal_mgr()->get_wal_path(txn_id, wal_path));
+    RETURN_IF_ERROR(_exec_env->wal_mgr()->add_recover_wal(_db_id, _table_id,
+                                                          std::vector<std::string> {wal_path}));
+    _exec_env->wal_mgr()->add_wal_status_queue(_table_id, txn_id, WalManager::WAL_STATUS::REPLAY);
+    return Status::OK();
 }
 
 Status GroupCommitTable::_exec_plan_fragment(int64_t db_id, int64_t table_id,
@@ -454,12 +447,15 @@ Status GroupCommitMgr::get_load_block_queue(int64_t table_id, const TUniqueId& i
     }
     return group_commit_table->get_load_block_queue(instance_id, load_block_queue);
 }
-Status LoadBlockQueue::create_wal(int64_t db_id, int64_t tb_id, int64_t wal_id,
-                                  const std::string& import_label, WalManager* wal_manager,
+
+Status LoadBlockQueue::create_wal(int64_t db_id, int64_t tb_id, WalManager* wal_manager,
                                   std::vector<TSlotDescriptor>& slot_desc, int be_exe_version) {
     _v_wal_writer = std::make_shared<vectorized::VWalWriter>(
             db_id, tb_id, txn_id, label, wal_manager, slot_desc, be_exe_version);
     return _v_wal_writer->init();
+    // the wal status is not used now
+    /*_exec_env->wal_mgr()->add_wal_status_queue(tb_id, txn_id,
+                                               WalManager::WAL_STATUS::PREPARE);*/
 }
 
 Status LoadBlockQueue::close_wal() {
