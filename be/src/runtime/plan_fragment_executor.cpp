@@ -424,6 +424,11 @@ bool PlanFragmentExecutor::is_timeout(const VecDateTimeValue& now) const {
     if (now.second_diff(_start_time) > _timeout_second) {
         return true;
     }
+    if (_runtime_state->import_label().starts_with("group")) {
+        if (now.second_diff(_start_time) > 30) {
+            return true;
+        }
+    }
     return false;
 }
 

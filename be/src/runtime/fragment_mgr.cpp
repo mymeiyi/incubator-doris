@@ -1072,6 +1072,10 @@ void FragmentMgr::cancel_instance_unlocked(const TUniqueId& instance_id,
         if (itr != _fragment_instance_map.end()) {
             // calling PlanFragmentExecutor::cancel
             itr->second->cancel(reason, msg);
+            LOG(INFO) << "sout: cancel instance=" << print_id(instance_id)
+                      << ", label=" << itr->second->runtime_state()->import_label()
+                      << ", is cancel=" << itr->second->is_canceled()
+                      << ", runtime_state=" << itr->second->runtime_state();
         } else {
             LOG(WARNING) << "Could not find the fragment instance id:" << print_id(instance_id)
                          << " to cancel";

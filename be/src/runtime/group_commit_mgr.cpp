@@ -87,12 +87,23 @@ Status LoadBlockQueue::get_block(RuntimeState* runtime_state, vectorized::Block*
                     ss << id.to_string() << ", ";
                 }
                 ss << "]";
-                LOG(INFO) << "find one group_commit need to commit, txn_id=" << txn_id
-                          << ", label=" << label << ", instance_id=" << load_instance_id
-                          << ", duration=" << duration << ", load_ids=" << ss.str()
+                LOG(INFO) << "sout: group commit txn_id=" << txn_id << ", label=" << label
+                          << ", instance_id=" << load_instance_id << ", duration=" << duration
+                          << ", load_ids=" << ss.str()
                           << ", runtime_state=" << runtime_state;
             }
         }
+        std::stringstream ss;
+        ss << "[";
+        for (auto& id : _load_ids) {
+            ss << id.to_string() << ", ";
+        }
+        ss << "]";
+        LOG(INFO) << "sout: group commit txn_id=" << txn_id << ", label=" << label
+                  << ", instance_id=" << load_instance_id << ", duration=" << duration
+                  << ", load_ids=" << ss.str() << ", runtime_state=" << runtime_state
+                  << ", need_commit=" << need_commit
+                  << ", is_cancel=" << runtime_state->is_cancelled();
         _get_cond.wait_for(l, std::chrono::milliseconds(left_milliseconds));
     }
     if (runtime_state->is_cancelled()) {
@@ -143,8 +154,7 @@ void LoadBlockQueue::cancel(const Status& st) {
 }
 
 void LoadBlockQueue::_cancel_without_lock(const Status& st) {
-    LOG(INFO) << "cancel group_commit, instance_id=" << load_instance_id << ", label=" << label
-              << ", status=" << st.to_string();
+    LOG(INFO) << "sout: cancel instance_id=" << load_instance_id;
     status = st;
     while (!_block_queue.empty()) {
         {
@@ -351,7 +361,7 @@ Status GroupCommitTable::_finish_group_commit_load(int64_t db_id, int64_t table_
         }
         _load_block_queues.erase(instance_id);
     }
-    if (!st.ok()) {
+    if (!st.ok() || !status.ok()) {
         LOG(WARNING) << "request finish error, db_id=" << db_id << ", table_id=" << table_id
                      << ", label=" << label << ", txn_id=" << txn_id
                      << ", instance_id=" << print_id(instance_id)

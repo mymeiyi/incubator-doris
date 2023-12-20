@@ -47,6 +47,10 @@ public:
               _all_block_queues_bytes(all_block_queues_bytes),
               _group_commit_interval_ms(group_commit_interval_ms) {
         _single_block_queue_bytes = std::make_shared<std::atomic_size_t>(0);
+        UniqueId id;
+        id.hi = 2;
+        id.lo = 4;
+        [[maybe_unused]] auto st = add_load_id(id);
     };
 
     Status add_block(std::shared_ptr<vectorized::Block> block, bool write_wal);
