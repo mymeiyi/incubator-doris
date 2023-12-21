@@ -54,9 +54,8 @@ public:
     Status add_load_id(const UniqueId& load_id);
     void remove_load_id(const UniqueId& load_id);
     void cancel(const Status& st);
-    Status create_wal(int64_t db_id, int64_t tb_id, int64_t wal_id, const std::string& import_label,
-                      WalManager* wal_manager, std::vector<TSlotDescriptor>& slot_desc,
-                      int be_exe_version);
+    Status create_wal(int64_t db_id, int64_t tb_id, WalManager* wal_manager,
+                      std::vector<TSlotDescriptor>& slot_desc, int be_exe_version);
     Status close_wal();
 
     static constexpr size_t MAX_BLOCK_QUEUE_ADD_WAIT_TIME = 1000;
@@ -115,6 +114,7 @@ private:
     Status _finish_group_commit_load(int64_t db_id, int64_t table_id, const std::string& label,
                                      int64_t txn_id, const TUniqueId& instance_id, Status& status,
                                      bool prepare_failed, RuntimeState* state);
+    Status _add_recover_wal(int64_t txn_id);
 
     ExecEnv* _exec_env = nullptr;
     ThreadPool* _thread_pool = nullptr;
