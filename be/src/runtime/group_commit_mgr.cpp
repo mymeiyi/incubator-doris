@@ -144,14 +144,12 @@ void LoadBlockQueue::cancel(const Status& st) {
 
 void LoadBlockQueue::_cancel_without_lock(const Status& st) {
     LOG(INFO) << "cancel group_commit, instance_id=" << load_instance_id << ", label=" << label
-              << ", status=" << st.to_string();
+              << ", block_queue_size=" << _block_queue.size() << ", status=" << st.to_string();
     status = st;
     while (!_block_queue.empty()) {
-        {
-            auto& future_block = _block_queue.front();
-            _all_block_queues_bytes->fetch_sub(future_block->bytes(), std::memory_order_relaxed);
-            _single_block_queue_bytes->fetch_sub(future_block->bytes(), std::memory_order_relaxed);
-        }
+        auto& future_block = _block_queue.front();
+        _all_block_queues_bytes->fetch_sub(future_block->bytes(), std::memory_order_relaxed);
+        _single_block_queue_bytes->fetch_sub(future_block->bytes(), std::memory_order_relaxed);
         _block_queue.pop_front();
     }
 }
@@ -395,7 +393,8 @@ Status GroupCommitTable::_exec_plan_fragment(int64_t db_id, int64_t table_id,
     if (is_pipeline) {
         return _exec_env->fragment_mgr()->exec_plan_fragment(pipeline_params, finish_cb);
     } else {
-        return _exec_env->fragment_mgr()->exec_plan_fragment(params, finish_cb);
+        return Status::InternalError("prepare plan error");
+        // return _exec_env->fragment_mgr()->exec_plan_fragment(params, finish_cb);
     }
 }
 
