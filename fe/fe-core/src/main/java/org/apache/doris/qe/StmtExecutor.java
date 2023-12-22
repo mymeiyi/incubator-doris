@@ -1917,6 +1917,7 @@ public class StmtExecutor {
         String errMsg = "";
         TableType tblType = insertStmt.getTargetTable().getType();
         boolean isGroupCommit = false;
+        boolean reuseGroupCommitPlan = false;
         if (context.isTxnModel()) {
             if (insertStmt.getQueryStmt() instanceof SelectStmt) {
                 if (((SelectStmt) insertStmt.getQueryStmt()).getTableRefs().size() > 0) {
@@ -1933,6 +1934,7 @@ public class StmtExecutor {
             int maxRetry = 3;
             for (int i = 0; i < maxRetry; i++) {
                 GroupCommitPlanner groupCommitPlanner = nativeInsertStmt.planForGroupCommit(context.queryId);
+                reuseGroupCommitPlan = nativeInsertStmt.isReuseGroupCommitPlan();
                 List<InternalService.PDataRow> rows = groupCommitPlanner.getRows(nativeInsertStmt);
                 PGroupCommitInsertResponse response = groupCommitPlanner.executeGroupCommitInsert(context, rows);
                 TStatusCode code = TStatusCode.findByValue(response.getStatus().getStatusCode());
@@ -2104,6 +2106,9 @@ public class StmtExecutor {
         }
         if (isGroupCommit) {
             sb.append(", 'query_id':'").append(DebugUtil.printId(context.queryId)).append("'");
+            if (reuseGroupCommitPlan) {
+                sb.append(", 'reuse_group_commit_plan':'").append(true).append("'");
+            }
         }
         sb.append("}");
 
