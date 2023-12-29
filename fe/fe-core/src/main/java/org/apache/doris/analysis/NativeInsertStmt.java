@@ -383,7 +383,7 @@ public class NativeInsertStmt extends InsertStmt {
             label = new LabelName(db.getFullName(),
                     insertType.labePrefix + DebugUtil.printId(analyzer.getContext().queryId()).replace("-", "_"));
         }
-        if (!isExplain() && !isTransactionBegin) {
+        if (!isExplain() && !isTransactionBegin && !isGroupCommitStreamLoadSql) {
             if (targetTable instanceof OlapTable) {
                 LoadJobSourceType sourceType = LoadJobSourceType.INSERT_STREAMING;
                 transactionId = Env.getCurrentGlobalTransactionMgr().beginTransaction(db.getId(),
@@ -1016,7 +1016,7 @@ public class NativeInsertStmt extends InsertStmt {
     }
 
     public void complete() throws UserException {
-        if (!isExplain() && targetTable instanceof OlapTable) {
+        if (!isExplain() && targetTable instanceof OlapTable && !isGroupCommitStreamLoadSql) {
             ((OlapTableSink) dataSink).complete(analyzer);
             if (!allowAutoPartition) {
                 ((OlapTableSink) dataSink).setAutoPartition(false);
@@ -1138,7 +1138,7 @@ public class NativeInsertStmt extends InsertStmt {
                 && (analyzer == null || analyzer != null && !analyzer.isReAnalyze())) {
             SelectStmt selectStmt = (SelectStmt) queryStmt;
             boolean isHttpStream = false;
-            if (isGroupCommitStreamLoadSql && selectStmt.getTableRefs().size() == 1) {
+            /*if (isGroupCommitStreamLoadSql && selectStmt.getTableRefs().size() == 1) {
                 TableRef tableRef = selectStmt.getTableRefs().get(0);
                 if (tableRef instanceof TableValuedFunctionRef) {
                     TableValuedFunctionRef functionRef = (TableValuedFunctionRef) tableRef;
@@ -1146,7 +1146,7 @@ public class NativeInsertStmt extends InsertStmt {
                         isHttpStream = true;
                     }
                 }
-            }
+            }*/
             if (!selectStmt.getTableRefs().isEmpty() && !isHttpStream) {
                 return;
             }
