@@ -57,6 +57,7 @@ import org.apache.doris.qe.ConnectContext;
 import org.apache.doris.qe.SqlModeHelper;
 import org.apache.doris.rewrite.ExprRewriter;
 import org.apache.doris.service.FrontendOptions;
+import org.apache.doris.tablefunction.HttpStreamTableValuedFunction;
 import org.apache.doris.thrift.TQueryOptions;
 import org.apache.doris.thrift.TUniqueId;
 import org.apache.doris.transaction.TransactionState;
@@ -1132,10 +1133,23 @@ public class NativeInsertStmt extends InsertStmt {
                 && ((OlapTable) targetTable).getTableProperty().getUseSchemaLightChange()
                 && !ConnectContext.get().isTxnModel()
                 && getQueryStmt() instanceof SelectStmt
-                && ((SelectStmt) getQueryStmt()).getTableRefs().isEmpty() && targetPartitionNames == null
+                && targetPartitionNames == null
                 && (label == null || Strings.isNullOrEmpty(label.getLabelName()))
                 && (analyzer == null || analyzer != null && !analyzer.isReAnalyze())) {
             SelectStmt selectStmt = (SelectStmt) queryStmt;
+            boolean isHttpStream = false;
+            if (selectStmt.getTableRefs().size() == 1) {
+                TableRef tableRef = selectStmt.getTableRefs().get(0);
+                if (tableRef instanceof TableValuedFunctionRef) {
+                    TableValuedFunctionRef functionRef = (TableValuedFunctionRef) tableRef;
+                    if (functionRef.getTableFunction() instanceof HttpStreamTableValuedFunction) {
+                        isHttpStream = true;
+                    }
+                }
+            }
+            if (!selectStmt.getTableRefs().isEmpty() && !isHttpStream) {
+                return;
+            }
             if (selectStmt.getValueList() != null) {
                 for (List<Expr> row : selectStmt.getValueList().getRows()) {
                     for (Expr expr : row) {
