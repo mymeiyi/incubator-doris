@@ -209,10 +209,6 @@ public class TransactionEntry {
         this.tabletCommitInfos.addAll(commitInfos);
     }
 
-    public List<Table> getTableList() {
-        return tableList;
-    }
-
     public boolean isTransactionBegan() {
         return this.isTransactionBegan;
     }
