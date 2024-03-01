@@ -146,13 +146,14 @@ public class InsertIntoTableCommand extends Command implements ForwardWithSync, 
             Preconditions.checkArgument(plan.isPresent(), "insert into command must contain target table");
             PhysicalSink physicalSink = plan.get();
             DataSink sink = planner.getFragments().get(0).getSink();
-            String label = this.labelName.orElse(String.format("label_%x_%x", ctx.queryId().hi, ctx.queryId().lo));
 
             if (physicalSink instanceof PhysicalOlapTableSink) {
                 if (GroupCommitInserter.groupCommit(ctx, sink, physicalSink)) {
                     return;
                 }
                 OlapTable olapTable = (OlapTable) targetTableIf;
+                String label = this.labelName.orElse(
+                        ctx.isTxnModel() ? null : String.format("label_%x_%x", ctx.queryId().hi, ctx.queryId().lo));
                 insertExecutor = new OlapInsertExecutor(ctx, olapTable, label, planner, insertCtx);
                 boolean isEnableMemtableOnSinkNode =
                         olapTable.getTableProperty().getUseSchemaLightChange()
