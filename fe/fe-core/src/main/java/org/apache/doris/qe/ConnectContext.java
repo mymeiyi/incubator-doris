@@ -410,6 +410,13 @@ public class ConnectContext {
                     LOG.error("db: {}, txnId: {}, rollback error.", currentDb,
                             txnEntry.getTxnConf().getTxnId(), e);
                 }
+            } else if (txnEntry.isTransactionBegan()) {
+                try {
+                    txnEntry.abortTransaction();
+                } catch (Exception e) {
+                    LOG.error("db: {}, txnId: {}, rollback error.", currentDb,
+                            txnEntry.getTransactionId(), e);
+                }
             }
             txnEntry = null;
         }
