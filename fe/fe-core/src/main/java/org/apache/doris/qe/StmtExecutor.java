@@ -173,8 +173,6 @@ import org.apache.doris.thrift.TStatusCode;
 import org.apache.doris.thrift.TStreamLoadPutRequest;
 import org.apache.doris.thrift.TTxnParams;
 import org.apache.doris.thrift.TUniqueId;
-import org.apache.doris.thrift.TWaitingTxnStatusRequest;
-import org.apache.doris.thrift.TWaitingTxnStatusResult;
 import org.apache.doris.transaction.TabletCommitInfo;
 import org.apache.doris.transaction.TransactionEntry;
 import org.apache.doris.transaction.TransactionState;
@@ -1720,18 +1718,6 @@ public class StmtExecutor {
         }
     }
 
-    private TWaitingTxnStatusResult getWaitingTxnStatus(TWaitingTxnStatusRequest request) throws Exception {
-        TWaitingTxnStatusResult statusResult = null;
-        if (Env.getCurrentEnv().isMaster()) {
-            statusResult = Env.getCurrentGlobalTransactionMgr()
-                    .getWaitingTxnStatus(request);
-        } else {
-            MasterTxnExecutor masterTxnExecutor = new MasterTxnExecutor(context);
-            statusResult = masterTxnExecutor.getWaitingTxnStatus(request);
-        }
-        return statusResult;
-    }
-
     private void handleTransactionStmt() throws Exception {
         if (context.getConnectType() == ConnectType.MYSQL) {
             // Every time set no send flag and clean all data in buffer
@@ -1767,42 +1753,9 @@ public class StmtExecutor {
             }
 
             try {
-                long txnId;
-                TransactionStatus txnStatus;
                 TransactionEntry txnEntry = context.getTxnEntry();
-                if (txnEntry.isTransactionBegan()) {
-                    txnStatus = txnEntry.commitTransaction();
-                    txnId = txnEntry.getTransactionId();
-                } else {
-                    TTxnParams txnConf = txnEntry.getTxnConf();
-                    InsertStreamTxnExecutor executor = new InsertStreamTxnExecutor(txnEntry);
-                    if (txnEntry.getDataToSend().size() > 0) {
-                        // send rest data
-                        executor.sendData();
-                    }
-                    // commit txn
-                    executor.commitTransaction();
-
-                    // wait txn visible
-                    TWaitingTxnStatusRequest request = new TWaitingTxnStatusRequest();
-                    request.setDbId(txnConf.getDbId()).setTxnId(txnConf.getTxnId());
-                    request.setLabelIsSet(false);
-                    request.setTxnIdIsSet(true);
-
-                    TWaitingTxnStatusResult statusResult = getWaitingTxnStatus(request);
-                    txnStatus = TransactionStatus.valueOf(statusResult.getTxnStatusId());
-                    if (txnStatus == TransactionStatus.COMMITTED) {
-                        throw new AnalysisException("transaction commit successfully, BUT data will be visible later.");
-                    } else if (txnStatus != TransactionStatus.VISIBLE) {
-                        String errMsg = "commit failed, rollback.";
-                        if (statusResult.getStatus().isSetErrorMsgs()
-                                && statusResult.getStatus().getErrorMsgs().size() > 0) {
-                            errMsg = String.join(". ", statusResult.getStatus().getErrorMsgs());
-                        }
-                        throw new AnalysisException(errMsg);
-                    }
-                    txnId = txnEntry.getTxnConf().getTxnId();
-                }
+                TransactionStatus txnStatus = txnEntry.commitTransaction();
+                long txnId = txnEntry.getTransactionId();
                 StringBuilder sb = new StringBuilder();
                 sb.append("{'label':'").append(txnEntry.getLabel()).append("', 'status':'")
                         .append(txnStatus.name()).append("', 'txnId':'")

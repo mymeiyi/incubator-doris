@@ -31,10 +31,13 @@ import org.apache.doris.proto.InternalService;
 import org.apache.doris.proto.Types;
 import org.apache.doris.qe.ConnectContext;
 import org.apache.doris.qe.InsertStreamTxnExecutor;
+import org.apache.doris.qe.MasterTxnExecutor;
 import org.apache.doris.service.FrontendOptions;
 import org.apache.doris.system.Backend;
 import org.apache.doris.thrift.TTabletCommitInfo;
 import org.apache.doris.thrift.TTxnParams;
+import org.apache.doris.thrift.TWaitingTxnStatusRequest;
+import org.apache.doris.thrift.TWaitingTxnStatusResult;
 import org.apache.doris.transaction.TransactionState.LoadJobSourceType;
 import org.apache.doris.transaction.TransactionState.TxnCoordinator;
 import org.apache.doris.transaction.TransactionState.TxnSourceType;
@@ -185,7 +188,8 @@ public class TransactionEntry {
         }
     }
 
-    public TransactionStatus commitTransaction() throws UserException {
+    public TransactionStatus commitTransaction()
+            throws Exception {
         if (isTransactionBegan) {
             if (Env.getCurrentGlobalTransactionMgr()
                     .commitAndPublishTransaction(database, tableList, transactionId,
@@ -194,10 +198,50 @@ public class TransactionEntry {
             } else {
                 return TransactionStatus.COMMITTED;
             }
+        } else if (isTxnBegin()) {
+            InsertStreamTxnExecutor executor = new InsertStreamTxnExecutor(this);
+            if (dataToSend.size() > 0) {
+                // send rest data
+                executor.sendData();
+            }
+            // commit txn
+            executor.commitTransaction();
+
+            // wait txn visible
+            TWaitingTxnStatusRequest request = new TWaitingTxnStatusRequest();
+            request.setDbId(txnConf.getDbId()).setTxnId(txnConf.getTxnId());
+            request.setLabelIsSet(false);
+            request.setTxnIdIsSet(true);
+
+            TWaitingTxnStatusResult statusResult = getWaitingTxnStatus(request);
+            TransactionStatus txnStatus = TransactionStatus.valueOf(statusResult.getTxnStatusId());
+            if (txnStatus == TransactionStatus.COMMITTED) {
+                throw new AnalysisException("transaction commit successfully, BUT data will be visible later.");
+            } else if (txnStatus != TransactionStatus.VISIBLE) {
+                String errMsg = "commit failed, rollback.";
+                if (statusResult.getStatus().isSetErrorMsgs()
+                        && statusResult.getStatus().getErrorMsgs().size() > 0) {
+                    errMsg = String.join(". ", statusResult.getStatus().getErrorMsgs());
+                }
+                throw new AnalysisException(errMsg);
+            }
+            return txnStatus;
         } else {
             LOG.info("No transaction to commit");
             return null;
         }
+    }
+
+    private TWaitingTxnStatusResult getWaitingTxnStatus(TWaitingTxnStatusRequest request) throws Exception {
+        TWaitingTxnStatusResult statusResult = null;
+        if (Env.getCurrentEnv().isMaster()) {
+            statusResult = Env.getCurrentGlobalTransactionMgr()
+                    .getWaitingTxnStatus(request);
+        } else {
+            MasterTxnExecutor masterTxnExecutor = new MasterTxnExecutor(ConnectContext.get());
+            statusResult = masterTxnExecutor.getWaitingTxnStatus(request);
+        }
+        return statusResult;
     }
 
     public long abortTransaction()
