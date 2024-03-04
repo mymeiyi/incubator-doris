@@ -507,10 +507,10 @@ public class StmtExecutor {
                         LOG.warn("Analyze failed. {}", context.getQueryIdentifier(), e);
                         throw ((NereidsException) e).getException();
                     }
-                    boolean isGroupCommit = (Config.wait_internal_group_commit_finish
-                            || context.sessionVariable.isEnableInsertGroupCommit()) && (parsedStmt != null
+                    boolean isGroupCommit = (parsedStmt != null
                             && parsedStmt instanceof LogicalPlanAdapter
-                            && ((LogicalPlanAdapter) parsedStmt).getLogicalPlan() instanceof InsertIntoTableCommand);
+                            && ((LogicalPlanAdapter) parsedStmt).getLogicalPlan() instanceof InsertIntoTableCommand)
+                            && !context.isTxnModel();
                     if (e instanceof NereidsException && !context.getSessionVariable().enableFallbackToOriginalPlanner
                             && !isGroupCommit) {
                         LOG.warn("Analyze failed. {}", context.getQueryIdentifier(), e);
@@ -1748,18 +1748,13 @@ public class StmtExecutor {
                 LOG.info("A transaction has already begin");
                 return;
             }
-            TTxnParams txnParams = new TTxnParams();
-            txnParams.setNeedTxn(true).setEnablePipelineTxnLoad(Config.enable_pipeline_load)
-                    .setThriftRpcTimeoutMs(5000).setTxnId(-1).setDb("").setTbl("");
-            if (context.getSessionVariable().getEnableInsertStrict()) {
-                txnParams.setMaxFilterRatio(0);
-            } else {
-                txnParams.setMaxFilterRatio(1.0);
-            }
             if (context.getTxnEntry() == null) {
                 context.setTxnEntry(new TransactionEntry());
             }
-            context.getTxnEntry().setTxnConf(txnParams);
+            context.getTxnEntry()
+                    .setTxnConf(new TTxnParams().setNeedTxn(true).setEnablePipelineTxnLoad(Config.enable_pipeline_load)
+                            .setThriftRpcTimeoutMs(5000).setTxnId(-1).setDb("").setTbl("")
+                            .setMaxFilterRatio(context.getSessionVariable().getEnableInsertStrict() ? 0 : 1.0));
             StringBuilder sb = new StringBuilder();
             sb.append("{'label':'").append(context.getTxnEntry().getLabel()).append("', 'status':'")
                     .append(TransactionStatus.PREPARE.name());
@@ -1825,18 +1820,8 @@ public class StmtExecutor {
                 return;
             }
             try {
-
                 TransactionEntry txnEntry = context.getTxnEntry();
-                long txnId = txnEntry.getTransactionId();
-                /*if (txnEntry.isTransactionBegan()) {
-                    txnEntry.abortTransaction();
-                    txnId = txnEntry.getTransactionId();
-                } else {
-                    InsertStreamTxnExecutor executor = new InsertStreamTxnExecutor(txnEntry);
-                    executor.abortTransaction();
-                    txnId = txnEntry.getTxnConf().getTxnId();
-                }*/
-
+                long txnId = txnEntry.abortTransaction();
                 StringBuilder sb = new StringBuilder();
                 sb.append("{'label':'").append(txnEntry.getLabel()).append("', 'status':'")
                         .append(TransactionStatus.ABORTED.name()).append("', 'txnId':'")

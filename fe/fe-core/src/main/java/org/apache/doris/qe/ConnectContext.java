@@ -401,25 +401,15 @@ public class ConnectContext {
     }
 
     public void closeTxn() {
-        if (isTxnModel()) {
-            if (isTxnBegin()) {
-                try {
-                    InsertStreamTxnExecutor executor = new InsertStreamTxnExecutor(getTxnEntry());
-                    executor.abortTransaction();
-                } catch (Exception e) {
-                    LOG.error("db: {}, txnId: {}, rollback error.", currentDb,
-                            txnEntry.getTxnConf().getTxnId(), e);
-                }
-            } else if (txnEntry.isTransactionBegan()) {
-                try {
-                    txnEntry.abortTransaction();
-                } catch (Exception e) {
-                    LOG.error("db: {}, txnId: {}, rollback error.", currentDb,
-                            txnEntry.getTransactionId(), e);
-                }
+        if (txnEntry != null) {
+            try {
+                txnEntry.abortTransaction();
+            } catch (Exception e) {
+                LOG.error("db: {}, txnId: {}, rollback error.", currentDb,
+                        txnEntry.getTransactionId(), e);
             }
-            txnEntry = null;
         }
+        txnEntry = null;
     }
 
     public long getStmtId() {
