@@ -401,15 +401,15 @@ public class ConnectContext {
     }
 
     public void closeTxn() {
-        if (txnEntry != null) {
+        if (isTxnModel()) {
             try {
                 txnEntry.abortTransaction();
             } catch (Exception e) {
                 LOG.error("db: {}, txnId: {}, rollback error.", currentDb,
                         txnEntry.getTransactionId(), e);
             }
+            txnEntry = null;
         }
-        txnEntry = null;
     }
 
     public long getStmtId() {
