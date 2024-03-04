@@ -226,8 +226,8 @@ public class TransactionEntry {
 
     public long getTransactionId() {
         if (isTransactionBegan) {
-            return this.transactionId;
-        } else if (txnConf != null && txnConf.isNeedTxn()) {
+            return transactionId;
+        } else if (isTxnBegin()) {
             return txnConf.getTxnId();
         } else {
             return -1;
