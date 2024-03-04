@@ -1820,21 +1820,22 @@ public class StmtExecutor {
                 context.setTxnEntry(null);
             }
         } else if (parsedStmt instanceof TransactionRollbackStmt) {
-            if (!context.isTxnModel()) {
+            if (context.getTxnEntry() == null) {
                 LOG.info("No transaction to rollback");
                 return;
             }
             try {
-                long txnId;
+
                 TransactionEntry txnEntry = context.getTxnEntry();
-                if (txnEntry.isTransactionBegan()) {
+                long txnId = txnEntry.getTransactionId();
+                /*if (txnEntry.isTransactionBegan()) {
                     txnEntry.abortTransaction();
                     txnId = txnEntry.getTransactionId();
                 } else {
                     InsertStreamTxnExecutor executor = new InsertStreamTxnExecutor(txnEntry);
                     executor.abortTransaction();
                     txnId = txnEntry.getTxnConf().getTxnId();
-                }
+                }*/
 
                 StringBuilder sb = new StringBuilder();
                 sb.append("{'label':'").append(txnEntry.getLabel()).append("', 'status':'")

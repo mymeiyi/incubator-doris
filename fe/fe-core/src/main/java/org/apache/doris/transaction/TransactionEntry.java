@@ -30,6 +30,7 @@ import org.apache.doris.common.UserException;
 import org.apache.doris.proto.InternalService;
 import org.apache.doris.proto.Types;
 import org.apache.doris.qe.ConnectContext;
+import org.apache.doris.qe.InsertStreamTxnExecutor;
 import org.apache.doris.service.FrontendOptions;
 import org.apache.doris.system.Backend;
 import org.apache.doris.thrift.TTabletCommitInfo;
@@ -41,9 +42,12 @@ import org.apache.doris.transaction.TransactionState.TxnSourceType;
 import com.google.common.collect.Lists;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.thrift.TException;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
 
 public class TransactionEntry {
 
@@ -196,11 +200,18 @@ public class TransactionEntry {
         }
     }
 
-    public void abortTransaction() throws UserException {
+    public long abortTransaction()
+            throws UserException, TException, ExecutionException, InterruptedException, TimeoutException {
         if (isTransactionBegan) {
             Env.getCurrentGlobalTransactionMgr().abortTransaction(database.getId(), transactionId, "user rollback");
+            return transactionId;
+        } else if (isTxnModel()) {
+            InsertStreamTxnExecutor executor = new InsertStreamTxnExecutor(this);
+            executor.abortTransaction();
+            return getTxnConf().getTxnId();
         } else {
             LOG.info("No transaction to abort");
+            return -1;
         }
     }
 
