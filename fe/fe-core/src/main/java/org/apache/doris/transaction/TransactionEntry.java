@@ -205,10 +205,10 @@ public class TransactionEntry {
         if (isTransactionBegan) {
             Env.getCurrentGlobalTransactionMgr().abortTransaction(database.getId(), transactionId, "user rollback");
             return transactionId;
-        } else if (isTxnModel()) {
+        } else if (isTxnBegin()) {
             InsertStreamTxnExecutor executor = new InsertStreamTxnExecutor(this);
             executor.abortTransaction();
-            return getTxnConf().getTxnId();
+            return txnConf.getTxnId();
         } else {
             LOG.info("No transaction to abort");
             return -1;
