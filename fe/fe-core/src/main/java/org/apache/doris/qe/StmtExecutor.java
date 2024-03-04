@@ -1751,15 +1751,13 @@ public class StmtExecutor {
                 LOG.info("No transaction to commit");
                 return;
             }
-
             try {
                 TransactionEntry txnEntry = context.getTxnEntry();
                 TransactionStatus txnStatus = txnEntry.commitTransaction();
-                long txnId = txnEntry.getTransactionId();
                 StringBuilder sb = new StringBuilder();
                 sb.append("{'label':'").append(txnEntry.getLabel()).append("', 'status':'")
                         .append(txnStatus.name()).append("', 'txnId':'")
-                        .append(txnId).append("'").append("}");
+                        .append(txnEntry.getTransactionId()).append("'").append("}");
                 context.getState().setOk(0, 0, sb.toString());
             } catch (Exception e) {
                 LOG.warn("Txn commit failed", e);
@@ -1768,7 +1766,7 @@ public class StmtExecutor {
                 context.setTxnEntry(null);
             }
         } else if (parsedStmt instanceof TransactionRollbackStmt) {
-            if (context.getTxnEntry() == null) {
+            if (!context.isTxnModel()) {
                 LOG.info("No transaction to rollback");
                 return;
             }
