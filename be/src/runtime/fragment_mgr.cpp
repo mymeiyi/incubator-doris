@@ -761,6 +761,7 @@ Status FragmentMgr::exec_plan_fragment(const TExecPlanFragmentParams& params,
             std::lock_guard<std::mutex> lock(_lock);
             _fragment_instance_map.erase(params.params.fragment_instance_id);
         }
+        LOG(INFO) << "sout: cancel fragment, id=" << print_id(params.params.fragment_instance_id);
         fragment_executor->cancel(PPlanFragmentCancelReason::INTERNAL_ERROR,
                                   "push plan fragment to thread pool failed");
         return Status::InternalError(

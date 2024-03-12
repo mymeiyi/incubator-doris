@@ -243,6 +243,20 @@ public class GlobalTransactionMgr implements GlobalTransactionMgrIface {
         dbTransactionMgr.commitTransaction(tableList, transactionId, tabletCommitInfos, txnCommitAttachment, false);
     }
 
+    public void commitTransaction(long dbId, long transactionId, List<TxnInfo> txnInfos, long timeoutMillis)
+            throws UserException {
+        if (Config.disable_load_job) {
+            throw new TransactionCommitFailedException("disable_load_job is set to true, all load jobs are prevented");
+        }
+
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("try to commit transaction: {}", transactionId);
+        }
+
+        DatabaseTransactionMgr dbTransactionMgr = getDatabaseTransactionMgr(dbId);
+        dbTransactionMgr.commitTransaction(transactionId, txnInfos);
+    }
+
     private void commitTransaction2PC(long dbId, long transactionId)
             throws UserException {
         if (Config.disable_load_job) {
@@ -283,6 +297,33 @@ public class GlobalTransactionMgr implements GlobalTransactionMgrIface {
             // so we just return false to indicate publish timeout
             return false;
         }
+        return dbTransactionMgr.waitForTransactionFinished(db, transactionId, publishTimeoutMillis);
+    }
+
+    public boolean commitAndPublishTransaction(DatabaseIf db, long transactionId,
+            List<TxnInfo> txnInfos, long timeoutMillis) throws UserException {
+        StopWatch stopWatch = new StopWatch();
+        stopWatch.start();
+        // TODO should get table lock
+        /*if (!MetaLockUtils.tryWriteLockTablesOrMetaException(tableList, timeoutMillis, TimeUnit.MILLISECONDS)) {
+            throw new UserException("get tableList write lock timeout, tableList=("
+                    + StringUtils.join(tableList, ",") + ")");
+        }
+        try {*/
+            commitTransaction(db.getId(), transactionId, txnInfos, timeoutMillis);
+        /*} finally {
+            MetaLockUtils.writeUnlockTables(tableList);
+        }*/
+        stopWatch.stop();
+        long publishTimeoutMillis = timeoutMillis - stopWatch.getTime();
+        DatabaseTransactionMgr dbTransactionMgr = getDatabaseTransactionMgr(db.getId());
+        if (publishTimeoutMillis < 0) {
+            // here commit transaction successfully cost too much time
+            // to cause that publishTimeoutMillis is less than zero,
+            // so we just return false to indicate publish timeout
+            return false;
+        }
+        // TODO wait every sub txn is finished
         return dbTransactionMgr.waitForTransactionFinished(db, transactionId, publishTimeoutMillis);
     }
 

@@ -73,6 +73,8 @@ public class TransactionEntry {
     private TransactionState transactionState;
     private List<Table> tableList = new ArrayList<>();
     private List<TTabletCommitInfo> tabletCommitInfos = new ArrayList<>();
+    private long nextTransactionId = -1;
+    private List<TxnInfo> txnInfos = new ArrayList<>();
 
     public TransactionEntry() {
     }
@@ -164,9 +166,7 @@ public class TransactionEntry {
     }
 
     // Used for insert into select
-    public void beginTransaction(DatabaseIf database, TableIf table)
-            throws DdlException, BeginTransactionException, MetaNotFoundException, AnalysisException,
-            QuotaExceedException {
+    public long beginTransaction(DatabaseIf database, TableIf table) throws UserException {
         if (isTxnBegin()) {
             // FIXME: support mix usage of `insert into values` and `insert into select`
             throw new AnalysisException(
@@ -181,21 +181,28 @@ public class TransactionEntry {
             this.database = database;
             this.transactionState = Env.getCurrentGlobalTransactionMgr()
                     .getTransactionState(database.getId(), transactionId);
+            this.nextTransactionId = this.transactionId;
         } else {
+            // TODO return a new sub txn_id
             if (this.database.getId() != database.getId()) {
                 throw new AnalysisException(
                         "Transaction insert must be in the same database, expect db_id=" + this.database.getId());
             }
             this.transactionState.getTableIdList().add(table.getId());
+            this.nextTransactionId = Env.getCurrentGlobalTransactionMgr().getNextTransactionId();
         }
+        return this.nextTransactionId;
     }
 
     public TransactionStatus commitTransaction()
             throws Exception {
         if (isTransactionBegan) {
-            if (Env.getCurrentGlobalTransactionMgr()
+            /*if (Env.getCurrentGlobalTransactionMgr()
                     .commitAndPublishTransaction(database, tableList, transactionId,
-                            TabletCommitInfo.fromThrift(tabletCommitInfos), ConnectContext.get().getExecTimeout())) {
+                            TabletCommitInfo.fromThrift(tabletCommitInfos), ConnectContext.get().getExecTimeout())) {*/
+            if (Env.getCurrentGlobalTransactionMgr()
+                    .commitAndPublishTransaction(database, transactionId, txnInfos,
+                            ConnectContext.get().getExecTimeout())) {
                 return TransactionStatus.VISIBLE;
             } else {
                 return TransactionStatus.COMMITTED;
@@ -271,9 +278,12 @@ public class TransactionEntry {
         }
     }
 
-    public void addCommitInfos(Table table, List<TTabletCommitInfo> commitInfos) {
+    public void addCommitInfos(long txnId, Table table, List<TTabletCommitInfo> commitInfos) {
+        // TODO relate the commit info and txn_id
+        LOG.info("sout: txn id={}, table={}, commit_info={}", txnId, table, commitInfos);
         this.tableList.add(table);
         this.tabletCommitInfos.addAll(commitInfos);
+        this.txnInfos.add(new TxnInfo(txnId, table, commitInfos));
     }
 
     public boolean isTransactionBegan() {

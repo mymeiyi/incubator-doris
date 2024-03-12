@@ -88,6 +88,9 @@ public interface GlobalTransactionMgrIface extends Writable {
             List<TabletCommitInfo> tabletCommitInfos, long timeoutMillis)
             throws UserException;
 
+    public boolean commitAndPublishTransaction(DatabaseIf db, long transactionId,
+            List<TxnInfo> txnInfos, long timeoutMillis) throws UserException;
+
     public boolean commitAndPublishTransaction(DatabaseIf db, List<Table> tableList, long transactionId,
             List<TabletCommitInfo> tabletCommitInfos, long timeoutMillis,
             TxnCommitAttachment txnCommitAttachment)

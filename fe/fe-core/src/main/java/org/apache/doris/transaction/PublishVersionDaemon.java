@@ -39,7 +39,9 @@ import org.apache.logging.log4j.Logger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class PublishVersionDaemon extends MasterDaemon {
@@ -109,17 +111,41 @@ public class PublishVersionDaemon extends MasterDaemon {
                 publishBackends.addAll(allBackends);
             }
 
-            for (long backendId : publishBackends) {
-                PublishVersionTask task = new PublishVersionTask(backendId,
-                        transactionState.getTransactionId(),
-                        transactionState.getDbId(),
-                        partitionVersionInfos,
-                        createPublishVersionTaskTime);
-                // add to AgentTaskQueue for handling finish report.
-                // not check return value, because the add will success
-                AgentTaskQueue.addTask(task);
-                batchTask.addTask(task);
-                transactionState.addPublishVersionTask(backendId, task);
+            if (transactionState.containSubTxnInfo) {
+                for (Entry<Long, TableCommitInfo> entry : transactionState.subTxnIdToTableCommitInfo.entrySet()) {
+                    long subTxnId = entry.getKey();
+                    TableCommitInfo tableCommitInfo = entry.getValue();
+                    List<TPartitionVersionInfo> tPartitionVersionInfos = tableCommitInfo.getIdToPartitionCommitInfo()
+                            .values().stream()
+                            .map(partitionCommitInfo -> {
+                                return new TPartitionVersionInfo(partitionCommitInfo.getPartitionId(),
+                                        partitionCommitInfo.getVersion(), 0);
+                            }).collect(Collectors.toList());
+                    long backendId = 10018;
+                    PublishVersionTask task = new PublishVersionTask(backendId,
+                            subTxnId,
+                            transactionState.getDbId(),
+                            tPartitionVersionInfos,
+                            createPublishVersionTaskTime);
+                    LOG.info("sout: publish subTxnId={}, tPartitionVersionInfos={}", subTxnId, tPartitionVersionInfos);
+                    AgentTaskQueue.addTask(task);
+                    batchTask.addTask(task);
+                    transactionState.addPublishVersionTask(backendId, task);
+                }
+                // return;
+            } else {
+                for (long backendId : publishBackends) {
+                    PublishVersionTask task = new PublishVersionTask(backendId,
+                            transactionState.getTransactionId(),
+                            transactionState.getDbId(),
+                            partitionVersionInfos,
+                            createPublishVersionTaskTime);
+                    // add to AgentTaskQueue for handling finish report.
+                    // not check return value, because the add will success
+                    AgentTaskQueue.addTask(task);
+                    batchTask.addTask(task);
+                    transactionState.addPublishVersionTask(backendId, task);
+                }
             }
             transactionState.setSendedTask();
             LOG.info("send publish tasks for transaction: {}, db: {}", transactionState.getTransactionId(),

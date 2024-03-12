@@ -59,6 +59,7 @@ import org.apache.doris.task.AgentBatchTask;
 import org.apache.doris.task.AgentTaskExecutor;
 import org.apache.doris.task.ClearTransactionTask;
 import org.apache.doris.task.PublishVersionTask;
+import org.apache.doris.thrift.TTabletCommitInfo;
 import org.apache.doris.thrift.TUniqueId;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -200,8 +201,13 @@ public class DatabaseTransactionMgr {
         return dbId;
     }
 
-    public TransactionIdGenerator getIdGenerator() {
-        return idGenerator;
+    public long getNextTransactionId() {
+        try {
+            writeLock();
+            return idGenerator.getNextTransactionId();
+        } finally {
+            writeUnlock();
+        }
     }
 
     protected TransactionState getTransactionState(Long transactionId) {
@@ -804,6 +810,71 @@ public class DatabaseTransactionMgr {
         LOG.info("transaction:[{}] successfully committed", transactionState);
     }
 
+    public void commitTransaction(long transactionId, List<TxnInfo> txnInfos) throws UserException {
+        // check status
+        // the caller method already own tables' write lock
+        Database db = env.getInternalCatalog().getDbOrMetaException(dbId);
+        TransactionState transactionState;
+        readLock();
+        try {
+            transactionState = unprotectedGetTransactionState(transactionId);
+        } finally {
+            readUnlock();
+        }
+
+        if (transactionState == null) {
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("transaction not found: {}", transactionId);
+            }
+            throw new TransactionCommitFailedException("transaction [" + transactionId + "] not found.");
+        }
+
+        if (transactionState.getTransactionStatus() == TransactionStatus.ABORTED) {
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("transaction is already aborted: {}", transactionId);
+            }
+            throw new TransactionCommitFailedException("transaction [" + transactionId
+                    + "] is already aborted. abort reason: " + transactionState.getReason());
+        }
+
+        if (transactionState.getTransactionStatus() == TransactionStatus.VISIBLE) {
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("transaction is already visible: {}", transactionId);
+            }
+            return;
+        }
+        if (transactionState.getTransactionStatus() == TransactionStatus.COMMITTED) {
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("transaction is already committed: {}", transactionId);
+            }
+            return;
+        }
+
+        // TODO check commit status
+
+
+        transactionState.beforeStateTransform(TransactionStatus.COMMITTED);
+        // transaction state transform
+        boolean txnOperated = false;
+        writeLock();
+        try {
+            unprotectedCommitTransaction(transactionState, txnInfos, db);
+            txnOperated = true;
+        } finally {
+            writeUnlock();
+            // after state transform
+            try {
+                transactionState.afterStateTransform(TransactionStatus.COMMITTED, txnOperated);
+            } catch (Throwable e) {
+                LOG.warn("afterStateTransform txn {} failed. exception: ", transactionState, e);
+            }
+        }
+
+        // update nextVersion because of the failure of persistent transaction resulting in error version
+        updateCatalogAfterCommitted(transactionState, db, false);
+        LOG.info("transaction:[{}] successfully committed", transactionState);
+    }
+
     public boolean waitForTransactionFinished(DatabaseIf db, long transactionId, long timeoutMillis)
             throws TransactionCommitFailedException {
         TransactionState transactionState = null;
@@ -1374,6 +1445,7 @@ public class DatabaseTransactionMgr {
                         || tblPartitionInfo.getType() == PartitionType.LIST) {
                     partitionRange = tblPartitionInfo.getItem(partitionId).getItems().toString();
                 }
+                // TODO
                 PartitionCommitInfo partitionCommitInfo = new PartitionCommitInfo(partitionId, partitionRange,
                         partition.getNextVersion(),
                         System.currentTimeMillis() /* use as partition visible time */);
@@ -1383,6 +1455,72 @@ public class DatabaseTransactionMgr {
         }
         // persist transactionState
         unprotectUpsertTransactionState(transactionState, false);
+
+        // add publish version tasks. set task to null as a placeholder.
+        // tasks will be created when publishing version.
+        for (long backendId : totalInvolvedBackends) {
+            transactionState.addPublishVersionTask(backendId, null);
+        }
+    }
+
+    protected void unprotectedCommitTransaction(TransactionState transactionState, List<TxnInfo> txnInfos,
+            Database db) {
+        // transaction state is modified during check if the transaction could committed
+        if (transactionState.getTransactionStatus() != TransactionStatus.PREPARE) {
+            return;
+        }
+        // update transaction state version
+        long commitTime = System.currentTimeMillis();
+        transactionState.setCommitTime(commitTime);
+        if (MetricRepo.isInit) {
+            MetricRepo.HISTO_TXN_EXEC_LATENCY.update(commitTime - transactionState.getPrepareTime());
+        }
+        transactionState.setTransactionStatus(TransactionStatus.COMMITTED);
+        // TODO
+        // transactionState.setErrorReplicas(errorReplicaIds);
+
+        // persist transactionState
+        unprotectUpsertTransactionState(transactionState, false);
+        transactionState.containSubTxnInfo = true;
+
+        List<Long> totalInvolvedBackends = new ArrayList<>();
+        for (TxnInfo txnInfo : txnInfos) {
+            long txnId = txnInfo.getTxnId();
+            OlapTable table = (OlapTable) txnInfo.getTable();
+            long tableId = table.getId();
+            List<TTabletCommitInfo> commitInfos = txnInfo.getCommitInfos();
+            /*TableCommitInfo tableCommitInfo = new TableCommitInfo(tableId, table.getNextVersion(),
+                    System.currentTimeMillis());*/
+            TabletInvertedIndex tabletInvertedIndex = env.getTabletInvertedIndex();
+            List<Long> partitionIds = new ArrayList<>();
+            for (TTabletCommitInfo commitInfo : commitInfos) {
+                long tabletId = commitInfo.getTabletId();
+                TabletMeta tabletMeta = tabletInvertedIndex.getTabletMeta(tabletId);
+                long partitionId = tabletMeta.getPartitionId();
+                partitionIds.add(partitionId);
+            }
+            TableCommitInfo tableCommitInfo = new TableCommitInfo(tableId, table.getNextVersion(),
+                    System.currentTimeMillis());
+            PartitionInfo tblPartitionInfo = table.getPartitionInfo();
+            for (long partitionId : partitionIds) {
+                Partition partition = table.getPartition(partitionId);
+                String partitionRange = "";
+                if (tblPartitionInfo.getType() == PartitionType.RANGE
+                        || tblPartitionInfo.getType() == PartitionType.LIST) {
+                    partitionRange = tblPartitionInfo.getItem(partitionId).getItems().toString();
+                }
+                // TODO
+                PartitionCommitInfo partitionCommitInfo = new PartitionCommitInfo(partitionId, partitionRange,
+                        partition.getNextVersion(),
+                        System.currentTimeMillis() /* use as partition visible time */);
+                LOG.info("sout: set partition_id={}, version={}, txn_id={}, sub_txn_id={}",
+                        partitionId, partition.getNextVersion(), txnId, txnInfo.getTxnId());
+                partition.setNextVersion(partition.getNextVersion() + 1);
+                tableCommitInfo.addPartitionCommitInfo(partitionCommitInfo);
+            }
+            transactionState.subTxnIdToTableCommitInfo.put(txnInfo.getTxnId(), tableCommitInfo);
+            transactionState.putIdToTableCommitInfo(tableId, tableCommitInfo);
+        }
 
         // add publish version tasks. set task to null as a placeholder.
         // tasks will be created when publishing version.
@@ -1904,6 +2042,7 @@ public class DatabaseTransactionMgr {
                         }
                     }
                 }
+                // TODO
                 partition.setNextVersion(partition.getNextVersion() + 1);
             }
         }

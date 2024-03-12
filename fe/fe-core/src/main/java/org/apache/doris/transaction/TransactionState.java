@@ -298,6 +298,9 @@ public class TransactionState implements Writable {
     // table id -> schema info
     private Map<Long, SchemaInfo> txnSchemas = new HashMap<>();
 
+    public boolean containSubTxnInfo = false;
+    public Map<Long, TableCommitInfo> subTxnIdToTableCommitInfo = new HashMap<>();
+
     public TransactionState() {
         this.dbId = -1;
         this.tableIdList = Lists.newArrayList();
@@ -637,6 +640,7 @@ public class TransactionState implements Writable {
     public synchronized void addTableIndexes(OlapTable table) {
         Set<Long> indexIds = loadedTblIndexes.computeIfAbsent(table.getId(), k -> Sets.newHashSet());
         // always equal the index ids
+        // TODO why clear? why add all?
         indexIds.clear();
         indexIds.addAll(table.getIndexIdToMeta().keySet());
     }
