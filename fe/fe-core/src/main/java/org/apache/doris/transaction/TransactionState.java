@@ -188,7 +188,6 @@ public class TransactionState implements Writable {
     @Setter
     @Getter
     private List<Long> tableIdList;
-    private int replicaNum = 0;
     @SerializedName(value = "txnId")
     private long transactionId;
     @SerializedName(value = "label")
