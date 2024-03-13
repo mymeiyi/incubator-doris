@@ -1143,8 +1143,14 @@ public class DatabaseTransactionMgr {
 
     private boolean finishCheckPartitionVersion(TransactionState transactionState, Database db,
             List<Pair<OlapTable, Partition>> relatedTblPartitions) {
-        Iterator<TableCommitInfo> tableCommitInfoIterator
-                = transactionState.getIdToTableCommitInfos().values().iterator();
+        Iterator<TableCommitInfo> tableCommitInfoIterator;
+        if (!transactionState.subTxnIdToTableCommitInfo.isEmpty()) {
+            tableCommitInfoIterator = transactionState.subTxnIdToTableCommitInfo.values().stream()
+                    .sorted(Comparator.comparingLong(TableCommitInfo::getVersion)).iterator();
+        } else {
+            tableCommitInfoIterator = transactionState.getIdToTableCommitInfos().values().iterator();
+        }
+        Map<Long, Long> partitionToVisibleVersion = new HashMap<>();
         while (tableCommitInfoIterator.hasNext()) {
             TableCommitInfo tableCommitInfo = tableCommitInfoIterator.next();
             long tableId = tableCommitInfo.getTableId();
@@ -1171,7 +1177,14 @@ public class DatabaseTransactionMgr {
                                     + " and remove it from transaction state {}", partitionId, transactionState);
                     continue;
                 }
-                if (partition.getVisibleVersion() != partitionCommitInfo.getVersion() - 1) {
+                boolean versionContinuous = false;
+                if (partitionToVisibleVersion.containsKey(partitionId)) {
+                    versionContinuous = (partitionToVisibleVersion.get(partitionId)
+                            == partitionCommitInfo.getVersion() - 1);
+                } else {
+                    versionContinuous = (partition.getVisibleVersion() == partitionCommitInfo.getVersion() - 1);
+                }
+                if (!versionContinuous) {
                     if (LOG.isDebugEnabled()) {
                         LOG.debug("for table {} partition {}, transactionId {} partition commitInfo version {} is not"
                                 + " equal with partition visible version {} plus one, need wait",
@@ -1184,6 +1197,7 @@ public class DatabaseTransactionMgr {
                     transactionState.setErrorMsg(errMsg);
                     return false;
                 }
+                partitionToVisibleVersion.put(partitionId, partitionCommitInfo.getVersion());
 
                 relatedTblPartitions.add(Pair.of(table, partition));
             }
@@ -2044,6 +2058,7 @@ public class DatabaseTransactionMgr {
                 }
                 // TODO
                 partition.setNextVersion(partition.getNextVersion() + 1);
+                LOG.info("sout: set next version={} for partition={}", partition.getNextVersion(), partition.getId());
             }
         }
     }
