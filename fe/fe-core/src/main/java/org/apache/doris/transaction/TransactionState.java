@@ -52,6 +52,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -298,7 +299,7 @@ public class TransactionState implements Writable {
     private Map<Long, SchemaInfo> txnSchemas = new HashMap<>();
 
     public boolean containSubTxnInfo = false;
-    public Map<Long, TableCommitInfo> subTxnIdToTableCommitInfo = new HashMap<>();
+    public Map<Long, TableCommitInfo> subTxnIdToTableCommitInfo = new TreeMap<>();
 
     public TransactionState() {
         this.dbId = -1;

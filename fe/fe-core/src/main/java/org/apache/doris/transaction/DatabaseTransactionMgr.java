@@ -1098,8 +1098,10 @@ public class DatabaseTransactionMgr {
         PublishResult publishResult;
         try {
             if (!finishCheckPartitionVersion(transactionState, db, relatedTblPartitions)) {
+                LOG.warn("sout: check partition version false, transactionId: {}", transactionId);
                 return;
             }
+            LOG.warn("sout: check partition version true, transactionId: {}", transactionId);
             publishResult = finishCheckQuorumReplicas(transactionState, relatedTblPartitions, errorReplicaIds);
             if (publishResult == PublishResult.FAILED) {
                 return;
@@ -1528,7 +1530,7 @@ public class DatabaseTransactionMgr {
                         partition.getNextVersion(),
                         System.currentTimeMillis() /* use as partition visible time */);
                 LOG.info("sout: set partition_id={}, version={}, txn_id={}, sub_txn_id={}",
-                        partitionId, partition.getNextVersion(), txnId, txnInfo.getTxnId());
+                        partitionId, partitionCommitInfo.getVersion(), txnId, txnInfo.getTxnId());
                 partition.setNextVersion(partition.getNextVersion() + 1);
                 tableCommitInfo.addPartitionCommitInfo(partitionCommitInfo);
             }
@@ -2006,6 +2008,11 @@ public class DatabaseTransactionMgr {
         Set<Long> errorReplicaIds = transactionState.getErrorReplicas();
         List<Replica> tabletSuccReplicas = Lists.newArrayList();
         List<Replica> tabletFailedReplicas = Lists.newArrayList();
+        Collection<TableCommitInfo> values = transactionState.subTxnIdToTableCommitInfo.values();
+        if (!values.isEmpty()) {
+            // TODO
+            return;
+        }
         for (TableCommitInfo tableCommitInfo : transactionState.getIdToTableCommitInfos().values()) {
             long tableId = tableCommitInfo.getTableId();
             OlapTable table = (OlapTable) db.getTableNullable(tableId);
@@ -2067,7 +2074,14 @@ public class DatabaseTransactionMgr {
         Set<Long> errorReplicaIds = transactionState.getErrorReplicas();
         AnalysisManager analysisManager = Env.getCurrentEnv().getAnalysisManager();
         List<Long> newPartitionLoadedTableIds = new ArrayList<>();
-        for (TableCommitInfo tableCommitInfo : transactionState.getIdToTableCommitInfos().values()) {
+
+        Collection<TableCommitInfo> values;
+        if (!transactionState.subTxnIdToTableCommitInfo.isEmpty()) {
+            values = transactionState.subTxnIdToTableCommitInfo.values();
+        } else {
+            values = transactionState.getIdToTableCommitInfos().values();
+        }
+        for (TableCommitInfo tableCommitInfo : values) {
             long tableId = tableCommitInfo.getTableId();
             OlapTable table = (OlapTable) db.getTableNullable(tableId);
             if (table == null) {
@@ -2131,6 +2145,7 @@ public class DatabaseTransactionMgr {
                     newPartitionLoadedTableIds.add(tableId);
                 }
                 partition.updateVisibleVersionAndTime(version, versionTime);
+                LOG.info("sout: set partition {}'s visible version to [{}]", partition.getId(), version);
                 if (LOG.isDebugEnabled()) {
                     LOG.debug("transaction state {} set partition {}'s version to [{}]",
                             transactionState, partition.getId(), version);
