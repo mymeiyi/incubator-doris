@@ -94,8 +94,8 @@ public class OlapInsertExecutor extends AbstractInsertExecutor {
                     throw new AnalysisException("Transaction insert expect label " + txnEntry.getLabel()
                             + ", but got " + this.labelName);
                 }
-                txnEntry.beginTransaction(database, table);
-                this.txnId = txnEntry.getTransactionId();
+                this.txnId = txnEntry.beginTransaction(database, table);
+                // this.txnId = txnEntry.getTransactionId();
                 this.labelName = txnEntry.getLabel();
             } else {
                 this.txnId = Env.getCurrentGlobalTransactionMgr().beginTransaction(
@@ -157,10 +157,15 @@ public class OlapInsertExecutor extends AbstractInsertExecutor {
             throw new AnalysisException(e.getMessage(), e);
         }
         TransactionState state = Env.getCurrentGlobalTransactionMgr().getTransactionState(database.getId(), txnId);
-        if (state == null) {
-            throw new AnalysisException("txn does not exist: " + txnId);
+        if (!ctx.isTxnModel()) {
+            if (state == null) {
+                throw new AnalysisException("txn does not exist: " + txnId);
+            }
+            state.addTableIndexes((OlapTable) table);
+        } else {
+            // TODO
+
         }
-        state.addTableIndexes((OlapTable) table);
         if (physicalOlapTableSink.isPartialUpdate()) {
             state.setSchemaForPartialUpdate((OlapTable) table);
         }
@@ -176,7 +181,11 @@ public class OlapInsertExecutor extends AbstractInsertExecutor {
     protected void onComplete() throws UserException {
         if (ctx.isTxnModel()) {
             TransactionEntry txnEntry = ctx.getTxnEntry();
-            txnEntry.addCommitInfos((Table) table, coordinator.getCommitInfos());
+            if (ctx.getState().getStateType() == MysqlStateType.ERR) {
+                txnEntry.removeTable((Table) table);
+            } else {
+                txnEntry.addTabletCommitInfos(txnId, (Table) table, coordinator.getCommitInfos());
+            }
             return;
         }
 

@@ -183,13 +183,13 @@ public class TransactionEntry {
                 throw new AnalysisException(
                         "Transaction insert must be in the same database, expect db_id=" + this.database.getId());
             }
+            // TODO if the load for this table error, we should remove the table
             this.transactionState.addTableId(table.getId());
             return Env.getCurrentGlobalTransactionMgr().getNextTransactionId();
         }
     }
 
-    public TransactionStatus commitTransaction()
-            throws Exception {
+    public TransactionStatus commitTransaction() throws Exception {
         if (isTransactionBegan) {
             if (Env.getCurrentGlobalTransactionMgr().commitAndPublishTransaction(database, transactionId,
                     subTransactionStates, ConnectContext.get().getExecTimeout())) {
@@ -268,8 +268,13 @@ public class TransactionEntry {
         }
     }
 
+    public void removeTable(Table table) {
+        if (isTransactionBegan) {
+            this.transactionState.removeTableId(table.getId());
+        }
+    }
+
     public void addTabletCommitInfos(long txnId, Table table, List<TTabletCommitInfo> commitInfos) {
-        // TODO relate the commit info and txn_id
         LOG.info("sout: txn id={}, table={}, commit_info={}", txnId, table, commitInfos);
         /*this.tableList.add(table);
         this.tabletCommitInfos.addAll(commitInfos);*/

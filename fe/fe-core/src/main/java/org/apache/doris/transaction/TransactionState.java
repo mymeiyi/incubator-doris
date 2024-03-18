@@ -32,6 +32,7 @@ import org.apache.doris.task.PublishVersionTask;
 import org.apache.doris.thrift.TUniqueId;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -52,6 +53,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -188,7 +190,6 @@ public class TransactionState implements Writable {
     @Setter
     @Getter
     private List<Long> tableIdList;
-    private int replicaNum = 0;
     @SerializedName(value = "txnId")
     private long transactionId;
     @SerializedName(value = "label")
@@ -297,6 +298,9 @@ public class TransactionState implements Writable {
     private boolean isPartialUpdate = false;
     // table id -> schema info
     private Map<Long, SchemaInfo> txnSchemas = new HashMap<>();
+
+    public boolean containSubTxnInfo = false;
+    public Map<Long, TableCommitInfo> subTxnIdToTableCommitInfo = new TreeMap<>();
 
     public TransactionState() {
         this.dbId = -1;
@@ -587,6 +591,19 @@ public class TransactionState implements Writable {
         return dbId;
     }
 
+    // TODO should we add a lock between addTableId, removeTableId and getTableIdList?
+    public void addTableId(long tableId) {
+        this.tableIdList.add(tableId);
+    }
+
+    public void removeTableId(long tableId) {
+        Preconditions.checkState(this.tableIdList.size() > 0, "table id list is empty");
+        Preconditions.checkState(this.tableIdList.get(this.tableIdList.size() - 1) == tableId,
+                "table id is not match, expect: %s, actual: %s", tableId,
+                this.tableIdList.get(this.tableIdList.size() - 1));
+        this.tableIdList.remove(this.tableIdList.size() - 1);
+    }
+
     public List<Long> getTableIdList() {
         return tableIdList;
     }
@@ -637,6 +654,7 @@ public class TransactionState implements Writable {
     public synchronized void addTableIndexes(OlapTable table) {
         Set<Long> indexIds = loadedTblIndexes.computeIfAbsent(table.getId(), k -> Sets.newHashSet());
         // always equal the index ids
+        // TODO why clear? why add all?
         indexIds.clear();
         indexIds.addAll(table.getIndexIdToMeta().keySet());
     }
