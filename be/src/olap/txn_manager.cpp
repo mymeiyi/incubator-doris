@@ -174,16 +174,27 @@ Status TxnManager::commit_txn(TPartitionId partition_id, const Tablet& tablet,
                               TTransactionId transaction_id, const PUniqueId& load_id,
                               const RowsetSharedPtr& rowset_ptr, PendingRowsetGuard guard,
                               bool is_recovery) {
-    return commit_txn(tablet.data_dir()->get_meta(), partition_id, transaction_id,
+    LOG(INFO) << "sout: start commit txn_id=" << transaction_id
+              << ", partition_id=" << partition_id;
+    auto st = commit_txn(tablet.data_dir()->get_meta(), partition_id, transaction_id,
                       tablet.tablet_id(), tablet.tablet_uid(), load_id, rowset_ptr,
                       std::move(guard), is_recovery);
+    LOG(INFO) << "sout: finish commit txn_id=" << transaction_id
+              << ", partition_id=" << partition_id;
+    return st;
 }
 
 Status TxnManager::publish_txn(TPartitionId partition_id, const TabletSharedPtr& tablet,
                                TTransactionId transaction_id, const Version& version,
                                TabletPublishStatistics* stats) {
-    return publish_txn(tablet->data_dir()->get_meta(), partition_id, transaction_id,
+    LOG(INFO) << "sout: publish txn_id=" << transaction_id << ", partition_id=" << partition_id
+              << ", version=[" << version.first << "-" << version.second << "]";
+    auto st = publish_txn(tablet->data_dir()->get_meta(), partition_id, transaction_id,
                        tablet->tablet_id(), tablet->tablet_uid(), version, stats);
+    LOG(INFO) << "sout: publish txn_id=" << transaction_id << ", partition_id=" << partition_id
+              << ", version=[" << version.first << "-" << version.second
+              << "], st=" << st.to_string();
+    return st;
 }
 
 void TxnManager::abort_txn(TPartitionId partition_id, TTransactionId transaction_id,
