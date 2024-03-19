@@ -244,7 +244,8 @@ public class GlobalTransactionMgr implements GlobalTransactionMgrIface {
         dbTransactionMgr.commitTransaction(tableList, transactionId, tabletCommitInfos, txnCommitAttachment, false);
     }
 
-    public void commitTransaction(long dbId, long transactionId, List<SubTransactionState> subTransactionStates, long timeoutMillis)
+    public void commitTransaction(long dbId, List<Table> tableList, long transactionId,
+            List<SubTransactionState> subTransactionStates, long timeoutMillis)
             throws UserException {
         if (Config.disable_load_job) {
             throw new TransactionCommitFailedException("disable_load_job is set to true, all load jobs are prevented");
@@ -254,7 +255,7 @@ public class GlobalTransactionMgr implements GlobalTransactionMgrIface {
             LOG.debug("try to commit transaction: {}", transactionId);
         }
         DatabaseTransactionMgr dbTransactionMgr = getDatabaseTransactionMgr(dbId);
-        dbTransactionMgr.commitTransaction(transactionId, subTransactionStates);
+        dbTransactionMgr.commitTransaction(transactionId, tableList, subTransactionStates);
     }
 
     private void commitTransaction2PC(long dbId, long transactionId)
@@ -311,7 +312,7 @@ public class GlobalTransactionMgr implements GlobalTransactionMgrIface {
                     + StringUtils.join(tableList, ",") + ")");
         }
         try {
-            commitTransaction(db.getId(), transactionId, subTransactionStates, timeoutMillis);
+            commitTransaction(db.getId(), tableList, transactionId, subTransactionStates, timeoutMillis);
         } finally {
             MetaLockUtils.writeUnlockTables(tableList);
         }

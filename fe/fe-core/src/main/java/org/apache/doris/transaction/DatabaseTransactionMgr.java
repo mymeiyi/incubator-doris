@@ -831,8 +831,9 @@ public class DatabaseTransactionMgr {
         checkTransactionStateBeforeCommit(db, tableList, transactionId, false, transactionState);
 
         // TODO check commit status
+        // error replica may be duplicated for different sub transaction, but it's ok
+        Set<Long> errorReplicaIds = Sets.newHashSet();
         for (SubTransactionState subTransactionState : subTransactionStates) {
-            Set<Long> errorReplicaIds = Sets.newHashSet();
             Set<Long> totalInvolvedBackends = Sets.newHashSet();
             Map<Long, Set<Long>> tableToPartition = new HashMap<>();
             Table table = subTransactionState.getTable();
@@ -850,7 +851,7 @@ public class DatabaseTransactionMgr {
         boolean txnOperated = false;
         writeLock();
         try {
-            unprotectedCommitTransaction(transactionState, subTransactionStates, db);
+            unprotectedCommitTransaction(transactionState, errorReplicaIds, subTransactionStates, db);
             txnOperated = true;
         } finally {
             writeUnlock();
@@ -1443,18 +1444,8 @@ public class DatabaseTransactionMgr {
     protected void unprotectedCommitTransaction(TransactionState transactionState, Set<Long> errorReplicaIds,
                                                 Map<Long, Set<Long>> tableToPartition, Set<Long> totalInvolvedBackends,
                                                 Database db) {
-        // transaction state is modified during check if the transaction could committed
-        if (transactionState.getTransactionStatus() != TransactionStatus.PREPARE) {
-            return;
-        }
-        // update transaction state version
-        long commitTime = System.currentTimeMillis();
-        transactionState.setCommitTime(commitTime);
-        if (MetricRepo.isInit) {
-            MetricRepo.HISTO_TXN_EXEC_LATENCY.update(commitTime - transactionState.getPrepareTime());
-        }
-        transactionState.setTransactionStatus(TransactionStatus.COMMITTED);
-        transactionState.setErrorReplicas(errorReplicaIds);
+        checkBeforeUnprotectedCommitTransaction(transactionState, errorReplicaIds);
+
         for (long tableId : tableToPartition.keySet()) {
             OlapTable table = (OlapTable) db.getTableNullable(tableId);
             TableCommitInfo tableCommitInfo = new TableCommitInfo(tableId);
@@ -1484,8 +1475,7 @@ public class DatabaseTransactionMgr {
         }
     }
 
-    protected void unprotectedCommitTransaction(TransactionState transactionState, List<SubTransactionState> subTransactionStates,
-            Database db) {
+    private void checkBeforeUnprotectedCommitTransaction(TransactionState transactionState, Set<Long> errorReplicaIds) {
         // transaction state is modified during check if the transaction could committed
         if (transactionState.getTransactionStatus() != TransactionStatus.PREPARE) {
             return;
@@ -1497,21 +1487,77 @@ public class DatabaseTransactionMgr {
             MetricRepo.HISTO_TXN_EXEC_LATENCY.update(commitTime - transactionState.getPrepareTime());
         }
         transactionState.setTransactionStatus(TransactionStatus.COMMITTED);
-        // TODO
-        // transactionState.setErrorReplicas(errorReplicaIds);
+        transactionState.setErrorReplicas(errorReplicaIds);
 
         // persist transactionState
         unprotectUpsertTransactionState(transactionState, false);
+    }
+
+    protected void unprotectedCommitTransaction(TransactionState transactionState, Set<Long> errorReplicaIds,
+            List<SubTransactionState> subTransactionStates, Database db) {
+        checkBeforeUnprotectedCommitTransaction(transactionState, errorReplicaIds);
+
         transactionState.containSubTxnInfo = true;
 
-        List<Long> totalInvolvedBackends = new ArrayList<>();
+        Map<Long, List<SubTransactionState>> tableToSubTransactionState = new HashMap<>();
         for (SubTransactionState subTransactionState : subTransactionStates) {
+            long tableId = subTransactionState.getTable().getId();
+            tableToSubTransactionState.computeIfAbsent(tableId, k -> new ArrayList<>()).add(subTransactionState);
+        }
+
+        TabletInvertedIndex tabletInvertedIndex = env.getTabletInvertedIndex();
+        for (Entry<Long, List<SubTransactionState>> entry : tableToSubTransactionState.entrySet()) {
+            long tableId = entry.getKey();
+            List<SubTransactionState> subTransactionStateList = entry.getValue();
+
+            OlapTable table = (OlapTable) db.getTableNullable(tableId);
+            TableCommitInfo tableCommitInfo = new TableCommitInfo(tableId, table.getNextVersion(),
+                    System.currentTimeMillis());
+            PartitionInfo tblPartitionInfo = table.getPartitionInfo();
+            Map<Long, Long> partitionToVersionMap = new HashMap<>();
+
+            for (SubTransactionState subTransactionState : subTransactionStateList) {
+                List<TTabletCommitInfo> tabletCommitInfos = subTransactionState.getTabletCommitInfos();
+                List<Long> partitionIds = new ArrayList<>();
+                for (TTabletCommitInfo commitInfo : tabletCommitInfos) {
+                    TabletMeta tabletMeta = tabletInvertedIndex.getTabletMeta(commitInfo.getTabletId());
+                    partitionIds.add(tabletMeta.getPartitionId());
+                }
+
+                for (long partitionId : partitionIds) {
+                    Partition partition = table.getPartition(partitionId);
+                    String partitionRange = "";
+                    if (tblPartitionInfo.getType() == PartitionType.RANGE
+                            || tblPartitionInfo.getType() == PartitionType.LIST) {
+                        partitionRange = tblPartitionInfo.getItem(partitionId).getItems().toString();
+                    }
+
+                    long partitionNextVersion = partition.getNextVersion();
+                    if (partitionToVersionMap.containsKey(partitionId)) {
+                        partitionNextVersion = partitionToVersionMap.get(partitionId) + 1;
+                    }
+                    partitionToVersionMap.put(partitionId, partitionNextVersion);
+
+                    PartitionCommitInfo partitionCommitInfo = new PartitionCommitInfo(partitionId, partitionRange,
+                            partitionNextVersion, System.currentTimeMillis() /* use as partition visible time */);
+                    LOG.info("sout: set partition_id={}, version={}, txn_id={}, sub_txn_id={}",
+                            partitionId, partitionCommitInfo.getVersion(), transactionState.getTransactionId(),
+                            subTransactionState.getSubTransactionId());
+                    // partition.setNextVersion(partition.getNextVersion() + 1);
+                    tableCommitInfo.addPartitionCommitInfo(partitionCommitInfo);
+                }
+                transactionState.subTxnIdToTableCommitInfo.put(subTransactionState.getSubTransactionId(), tableCommitInfo);
+            }
+            transactionState.putIdToTableCommitInfo(tableId, tableCommitInfo);
+        }
+
+        /*for (SubTransactionState subTransactionState : subTransactionStates) {
             long txnId = subTransactionState.getSubTransactionId();
             OlapTable table = (OlapTable) subTransactionState.getTable();
             long tableId = table.getId();
             List<TTabletCommitInfo> commitInfos = subTransactionState.getTabletCommitInfos();
-            /*TableCommitInfo tableCommitInfo = new TableCommitInfo(tableId, table.getNextVersion(),
-                    System.currentTimeMillis());*/
+            *//*TableCommitInfo tableCommitInfo = new TableCommitInfo(tableId, table.getNextVersion(),
+                    System.currentTimeMillis());*//*
             TabletInvertedIndex tabletInvertedIndex = env.getTabletInvertedIndex();
             List<Long> partitionIds = new ArrayList<>();
             for (TTabletCommitInfo commitInfo : commitInfos) {
@@ -1533,7 +1579,7 @@ public class DatabaseTransactionMgr {
                 // TODO
                 PartitionCommitInfo partitionCommitInfo = new PartitionCommitInfo(partitionId, partitionRange,
                         partition.getNextVersion(),
-                        System.currentTimeMillis() /* use as partition visible time */);
+                        System.currentTimeMillis() *//* use as partition visible time *//*);
                 LOG.info("sout: set partition_id={}, version={}, txn_id={}, sub_txn_id={}",
                         partitionId, partitionCommitInfo.getVersion(), txnId, subTransactionState.getSubTransactionId());
                 partition.setNextVersion(partition.getNextVersion() + 1);
@@ -1541,8 +1587,9 @@ public class DatabaseTransactionMgr {
             }
             transactionState.subTxnIdToTableCommitInfo.put(subTransactionState.getSubTransactionId(), tableCommitInfo);
             transactionState.putIdToTableCommitInfo(tableId, tableCommitInfo);
-        }
+        }*/
 
+        List<Long> totalInvolvedBackends = new ArrayList<>();
         // add publish version tasks. set task to null as a placeholder.
         // tasks will be created when publishing version.
         for (long backendId : totalInvolvedBackends) {
