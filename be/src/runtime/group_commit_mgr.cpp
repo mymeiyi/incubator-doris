@@ -314,8 +314,12 @@ Status GroupCommitTable::_create_group_commit_load(int be_exe_version) {
     st = _exec_plan_fragment(_db_id, _table_id, label, txn_id, is_pipeline, params,
                              pipeline_params);
     if (!st.ok()) {
-        static_cast<void>(_finish_group_commit_load(_db_id, _table_id, label, txn_id, instance_id,
-                                                    st, nullptr));
+        auto status = _finish_group_commit_load(_db_id, _table_id, label, txn_id, instance_id, st,
+                                                nullptr);
+        if (!status.ok()) {
+            LOG(WARNING) << "finish group commit error, label=" << label
+                         << ", st=" << status.to_string();
+        }
     }
     return st;
 }
@@ -432,8 +436,12 @@ Status GroupCommitTable::_exec_plan_fragment(int64_t db_id, int64_t table_id,
                                              const TExecPlanFragmentParams& params,
                                              const TPipelineFragmentParams& pipeline_params) {
     auto finish_cb = [db_id, table_id, label, txn_id, this](RuntimeState* state, Status* status) {
-        static_cast<void>(_finish_group_commit_load(db_id, table_id, label, txn_id,
-                                                    state->fragment_instance_id(), *status, state));
+        auto st  = _finish_group_commit_load(db_id, table_id, label, txn_id,
+                                                    state->fragment_instance_id(), *status, state);
+        if (!st.ok()) {
+            LOG(WARNING) << "finish group commit error, label=" << label
+                         << ", st=" << st.to_string();
+        }
     };
     if (is_pipeline) {
         return _exec_env->fragment_mgr()->exec_plan_fragment(pipeline_params, finish_cb);
