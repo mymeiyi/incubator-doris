@@ -117,10 +117,8 @@ public class PublishVersionDaemon extends MasterDaemon {
                     TableCommitInfo tableCommitInfo = entry.getValue();
                     List<TPartitionVersionInfo> tPartitionVersionInfos = tableCommitInfo.getIdToPartitionCommitInfo()
                             .values().stream()
-                            .map(partitionCommitInfo -> {
-                                return new TPartitionVersionInfo(partitionCommitInfo.getPartitionId(),
-                                        partitionCommitInfo.getVersion(), 0);
-                            }).collect(Collectors.toList());
+                            .map(partitionCommitInfo -> new TPartitionVersionInfo(partitionCommitInfo.getPartitionId(),
+                                    partitionCommitInfo.getVersion(), 0)).collect(Collectors.toList());
                     long backendId = 10018;
                     PublishVersionTask task = new PublishVersionTask(backendId,
                             subTxnId,
@@ -132,7 +130,6 @@ public class PublishVersionDaemon extends MasterDaemon {
                     batchTask.addTask(task);
                     transactionState.addPublishVersionTask(backendId, task);
                 }
-                // return;
             } else {
                 for (long backendId : publishBackends) {
                     PublishVersionTask task = new PublishVersionTask(backendId,
