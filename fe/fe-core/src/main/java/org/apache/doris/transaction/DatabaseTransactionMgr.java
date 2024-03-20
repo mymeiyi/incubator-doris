@@ -1522,7 +1522,7 @@ public class DatabaseTransactionMgr {
                     TabletMeta tabletMeta = tabletInvertedIndex.getTabletMeta(commitInfo.getTabletId());
                     partitionIds.add(tabletMeta.getPartitionId());
                 }
-                TableCommitInfo tableCommitInfo = new TableCommitInfo(tableId, table.getNextVersion(),
+                TableCommitInfo tableCommitInfo = new TableCommitInfo(tableId, tableNextVersion,
                         System.currentTimeMillis());
 
                 for (long partitionId : partitionIds) {
