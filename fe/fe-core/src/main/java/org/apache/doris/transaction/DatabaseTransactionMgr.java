@@ -1511,8 +1511,7 @@ public class DatabaseTransactionMgr {
             List<SubTransactionState> subTransactionStateList = entry.getValue();
 
             OlapTable table = (OlapTable) db.getTableNullable(tableId);
-            TableCommitInfo tableCommitInfo = new TableCommitInfo(tableId, table.getNextVersion(),
-                    System.currentTimeMillis());
+            long tableNextVersion = table.getNextVersion();
             PartitionInfo tblPartitionInfo = table.getPartitionInfo();
             Map<Long, Long> partitionToVersionMap = new HashMap<>();
 
@@ -1523,6 +1522,8 @@ public class DatabaseTransactionMgr {
                     TabletMeta tabletMeta = tabletInvertedIndex.getTabletMeta(commitInfo.getTabletId());
                     partitionIds.add(tabletMeta.getPartitionId());
                 }
+                TableCommitInfo tableCommitInfo = new TableCommitInfo(tableId, table.getNextVersion(),
+                        System.currentTimeMillis());
 
                 for (long partitionId : partitionIds) {
                     Partition partition = table.getPartition(partitionId);
@@ -1548,7 +1549,7 @@ public class DatabaseTransactionMgr {
                 }
                 transactionState.subTxnIdToTableCommitInfo.put(subTransactionState.getSubTransactionId(), tableCommitInfo);
             }
-            transactionState.putIdToTableCommitInfo(tableId, tableCommitInfo);
+            // transactionState.putIdToTableCommitInfo(tableId, tableCommitInfo);
         }
 
         /*for (SubTransactionState subTransactionState : subTransactionStates) {
@@ -2057,15 +2058,23 @@ public class DatabaseTransactionMgr {
     }
 
     private void updateCatalogAfterCommitted(TransactionState transactionState, Database db, boolean isReplay) {
-        Set<Long> errorReplicaIds = transactionState.getErrorReplicas();
+        if (transactionState.containSubTxnInfo) {
+            for (Entry<Long, TableCommitInfo> entry : transactionState.subTxnIdToTableCommitInfo.entrySet()) {
+                TableCommitInfo tableCommitInfo = entry.getValue();
+            }
+        } else {
+            updatePartitionNextVersion(transactionState, db, isReplay,
+                    Lists.newArrayList(transactionState.getIdToTableCommitInfos().values()));
+        }
+        /*Set<Long> errorReplicaIds = transactionState.getErrorReplicas();
         List<Replica> tabletSuccReplicas = Lists.newArrayList();
         List<Replica> tabletFailedReplicas = Lists.newArrayList();
-        Collection<TableCommitInfo> values = transactionState.subTxnIdToTableCommitInfo.values();
-        if (!values.isEmpty()) {
+        Collection<TableCommitInfo> values = transactionState.subTxnIdToTableCommitInfo.values();*/
+        /*if (transactionState.containSubTxnInfo) {
             // TODO
             return;
-        }
-        for (TableCommitInfo tableCommitInfo : transactionState.getIdToTableCommitInfos().values()) {
+        }*/
+        /*for (TableCommitInfo tableCommitInfo : transactionState.getIdToTableCommitInfos().values()) {
             long tableId = tableCommitInfo.getTableId();
             OlapTable table = (OlapTable) db.getTableNullable(tableId);
             if (table == null) {
@@ -2119,6 +2128,81 @@ public class DatabaseTransactionMgr {
                 partition.setNextVersion(partition.getNextVersion() + 1);
                 LOG.info("sout: set next version={} for partition={}", partition.getNextVersion(), partition.getId());
             }
+        }*/
+    }
+
+    private void updatePartitionNextVersion(TransactionState transactionState, Database db, boolean isReplay,
+            List<TableCommitInfo> tableCommitInfos) {
+        Set<Long> errorReplicaIds = transactionState.getErrorReplicas();
+        List<Replica> tabletSuccReplicas = Lists.newArrayList();
+        List<Replica> tabletFailedReplicas = Lists.newArrayList();
+
+        Map<Partition, Long> partitionToVersionMap = Maps.newHashMap();
+        for (TableCommitInfo tableCommitInfo : tableCommitInfos) {
+            long tableId = tableCommitInfo.getTableId();
+            OlapTable table = (OlapTable) db.getTableNullable(tableId);
+            if (table == null) {
+                LOG.warn("table {} does not exist when update catalog after committed. transaction: {}, db: {}",
+                        tableId, transactionState.getTransactionId(), db.getId());
+                continue;
+            }
+            for (PartitionCommitInfo partitionCommitInfo : tableCommitInfo.getIdToPartitionCommitInfo().values()) {
+                long partitionId = partitionCommitInfo.getPartitionId();
+                Partition partition = table.getPartition(partitionId);
+                if (partition == null) {
+                    LOG.warn("partition {} of table {} does not exist when update catalog after committed."
+                                    + " transaction: {}, db: {}",
+                            partitionId, tableId, transactionState.getTransactionId(), db.getId());
+                    continue;
+                }
+                List<MaterializedIndex> allIndices = partition.getMaterializedIndices(
+                        MaterializedIndex.IndexExtState.ALL);
+                for (MaterializedIndex index : allIndices) {
+                    List<Tablet> tablets = index.getTablets();
+                    for (Tablet tablet : tablets) {
+                        tabletFailedReplicas.clear();
+                        tabletSuccReplicas.clear();
+                        for (Replica replica : tablet.getReplicas()) {
+                            if (errorReplicaIds.contains(replica.getId())) {
+                                // TODO(cmy): do we need to update last failed version here?
+                                // because in updateCatalogAfterVisible, it will be updated again.
+                                replica.updateLastFailedVersion(partitionCommitInfo.getVersion());
+                                tabletFailedReplicas.add(replica);
+                            } else {
+                                tabletSuccReplicas.add(replica);
+                            }
+                        }
+                        if (!isReplay && !tabletFailedReplicas.isEmpty()) {
+                            LOG.info("some replicas load data failed for committed txn {} on version {}, table {}, "
+                                            + "partition {}, tablet {}, {} replicas load data succ: {}, {} replicas load "
+                                            + "data fail: {}",
+                                    transactionState.getTransactionId(), partitionCommitInfo.getVersion(),
+                                    tableId, partitionId, tablet.getId(), tabletSuccReplicas.size(),
+                                    Joiner.on(", ").join(tabletSuccReplicas.stream()
+                                            .map(replica -> replica.toStringSimple(true))
+                                            .collect(Collectors.toList())),
+                                    tabletFailedReplicas.size(),
+                                    Joiner.on(", ").join(tabletFailedReplicas.stream()
+                                            .map(replica -> replica.toStringSimple(true))
+                                            .collect(Collectors.toList())));
+                        }
+                    }
+                }
+                if (!partitionToVersionMap.containsKey(partition)
+                        || partitionToVersionMap.get(partition) < partitionCommitInfo.getVersion()) {
+                    partitionToVersionMap.put(partition, partitionCommitInfo.getVersion());
+                }
+                // TODO
+                // partition.setNextVersion(partition.getNextVersion() + 1);
+                LOG.info("sout: set next version={} for partition={}", partition.getNextVersion(), partition.getId());
+            }
+        }
+
+        for (Entry<Partition, Long> entry : partitionToVersionMap.entrySet()) {
+            Partition partition = entry.getKey();
+            long version = entry.getValue();
+            partition.setNextVersion(version + 1);
+            LOG.info("sout: set partition: {} next_version to: {}", partition.getId(), partition.getNextVersion());
         }
     }
 
@@ -2127,13 +2211,13 @@ public class DatabaseTransactionMgr {
         AnalysisManager analysisManager = Env.getCurrentEnv().getAnalysisManager();
         List<Long> newPartitionLoadedTableIds = new ArrayList<>();
 
-        Collection<TableCommitInfo> values;
+        Collection<TableCommitInfo> tableCommitInfos;
         if (!transactionState.subTxnIdToTableCommitInfo.isEmpty()) {
-            values = transactionState.subTxnIdToTableCommitInfo.values();
+            tableCommitInfos = transactionState.subTxnIdToTableCommitInfo.values();
         } else {
-            values = transactionState.getIdToTableCommitInfos().values();
+            tableCommitInfos = transactionState.getIdToTableCommitInfos().values();
         }
-        for (TableCommitInfo tableCommitInfo : values) {
+        for (TableCommitInfo tableCommitInfo : tableCommitInfos) {
             long tableId = tableCommitInfo.getTableId();
             OlapTable table = (OlapTable) db.getTableNullable(tableId);
             if (table == null) {

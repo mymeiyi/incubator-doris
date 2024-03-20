@@ -87,21 +87,6 @@ public class PublishVersionDaemon extends MasterDaemon {
             if (transactionState.hasSendTask()) {
                 continue;
             }
-            List<PartitionCommitInfo> partitionCommitInfos = new ArrayList<>();
-            for (TableCommitInfo tableCommitInfo : transactionState.getIdToTableCommitInfos().values()) {
-                partitionCommitInfos.addAll(tableCommitInfo.getIdToPartitionCommitInfo().values());
-            }
-            List<TPartitionVersionInfo> partitionVersionInfos = new ArrayList<>(partitionCommitInfos.size());
-            for (PartitionCommitInfo commitInfo : partitionCommitInfos) {
-                TPartitionVersionInfo versionInfo = new TPartitionVersionInfo(commitInfo.getPartitionId(),
-                        commitInfo.getVersion(), 0);
-                partitionVersionInfos.add(versionInfo);
-                if (LOG.isDebugEnabled()) {
-                    LOG.debug("try to publish version info partitionid [{}], version [{}]",
-                            commitInfo.getPartitionId(),
-                            commitInfo.getVersion());
-                }
-            }
             Set<Long> publishBackends = transactionState.getPublishVersionTasks().keySet();
             // public version tasks are not persisted in catalog, so publishBackends may be empty.
             // so we have to try publish to all backends;
@@ -119,18 +104,35 @@ public class PublishVersionDaemon extends MasterDaemon {
                             .values().stream()
                             .map(partitionCommitInfo -> new TPartitionVersionInfo(partitionCommitInfo.getPartitionId(),
                                     partitionCommitInfo.getVersion(), 0)).collect(Collectors.toList());
-                    long backendId = 10018;
-                    PublishVersionTask task = new PublishVersionTask(backendId,
-                            subTxnId,
-                            transactionState.getDbId(),
-                            tPartitionVersionInfos,
-                            createPublishVersionTaskTime);
-                    LOG.info("sout: publish subTxnId={}, tPartitionVersionInfos={}", subTxnId, tPartitionVersionInfos);
-                    AgentTaskQueue.addTask(task);
-                    batchTask.addTask(task);
-                    transactionState.addPublishVersionTask(backendId, task);
+                    for (Long backendId : publishBackends) {
+                        PublishVersionTask task = new PublishVersionTask(backendId,
+                                subTxnId,
+                                transactionState.getDbId(),
+                                tPartitionVersionInfos,
+                                createPublishVersionTaskTime);
+                        LOG.info("sout: add publish task, backend_id={}, subTxnId={}, tPartitionVersionInfos={}",
+                                backendId, subTxnId, tPartitionVersionInfos);
+                        AgentTaskQueue.addTask(task);
+                        batchTask.addTask(task);
+                        transactionState.addPublishVersionTask(backendId, task);
+                    }
                 }
             } else {
+                List<PartitionCommitInfo> partitionCommitInfos = new ArrayList<>();
+                for (TableCommitInfo tableCommitInfo : transactionState.getIdToTableCommitInfos().values()) {
+                    partitionCommitInfos.addAll(tableCommitInfo.getIdToPartitionCommitInfo().values());
+                }
+                List<TPartitionVersionInfo> partitionVersionInfos = new ArrayList<>(partitionCommitInfos.size());
+                for (PartitionCommitInfo commitInfo : partitionCommitInfos) {
+                    TPartitionVersionInfo versionInfo = new TPartitionVersionInfo(commitInfo.getPartitionId(),
+                            commitInfo.getVersion(), 0);
+                    partitionVersionInfos.add(versionInfo);
+                    if (LOG.isDebugEnabled()) {
+                        LOG.debug("try to publish version info partitionid [{}], version [{}]",
+                                commitInfo.getPartitionId(),
+                                commitInfo.getVersion());
+                    }
+                }
                 for (long backendId : publishBackends) {
                     PublishVersionTask task = new PublishVersionTask(backendId,
                             transactionState.getTransactionId(),
