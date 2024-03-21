@@ -2059,9 +2059,12 @@ public class DatabaseTransactionMgr {
 
     private void updateCatalogAfterCommitted(TransactionState transactionState, Database db, boolean isReplay) {
         if (transactionState.containSubTxnInfo) {
-            for (Entry<Long, TableCommitInfo> entry : transactionState.subTxnIdToTableCommitInfo.entrySet()) {
+            /*for (Entry<Long, TableCommitInfo> entry : transactionState.subTxnIdToTableCommitInfo.entrySet()) {
                 TableCommitInfo tableCommitInfo = entry.getValue();
-            }
+            }*/
+            List<TableCommitInfo> tableCommitInfos = transactionState.subTxnIdToTableCommitInfo.entrySet().stream()
+                    .map(e -> e.getValue()).collect(Collectors.toList());
+            updatePartitionNextVersion(transactionState, db, isReplay, tableCommitInfos);
         } else {
             updatePartitionNextVersion(transactionState, db, isReplay,
                     Lists.newArrayList(transactionState.getIdToTableCommitInfos().values()));
