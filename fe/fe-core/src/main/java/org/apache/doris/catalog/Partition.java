@@ -162,6 +162,7 @@ public class Partition extends MetaObject implements Writable {
     }
 
     public long getVisibleVersion() {
+        LOG.info("sout: get partition_id={} visible_version={}", id, visibleVersion);
         return visibleVersion;
     }
 
