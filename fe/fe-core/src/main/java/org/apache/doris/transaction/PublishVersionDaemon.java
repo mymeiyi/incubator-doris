@@ -158,9 +158,7 @@ public class PublishVersionDaemon extends MasterDaemon {
         // try to finish the transaction, if failed just retry in next loop
         for (TransactionState transactionState : readyTransactionStates) {
             Stream<PublishVersionTask> publishVersionTaskStream = transactionState
-                    .getPublishVersionTasks()
-                    .values()
-                    .stream()
+                    .getPublishVersionTasks().values().stream().flatMap(List::stream)
                     .peek(task -> {
                         if (task.isFinished() && CollectionUtils.isEmpty(task.getErrorTablets())) {
                             Map<Long, Long> tableIdToDeltaNumRows =
@@ -197,9 +195,11 @@ public class PublishVersionDaemon extends MasterDaemon {
             }
 
             if (transactionState.getTransactionStatus() == TransactionStatus.VISIBLE) {
-                for (PublishVersionTask task : transactionState.getPublishVersionTasks().values()) {
-                    AgentTaskQueue.removeTask(task.getBackendId(), TTaskType.PUBLISH_VERSION, task.getSignature());
-                }
+                transactionState.getPublishVersionTasks().values().forEach(tasks -> {
+                    for (PublishVersionTask task : tasks) {
+                        AgentTaskQueue.removeTask(task.getBackendId(), TTaskType.PUBLISH_VERSION, task.getSignature());
+                    }
+                });
                 transactionState.pruneAfterVisible();
                 if (MetricRepo.isInit) {
                     long publishTime = transactionState.getLastPublishVersionTime() - transactionState.getCommitTime();

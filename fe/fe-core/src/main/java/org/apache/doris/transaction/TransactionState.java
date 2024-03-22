@@ -223,7 +223,7 @@ public class TransactionState implements Writable {
     private CountDownLatch visibleLatch;
 
     // this state need not be serialized
-    private Map<Long, PublishVersionTask> publishVersionTasks;
+    private Map<Long, List<PublishVersionTask>> publishVersionTasks;
     private boolean hasSendTask;
     private TransactionStatus preStatus = null;
 
@@ -367,7 +367,7 @@ public class TransactionState implements Writable {
     }
 
     public void addPublishVersionTask(Long backendId, PublishVersionTask task) {
-        this.publishVersionTasks.put(backendId, task);
+        this.publishVersionTasks.computeIfAbsent(backendId, k -> Lists.newArrayList()).add(task);
     }
 
     public void setSendedTask() {
@@ -693,7 +693,7 @@ public class TransactionState implements Writable {
         return sourceType;
     }
 
-    public Map<Long, PublishVersionTask> getPublishVersionTasks() {
+    public Map<Long, List<PublishVersionTask>> getPublishVersionTasks() {
         return publishVersionTasks;
     }
 

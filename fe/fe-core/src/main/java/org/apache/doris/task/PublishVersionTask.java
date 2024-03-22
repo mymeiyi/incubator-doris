@@ -73,6 +73,7 @@ public class PublishVersionTask extends AgentTask {
     }
 
     public void setSuccTablets(Map<Long, Long> succTablets) {
+        LOG.info("sout: publish task={}, txn_id={}, set succTablets={}", this, transactionId, succTablets);
         this.succTablets = succTablets;
     }
 

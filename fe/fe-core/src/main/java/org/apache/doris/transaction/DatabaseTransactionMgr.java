@@ -1094,9 +1094,10 @@ public class DatabaseTransactionMgr {
                 LOG.warn("sout: check partition version false, transactionId: {}", transactionId);
                 return;
             }
-            LOG.warn("sout: check partition version true, transactionId: {}", transactionId);
+            LOG.info("sout: check partition version true, transactionId: {}", transactionId);
             publishResult = finishCheckQuorumReplicas(transactionState, relatedTblPartitions, errorReplicaIds);
             if (publishResult == PublishResult.FAILED) {
+                LOG.info("sout: check quorum failed, transactionId: {}", transactionId);
                 return;
             }
             boolean txnOperated = false;
@@ -1232,7 +1233,7 @@ public class DatabaseTransactionMgr {
         List<Replica> tabletVersionFailedReplicas = Lists.newArrayList();
         List<String> logs = Lists.newArrayList();
 
-        Map<Long, PublishVersionTask> publishTasks = transactionState.getPublishVersionTasks();
+        Map<Long, List<PublishVersionTask>> publishTasks = transactionState.getPublishVersionTasks();
         PublishResult publishResult = PublishResult.QUORUM_SUCC;
         for (Pair<OlapTable, Partition> pair : relatedTblPartitions) {
             OlapTable table = pair.key();
@@ -1330,7 +1331,7 @@ public class DatabaseTransactionMgr {
 
         boolean needLog = publishResult != PublishResult.FAILED
                 || now - transactionState.getLastPublishLogTime() > Config.publish_fail_log_interval_second * 1000L;
-        if (needLog) {
+        if (true) {
             transactionState.setLastPublishLogTime(now);
             for (String log : logs) {
                 LOG.info("{}. publish times {}, whole txn publish result {}",
@@ -1364,6 +1365,8 @@ public class DatabaseTransactionMgr {
             errorReplicaIds.add(replica.getId());
         } else {
             Map<Long, Long> backendSuccTablets = backendPublishTask.getSuccTablets();
+            LOG.info("sout: get publish task={}, txn_id={}, success_tablets={}", backendPublishTask,
+                    backendPublishTask.getTransactionId(), backendSuccTablets);
             // new doris BE will report succ tablets
             if (backendSuccTablets != null) {
                 if (backendSuccTablets.containsKey(tabletId)) {
@@ -1379,6 +1382,7 @@ public class DatabaseTransactionMgr {
                 }
             }
         }
+        LOG.info("sout: txn_id={}, error_replica={}", backendPublishTask.getTransactionId(), errorReplicaIds);
 
         // Schema change and rollup has a sched watermark,
         // it's ensure that alter replicas will load those txns whose txn id > sched watermark.
@@ -1522,8 +1526,9 @@ public class DatabaseTransactionMgr {
                     TabletMeta tabletMeta = tabletInvertedIndex.getTabletMeta(commitInfo.getTabletId());
                     partitionIds.add(tabletMeta.getPartitionId());
                 }
-                TableCommitInfo tableCommitInfo = new TableCommitInfo(tableId, tableNextVersion,
-                        System.currentTimeMillis());
+                TableCommitInfo tableCommitInfo = new TableCommitInfo(tableId);
+                tableCommitInfo.setVersion(tableNextVersion);
+                tableCommitInfo.setVersionTime(System.currentTimeMillis());
 
                 for (long partitionId : partitionIds) {
                     Partition partition = table.getPartition(partitionId);
