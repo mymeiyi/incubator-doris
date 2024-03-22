@@ -43,11 +43,14 @@ import com.google.common.collect.Lists;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.thrift.TException;
+import sun.tools.jconsole.Tab;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
 
 public class TransactionEntry {
 
@@ -191,12 +194,29 @@ public class TransactionEntry {
 
     public TransactionStatus commitTransaction() throws Exception {
         if (isTransactionBegan) {
-            if (Env.getCurrentGlobalTransactionMgr().commitAndPublishTransaction(database, transactionId,
-                    subTransactionStates, ConnectContext.get().getExecTimeout())) {
-                return TransactionStatus.VISIBLE;
-            } else {
-                return TransactionStatus.COMMITTED;
-            }
+            /*Set<Long> tableIds = subTransactionStates.stream().map(s -> s.getTable().getId())
+                    .collect(Collectors.toSet());
+            if (tableIds.size() == subTransactionStates.size()) {
+                List<Table> tables = new ArrayList<>(tableIds.size());
+                List<TTabletCommitInfo> tabletCommitInfos = new ArrayList<>();
+                for (SubTransactionState subTransactionState : subTransactionStates) {
+                    tables.add(subTransactionState.getTable());
+                    tabletCommitInfos.addAll(subTransactionState.getTabletCommitInfos());
+                }
+                if (Env.getCurrentGlobalTransactionMgr().commitAndPublishTransaction(database, tables, transactionId,
+                        TabletCommitInfo.fromThrift(tabletCommitInfos), ConnectContext.get().getExecTimeout())) {
+                    return TransactionStatus.VISIBLE;
+                } else {
+                    return TransactionStatus.COMMITTED;
+                }
+            } else {*/
+                if (Env.getCurrentGlobalTransactionMgr().commitAndPublishTransaction(database, transactionId,
+                        subTransactionStates, ConnectContext.get().getExecTimeout())) {
+                    return TransactionStatus.VISIBLE;
+                } else {
+                    return TransactionStatus.COMMITTED;
+                }
+            //}
         } else if (isTxnBegin()) {
             InsertStreamTxnExecutor executor = new InsertStreamTxnExecutor(this);
             if (dataToSend.size() > 0) {
