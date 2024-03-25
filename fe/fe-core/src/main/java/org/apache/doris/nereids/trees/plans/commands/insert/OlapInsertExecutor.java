@@ -87,6 +87,7 @@ public class OlapInsertExecutor extends AbstractInsertExecutor {
     @Override
     public void beginTransaction() {
         try {
+            LOG.info("sout: ctx is={}, txn_model={}", ctx, ctx.isTxnModel());
             if (ctx.isTxnModel()) {
                 TransactionEntry txnEntry = ctx.getTxnEntry();
                 // check the same label with begin

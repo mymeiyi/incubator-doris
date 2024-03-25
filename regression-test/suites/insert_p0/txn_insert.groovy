@@ -277,5 +277,38 @@ suite("txn_insert") {
                 sql """ drop database if exists $db2 """
             }
         }
+
+        // 9. insert into mow tables
+        if (use_nereids_planner) {
+            def unique_table = "ut"
+            for (def i in 0..3) {
+                sql """ drop table if exists ${unique_table}_${i} """
+                sql """
+                    CREATE TABLE ${unique_table}_${i} (
+                        `id` int(11) NOT NULL,
+                        `name` varchar(50) NULL,
+                        `score` int(11) NULL default "-1"
+                    ) ENGINE=OLAP
+                    UNIQUE KEY(`id`, `name`)
+                    DISTRIBUTED BY HASH(`id`) BUCKETS 1
+                    PROPERTIES (
+                """ + (i == 2 ? "\"function_column.sequence_col\"='score', " : "") +
+                """
+                        "replication_num" = "1"
+                    );
+                """
+            }
+            sql """ insert into ${unique_table}_0 values(1, "a", 10), (2, "b", 20), (3, "c", 30); """
+            sql """ insert into ${unique_table}_1 values(1, "a", 11), (2, "b", 19), (4, "d", 40); """
+            sql """ begin """
+            sql """ insert into ${unique_table}_2 select * from ${unique_table}_0; """
+            sql """ insert into ${unique_table}_1 select * from ${unique_table}_0; """
+            sql """ insert into ${unique_table}_2 select * from ${unique_table}_1; """
+            sql """ commit; """
+            sql "sync"
+            order_qt_select28 """select * from ${unique_table}_0"""
+            order_qt_select29 """select * from ${unique_table}_1"""
+            order_qt_select30 """select * from ${unique_table}_2"""
+        }
     }
 }
