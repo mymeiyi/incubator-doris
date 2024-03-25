@@ -93,6 +93,7 @@ import org.apache.doris.transaction.TransactionState.LoadJobSourceType;
 import org.apache.doris.transaction.TransactionState.TxnCoordinator;
 import org.apache.doris.transaction.TransactionStatus;
 import org.apache.doris.transaction.TxnCommitAttachment;
+import org.apache.doris.transaction.SubTransactionState;
 import org.apache.doris.transaction.TxnStateCallbackFactory;
 import org.apache.doris.transaction.TxnStateChangeCallback;
 
@@ -700,6 +701,12 @@ public class CloudGlobalTransactionMgr implements GlobalTransactionMgrIface {
                                                List<TabletCommitInfo> tabletCommitInfos, long timeoutMillis)
             throws UserException {
         return commitAndPublishTransaction(db, tableList, transactionId, tabletCommitInfos, timeoutMillis, null);
+    }
+
+    @Override
+    public boolean commitAndPublishTransaction(DatabaseIf db, long transactionId,
+            List<SubTransactionState> subTransactionStates, long timeoutMillis) throws UserException {
+        throw new UnsupportedOperationException("commitAndPublishTransaction is not supported in cloud");
     }
 
     @Override

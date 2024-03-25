@@ -342,6 +342,8 @@ void FragmentMgr::coordinator_callback(const ReportStatusRequest& req) {
         }
         if (!req.runtime_state->tablet_commit_infos().empty()) {
             params.__isset.commitInfos = true;
+            LOG(INFO) << "sout: tablet commit info size="
+                      << req.runtime_state->tablet_commit_infos().size();
             params.commitInfos.reserve(req.runtime_state->tablet_commit_infos().size());
             for (auto& info : req.runtime_state->tablet_commit_infos()) {
                 params.commitInfos.push_back(info);
@@ -355,6 +357,7 @@ void FragmentMgr::coordinator_callback(const ReportStatusRequest& req) {
                                               rs->tablet_commit_infos().end());
                 }
             }
+            LOG(INFO) << "sout: total tablet commit info size 1=" << params.commitInfos.size();
         }
         if (!req.runtime_state->error_tablet_infos().empty()) {
             params.__isset.errorTabletInfos = true;

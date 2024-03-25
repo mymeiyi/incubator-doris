@@ -928,6 +928,8 @@ Status VNodeChannel::close_wait(RuntimeState* state) {
         state->tablet_commit_infos().insert(state->tablet_commit_infos().end(),
                                             std::make_move_iterator(_tablet_commit_infos.begin()),
                                             std::make_move_iterator(_tablet_commit_infos.end()));
+        LOG(INFO) << "sout: add tablet commit info size=" << _tablet_commit_infos.size()
+                  << ", load_id=" << _parent->_load_id << ", state=" << &state;
 
         _index_channel->set_error_tablet_in_state(state);
         _index_channel->set_tablets_received_rows(_tablets_received_rows, _node_id);
