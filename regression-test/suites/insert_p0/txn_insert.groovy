@@ -281,7 +281,7 @@ suite("txn_insert") {
         // 9. insert into mow tables
         if (use_nereids_planner) {
             def unique_table = "ut"
-            for (def i in 0..3) {
+            for (def i in 0..2) {
                 sql """ drop table if exists ${unique_table}_${i} """
                 sql """
                     CREATE TABLE ${unique_table}_${i} (
