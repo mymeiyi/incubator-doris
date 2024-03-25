@@ -21,6 +21,20 @@
 
 suite("txn_insert") {
     def table = "txn_insert_tbl"
+
+    def get_observer_fe_url = {
+        def fes = sql_return_maparray "show frontends"
+        logger.info("frontends: ${fes}")
+        if (fes.size() > 1) {
+            for (def fe : fes) {
+                if (fe.IsMaster == "false") {
+                    return "jdbc:mysql://${fe.Host}:${fe.QueryPort}/"
+                }
+            }
+        }
+        return null
+    }
+
     for (def use_nereids_planner : [false, true]) {
         sql " SET enable_nereids_planner = $use_nereids_planner; "
         sql " SET enable_fallback_to_original_planner = false; "
@@ -234,24 +248,13 @@ suite("txn_insert") {
             order_qt_select27 """select * from ${table}_0"""
 
             // select from observer fe
-            def fes = sql_return_maparray "show frontends"
-            logger.info("frontends: ${fes}")
-            if (fes.size() > 1) {
-                def observer_fe = null
-                for (def fe : fes) {
-                    if (fe.IsMaster == "false") {
-                        observer_fe = fe
-                        break
-                    }
-                }
-                if (observer_fe != null) {
-                    def url = "jdbc:mysql://${observer_fe.Host}:${observer_fe.QueryPort}/"
-                    logger.info("observer url: " + url)
-                    connect(user = context.config.jdbcUser, password = context.config.jdbcPassword, url = url) {
-                        result = sql """ select count() from regression_test_insert_p0.${table}_0 """
-                        logger.info("select from observer result: $result")
-                        assertEquals(79, result[0][0])
-                    }
+            def observer_fe_url = get_observer_fe_url()
+            if (observer_fe_url != null) {
+                logger.info("observer url: $observer_fe_url")
+                connect(user = context.config.jdbcUser, password = context.config.jdbcPassword, url = observer_fe_url) {
+                    result = sql """ select count() from regression_test_insert_p0.${table}_0 """
+                    logger.info("select from observer result: $result")
+                    assertEquals(79, result[0][0])
                 }
             }
         }
