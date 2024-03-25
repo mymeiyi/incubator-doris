@@ -232,6 +232,28 @@ suite("txn_insert") {
             sql """ insert into ${table}_0 values(1001, 2.2, "abc", [], []) """
             sql "sync"
             order_qt_select27 """select * from ${table}_0"""
+
+            // select from observer fe
+            def fes = sql_return_maparray "show frontends"
+            logger.info("frontends: ${fes}")
+            if (fes.size() > 1) {
+                def observer_fe = null
+                for (def fe : fes) {
+                    if (fe.IsMaster == "false") {
+                        observer_fe = fe
+                        break
+                    }
+                }
+                if (observer_fe != null) {
+                    def url = "jdbc:mysql://${observer_fe.Host}:${observer_fe.QueryPort}/"
+                    logger.info("observer url: " + url)
+                    connect(user = context.config.jdbcUser, password = context.config.jdbcPassword, url = url) {
+                        result = sql """ select count() from regression_test_insert_p0.${table}_0 """
+                        logger.info("select from observer result: $result")
+                        assertEquals(79, result[0][0])
+                    }
+                }
+            }
         }
     }
 }
