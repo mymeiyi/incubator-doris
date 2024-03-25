@@ -51,6 +51,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
@@ -299,7 +300,9 @@ public class TransactionState implements Writable {
     // table id -> schema info
     private Map<Long, SchemaInfo> txnSchemas = new HashMap<>();
 
+    @SerializedName(value = "containSubTxnInfo")
     public boolean containSubTxnInfo = false;
+    @SerializedName(value = "subTxnIdToTableCommitInfo")
     public Map<Long, TableCommitInfo> subTxnIdToTableCommitInfo = new TreeMap<>();
 
     public TransactionState() {
@@ -753,6 +756,12 @@ public class TransactionState implements Writable {
         for (Long aLong : tableIdList) {
             out.writeLong(aLong);
         }
+        out.writeBoolean(containSubTxnInfo);
+        out.writeLong(subTxnIdToTableCommitInfo.size());
+        for (Entry<Long, TableCommitInfo> entry : subTxnIdToTableCommitInfo.entrySet()) {
+            out.writeLong(entry.getKey());
+            entry.getValue().write(out);
+        }
     }
 
     public void readFields(DataInput in) throws IOException {
@@ -788,6 +797,15 @@ public class TransactionState implements Writable {
         int tableListSize = in.readInt();
         for (int i = 0; i < tableListSize; i++) {
             tableIdList.add(in.readLong());
+        }
+        if (Env.getCurrentEnvJournalVersion() >= FeMetaVersion.VERSION_131) {
+            containSubTxnInfo = in.readBoolean();
+            long subTxnSize = in.readLong();
+            for (int i = 0; i < subTxnSize; i++) {
+                long tableId = in.readLong();
+                TableCommitInfo info = TableCommitInfo.read(in);
+                subTxnIdToTableCommitInfo.put(tableId, info);
+            }
         }
     }
 
