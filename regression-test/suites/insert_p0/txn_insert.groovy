@@ -258,5 +258,24 @@ suite("txn_insert") {
                 }
             }
         }
+
+        // 8. insert into tables in different database
+        if (use_nereids_planner) {
+            def db2 = "regression_test_insert_p0_1"
+            sql """ create database if not exists $db2 """
+
+            try {
+                sql """ create table ${db2}.${table} like ${table} """
+                sql """ begin; """
+                sql """ insert into ${table} select * from ${table}_0; """
+                test {
+                    sql """ insert into $db2.${table} select * from ${table}_0; """
+                    exception """Transaction insert must be in the same database, expect db_id"""
+                }
+            } finally {
+                sql """rollback"""
+                sql """ drop database if exists $db2 """
+            }
+        }
     }
 }
