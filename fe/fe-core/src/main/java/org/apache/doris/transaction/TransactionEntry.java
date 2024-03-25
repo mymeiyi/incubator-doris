@@ -23,9 +23,6 @@ import org.apache.doris.catalog.Env;
 import org.apache.doris.catalog.Table;
 import org.apache.doris.catalog.TableIf;
 import org.apache.doris.common.AnalysisException;
-import org.apache.doris.common.DdlException;
-import org.apache.doris.common.MetaNotFoundException;
-import org.apache.doris.common.QuotaExceedException;
 import org.apache.doris.common.UserException;
 import org.apache.doris.proto.InternalService;
 import org.apache.doris.proto.Types;
@@ -46,11 +43,14 @@ import com.google.common.collect.Lists;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.thrift.TException;
+import sun.tools.jconsole.Tab;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
 
 public class TransactionEntry {
 
@@ -71,8 +71,9 @@ public class TransactionEntry {
     private boolean isTransactionBegan = false;
     private long transactionId = -1;
     private TransactionState transactionState;
-    private List<Table> tableList = new ArrayList<>();
-    private List<TTabletCommitInfo> tabletCommitInfos = new ArrayList<>();
+    /*private List<Table> tableList = new ArrayList<>();
+    private List<TTabletCommitInfo> tabletCommitInfos = new ArrayList<>();*/
+    private List<SubTransactionState> subTransactionStates = new ArrayList<>();
 
     public TransactionEntry() {
     }
@@ -163,10 +164,8 @@ public class TransactionEntry {
         this.pLoadId = pLoadId;
     }
 
-    // Used for insert into select
-    public void beginTransaction(DatabaseIf database, TableIf table)
-            throws DdlException, BeginTransactionException, MetaNotFoundException, AnalysisException,
-            QuotaExceedException {
+    // Used for insert into select, return the sub_txn_id for this insert
+    public long beginTransaction(DatabaseIf database, TableIf table) throws UserException {
         if (isTxnBegin()) {
             // FIXME: support mix usage of `insert into values` and `insert into select`
             throw new AnalysisException(
@@ -181,25 +180,43 @@ public class TransactionEntry {
             this.database = database;
             this.transactionState = Env.getCurrentGlobalTransactionMgr()
                     .getTransactionState(database.getId(), transactionId);
+            return this.transactionId;
         } else {
             if (this.database.getId() != database.getId()) {
                 throw new AnalysisException(
                         "Transaction insert must be in the same database, expect db_id=" + this.database.getId());
             }
-            this.transactionState.getTableIdList().add(table.getId());
+            // TODO if the load for this table error, we should remove the table
+            this.transactionState.addTableId(table.getId());
+            return Env.getCurrentGlobalTransactionMgr().getNextTransactionId();
         }
     }
 
-    public TransactionStatus commitTransaction()
-            throws Exception {
+    public TransactionStatus commitTransaction() throws Exception {
         if (isTransactionBegan) {
-            if (Env.getCurrentGlobalTransactionMgr()
-                    .commitAndPublishTransaction(database, tableList, transactionId,
-                            TabletCommitInfo.fromThrift(tabletCommitInfos), ConnectContext.get().getExecTimeout())) {
-                return TransactionStatus.VISIBLE;
-            } else {
-                return TransactionStatus.COMMITTED;
-            }
+            /*Set<Long> tableIds = subTransactionStates.stream().map(s -> s.getTable().getId())
+                    .collect(Collectors.toSet());
+            if (tableIds.size() == subTransactionStates.size()) {
+                List<Table> tables = new ArrayList<>(tableIds.size());
+                List<TTabletCommitInfo> tabletCommitInfos = new ArrayList<>();
+                for (SubTransactionState subTransactionState : subTransactionStates) {
+                    tables.add(subTransactionState.getTable());
+                    tabletCommitInfos.addAll(subTransactionState.getTabletCommitInfos());
+                }
+                if (Env.getCurrentGlobalTransactionMgr().commitAndPublishTransaction(database, tables, transactionId,
+                        TabletCommitInfo.fromThrift(tabletCommitInfos), ConnectContext.get().getExecTimeout())) {
+                    return TransactionStatus.VISIBLE;
+                } else {
+                    return TransactionStatus.COMMITTED;
+                }
+            } else {*/
+                if (Env.getCurrentGlobalTransactionMgr().commitAndPublishTransaction(database, transactionId,
+                        subTransactionStates, ConnectContext.get().getExecTimeout())) {
+                    return TransactionStatus.VISIBLE;
+                } else {
+                    return TransactionStatus.COMMITTED;
+                }
+            //}
         } else if (isTxnBegin()) {
             InsertStreamTxnExecutor executor = new InsertStreamTxnExecutor(this);
             if (dataToSend.size() > 0) {
@@ -271,9 +288,17 @@ public class TransactionEntry {
         }
     }
 
-    public void addCommitInfos(Table table, List<TTabletCommitInfo> commitInfos) {
-        this.tableList.add(table);
-        this.tabletCommitInfos.addAll(commitInfos);
+    public void removeTable(Table table) {
+        if (isTransactionBegan) {
+            this.transactionState.removeTableId(table.getId());
+        }
+    }
+
+    public void addTabletCommitInfos(long txnId, Table table, List<TTabletCommitInfo> commitInfos) {
+        LOG.info("sout: txn id={}, table={}, commit_info={}", txnId, table, commitInfos);
+        /*this.tableList.add(table);
+        this.tabletCommitInfos.addAll(commitInfos);*/
+        this.subTransactionStates.add(new SubTransactionState(txnId, table, commitInfos));
     }
 
     public boolean isTransactionBegan() {

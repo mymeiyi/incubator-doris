@@ -213,5 +213,25 @@ suite("txn_insert") {
             order_qt_select23 """select * from ${table}_1"""
             order_qt_select24 """select * from ${table}_2"""
         }
+
+        // 7. insert into select to same table
+        if (use_nereids_planner) {
+            sql """ begin; """
+            sql """ insert into ${table}_0 select * from ${table}_1; """
+            sql """ insert into ${table}_0 select * from ${table}_2; """
+            sql """ insert into ${table}_0 select * from ${table}_1; """
+            sql """ insert into ${table}_0 select * from ${table}_2; """
+            sql """ commit; """
+            sql "sync"
+            order_qt_select25 """select * from ${table}_0"""
+
+            sql """ insert into ${table}_0 select * from ${table}_1; """
+            sql "sync"
+            order_qt_select26 """select * from ${table}_0"""
+
+            sql """ insert into ${table}_0 values(1001, 2.2, "abc", [], []) """
+            sql "sync"
+            order_qt_select27 """select * from ${table}_0"""
+        }
     }
 }

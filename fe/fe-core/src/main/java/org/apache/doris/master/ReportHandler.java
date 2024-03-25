@@ -480,6 +480,7 @@ public class ReportHandler extends Daemon {
 
         // 7. send publish version request to be
         if (!transactionsToPublish.isEmpty()) {
+            // TODO
             handleRepublishVersionInfo(transactionsToPublish, backendId);
         }
 

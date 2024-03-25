@@ -280,43 +280,45 @@ public class TabletInvertedIndex {
                                         // this transaction's status can not to be VISIBLE, and this publish task of
                                         // this replica of this tablet on this backend need retry publish success to
                                         // make transaction VISIBLE when last publish failed.
-                                        Map<Long, PublishVersionTask> publishVersionTask =
+                                        Map<Long, List<PublishVersionTask>> publishVersionTask =
                                                         transactionState.getPublishVersionTasks();
-                                        PublishVersionTask task = publishVersionTask.get(backendId);
-                                        if (task != null && task.isFinished()) {
-                                            List<Long> errorTablets = task.getErrorTablets();
-                                            if (errorTablets != null) {
-                                                for (int i = 0; i < errorTablets.size(); i++) {
-                                                    if (tabletId == errorTablets.get(i)) {
-                                                        TableCommitInfo tableCommitInfo
-                                                                = transactionState.getTableCommitInfo(
-                                                                        tabletMeta.getTableId());
-                                                        PartitionCommitInfo partitionCommitInfo =
-                                                                tableCommitInfo == null ? null :
-                                                                tableCommitInfo.getPartitionCommitInfo(partitionId);
-                                                        if (partitionCommitInfo != null) {
-                                                            TPartitionVersionInfo versionInfo
-                                                                    = new TPartitionVersionInfo(
+                                        List<PublishVersionTask> tasks = publishVersionTask.get(backendId);
+                                        for (PublishVersionTask task : tasks) {
+                                            if (task != null && task.isFinished()) {
+                                                List<Long> errorTablets = task.getErrorTablets();
+                                                if (errorTablets != null) {
+                                                    for (int i = 0; i < errorTablets.size(); i++) {
+                                                        if (tabletId == errorTablets.get(i)) {
+                                                            TableCommitInfo tableCommitInfo
+                                                                    = transactionState.getTableCommitInfo(
+                                                                    tabletMeta.getTableId());
+                                                            PartitionCommitInfo partitionCommitInfo =
+                                                                    tableCommitInfo == null ? null :
+                                                                            tableCommitInfo.getPartitionCommitInfo(
+                                                                                    partitionId);
+                                                            if (partitionCommitInfo != null) {
+                                                                TPartitionVersionInfo versionInfo
+                                                                        = new TPartitionVersionInfo(
                                                                         tabletMeta.getPartitionId(),
                                                                         partitionCommitInfo.getVersion(), 0);
-                                                            synchronized (transactionsToPublish) {
-                                                                ListMultimap<Long, TPartitionVersionInfo> map
-                                                                        = transactionsToPublish.get(
-                                                                        transactionState.getDbId());
-                                                                if (map == null) {
-                                                                    map = ArrayListMultimap.create();
-                                                                    transactionsToPublish.put(
-                                                                            transactionState.getDbId(), map);
+                                                                synchronized (transactionsToPublish) {
+                                                                    ListMultimap<Long, TPartitionVersionInfo> map
+                                                                            = transactionsToPublish.get(
+                                                                            transactionState.getDbId());
+                                                                    if (map == null) {
+                                                                        map = ArrayListMultimap.create();
+                                                                        transactionsToPublish.put(
+                                                                                transactionState.getDbId(), map);
+                                                                    }
+                                                                    map.put(transactionId, versionInfo);
                                                                 }
-                                                                map.put(transactionId, versionInfo);
                                                             }
+                                                            break;
                                                         }
-                                                        break;
                                                     }
                                                 }
                                             }
                                         }
-
                                     }
                                 }
                             } // end for txn id

@@ -609,6 +609,8 @@ Status VTabletWriterV2::close(Status exec_status) {
         _state->tablet_commit_infos().insert(_state->tablet_commit_infos().end(),
                                              std::make_move_iterator(tablet_commit_infos.begin()),
                                              std::make_move_iterator(tablet_commit_infos.end()));
+        LOG(INFO) << "sout: add tablet commit info size=" << tablet_commit_infos.size()
+                  << ", state=" << _state;
 
         // _number_input_rows don't contain num_rows_load_filtered and num_rows_load_unselected in scan node
         int64_t num_rows_load_total = _number_input_rows + _state->num_rows_load_filtered() +
