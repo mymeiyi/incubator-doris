@@ -446,11 +446,24 @@ public class MetaServiceProxy {
     public Cloud.GetRLTaskCommitAttachResponse
             getRLTaskCommitAttach(Cloud.GetRLTaskCommitAttachRequest request)
             throws RpcException {
+<<<<<<< HEAD
+=======
+        throw new RpcException("", "");
+        /*if (metaServiceHostPort == null) {
+            throw new RpcException("", "cloud mode, please configure cloud_unique_id and meta_service_endpoint");
+        }
+        TNetworkAddress metaAddress = new TNetworkAddress(metaServiceHostPort.first, metaServiceHostPort.second);
+>>>>>>> 59e2e56a7e (tmp)
         try {
             final MetaServiceClient client = getProxy();
             return client.getRLTaskCommitAttach(request);
         } catch (Exception e) {
+<<<<<<< HEAD
             throw new RpcException("", e.getMessage(), e);
         }
+=======
+            throw new RpcException(metaAddress.hostname, e.getMessage(), e);
+        }*/
+>>>>>>> 59e2e56a7e (tmp)
     }
 }
