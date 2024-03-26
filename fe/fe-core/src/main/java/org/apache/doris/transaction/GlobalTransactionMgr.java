@@ -244,6 +244,9 @@ public class GlobalTransactionMgr implements GlobalTransactionMgrIface {
         dbTransactionMgr.commitTransaction(tableList, transactionId, tabletCommitInfos, txnCommitAttachment, false);
     }
 
+    /**
+     * @note callers should get all tables' write locks before call this api
+     */
     public void commitTransaction(long dbId, List<Table> tableList, long transactionId,
             List<SubTransactionState> subTransactionStates, long timeoutMillis)
             throws UserException {
@@ -305,7 +308,7 @@ public class GlobalTransactionMgr implements GlobalTransactionMgrIface {
             List<SubTransactionState> subTransactionStates, long timeoutMillis) throws UserException {
         StopWatch stopWatch = new StopWatch();
         stopWatch.start();
-        List<Table> tableList = subTransactionStates.stream().map(SubTransactionState::getTable)
+        List<Table> tableList = subTransactionStates.stream().map(SubTransactionState::getTable).distinct()
                 .collect(Collectors.toList());
         if (!MetaLockUtils.tryWriteLockTablesOrMetaException(tableList, timeoutMillis, TimeUnit.MILLISECONDS)) {
             throw new UserException("get tableList write lock timeout, tableList=("
