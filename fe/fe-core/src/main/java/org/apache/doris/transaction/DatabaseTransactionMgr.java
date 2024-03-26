@@ -821,7 +821,6 @@ public class DatabaseTransactionMgr {
 
         checkTransactionStateBeforeCommit(db, tableList, transactionId, false, transactionState);
 
-        // TODO check commit status
         // error replica may be duplicated for different sub transaction, but it's ok
         Set<Long> errorReplicaIds = Sets.newHashSet();
         for (SubTransactionState subTransactionState : subTransactionStates) {
@@ -1462,7 +1461,6 @@ public class DatabaseTransactionMgr {
                         || tblPartitionInfo.getType() == PartitionType.LIST) {
                     partitionRange = tblPartitionInfo.getItem(partitionId).getItems().toString();
                 }
-                // TODO
                 PartitionCommitInfo partitionCommitInfo = new PartitionCommitInfo(partitionId, partitionRange,
                         partition.getNextVersion(),
                         System.currentTimeMillis() /* use as partition visible time */);
@@ -1519,9 +1517,8 @@ public class DatabaseTransactionMgr {
             Map<Long, Long> partitionToVersionMap = new HashMap<>();
 
             for (SubTransactionState subTransactionState : subTransactionStateList) {
-                List<TTabletCommitInfo> tabletCommitInfos = subTransactionState.getTabletCommitInfos();
-                List<Long> partitionIds = new ArrayList<>();
-                for (TTabletCommitInfo commitInfo : tabletCommitInfos) {
+                Set<Long> partitionIds = new HashSet<>();
+                for (TTabletCommitInfo commitInfo : subTransactionState.getTabletCommitInfos()) {
                     TabletMeta tabletMeta = tabletInvertedIndex.getTabletMeta(commitInfo.getTabletId());
                     partitionIds.add(tabletMeta.getPartitionId());
                 }
@@ -1556,12 +1553,13 @@ public class DatabaseTransactionMgr {
             // transactionState.putIdToTableCommitInfo(tableId, tableCommitInfo);
         }
 
-        List<Long> totalInvolvedBackends = new ArrayList<>();
+        // TODO why add this?
+        /*List<Long> totalInvolvedBackends = new ArrayList<>();
         // add publish version tasks. set task to null as a placeholder.
         // tasks will be created when publishing version.
         for (long backendId : totalInvolvedBackends) {
             transactionState.addPublishVersionTask(backendId, null);
-        }
+        }*/
     }
 
     protected void unprotectedCommitTransaction2PC(TransactionState transactionState, Database db) {
