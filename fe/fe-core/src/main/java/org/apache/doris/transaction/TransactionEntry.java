@@ -190,6 +190,7 @@ public class TransactionEntry {
 
     public TransactionStatus commitTransaction() throws Exception {
         if (isTransactionBegan) {
+            transactionState.setSubTransactionStates(subTransactionStates);
             if (Env.getCurrentGlobalTransactionMgr().commitAndPublishTransaction(database, transactionId,
                     subTransactionStates, ConnectContext.get().getExecTimeout())) {
                 return TransactionStatus.VISIBLE;

@@ -834,9 +834,7 @@ public class DatabaseTransactionMgr {
                     errorReplicaIds, tableToPartition, totalInvolvedBackends);
         }
 
-        // TODO check if all tablet commit info is valid in BE
-
-
+        // before state transform
         transactionState.beforeStateTransform(TransactionStatus.COMMITTED);
         // transaction state transform
         boolean txnOperated = false;
@@ -1504,8 +1502,6 @@ public class DatabaseTransactionMgr {
             List<SubTransactionState> subTransactionStates, Database db) {
         checkBeforeUnprotectedCommitTransaction(transactionState, errorReplicaIds);
 
-        transactionState.containSubTxnInfo = true;
-
         Map<Long, List<SubTransactionState>> tableToSubTransactionState = new HashMap<>();
         for (SubTransactionState subTransactionState : subTransactionStates) {
             long tableId = subTransactionState.getTable().getId();
@@ -2028,7 +2024,7 @@ public class DatabaseTransactionMgr {
     }
 
     private void updateCatalogAfterCommitted(TransactionState transactionState, Database db, boolean isReplay) {
-        if (transactionState.containSubTxnInfo) {
+        if (transactionState.subTxnIdToTableCommitInfo != null) {
             /*for (Entry<Long, TableCommitInfo> entry : transactionState.subTxnIdToTableCommitInfo.entrySet()) {
                 TableCommitInfo tableCommitInfo = entry.getValue();
             }*/

@@ -300,8 +300,9 @@ public class TransactionState implements Writable {
     // table id -> schema info
     private Map<Long, SchemaInfo> txnSchemas = new HashMap<>();
 
-    @SerializedName(value = "containSubTxnInfo")
-    public boolean containSubTxnInfo = false;
+    private List<SubTransactionState> subTransactionStates;
+    /*@SerializedName(value = "containSubTxnInfo")
+    public boolean containSubTxnInfo = false;*/
     @SerializedName(value = "subTxnIdToTableCommitInfo")
     public Map<Long, TableCommitInfo> subTxnIdToTableCommitInfo = new TreeMap<>();
 
@@ -363,6 +364,14 @@ public class TransactionState implements Writable {
         this.finishTime = finishTime;
         this.reason = reason;
         this.txnCommitAttachment = txnCommitAttachment;
+    }
+
+    public void setSubTransactionStates(List<SubTransactionState> subTransactionStates) {
+        this.subTransactionStates = subTransactionStates;
+    }
+
+    public List<SubTransactionState> getSubTransactionStates() {
+        return this.subTransactionStates;
     }
 
     public void setErrorReplicas(Set<Long> newErrorReplicas) {
@@ -690,7 +699,10 @@ public class TransactionState implements Writable {
         sb.append(", finish time: ").append(finishTime);
         sb.append(", reason: ").append(reason);
         if (txnCommitAttachment != null) {
-            sb.append(" attactment: ").append(txnCommitAttachment);
+            sb.append(", attachment: ").append(txnCommitAttachment);
+        }
+        if (subTransactionStates != null) {
+            sb.append(", sub txn states: ").append(subTransactionStates);
         }
         return sb.toString();
     }
@@ -756,7 +768,6 @@ public class TransactionState implements Writable {
         for (Long aLong : tableIdList) {
             out.writeLong(aLong);
         }
-        out.writeBoolean(containSubTxnInfo);
         out.writeLong(subTxnIdToTableCommitInfo.size());
         for (Entry<Long, TableCommitInfo> entry : subTxnIdToTableCommitInfo.entrySet()) {
             out.writeLong(entry.getKey());
@@ -799,7 +810,6 @@ public class TransactionState implements Writable {
             tableIdList.add(in.readLong());
         }
         if (Env.getCurrentEnvJournalVersion() >= FeMetaVersion.VERSION_131) {
-            containSubTxnInfo = in.readBoolean();
             long subTxnSize = in.readLong();
             for (int i = 0; i < subTxnSize; i++) {
                 long tableId = in.readLong();

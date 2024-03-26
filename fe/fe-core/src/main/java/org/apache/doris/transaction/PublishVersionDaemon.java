@@ -96,7 +96,7 @@ public class PublishVersionDaemon extends MasterDaemon {
                 publishBackends.addAll(allBackends);
             }
 
-            if (transactionState.containSubTxnInfo) {
+            if (transactionState.subTxnIdToTableCommitInfo != null) {
                 for (Entry<Long, TableCommitInfo> entry : transactionState.subTxnIdToTableCommitInfo.entrySet()) {
                     long subTxnId = entry.getKey();
                     TableCommitInfo tableCommitInfo = entry.getValue();
