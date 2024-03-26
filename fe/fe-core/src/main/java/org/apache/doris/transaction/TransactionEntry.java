@@ -39,6 +39,7 @@ import org.apache.doris.transaction.TransactionState.LoadJobSourceType;
 import org.apache.doris.transaction.TransactionState.TxnCoordinator;
 import org.apache.doris.transaction.TransactionState.TxnSourceType;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -48,6 +49,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
 
 public class TransactionEntry {
 
@@ -181,7 +183,6 @@ public class TransactionEntry {
                 throw new AnalysisException(
                         "Transaction insert must be in the same database, expect db_id=" + this.database.getId());
             }
-            // TODO if the load for this table error, we should remove the table
             this.transactionState.addTableId(table.getId());
             return Env.getCurrentGlobalTransactionMgr().getNextTransactionId();
         }
@@ -273,8 +274,16 @@ public class TransactionEntry {
     }
 
     public void addTabletCommitInfos(long txnId, Table table, List<TTabletCommitInfo> commitInfos) {
-        LOG.info("sout: txn id={}, table={}, commit_info={}", txnId, table, commitInfos);
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("label={}, txn_id={}, sub_txn_id={}, table={}, commit_infos={}",
+                    label, transactionId, txnId, table, commitInfos);
+        }
         this.subTransactionStates.add(new SubTransactionState(txnId, table, commitInfos));
+        Preconditions.checkState(transactionState.getTableIdList().size() == subTransactionStates.size(),
+                "txn_id={}, expect table_list={}, but is={}",
+                transactionId,
+                subTransactionStates.stream().map(s -> s.getTable().getId()).collect(Collectors.toList()),
+                transactionState.getTableIdList());
     }
 
     public boolean isTransactionBegan() {
