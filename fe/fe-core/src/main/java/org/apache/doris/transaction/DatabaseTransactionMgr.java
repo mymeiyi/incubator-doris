@@ -2024,7 +2024,7 @@ public class DatabaseTransactionMgr {
     }
 
     private void updateCatalogAfterCommitted(TransactionState transactionState, Database db, boolean isReplay) {
-        if (transactionState.subTxnIdToTableCommitInfo != null) {
+        if (transactionState.getSubTransactionStates() != null) {
             /*for (Entry<Long, TableCommitInfo> entry : transactionState.subTxnIdToTableCommitInfo.entrySet()) {
                 TableCommitInfo tableCommitInfo = entry.getValue();
             }*/
