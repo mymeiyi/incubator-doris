@@ -1541,10 +1541,10 @@ public class DatabaseTransactionMgr {
 
                     PartitionCommitInfo partitionCommitInfo = generatePartitionCommitInfo(table, partitionId,
                             partitionNextVersion);
+                    tableCommitInfo.addPartitionCommitInfo(partitionCommitInfo);
                     LOG.info("commit txn_id={}, sub_txn_id={}, partition_id={}, version={}",
                             transactionState.getTransactionId(), subTransactionState.getSubTransactionId(),
-                            partitionNextVersion);
-                    tableCommitInfo.addPartitionCommitInfo(partitionCommitInfo);
+                            partitionId, partitionNextVersion);
                 }
                 transactionState.subTxnIdToTableCommitInfo.put(subTransactionState.getSubTransactionId(), tableCommitInfo);
             }
