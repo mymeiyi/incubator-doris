@@ -44,4 +44,13 @@ public class SubTransactionState {
     public List<TTabletCommitInfo> getTabletCommitInfos() {
         return tabletCommitInfos;
     }
+
+    @Override
+    public String toString() {
+        return "SubTransactionState{" +
+                "subTransactionId=" + subTransactionId +
+                ", table=" + table +
+                ", tabletCommitInfos=" + tabletCommitInfos +
+                '}';
+    }
 }
