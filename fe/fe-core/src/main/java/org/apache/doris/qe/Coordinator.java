@@ -1252,7 +1252,13 @@ public class Coordinator implements CoordInterface {
     private void updateCommitInfos(List<TTabletCommitInfo> commitInfos) {
         lock.lock();
         try {
-            this.commitInfos.addAll(commitInfos);
+            // in pipelinex, the commit info may be duplicated
+            Map<Pair<Long, Long>, TTabletCommitInfo> commitInfoMap = Maps.newHashMap();
+            commitInfos.forEach(commitInfo -> {
+                Pair<Long, Long> key = Pair.of(commitInfo.getBackendId(), commitInfo.getTabletId());
+                commitInfoMap.put(key, commitInfo);
+            });
+            this.commitInfos.addAll(commitInfoMap.values());
         } finally {
             lock.unlock();
         }
