@@ -823,6 +823,7 @@ public class DatabaseTransactionMgr {
 
         // error replica may be duplicated for different sub transaction, but it's ok
         Set<Long> errorReplicaIds = Sets.newHashSet();
+        Map<Long, Set<Long>> subTxnToPartition = new HashMap<>();
         for (SubTransactionState subTransactionState : subTransactionStates) {
             Set<Long> totalInvolvedBackends = Sets.newHashSet();
             Map<Long, Set<Long>> tableToPartition = new HashMap<>();
@@ -831,6 +832,10 @@ public class DatabaseTransactionMgr {
             checkCommitStatus(Lists.newArrayList(table), transactionState,
                     TabletCommitInfo.fromThrift(tabletCommitInfos), null,
                     errorReplicaIds, tableToPartition, totalInvolvedBackends);
+            Preconditions.checkState(tableToPartition.size() <= 1, "tableToPartition=" + tableToPartition);
+            if (tableToPartition.size() > 0) {
+                subTxnToPartition.put(subTransactionState.getSubTransactionId(), tableToPartition.get(table.getId()));
+            }
         }
 
         // before state transform
@@ -839,7 +844,8 @@ public class DatabaseTransactionMgr {
         boolean txnOperated = false;
         writeLock();
         try {
-            unprotectedCommitTransaction(transactionState, errorReplicaIds, subTransactionStates, db);
+            unprotectedCommitTransaction(transactionState, errorReplicaIds, subTxnToPartition, subTransactionStates,
+                    db);
             txnOperated = true;
         } finally {
             writeUnlock();
@@ -1497,7 +1503,7 @@ public class DatabaseTransactionMgr {
     }
 
     protected void unprotectedCommitTransaction(TransactionState transactionState, Set<Long> errorReplicaIds,
-            List<SubTransactionState> subTransactionStates, Database db) {
+            Map<Long, Set<Long>> subTxnToPartition, List<SubTransactionState> subTransactionStates, Database db) {
         checkBeforeUnprotectedCommitTransaction(transactionState, errorReplicaIds);
 
         Map<Long, List<SubTransactionState>> tableToSubTransactionState = new HashMap<>();
@@ -1506,7 +1512,6 @@ public class DatabaseTransactionMgr {
             tableToSubTransactionState.computeIfAbsent(tableId, k -> new ArrayList<>()).add(subTransactionState);
         }
 
-        TabletInvertedIndex tabletInvertedIndex = env.getTabletInvertedIndex();
         for (Entry<Long, List<SubTransactionState>> entry : tableToSubTransactionState.entrySet()) {
             long tableId = entry.getKey();
             List<SubTransactionState> subTransactionStateList = entry.getValue();
@@ -1517,10 +1522,9 @@ public class DatabaseTransactionMgr {
             Map<Long, Long> partitionToVersionMap = new HashMap<>();
 
             for (SubTransactionState subTransactionState : subTransactionStateList) {
-                Set<Long> partitionIds = new HashSet<>();
-                for (TTabletCommitInfo commitInfo : subTransactionState.getTabletCommitInfos()) {
-                    TabletMeta tabletMeta = tabletInvertedIndex.getTabletMeta(commitInfo.getTabletId());
-                    partitionIds.add(tabletMeta.getPartitionId());
+                Set<Long> partitionIds = subTxnToPartition.get(subTransactionState.getSubTransactionId());
+                if (partitionIds == null) {
+                    continue;
                 }
                 TableCommitInfo tableCommitInfo = new TableCommitInfo(tableId);
                 tableCommitInfo.setVersion(tableNextVersion);
