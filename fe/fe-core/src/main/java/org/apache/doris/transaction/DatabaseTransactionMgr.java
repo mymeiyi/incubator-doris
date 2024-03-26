@@ -201,15 +201,6 @@ public class DatabaseTransactionMgr {
         return dbId;
     }
 
-    public long getNextTransactionId() {
-        try {
-            writeLock();
-            return idGenerator.getNextTransactionId();
-        } finally {
-            writeUnlock();
-        }
-    }
-
     protected TransactionState getTransactionState(Long transactionId) {
         readLock();
         try {
@@ -1568,44 +1559,6 @@ public class DatabaseTransactionMgr {
             }
             // transactionState.putIdToTableCommitInfo(tableId, tableCommitInfo);
         }
-
-        /*for (SubTransactionState subTransactionState : subTransactionStates) {
-            long txnId = subTransactionState.getSubTransactionId();
-            OlapTable table = (OlapTable) subTransactionState.getTable();
-            long tableId = table.getId();
-            List<TTabletCommitInfo> commitInfos = subTransactionState.getTabletCommitInfos();
-            *//*TableCommitInfo tableCommitInfo = new TableCommitInfo(tableId, table.getNextVersion(),
-                    System.currentTimeMillis());*//*
-            TabletInvertedIndex tabletInvertedIndex = env.getTabletInvertedIndex();
-            List<Long> partitionIds = new ArrayList<>();
-            for (TTabletCommitInfo commitInfo : commitInfos) {
-                long tabletId = commitInfo.getTabletId();
-                TabletMeta tabletMeta = tabletInvertedIndex.getTabletMeta(tabletId);
-                long partitionId = tabletMeta.getPartitionId();
-                partitionIds.add(partitionId);
-            }
-            TableCommitInfo tableCommitInfo = new TableCommitInfo(tableId, table.getNextVersion(),
-                    System.currentTimeMillis());
-            PartitionInfo tblPartitionInfo = table.getPartitionInfo();
-            for (long partitionId : partitionIds) {
-                Partition partition = table.getPartition(partitionId);
-                String partitionRange = "";
-                if (tblPartitionInfo.getType() == PartitionType.RANGE
-                        || tblPartitionInfo.getType() == PartitionType.LIST) {
-                    partitionRange = tblPartitionInfo.getItem(partitionId).getItems().toString();
-                }
-                // TODO
-                PartitionCommitInfo partitionCommitInfo = new PartitionCommitInfo(partitionId, partitionRange,
-                        partition.getNextVersion(),
-                        System.currentTimeMillis() *//* use as partition visible time *//*);
-                LOG.info("sout: set partition_id={}, version={}, txn_id={}, sub_txn_id={}",
-                        partitionId, partitionCommitInfo.getVersion(), txnId, subTransactionState.getSubTransactionId());
-                partition.setNextVersion(partition.getNextVersion() + 1);
-                tableCommitInfo.addPartitionCommitInfo(partitionCommitInfo);
-            }
-            transactionState.subTxnIdToTableCommitInfo.put(subTransactionState.getSubTransactionId(), tableCommitInfo);
-            transactionState.putIdToTableCommitInfo(tableId, tableCommitInfo);
-        }*/
 
         List<Long> totalInvolvedBackends = new ArrayList<>();
         // add publish version tasks. set task to null as a placeholder.
