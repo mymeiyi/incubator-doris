@@ -824,8 +824,8 @@ public class DatabaseTransactionMgr {
         // error replica may be duplicated for different sub transaction, but it's ok
         Set<Long> errorReplicaIds = Sets.newHashSet();
         Map<Long, Set<Long>> subTxnToPartition = new HashMap<>();
+        Set<Long> totalInvolvedBackends = Sets.newHashSet();
         for (SubTransactionState subTransactionState : subTransactionStates) {
-            Set<Long> totalInvolvedBackends = Sets.newHashSet();
             Map<Long, Set<Long>> tableToPartition = new HashMap<>();
             Table table = subTransactionState.getTable();
             List<TTabletCommitInfo> tabletCommitInfos = subTransactionState.getTabletCommitInfos();
@@ -844,8 +844,8 @@ public class DatabaseTransactionMgr {
         boolean txnOperated = false;
         writeLock();
         try {
-            unprotectedCommitTransaction(transactionState, errorReplicaIds, subTxnToPartition, subTransactionStates,
-                    db);
+            unprotectedCommitTransaction(transactionState, errorReplicaIds, subTxnToPartition, totalInvolvedBackends,
+                    subTransactionStates, db);
             txnOperated = true;
         } finally {
             writeUnlock();
@@ -1506,7 +1506,8 @@ public class DatabaseTransactionMgr {
     }
 
     protected void unprotectedCommitTransaction(TransactionState transactionState, Set<Long> errorReplicaIds,
-            Map<Long, Set<Long>> subTxnToPartition, List<SubTransactionState> subTransactionStates, Database db) {
+            Map<Long, Set<Long>> subTxnToPartition, Set<Long> totalInvolvedBackends,
+            List<SubTransactionState> subTransactionStates, Database db) {
         checkBeforeUnprotectedCommitTransaction(transactionState, errorReplicaIds);
 
         Map<Long, List<SubTransactionState>> tableToSubTransactionState = new HashMap<>();
@@ -1550,13 +1551,11 @@ public class DatabaseTransactionMgr {
             }
         }
 
-        // TODO why add this?
-        /*List<Long> totalInvolvedBackends = new ArrayList<>();
         // add publish version tasks. set task to null as a placeholder.
         // tasks will be created when publishing version.
         for (long backendId : totalInvolvedBackends) {
             transactionState.addPublishVersionTask(backendId, null);
-        }*/
+        }
     }
 
     protected void unprotectedCommitTransaction2PC(TransactionState transactionState, Database db) {
