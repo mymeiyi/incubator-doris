@@ -1451,6 +1451,17 @@ public class DatabaseTransactionMgr {
         }
     }
 
+    private PartitionCommitInfo generatePartitionCommitInfo(OlapTable table, long partitionId, long partitionVersion) {
+        PartitionInfo tblPartitionInfo = table.getPartitionInfo();
+        String partitionRange = "";
+        if (tblPartitionInfo.getType() == PartitionType.RANGE
+                || tblPartitionInfo.getType() == PartitionType.LIST) {
+            partitionRange = tblPartitionInfo.getItem(partitionId).getItems().toString();
+        }
+        return new PartitionCommitInfo(partitionId, partitionRange,
+                partitionVersion, System.currentTimeMillis() /* use as partition visible time */);
+    }
+
     protected void unprotectedCommitTransaction(TransactionState transactionState, Set<Long> errorReplicaIds,
                                                 Map<Long, Set<Long>> tableToPartition, Set<Long> totalInvolvedBackends,
                                                 Database db) {
@@ -1459,18 +1470,10 @@ public class DatabaseTransactionMgr {
         for (long tableId : tableToPartition.keySet()) {
             OlapTable table = (OlapTable) db.getTableNullable(tableId);
             TableCommitInfo tableCommitInfo = new TableCommitInfo(tableId);
-            PartitionInfo tblPartitionInfo = table.getPartitionInfo();
             for (long partitionId : tableToPartition.get(tableId)) {
                 Partition partition = table.getPartition(partitionId);
-                String partitionRange = "";
-                if (tblPartitionInfo.getType() == PartitionType.RANGE
-                        || tblPartitionInfo.getType() == PartitionType.LIST) {
-                    partitionRange = tblPartitionInfo.getItem(partitionId).getItems().toString();
-                }
-                PartitionCommitInfo partitionCommitInfo = new PartitionCommitInfo(partitionId, partitionRange,
-                        partition.getNextVersion(),
-                        System.currentTimeMillis() /* use as partition visible time */);
-                tableCommitInfo.addPartitionCommitInfo(partitionCommitInfo);
+                tableCommitInfo.addPartitionCommitInfo(
+                        generatePartitionCommitInfo(table, partitionId, partition.getNextVersion()));
             }
             transactionState.putIdToTableCommitInfo(tableId, tableCommitInfo);
         }
@@ -1518,8 +1521,7 @@ public class DatabaseTransactionMgr {
 
             OlapTable table = (OlapTable) db.getTableNullable(tableId);
             long tableNextVersion = table.getNextVersion();
-            PartitionInfo tblPartitionInfo = table.getPartitionInfo();
-            Map<Long, Long> partitionToVersionMap = new HashMap<>();
+            Map<Long, Long> partitionToVersion = new HashMap<>();
 
             for (SubTransactionState subTransactionState : subTransactionStateList) {
                 Set<Long> partitionIds = subTxnToPartition.get(subTransactionState.getSubTransactionId());
@@ -1531,30 +1533,21 @@ public class DatabaseTransactionMgr {
                 tableCommitInfo.setVersionTime(System.currentTimeMillis());
 
                 for (long partitionId : partitionIds) {
-                    Partition partition = table.getPartition(partitionId);
-                    String partitionRange = "";
-                    if (tblPartitionInfo.getType() == PartitionType.RANGE
-                            || tblPartitionInfo.getType() == PartitionType.LIST) {
-                        partitionRange = tblPartitionInfo.getItem(partitionId).getItems().toString();
+                    long partitionNextVersion = table.getPartition(partitionId).getNextVersion();
+                    if (partitionToVersion.containsKey(partitionId)) {
+                        partitionNextVersion = partitionToVersion.get(partitionId) + 1;
                     }
+                    partitionToVersion.put(partitionId, partitionNextVersion);
 
-                    long partitionNextVersion = partition.getNextVersion();
-                    if (partitionToVersionMap.containsKey(partitionId)) {
-                        partitionNextVersion = partitionToVersionMap.get(partitionId) + 1;
-                    }
-                    partitionToVersionMap.put(partitionId, partitionNextVersion);
-
-                    PartitionCommitInfo partitionCommitInfo = new PartitionCommitInfo(partitionId, partitionRange,
-                            partitionNextVersion, System.currentTimeMillis() /* use as partition visible time */);
-                    LOG.info("sout: set partition_id={}, version={}, txn_id={}, sub_txn_id={}",
-                            partitionId, partitionCommitInfo.getVersion(), transactionState.getTransactionId(),
-                            subTransactionState.getSubTransactionId());
-                    // partition.setNextVersion(partition.getNextVersion() + 1);
+                    PartitionCommitInfo partitionCommitInfo = generatePartitionCommitInfo(table, partitionId,
+                            partitionNextVersion);
+                    LOG.info("commit txn_id={}, sub_txn_id={}, partition_id={}, version={}",
+                            transactionState.getTransactionId(), subTransactionState.getSubTransactionId(),
+                            partitionNextVersion);
                     tableCommitInfo.addPartitionCommitInfo(partitionCommitInfo);
                 }
                 transactionState.subTxnIdToTableCommitInfo.put(subTransactionState.getSubTransactionId(), tableCommitInfo);
             }
-            // transactionState.putIdToTableCommitInfo(tableId, tableCommitInfo);
         }
 
         // TODO why add this?
