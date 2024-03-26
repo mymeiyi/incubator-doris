@@ -70,8 +70,10 @@ public class OlapTxnInsertExecutor extends OlapInsertExecutor {
     @Override
     protected void onComplete() {
         TransactionEntry txnEntry = ctx.getTxnEntry();
-        if (txnId != INVALID_TXN_ID && ctx.getState().getStateType() == MysqlStateType.ERR) {
-            txnEntry.removeTable((Table) table);
+        if (ctx.getState().getStateType() == MysqlStateType.ERR) {
+            if (txnId != INVALID_TXN_ID) {
+                txnEntry.removeTable((Table) table);
+            }
         } else {
             txnEntry.addTabletCommitInfos(txnId, (Table) table, coordinator.getCommitInfos());
         }
