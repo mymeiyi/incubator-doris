@@ -301,8 +301,6 @@ public class TransactionState implements Writable {
     private Map<Long, SchemaInfo> txnSchemas = new HashMap<>();
 
     private List<SubTransactionState> subTransactionStates;
-    /*@SerializedName(value = "containSubTxnInfo")
-    public boolean containSubTxnInfo = false;*/
     @SerializedName(value = "subTxnIdToTableCommitInfo")
     public Map<Long, TableCommitInfo> subTxnIdToTableCommitInfo = new TreeMap<>();
 
