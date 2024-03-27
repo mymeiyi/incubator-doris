@@ -97,7 +97,7 @@ public class PublishVersionDaemon extends MasterDaemon {
             }
 
             if (transactionState.getSubTransactionStates() != null) {
-                for (Entry<Long, TableCommitInfo> entry : transactionState.subTxnIdToTableCommitInfo.entrySet()) {
+                for (Entry<Long, TableCommitInfo> entry : transactionState.getSubTxnIdToTableCommitInfo().entrySet()) {
                     long subTxnId = entry.getKey();
                     TableCommitInfo tableCommitInfo = entry.getValue();
                     List<TPartitionVersionInfo> tPartitionVersionInfos = tableCommitInfo.getIdToPartitionCommitInfo()

@@ -1149,8 +1149,8 @@ public class DatabaseTransactionMgr {
     private boolean finishCheckPartitionVersion(TransactionState transactionState, Database db,
             List<Pair<OlapTable, Partition>> relatedTblPartitions) {
         Iterator<TableCommitInfo> tableCommitInfoIterator;
-        if (!transactionState.subTxnIdToTableCommitInfo.isEmpty()) {
-            tableCommitInfoIterator = transactionState.subTxnIdToTableCommitInfo.values().stream()
+        if (!transactionState.getSubTxnIdToTableCommitInfo().isEmpty()) {
+            tableCommitInfoIterator = transactionState.getSubTxnIdToTableCommitInfo().values().stream()
                     .sorted(Comparator.comparingLong(TableCommitInfo::getVersion)).iterator();
         } else {
             tableCommitInfoIterator = transactionState.getIdToTableCommitInfos().values().iterator();
@@ -1266,8 +1266,8 @@ public class DatabaseTransactionMgr {
                         // TODO
                         for (PublishVersionTask publishVersionTask : publishTasks.get(replica.getBackendId())) {
                             boolean needCheck = false;
-                            needCheck = transactionState.subTxnIdToTableCommitInfo.isEmpty() ||
-                                    transactionState.subTxnIdToTableCommitInfo.entrySet().stream().anyMatch(
+                            needCheck = transactionState.getSubTxnIdToTableCommitInfo().isEmpty() ||
+                                    transactionState.getSubTxnIdToTableCommitInfo().entrySet().stream().anyMatch(
                                             s -> s.getKey() == publishVersionTask.getTransactionId()
                                                     && s.getValue().getTableId() == tableId);
                             if (needCheck) {
@@ -1547,15 +1547,15 @@ public class DatabaseTransactionMgr {
                             transactionState.getTransactionId(), subTransactionState.getSubTransactionId(),
                             partitionId, partitionNextVersion);
                 }
-                transactionState.subTxnIdToTableCommitInfo.put(subTransactionState.getSubTransactionId(), tableCommitInfo);
+                transactionState.addSubTxnTableCommitInfo(subTransactionState, tableCommitInfo);
             }
         }
 
         // add publish version tasks. set task to null as a placeholder.
         // tasks will be created when publishing version.
-        for (long backendId : totalInvolvedBackends) {
+        /*for (long backendId : totalInvolvedBackends) {
             transactionState.addPublishVersionTask(backendId, null);
-        }
+        }*/
     }
 
     protected void unprotectedCommitTransaction2PC(TransactionState transactionState, Database db) {
@@ -2022,7 +2022,7 @@ public class DatabaseTransactionMgr {
             /*for (Entry<Long, TableCommitInfo> entry : transactionState.subTxnIdToTableCommitInfo.entrySet()) {
                 TableCommitInfo tableCommitInfo = entry.getValue();
             }*/
-            List<TableCommitInfo> tableCommitInfos = transactionState.subTxnIdToTableCommitInfo.entrySet().stream()
+            List<TableCommitInfo> tableCommitInfos = transactionState.getSubTxnIdToTableCommitInfo().entrySet().stream()
                     .map(e -> e.getValue()).collect(Collectors.toList());
             updatePartitionNextVersion(transactionState, db, isReplay, tableCommitInfos);
         } else {
@@ -2175,8 +2175,8 @@ public class DatabaseTransactionMgr {
         List<Long> newPartitionLoadedTableIds = new ArrayList<>();
 
         Collection<TableCommitInfo> tableCommitInfos;
-        if (!transactionState.subTxnIdToTableCommitInfo.isEmpty()) {
-            tableCommitInfos = transactionState.subTxnIdToTableCommitInfo.values();
+        if (!transactionState.getSubTxnIdToTableCommitInfo().isEmpty()) {
+            tableCommitInfos = transactionState.getSubTxnIdToTableCommitInfo().values();
         } else {
             tableCommitInfos = transactionState.getIdToTableCommitInfos().values();
         }

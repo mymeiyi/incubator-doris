@@ -43,6 +43,7 @@ import lombok.Setter;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import sun.tools.jconsole.Tab;
 
 import java.io.DataInput;
 import java.io.DataOutput;
@@ -300,9 +301,12 @@ public class TransactionState implements Writable {
     // table id -> schema info
     private Map<Long, SchemaInfo> txnSchemas = new HashMap<>();
 
+    @Getter
+    @Setter
     private List<SubTransactionState> subTransactionStates;
+    @Getter
     @SerializedName(value = "subTxnIdToTableCommitInfo")
-    public Map<Long, TableCommitInfo> subTxnIdToTableCommitInfo = new TreeMap<>();
+    private Map<Long, TableCommitInfo> subTxnIdToTableCommitInfo = new TreeMap<>();
 
     public TransactionState() {
         this.dbId = -1;
@@ -364,12 +368,8 @@ public class TransactionState implements Writable {
         this.txnCommitAttachment = txnCommitAttachment;
     }
 
-    public void setSubTransactionStates(List<SubTransactionState> subTransactionStates) {
-        this.subTransactionStates = subTransactionStates;
-    }
-
-    public List<SubTransactionState> getSubTransactionStates() {
-        return this.subTransactionStates;
+    public void addSubTxnTableCommitInfo(SubTransactionState subTransactionState, TableCommitInfo tableCommitInfo) {
+        subTxnIdToTableCommitInfo.put(subTransactionState.getSubTransactionId(), tableCommitInfo);
     }
 
     public void setErrorReplicas(Set<Long> newErrorReplicas) {
