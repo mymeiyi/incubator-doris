@@ -1179,13 +1179,13 @@ public class DatabaseTransactionMgr {
                 if (partition == null) {
                     partitionCommitInfoIterator.remove();
                     LOG.warn("partition {} is dropped, skip version check"
-                                + " and remove it from transaction state {}", partitionId, transactionState);
+                                    + " and remove it from transaction state {}", partitionId, transactionState);
                     continue;
                 }
                 if (partition.getVisibleVersion() != partitionCommitInfo.getVersion() - 1) {
                     if (LOG.isDebugEnabled()) {
                         LOG.debug("for table {} partition {}, transactionId {} partition commitInfo version {} is not"
-                                        + " equal with partition visible version {} plus one, need wait",
+                                                + " equal with partition visible version {} plus one, need wait",
                                 table.getId(), partition.getId(), transactionState.getTransactionId(),
                                 partitionCommitInfo.getVersion(), partition.getVisibleVersion());
                     }
@@ -1211,6 +1211,9 @@ public class DatabaseTransactionMgr {
             SubTransactionState subTransactionState = iterator.next();
             TableCommitInfo tableCommitInfo = transactionState.getSubTxnIdToTableCommitInfo()
                     .get(subTransactionState.getSubTransactionId());
+            if (tableCommitInfo == null) {
+                continue;
+            }
             long tableId = tableCommitInfo.getTableId();
             OlapTable table = (OlapTable) db.getTableNullable(tableId);
             // table maybe dropped between commit and publish, ignore this error
@@ -1235,8 +1238,8 @@ public class DatabaseTransactionMgr {
                             + " and remove it from transaction state {}", partitionId, transactionState);
                     continue;
                 }
-                long curPartitionVersion = partitionToVisibleVersion.containsKey(partitionId) ?
-                        partitionToVisibleVersion.get(partitionId) : partition.getVisibleVersion();
+                long curPartitionVersion = partitionToVisibleVersion.getOrDefault(partitionId,
+                        partition.getVisibleVersion());
                 if (curPartitionVersion != partitionCommitInfo.getVersion() - 1) {
                     if (LOG.isDebugEnabled()) {
                         LOG.debug("for table {} partition {}, transactionId {}, subTransactionId {},"
