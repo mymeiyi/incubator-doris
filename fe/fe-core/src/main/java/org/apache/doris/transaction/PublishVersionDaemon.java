@@ -87,7 +87,8 @@ public class PublishVersionDaemon extends MasterDaemon {
             if (transactionState.hasSendTask()) {
                 continue;
             }
-            Set<Long> publishBackends = transactionState.getPublishVersionTasks().keySet();
+            Set<Long> publishBackends = Sets.newHashSet(transactionState.getPublishVersionTasks().keySet());
+            publishBackends.addAll(transactionState.getInvolvedBackends());
             // public version tasks are not persisted in catalog, so publishBackends may be empty.
             // so we have to try publish to all backends;
             if (publishBackends.isEmpty()) {
@@ -104,14 +105,14 @@ public class PublishVersionDaemon extends MasterDaemon {
                             .values().stream()
                             .map(partitionCommitInfo -> new TPartitionVersionInfo(partitionCommitInfo.getPartitionId(),
                                     partitionCommitInfo.getVersion(), 0)).collect(Collectors.toList());
+                    LOG.debug("add publish task, subTxnId={}, backends={}, partitionVersionInfos={}",
+                            subTxnId, publishBackends, tPartitionVersionInfos);
                     for (Long backendId : publishBackends) {
                         PublishVersionTask task = new PublishVersionTask(backendId,
                                 subTxnId,
                                 transactionState.getDbId(),
                                 tPartitionVersionInfos,
                                 createPublishVersionTaskTime);
-                        LOG.info("sout: add publish task, backend_id={}, subTxnId={}, tPartitionVersionInfos={}",
-                                backendId, subTxnId, tPartitionVersionInfos);
                         AgentTaskQueue.addTask(task);
                         batchTask.addTask(task);
                         transactionState.addPublishVersionTask(backendId, task);

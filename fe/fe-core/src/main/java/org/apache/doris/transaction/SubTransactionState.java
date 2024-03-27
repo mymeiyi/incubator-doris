@@ -20,29 +20,22 @@ package org.apache.doris.transaction;
 import org.apache.doris.catalog.Table;
 import org.apache.doris.thrift.TTabletCommitInfo;
 
+import lombok.Getter;
+
 import java.util.List;
 
 public class SubTransactionState {
-    long subTransactionId;
-    Table table;
-    List<TTabletCommitInfo> tabletCommitInfos;
+    @Getter
+    private long subTransactionId;
+    @Getter
+    private Table table;
+    @Getter
+    private List<TTabletCommitInfo> tabletCommitInfos;
 
     public SubTransactionState(long subTransactionId, Table table, List<TTabletCommitInfo> tabletCommitInfos) {
         this.subTransactionId = subTransactionId;
         this.table = table;
         this.tabletCommitInfos = tabletCommitInfos;
-    }
-
-    public long getSubTransactionId() {
-        return subTransactionId;
-    }
-
-    public Table getTable() {
-        return table;
-    }
-
-    public List<TTabletCommitInfo> getTabletCommitInfos() {
-        return tabletCommitInfos;
     }
 
     @Override

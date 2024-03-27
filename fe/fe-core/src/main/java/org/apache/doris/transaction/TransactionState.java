@@ -307,6 +307,9 @@ public class TransactionState implements Writable {
     @Getter
     @SerializedName(value = "subTxnIdToTableCommitInfo")
     private Map<Long, TableCommitInfo> subTxnIdToTableCommitInfo = new TreeMap<>();
+    @Getter
+    @Setter
+    private Set<Long> involvedBackends = Sets.newHashSet();
 
     public TransactionState() {
         this.dbId = -1;
@@ -377,11 +380,8 @@ public class TransactionState implements Writable {
     }
 
     public void addPublishVersionTask(Long backendId, PublishVersionTask task) {
-        if (subTxnIdToTableCommitInfo.isEmpty()) {
-            if (this.publishVersionTasks.get(backendId) != null) {
-                this.publishVersionTasks.get(backendId).clear();
-            }
-            this.publishVersionTasks.computeIfAbsent(backendId, k -> Lists.newArrayList()).add(task);
+        if (this.subTxnIdToTableCommitInfo.isEmpty()) {
+            this.publishVersionTasks.put(backendId, Lists.newArrayList(task));
         } else {
             this.publishVersionTasks.computeIfAbsent(backendId, k -> Lists.newArrayList()).add(task);
         }

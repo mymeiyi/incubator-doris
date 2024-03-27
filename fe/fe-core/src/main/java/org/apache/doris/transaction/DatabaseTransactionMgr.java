@@ -1553,9 +1553,7 @@ public class DatabaseTransactionMgr {
 
         // add publish version tasks. set task to null as a placeholder.
         // tasks will be created when publishing version.
-        /*for (long backendId : totalInvolvedBackends) {
-            transactionState.addPublishVersionTask(backendId, null);
-        }*/
+        transactionState.setInvolvedBackends(totalInvolvedBackends);
     }
 
     protected void unprotectedCommitTransaction2PC(TransactionState transactionState, Database db) {
