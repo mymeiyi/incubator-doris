@@ -1145,14 +1145,17 @@ public class DatabaseTransactionMgr {
 
     private boolean finishCheckPartitionVersion(TransactionState transactionState, Database db,
             List<Pair<OlapTable, Partition>> relatedTblPartitions) {
-        Iterator<TableCommitInfo> tableCommitInfoIterator;
         if (transactionState.getSubTxnIdToTableCommitInfo().isEmpty()) {
-            tableCommitInfoIterator = transactionState.getIdToTableCommitInfos().values().iterator();
+            return finishCheckPartitionVersionWithoutSubTxns(transactionState, db, relatedTblPartitions);
         } else {
-            tableCommitInfoIterator = transactionState.getSubTxnIdToTableCommitInfo().values().stream()
-                    /*.sorted(Comparator.comparingLong(TableCommitInfo::getVersion))*/.iterator();
+            return finishCheckPartitionVersionWithSubTxns(transactionState, db, relatedTblPartitions);
         }
-        Map<Long, Long> partitionToVisibleVersion = new HashMap<>();
+    }
+
+    private boolean finishCheckPartitionVersionWithoutSubTxns(TransactionState transactionState, Database db,
+            List<Pair<OlapTable, Partition>> relatedTblPartitions) {
+        Iterator<TableCommitInfo> tableCommitInfoIterator
+                = transactionState.getIdToTableCommitInfos().values().iterator();
         while (tableCommitInfoIterator.hasNext()) {
             TableCommitInfo tableCommitInfo = tableCommitInfoIterator.next();
             long tableId = tableCommitInfo.getTableId();
@@ -1176,24 +1179,78 @@ public class DatabaseTransactionMgr {
                 if (partition == null) {
                     partitionCommitInfoIterator.remove();
                     LOG.warn("partition {} is dropped, skip version check"
-                                    + " and remove it from transaction state {}", partitionId, transactionState);
+                                + " and remove it from transaction state {}", partitionId, transactionState);
+                    continue;
+                }
+                if (partition.getVisibleVersion() != partitionCommitInfo.getVersion() - 1) {
+                    if (LOG.isDebugEnabled()) {
+                        LOG.debug("for table {} partition {}, transactionId {} partition commitInfo version {} is not"
+                                        + " equal with partition visible version {} plus one, need wait",
+                                table.getId(), partition.getId(), transactionState.getTransactionId(),
+                                partitionCommitInfo.getVersion(), partition.getVisibleVersion());
+                    }
+                    String errMsg = String.format("wait for publishing partition %d version %d."
+                                    + " self version: %d. table %d", partitionId, partition.getVisibleVersion() + 1,
+                            partitionCommitInfo.getVersion(), tableId);
+                    transactionState.setErrorMsg(errMsg);
+                    return false;
+                }
+
+                relatedTblPartitions.add(Pair.of(table, partition));
+            }
+        }
+
+        return true;
+    }
+
+    private boolean finishCheckPartitionVersionWithSubTxns(TransactionState transactionState, Database db,
+            List<Pair<OlapTable, Partition>> relatedTblPartitions) {
+        Iterator<SubTransactionState> iterator = transactionState.getSubTransactionStates().iterator();
+        Map<Long, Long> partitionToVisibleVersion = new HashMap<>();
+        while (iterator.hasNext()) {
+            SubTransactionState subTransactionState = iterator.next();
+            TableCommitInfo tableCommitInfo = transactionState.getSubTxnIdToTableCommitInfo()
+                    .get(subTransactionState.getSubTransactionId());
+            long tableId = tableCommitInfo.getTableId();
+            OlapTable table = (OlapTable) db.getTableNullable(tableId);
+            // table maybe dropped between commit and publish, ignore this error
+            if (table == null) {
+                iterator.remove();
+                LOG.warn("table {} is dropped, skip version check and remove it from transaction state {}",
+                        tableId,
+                        transactionState);
+                continue;
+            }
+
+            Iterator<PartitionCommitInfo> partitionCommitInfoIterator
+                    = tableCommitInfo.getIdToPartitionCommitInfo().values().iterator();
+            while (partitionCommitInfoIterator.hasNext()) {
+                PartitionCommitInfo partitionCommitInfo = partitionCommitInfoIterator.next();
+                long partitionId = partitionCommitInfo.getPartitionId();
+                Partition partition = table.getPartition(partitionId);
+                // partition maybe dropped between commit and publish version, ignore this error
+                if (partition == null) {
+                    partitionCommitInfoIterator.remove();
+                    LOG.warn("partition {} is dropped, skip version check"
+                            + " and remove it from transaction state {}", partitionId, transactionState);
                     continue;
                 }
                 long curPartitionVersion = partitionToVisibleVersion.containsKey(partitionId) ?
                         partitionToVisibleVersion.get(partitionId) : partition.getVisibleVersion();
                 if (curPartitionVersion != partitionCommitInfo.getVersion() - 1) {
-                    String errMsg;
                     if (LOG.isDebugEnabled()) {
-                        LOG.debug("for table {} partition {}, transactionId {} partition commitInfo version {} is not"
+                        LOG.debug("for table {} partition {}, transactionId {}, subTransactionId {},"
+                                        + " partition commitInfo version {} is not"
                                         + " equal with partition expected version {}, visible version {}, need wait",
                                 table.getId(), partition.getId(), transactionState.getTransactionId(),
-                                partitionCommitInfo.getVersion(), curPartitionVersion + 1,
-                                partition.getVisibleVersion());
+                                subTransactionState.getSubTransactionId(), partitionCommitInfo.getVersion(),
+                                curPartitionVersion + 1, partition.getVisibleVersion());
                     }
-                    errMsg = String.format("wait for publishing partition %d version %d, visible version %d."
-                                    + " self version: %d. table %d, transactionId %d", partitionId, curPartitionVersion + 1,
+                    String errMsg = String.format("wait for publishing partition %d version %d, visible version %d."
+                                    + " self version: %d. table %d, transactionId %d, subTransactionId %d", partitionId,
+                            curPartitionVersion + 1,
                             partition.getVisibleVersion(), partitionCommitInfo.getVersion(), tableId,
-                            transactionState.getTransactionId());
+                            transactionState.getTransactionId(), subTransactionState.getSubTransactionId());
                     transactionState.setErrorMsg(errMsg);
                     return false;
                 }
