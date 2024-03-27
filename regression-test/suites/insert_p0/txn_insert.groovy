@@ -310,5 +310,46 @@ suite("txn_insert") {
             order_qt_select29 """select * from ${unique_table}_1"""
             order_qt_select30 """select * from ${unique_table}_2"""
         }
+
+        // 10. insert into table with multi partitions and tablets
+        if (use_nereids_planner) {
+            def pt = "multi_partition_t"
+            for (def i in 0..2) {
+                sql """ drop table if exists ${pt}_${i} """
+                sql """
+                    CREATE TABLE ${pt}_${i} (
+                        `id` int(11) NOT NULL,
+                        `name` varchar(50) NULL,
+                        `score` int(11) NULL default "-1"
+                    ) ENGINE=OLAP
+                    DUPLICATE KEY(`id`)
+                    PARTITION BY RANGE(id)
+                    (
+                        FROM (1) TO (50) INTERVAL 10
+                    )
+                    DISTRIBUTED BY HASH(`id`) BUCKETS 2
+                    PROPERTIES (
+                        "replication_num" = "1"
+                    );
+                """
+            }
+            def insert_sql = """ insert into ${pt}_0 values(1, "a", 10) """
+            for (def i in 2..49) {
+                insert_sql += """ , ($i, "a", 10) """
+            }
+            sql """ $insert_sql """
+            sql """ set enable_insert_strict = false """
+            sql """ begin """
+            sql """ insert into ${pt}_1 select * from ${pt}_0; """
+            sql """ insert into ${pt}_2 PARTITION (p_1_11, p_11_21) select * from ${pt}_0; """
+            sql """ insert into ${pt}_2 PARTITION (p_31_41) select * from ${pt}_0; """
+            sql """ commit; """
+            sql "sync"
+            order_qt_select31 """select * from ${pt}_0"""
+            order_qt_select32 """select * from ${pt}_1"""
+            order_qt_select33 """select * from ${pt}_2"""
+        }
+
+        sql """ set enable_insert_strict = true """
     }
 }
