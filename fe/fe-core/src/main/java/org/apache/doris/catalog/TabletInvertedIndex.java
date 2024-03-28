@@ -257,8 +257,14 @@ public class TabletInvertedIndex {
                                                     + "clear it from backend [{}]", transactionId, backendId);
                                         }
                                     } else if (transactionState.getTransactionStatus() == TransactionStatus.VISIBLE) {
-                                        TableCommitInfo tableCommitInfo
-                                                = transactionState.getTableCommitInfo(tabletMeta.getTableId());
+                                        TableCommitInfo tableCommitInfo;
+                                        if (transactionState.getSubTransactionStates().isEmpty()) {
+                                            tableCommitInfo = transactionState.getTableCommitInfo(
+                                                    tabletMeta.getTableId());
+                                        } else {
+                                            tableCommitInfo = transactionState.getSubTxnIdToTableCommitInfo()
+                                                    .get(transactionId);
+                                        }
                                         PartitionCommitInfo partitionCommitInfo = tableCommitInfo == null
                                                 ? null : tableCommitInfo.getPartitionCommitInfo(partitionId);
                                         if (partitionCommitInfo != null) {
@@ -289,9 +295,16 @@ public class TabletInvertedIndex {
                                                 if (errorTablets != null) {
                                                     for (int i = 0; i < errorTablets.size(); i++) {
                                                         if (tabletId == errorTablets.get(i)) {
-                                                            TableCommitInfo tableCommitInfo
-                                                                    = transactionState.getTableCommitInfo(
-                                                                    tabletMeta.getTableId());
+                                                            TableCommitInfo tableCommitInfo;
+                                                            if (transactionState.getSubTransactionStates().isEmpty()) {
+                                                                tableCommitInfo
+                                                                        = transactionState.getTableCommitInfo(
+                                                                        tabletMeta.getTableId());
+                                                            } else {
+                                                                tableCommitInfo =
+                                                                        transactionState.getSubTxnIdToTableCommitInfo()
+                                                                        .get(transactionId);
+                                                            }
                                                             PartitionCommitInfo partitionCommitInfo =
                                                                     tableCommitInfo == null ? null :
                                                                             tableCommitInfo.getPartitionCommitInfo(

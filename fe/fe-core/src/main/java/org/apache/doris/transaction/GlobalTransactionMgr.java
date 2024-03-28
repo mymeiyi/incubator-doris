@@ -877,4 +877,34 @@ public class GlobalTransactionMgr implements GlobalTransactionMgrIface {
             LOG.warn("replay batch remove transactions failed. db " + operation.getDbId(), e);
         }
     }
+
+    @Override
+    public void addSubTransaction(long dbId, long transactionId, long subTransactionId) {
+        try {
+            DatabaseTransactionMgr dbTransactionMgr = getDatabaseTransactionMgr(dbId);
+            dbTransactionMgr.addSubTransaction(transactionId, subTransactionId);
+        } catch (AnalysisException e) {
+            LOG.warn("add sub transaction failed. db " + dbId, e);
+        }
+    }
+
+    @Override
+    public void removeSubTransaction(long dbId, long subTransactionId) {
+        try {
+            DatabaseTransactionMgr dbTransactionMgr = getDatabaseTransactionMgr(dbId);
+            dbTransactionMgr.removeSubTransaction(subTransactionId);
+        } catch (AnalysisException e) {
+            LOG.warn("remove sub transaction failed. db " + dbId, e);
+        }
+    }
+
+    @Override
+    public void cleanSubTransactions(long dbId, long transactionId) {
+        try {
+            DatabaseTransactionMgr dbTransactionMgr = getDatabaseTransactionMgr(dbId);
+            dbTransactionMgr.cleanSubTransactions(transactionId);
+        } catch (AnalysisException e) {
+            LOG.warn("clean sub transaction failed. db " + dbId, e);
+        }
+    }
 }

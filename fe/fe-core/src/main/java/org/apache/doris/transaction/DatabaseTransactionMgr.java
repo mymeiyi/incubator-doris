@@ -131,6 +131,7 @@ public class DatabaseTransactionMgr {
 
     // transactionId -> final status TransactionState
     private final Map<Long, TransactionState> idToFinalStatusTransactionState = Maps.newHashMap();
+    private final Map<Long, Long> subTxnIdToTxnId = Maps.newHashMap();
 
     // The following 2 queues are to store transactionStates with final status
     // These queues are mainly used to avoid traversing all txns and speed up the cleaning time
@@ -204,12 +205,7 @@ public class DatabaseTransactionMgr {
     protected TransactionState getTransactionState(Long transactionId) {
         readLock();
         try {
-            TransactionState transactionState = idToRunningTransactionState.get(transactionId);
-            if (transactionState != null) {
-                return transactionState;
-            } else {
-                return idToFinalStatusTransactionState.get(transactionId);
-            }
+            return unprotectedGetTransactionState(transactionId);
         } finally {
             readUnlock();
         }
@@ -219,9 +215,15 @@ public class DatabaseTransactionMgr {
         TransactionState transactionState = idToRunningTransactionState.get(transactionId);
         if (transactionState != null) {
             return transactionState;
-        } else {
-            return idToFinalStatusTransactionState.get(transactionId);
         }
+        transactionState = idToFinalStatusTransactionState.get(transactionId);
+        if (transactionState != null) {
+            return transactionState;
+        }
+        if (subTxnIdToTxnId.containsKey(transactionId)) {
+            return unprotectedGetTransactionState(subTxnIdToTxnId.get(transactionId));
+        }
+        return null;
     }
 
     @VisibleForTesting
@@ -1898,6 +1900,7 @@ public class DatabaseTransactionMgr {
             if (txnIds.isEmpty()) {
                 labelToTxnIds.remove(transactionState.getLabel());
             }
+            cleanSubTransactions(txnId);
             if (LOG.isDebugEnabled()) {
                 LOG.debug("transaction [" + txnId + "] is expired, remove it from transaction manager");
             }
@@ -2443,6 +2446,7 @@ public class DatabaseTransactionMgr {
                     while (innerIter.hasNext()) {
                         long txnId = innerIter.next();
                         if (idToFinalStatusTransactionState.remove(txnId) != null) {
+                            cleanSubTransactions(txnId);
                             innerIter.remove();
                             removedTxnIds.add(txnId);
                         }
@@ -2460,6 +2464,7 @@ public class DatabaseTransactionMgr {
                 while (iter.hasNext()) {
                     long txnId = iter.next();
                     if (idToFinalStatusTransactionState.remove(txnId) != null) {
+                        cleanSubTransactions(txnId);
                         iter.remove();
                         removedTxnIds.add(txnId);
                     }
@@ -2691,6 +2696,24 @@ public class DatabaseTransactionMgr {
                             + " %s, and has failed replicas, load required replica num %s. table %s, "
                             + "partition %s, tablet detail: %s", transactionState, tablet.getId(), newVersion,
                     loadRequiredReplicaNum, tableId, partitionId, writeDetail));
+        }
+    }
+
+    public void addSubTransaction(long transactionId, long subTransactionId) {
+        subTxnIdToTxnId.put(subTransactionId, transactionId);
+    }
+
+    public void removeSubTransaction(long subTransactionId) {
+        subTxnIdToTxnId.remove(subTransactionId);
+    }
+
+    public void cleanSubTransactions(long transactionId) {
+        Iterator<Entry<Long, Long>> iterator = subTxnIdToTxnId.entrySet().iterator();
+        while (iterator.hasNext()) {
+            Entry<Long, Long> entry = iterator.next();
+            if (entry.getValue() == transactionId) {
+                iterator.remove();
+            }
         }
     }
 }

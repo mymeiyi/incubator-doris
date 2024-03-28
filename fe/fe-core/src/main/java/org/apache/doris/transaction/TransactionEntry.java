@@ -184,7 +184,9 @@ public class TransactionEntry {
                         "Transaction insert must be in the same database, expect db_id=" + this.database.getId());
             }
             this.transactionState.addTableId(table.getId());
-            return Env.getCurrentGlobalTransactionMgr().getNextTransactionId();
+            long subTxnId = Env.getCurrentGlobalTransactionMgr().getNextTransactionId();
+            Env.getCurrentGlobalTransactionMgr().addSubTransaction(database.getId(), transactionId, subTxnId);
+            return subTxnId;
         }
     }
 

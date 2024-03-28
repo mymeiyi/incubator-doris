@@ -806,13 +806,12 @@ public class TransactionState implements Writable {
         for (int i = 0; i < tableListSize; i++) {
             tableIdList.add(in.readLong());
         }
-        if (Env.getCurrentEnvJournalVersion() >= FeMetaVersion.VERSION_131) {
-            long subTxnSize = in.readLong();
-            for (int i = 0; i < subTxnSize; i++) {
-                long tableId = in.readLong();
-                TableCommitInfo info = TableCommitInfo.read(in);
-                subTxnIdToTableCommitInfo.put(tableId, info);
-            }
+        // TODO compatible
+        long subTxnSize = in.readLong();
+        for (int i = 0; i < subTxnSize; i++) {
+            long tableId = in.readLong();
+            TableCommitInfo info = TableCommitInfo.read(in);
+            subTxnIdToTableCommitInfo.put(tableId, info);
         }
     }
 
