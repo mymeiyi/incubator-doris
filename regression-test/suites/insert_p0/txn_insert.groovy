@@ -351,6 +351,17 @@ suite("txn_insert") {
             order_qt_select32 """select * from ${pt}_1"""
             order_qt_select33 """select * from ${pt}_2"""
             order_qt_select34 """select * from ${pt}_3"""
+            sql """ begin """
+            sql """ insert into ${pt}_1 select * from ${pt}_0; """
+            sql """ insert into ${pt}_2 PARTITION (p_1_11, p_11_21) select * from ${pt}_0; """
+            sql """ insert into ${pt}_2 PARTITION (p_31_41) select * from ${pt}_0; """
+            sql """ insert into ${pt}_3 PARTITION (p_1_11, p_11_21) select * from ${pt}_0; """
+            sql """ insert into ${pt}_3 PARTITION (p_31_41, p_11_21) select * from ${pt}_0; """
+            sql """ commit; """
+            sql "sync"
+            order_qt_select35 """select * from ${pt}_1"""
+            order_qt_select36 """select * from ${pt}_2"""
+            order_qt_select37 """select * from ${pt}_3"""
         }
 
         sql """ set enable_insert_strict = true """
