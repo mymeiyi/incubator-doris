@@ -1367,37 +1367,25 @@ public class DatabaseTransactionMgr {
             long version, PublishVersionTask backendPublishTask,
             Set<Long> errorReplicaIds, List<Replica> tabletSuccReplicas,
             List<Replica> tabletWriteFailedReplicas, List<Replica> tabletVersionFailedReplicas) {
-        LOG.info("sout: before txn_id={}, error_replica={}", backendPublishTask.getTransactionId(), errorReplicaIds);
         if (backendPublishTask == null || !backendPublishTask.isFinished()) {
             errorReplicaIds.add(replica.getId());
-            LOG.info("sout: add one error replica={}, txn_id={}", replica.getId(),
-                    backendPublishTask.getTransactionId());
         } else {
             Map<Long, Long> backendSuccTablets = backendPublishTask.getSuccTablets();
-            LOG.info("sout: get publish task={}, txn_id={}, success_tablets={}", backendPublishTask,
-                    backendPublishTask.getTransactionId(), backendSuccTablets);
             // new doris BE will report succ tablets
             if (backendSuccTablets != null) {
                 if (backendSuccTablets.containsKey(tabletId)) {
                     errorReplicaIds.remove(replica.getId());
-                    LOG.info("remove one error replica={}, txn_id={}", replica.getId(),
-                            backendPublishTask.getTransactionId());
                 } else {
                     errorReplicaIds.add(replica.getId());
-                    LOG.info("sout: add one error replica={}, txn_id={}, expected tablet_id={}, success_tablets={}",
-                            replica.getId(), backendPublishTask.getTransactionId(), tabletId, backendSuccTablets);
                 }
             } else {
                 // for compatibility, old doris BE report only error tablets
                 List<Long> backendErrorTablets = backendPublishTask.getErrorTablets();
                 if (backendErrorTablets != null && backendErrorTablets.contains(tabletId)) {
                     errorReplicaIds.add(replica.getId());
-                    LOG.info("sout: add one error replica={}, txn_id={}", replica.getId(),
-                            backendPublishTask.getTransactionId());
                 }
             }
         }
-        LOG.info("sout: after txn_id={}, error_replica={}", backendPublishTask.getTransactionId(), errorReplicaIds);
 
         // Schema change and rollup has a sched watermark,
         // it's ensure that alter replicas will load those txns whose txn id > sched watermark.
@@ -2611,7 +2599,6 @@ public class DatabaseTransactionMgr {
                         // TODO always use the visible version because the replica version is changed in updateCatalogAfterVisible
                         long newVersion = partition.getVisibleVersion() + 1;
                         for (Replica replica : tablet.getReplicas()) {
-                            // TODO
                             for (PublishVersionTask publishVersionTask : publishTasks.get(replica.getBackendId())) {
                                 boolean needCheck = publishVersionTask.getTransactionId()
                                         == subTransactionState.getSubTransactionId()
@@ -2622,14 +2609,12 @@ public class DatabaseTransactionMgr {
                                             newVersion, publishVersionTask,
                                             errorReplicaIds, tabletSuccReplicas, tabletWriteFailedReplicas,
                                             tabletVersionFailedReplicas);
-                                    LOG.info("sout: after check conti, txn_id={}, sub_txn_id={}, tablet_id={}, "
-                                                    + "new_version={}, success_replica={}, write_failed_replica={}, "
-                                                    + "version_failed_replica={}, ",
+                                    LOG.debug("after checkReplicaContinuousVersion for txn_id={}, sub_txn_id={}, "
+                                                    + "tablet_id={}, new_version={}, success_replicas={}, "
+                                                    + "write_failed_replicas={}, version_failed_replicas={}",
                                             transactionState.getTransactionId(),
                                             subTransactionState.getSubTransactionId(), tablet.getId(), newVersion,
                                             tabletSuccReplicas, tabletWriteFailedReplicas, tabletVersionFailedReplicas);
-                                } else {
-                                    LOG.info("sout: skip check");
                                 }
                             }
                         }
