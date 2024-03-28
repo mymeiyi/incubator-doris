@@ -841,6 +841,7 @@ public class TransactionState implements Writable {
     public void pruneAfterVisible() {
         publishVersionTasks.clear();
         tableIdToTotalNumDeltaRows.clear();
+        // TODO if subTransactionStates can be cleared?
     }
 
     public void setSchemaForPartialUpdate(OlapTable olapTable) {

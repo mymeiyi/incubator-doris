@@ -59,7 +59,6 @@ import org.apache.doris.task.AgentBatchTask;
 import org.apache.doris.task.AgentTaskExecutor;
 import org.apache.doris.task.ClearTransactionTask;
 import org.apache.doris.task.PublishVersionTask;
-import org.apache.doris.thrift.TPartitionVersionInfo;
 import org.apache.doris.thrift.TTabletCommitInfo;
 import org.apache.doris.thrift.TUniqueId;
 
@@ -70,7 +69,6 @@ import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
-import jdk.internal.loader.AbstractClassLoaderValue.Sub;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -88,7 +86,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
@@ -1086,7 +1083,7 @@ public class DatabaseTransactionMgr {
             Set<Long> errorReplicaIds = transactionState.getErrorReplicas();
             if (transactionState.getSubTransactionStates() == null) {
                 List<Pair<OlapTable, Partition>> relatedTblPartitions = Lists.newArrayList();
-                if (!finishCheckPartitionVersionWithoutSubTxns(transactionState, db, relatedTblPartitions)) {
+                if (!finishCheckPartitionVersion(transactionState, db, relatedTblPartitions)) {
                     return;
                 }
                 publishResult = finishCheckQuorumReplicas(transactionState, relatedTblPartitions, errorReplicaIds);
@@ -1094,9 +1091,7 @@ public class DatabaseTransactionMgr {
                     return;
                 }
             } else {
-                // Map<Long, List<Pair<Partition, Long>>> relatedTblPartitions = new TreeMap<>();
-                List<Pair<OlapTable, Partition>> relatedTblPartitions = Lists.newArrayList();
-                if (!finishCheckPartitionVersionWithSubTxns(transactionState, db, relatedTblPartitions)) {
+                if (!finishCheckPartitionVersionWithSubTxns(transactionState, db)) {
                     return;
                 }
                 publishResult = finishCheckQuorumReplicas(transactionState, errorReplicaIds);
@@ -1143,29 +1138,23 @@ public class DatabaseTransactionMgr {
     }
 
     private void setTableVersion(TransactionState transactionState, Database db) {
-        Map<Long, TableCommitInfo> idToTableCommitInfos = transactionState.getIdToTableCommitInfos();
-        for (Entry<Long, TableCommitInfo> entry : idToTableCommitInfos.entrySet()) {
-            OlapTable table = (OlapTable) db.getTableNullable(entry.getKey());
+        List<TableCommitInfo> tableCommitInfos = transactionState.getIdToTableCommitInfos().isEmpty() ?
+                Lists.newArrayList(transactionState.getSubTxnIdToTableCommitInfo().values()) :
+                Lists.newArrayList(transactionState.getIdToTableCommitInfos().values());
+        for (TableCommitInfo tableCommitInfo : tableCommitInfos) {
+            long tableId = tableCommitInfo.getTableId();
+            OlapTable table = (OlapTable) db.getTableNullable(tableId);
             if (table == null) {
                 LOG.warn("table {} does not exist when setTableVersion. transaction: {}, db: {}",
-                        entry.getKey(), transactionState.getTransactionId(), db.getId());
+                        tableId, transactionState.getTransactionId(), db.getId());
                 continue;
             }
-            entry.getValue().setVersion(table.getNextVersion());
-            entry.getValue().setVersionTime(System.currentTimeMillis());
+            tableCommitInfo.setVersion(table.getNextVersion());
+            tableCommitInfo.setVersionTime(System.currentTimeMillis());
         }
     }
 
     private boolean finishCheckPartitionVersion(TransactionState transactionState, Database db,
-            List<Pair<OlapTable, Partition>> relatedTblPartitions) {
-        if (transactionState.getSubTxnIdToTableCommitInfo().isEmpty()) {
-            return finishCheckPartitionVersionWithoutSubTxns(transactionState, db, relatedTblPartitions);
-        } else {
-            return finishCheckPartitionVersionWithSubTxns(transactionState, db, relatedTblPartitions);
-        }
-    }
-
-    private boolean finishCheckPartitionVersionWithoutSubTxns(TransactionState transactionState, Database db,
             List<Pair<OlapTable, Partition>> relatedTblPartitions) {
         Iterator<TableCommitInfo> tableCommitInfoIterator
                 = transactionState.getIdToTableCommitInfos().values().iterator();
@@ -1216,8 +1205,8 @@ public class DatabaseTransactionMgr {
         return true;
     }
 
-    private boolean finishCheckPartitionVersionWithSubTxns(TransactionState transactionState, Database db,
-            List<Pair<OlapTable, Partition>> relatedTblPartitions) {
+    private boolean finishCheckPartitionVersionWithSubTxns(TransactionState transactionState, Database db) {
+        List<Pair<OlapTable, Partition>> relatedTblPartitions = new ArrayList<>();
         Iterator<SubTransactionState> iterator = transactionState.getSubTransactionStates().iterator();
         Map<Long, Long> partitionToVisibleVersion = new HashMap<>();
         while (iterator.hasNext()) {

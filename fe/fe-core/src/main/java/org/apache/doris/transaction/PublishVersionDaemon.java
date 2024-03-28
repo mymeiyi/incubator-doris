@@ -131,8 +131,6 @@ public class PublishVersionDaemon extends MasterDaemon {
         Map<Long, Long> tableIdToTotalDeltaNumRows = Maps.newHashMap();
         // try to finish the transaction, if failed just retry in next loop
         for (TransactionState transactionState : readyTransactionStates) {
-            LOG.info("sout: txn_id={}, publish_tasks={}", transactionState.getTransactionId(),
-                    transactionState.getPublishVersionTasks().values());
             Stream<PublishVersionTask> publishVersionTaskStream = transactionState
                     .getPublishVersionTasks().values().stream().flatMap(List::stream)
                     .peek(task -> {
