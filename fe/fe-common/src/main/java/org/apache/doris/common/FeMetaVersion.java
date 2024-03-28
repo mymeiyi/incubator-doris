@@ -80,11 +80,9 @@ public final class FeMetaVersion {
     public static final int VERSION_129 = 129;
 
     public static final int VERSION_130 = 130;
-    // txn insert
-    public static final int VERSION_131 = 131;
 
     // note: when increment meta version, should assign the latest version to VERSION_CURRENT
-    public static final int VERSION_CURRENT = VERSION_131;
+    public static final int VERSION_CURRENT = VERSION_130;
 
     // all logs meta version should >= the minimum version, so that we could remove many if clause, for example
     // if (FE_METAVERSION < VERSION_94) ...

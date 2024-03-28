@@ -40,10 +40,10 @@ public class SubTransactionState {
 
     @Override
     public String toString() {
-        return "SubTransactionState{" +
-                "subTransactionId=" + subTransactionId +
-                ", table=" + table +
-                ", tabletCommitInfos=" + tabletCommitInfos +
-                '}';
+        return "SubTransactionState{"
+                + "subTransactionId=" + subTransactionId
+                + ", table=" + table
+                + ", tabletCommitInfos=" + tabletCommitInfos
+                + '}';
     }
 }

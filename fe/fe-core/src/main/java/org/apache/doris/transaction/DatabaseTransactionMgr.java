@@ -807,7 +807,8 @@ public class DatabaseTransactionMgr {
         LOG.info("transaction:[{}] successfully committed", transactionState);
     }
 
-    public void commitTransaction(long transactionId, List<Table> tableList, List<SubTransactionState> subTransactionStates) throws UserException {
+    public void commitTransaction(long transactionId, List<Table> tableList,
+            List<SubTransactionState> subTransactionStates) throws UserException {
         // check status
         // the caller method already own tables' write lock
         Database db = env.getInternalCatalog().getDbOrMetaException(dbId);
@@ -1138,9 +1139,9 @@ public class DatabaseTransactionMgr {
     }
 
     private void setTableVersion(TransactionState transactionState, Database db) {
-        List<TableCommitInfo> tableCommitInfos = transactionState.getIdToTableCommitInfos().isEmpty() ?
-                Lists.newArrayList(transactionState.getSubTxnIdToTableCommitInfo().values()) :
-                Lists.newArrayList(transactionState.getIdToTableCommitInfos().values());
+        List<TableCommitInfo> tableCommitInfos = transactionState.getIdToTableCommitInfos().isEmpty()
+                ? Lists.newArrayList(transactionState.getSubTxnIdToTableCommitInfo().values())
+                : Lists.newArrayList(transactionState.getIdToTableCommitInfos().values());
         for (TableCommitInfo tableCommitInfo : tableCommitInfos) {
             long tableId = tableCommitInfo.getTableId();
             OlapTable table = (OlapTable) db.getTableNullable(tableId);
@@ -2132,8 +2133,8 @@ public class DatabaseTransactionMgr {
                         }
                         if (!isReplay && !tabletFailedReplicas.isEmpty()) {
                             LOG.info("some replicas load data failed for committed txn {} on version {}, table {}, "
-                                            + "partition {}, tablet {}, {} replicas load data succ: {}, {} replicas load "
-                                            + "data fail: {}",
+                                            + "partition {}, tablet {}, {} replicas load data succ: {}, "
+                                            + "{} replicas load data fail: {}",
                                     transactionState.getTransactionId(), partitionCommitInfo.getVersion(),
                                     tableId, partitionId, tablet.getId(), tabletSuccReplicas.size(),
                                     Joiner.on(", ").join(tabletSuccReplicas.stream()
@@ -2596,7 +2597,7 @@ public class DatabaseTransactionMgr {
                         List<Replica> tabletSuccReplicas = Lists.newArrayList();
                         List<Replica> tabletWriteFailedReplicas = Lists.newArrayList();
                         List<Replica> tabletVersionFailedReplicas = Lists.newArrayList();
-                        // TODO always use the visible version because the replica version is changed in updateCatalogAfterVisible
+                        // TODO always use the visible version because the replica version is not changed
                         long newVersion = partition.getVisibleVersion() + 1;
                         for (Replica replica : tablet.getReplicas()) {
                             for (PublishVersionTask publishVersionTask : publishTasks.get(replica.getBackendId())) {
@@ -2653,8 +2654,8 @@ public class DatabaseTransactionMgr {
                         tabletVersionFailedReplicas);
                 logs.add(String.format("publish version quorum succ for transaction %s on tablet %s"
                                 + " with version %s, and has failed replicas, load require replica num %s. "
-                                + "table %s, partition: [ id=%s, commit version=%s ], tablet detail: %s", transactionState,
-                        tablet.getId(), newVersion, loadRequiredReplicaNum, tableId, partitionId,
+                                + "table %s, partition: [ id=%s, commit version=%s ], tablet detail: %s",
+                        transactionState, tablet.getId(), newVersion, loadRequiredReplicaNum, tableId, partitionId,
                         partition.getCommittedVersion(), writeDetail));
             }
             return;
