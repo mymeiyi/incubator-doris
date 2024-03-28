@@ -314,7 +314,7 @@ suite("txn_insert") {
         // 10. insert into table with multi partitions and tablets
         if (use_nereids_planner) {
             def pt = "multi_partition_t"
-            for (def i in 0..2) {
+            for (def i in 0..3) {
                 sql """ drop table if exists ${pt}_${i} """
                 sql """
                     CREATE TABLE ${pt}_${i} (
@@ -343,11 +343,14 @@ suite("txn_insert") {
             sql """ insert into ${pt}_1 select * from ${pt}_0; """
             sql """ insert into ${pt}_2 PARTITION (p_1_11, p_11_21) select * from ${pt}_0; """
             sql """ insert into ${pt}_2 PARTITION (p_31_41) select * from ${pt}_0; """
+            sql """ insert into ${pt}_3 PARTITION (p_1_11, p_11_21) select * from ${pt}_0; """
+            sql """ insert into ${pt}_3 PARTITION (p_31_41, p_11_21) select * from ${pt}_0; """
             sql """ commit; """
             sql "sync"
             order_qt_select31 """select * from ${pt}_0"""
             order_qt_select32 """select * from ${pt}_1"""
             order_qt_select33 """select * from ${pt}_2"""
+            order_qt_select34 """select * from ${pt}_3"""
         }
 
         sql """ set enable_insert_strict = true """
