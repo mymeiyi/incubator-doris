@@ -1098,6 +1098,7 @@ public class DatabaseTransactionMgr {
                 if (!finishCheckPartitionVersionWithSubTxns(transactionState, db, relatedTblPartitions)) {
                     return;
                 }
+                // TODO
                 publishResult = finishCheckQuorumReplicas(transactionState, errorReplicaIds);
                 if (publishResult == PublishResult.FAILED) {
                     return;
@@ -1415,8 +1416,8 @@ public class DatabaseTransactionMgr {
         return publishResult;
     }
 
-    private PublishResult finishCheckQuorumReplicas(TransactionState transactionState,
-            Set<Long> errorReplicaIds) {
+    private PublishResult finishCheckQuorumReplicas(TransactionState transactionState, Set<Long> errorReplicaIds) {
+        // for non existed table or partition, we should skip it
         long now = System.currentTimeMillis();
         long firstPublishVersionTime = transactionState.getFirstPublishVersionTime();
         boolean allowPublishOneSucc = false;
@@ -1432,6 +1433,31 @@ public class DatabaseTransactionMgr {
 
         Map<Long, List<PublishVersionTask>> publishTasks = transactionState.getPublishVersionTasks();
         PublishResult publishResult = PublishResult.QUORUM_SUCC;
+        for (SubTransactionState subTransactionState : transactionState.getSubTransactionStates()) {
+            long subTxnId = subTransactionState.getSubTransactionId();
+            TableCommitInfo tableCommitInfo = transactionState.getSubTxnIdToTableCommitInfo().get(subTxnId);
+            if (tableCommitInfo == null) {
+                continue;
+            }
+            OlapTable table = (OlapTable)subTransactionState.getTable();
+            // get related partition
+
+            List<MaterializedIndex> allIndices;
+            if (transactionState.getLoadedTblIndexes().isEmpty()) {
+                allIndices = partition.getMaterializedIndices(MaterializedIndex.IndexExtState.ALL);
+            } else {
+                allIndices = Lists.newArrayList();
+                for (long indexId : transactionState.getLoadedTblIndexes().get(tableId)) {
+                    MaterializedIndex index = partition.getIndex(indexId);
+                    if (index != null) {
+                        allIndices.add(index);
+                    }
+                }
+            }
+
+            boolean alterReplicaLoadedTxn = isAlterReplicaLoadedTxn(transactionState.getTransactionId(), table);
+        }
+
         for (Pair<OlapTable, Partition> pair : relatedTblPartitions) {
             OlapTable table = pair.key();
             Partition partition = pair.value();
