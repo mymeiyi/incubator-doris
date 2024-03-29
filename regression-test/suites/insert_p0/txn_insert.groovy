@@ -242,5 +242,113 @@ suite("txn_insert") {
             order_qt_select25 """select * from ${ut_table}_1 """
             order_qt_select26 """select * from ${ut_table}_2 """
         }
+
+        // 8. delete from using stmt
+        if (use_nereids_planner) {
+            for (def ta in ["txn_insert_dt1", "txn_insert_dt2", "txn_insert_dt3", "txn_insert_dt4"]) {
+                sql """ drop table if exists ${ta} """
+            }
+
+            sql """
+                create table txn_insert_dt1 (
+                    id int,
+                    dt date,
+                    c1 bigint,
+                    c2 string,
+                    c3 double
+                ) unique key (id, dt)
+                partition by range(dt) (
+                    from ("2000-01-01") TO ("2000-01-31") INTERVAL 1 DAY
+                )
+                distributed by hash(id)
+                properties(
+                    'replication_num'='1',
+                    "enable_unique_key_merge_on_write" = "true"
+                );
+            """
+            sql """
+                create table txn_insert_dt2 (
+                    id int,
+                    dt date,
+                    c1 bigint,
+                    c2 string,
+                    c3 double
+                ) unique key (id)
+                distributed by hash(id)
+                properties(
+                    'replication_num'='1'
+                );
+            """
+            sql """
+                create table txn_insert_dt3 (
+                    id int
+                ) distributed by hash(id)
+                properties(
+                    'replication_num'='1'
+                );
+            """
+            sql """
+                create table txn_insert_dt4 (
+                    id int,
+                    dt date,
+                    c1 bigint,
+                    c2 string,
+                    c3 double
+                ) unique key (id, dt)
+                partition by range(dt) (
+                    from ("2000-01-01") TO ("2000-01-31") INTERVAL 1 DAY
+                )
+                distributed by hash(id)
+                properties(
+                    'replication_num'='1',
+                    "enable_unique_key_merge_on_write" = "true"
+                );
+            """
+            sql """
+                INSERT INTO txn_insert_dt1 VALUES
+                    (1, '2000-01-01', 1, '1', 1.0),
+                    (2, '2000-01-02', 2, '2', 2.0),
+                    (3, '2000-01-03', 3, '3', 3.0);
+            """
+            sql """
+                INSERT INTO txn_insert_dt2 VALUES
+                    (1, '2000-01-10', 10, '10', 10.0),
+                    (2, '2000-01-20', 20, '20', 20.0),
+                    (3, '2000-01-30', 30, '30', 30.0),
+                    (4, '2000-01-04', 4, '4', 4.0),
+                    (5, '2000-01-05', 5, '5', 5.0);
+            """
+            sql """
+                INSERT INTO txn_insert_dt3 VALUES(1),(2),(4),(5);
+            """
+            sql """
+                INSERT INTO txn_insert_dt4 VALUES
+                    (1, '2000-01-01', 1, '1', 1.0),
+                    (2, '2000-01-02', 2, '2', 2.0),
+                    (3, '2000-01-03', 3, '3', 3.0);
+            """
+            sql """ begin """
+            test {
+                sql '''
+                    delete from txn_insert_dt1 temporary partition (p_20000102)
+                    using txn_insert_dt2 join txn_insert_dt3 on txn_insert_dt2.id = txn_insert_dt3.id
+                    where txn_insert_dt1.id = txn_insert_dt2.id;
+                '''
+                exception 'Partition: p_20000102 is not exists'
+            }
+            sql """
+                delete from txn_insert_dt1 partition (p_20000102)
+                using txn_insert_dt2 join txn_insert_dt3 on txn_insert_dt2.id = txn_insert_dt3.id
+                where txn_insert_dt1.id = txn_insert_dt2.id;
+            """
+            sql """
+                delete from txn_insert_dt4
+                using txn_insert_dt2 join txn_insert_dt3 on txn_insert_dt2.id = txn_insert_dt3.id
+                where txn_insert_dt4.id = txn_insert_dt2.id;
+            """
+            sql """ commit """
+            order_qt_select27 """select * from txn_insert_dt1 """
+            order_qt_select28 """select * from txn_insert_dt4 """
+        }
     }
 }
