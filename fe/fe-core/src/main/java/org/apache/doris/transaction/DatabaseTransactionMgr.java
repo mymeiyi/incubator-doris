@@ -1331,9 +1331,9 @@ public class DatabaseTransactionMgr {
                         }
                     }
 
-                    checkQuorumReplicas(transactionState, tableId, partition, tablet, loadRequiredReplicaNum,
-                            allowPublishOneSucc, newVersion, tabletSuccReplicas, tabletWriteFailedReplicas,
-                            tabletVersionFailedReplicas, publishResult, logs);
+                    publishResult = checkQuorumReplicas(transactionState, tableId, partition, tablet,
+                            loadRequiredReplicaNum, allowPublishOneSucc, newVersion, tabletSuccReplicas,
+                            tabletWriteFailedReplicas, tabletVersionFailedReplicas, publishResult, logs);
                 }
             }
         }
@@ -2028,69 +2028,6 @@ public class DatabaseTransactionMgr {
             updatePartitionNextVersion(transactionState, db, isReplay,
                     Lists.newArrayList(transactionState.getIdToTableCommitInfos().values()));
         }
-        /*Set<Long> errorReplicaIds = transactionState.getErrorReplicas();
-        List<Replica> tabletSuccReplicas = Lists.newArrayList();
-        List<Replica> tabletFailedReplicas = Lists.newArrayList();
-        Collection<TableCommitInfo> values = transactionState.subTxnIdToTableCommitInfo.values();*/
-        /*if (transactionState.containSubTxnInfo) {
-            // TODO
-            return;
-        }*/
-        /*for (TableCommitInfo tableCommitInfo : transactionState.getIdToTableCommitInfos().values()) {
-            long tableId = tableCommitInfo.getTableId();
-            OlapTable table = (OlapTable) db.getTableNullable(tableId);
-            if (table == null) {
-                LOG.warn("table {} does not exist when update catalog after committed. transaction: {}, db: {}",
-                        tableId, transactionState.getTransactionId(), db.getId());
-                continue;
-            }
-            for (PartitionCommitInfo partitionCommitInfo : tableCommitInfo.getIdToPartitionCommitInfo().values()) {
-                long partitionId = partitionCommitInfo.getPartitionId();
-                Partition partition = table.getPartition(partitionId);
-                if (partition == null) {
-                    LOG.warn("partition {} of table {} does not exist when update catalog after committed."
-                                    + " transaction: {}, db: {}",
-                            partitionId, tableId, transactionState.getTransactionId(), db.getId());
-                    continue;
-                }
-                List<MaterializedIndex> allIndices = partition
-                        .getMaterializedIndices(MaterializedIndex.IndexExtState.ALL);
-                for (MaterializedIndex index : allIndices) {
-                    List<Tablet> tablets = index.getTablets();
-                    for (Tablet tablet : tablets) {
-                        tabletFailedReplicas.clear();
-                        tabletSuccReplicas.clear();
-                        for (Replica replica : tablet.getReplicas()) {
-                            if (errorReplicaIds.contains(replica.getId())) {
-                                // TODO(cmy): do we need to update last failed version here?
-                                // because in updateCatalogAfterVisible, it will be updated again.
-                                replica.updateLastFailedVersion(partitionCommitInfo.getVersion());
-                                tabletFailedReplicas.add(replica);
-                            } else {
-                                tabletSuccReplicas.add(replica);
-                            }
-                        }
-                        if (!isReplay && !tabletFailedReplicas.isEmpty()) {
-                            LOG.info("some replicas load data failed for committed txn {} on version {}, table {}, "
-                                    + "partition {}, tablet {}, {} replicas load data succ: {}, {} replicas load "
-                                    + "data fail: {}",
-                                    transactionState.getTransactionId(), partitionCommitInfo.getVersion(),
-                                    tableId, partitionId, tablet.getId(), tabletSuccReplicas.size(),
-                                    Joiner.on(", ").join(tabletSuccReplicas.stream()
-                                            .map(replica -> replica.toStringSimple(true))
-                                            .collect(Collectors.toList())),
-                                    tabletFailedReplicas.size(),
-                                    Joiner.on(", ").join(tabletFailedReplicas.stream()
-                                            .map(replica -> replica.toStringSimple(true))
-                                            .collect(Collectors.toList())));
-                        }
-                    }
-                }
-                // TODO
-                partition.setNextVersion(partition.getNextVersion() + 1);
-                LOG.info("sout: set next version={} for partition={}", partition.getNextVersion(), partition.getId());
-            }
-        }*/
     }
 
     private void updatePartitionNextVersion(TransactionState transactionState, Database db, boolean isReplay,
@@ -2154,9 +2091,6 @@ public class DatabaseTransactionMgr {
                         || partitionToVersionMap.get(partition) < partitionCommitInfo.getVersion()) {
                     partitionToVersionMap.put(partition, partitionCommitInfo.getVersion());
                 }
-                // TODO
-                // partition.setNextVersion(partition.getNextVersion() + 1);
-                LOG.info("sout: set next version={} for partition={}", partition.getNextVersion(), partition.getId());
             }
         }
 
@@ -2164,7 +2098,7 @@ public class DatabaseTransactionMgr {
             Partition partition = entry.getKey();
             long version = entry.getValue();
             partition.setNextVersion(version + 1);
-            LOG.info("sout: set partition: {} next_version to: {}", partition.getId(), partition.getNextVersion());
+            LOG.debug("set partition={}, next_version={}", partition.getId(), partition.getNextVersion());
         }
     }
 
@@ -2243,7 +2177,7 @@ public class DatabaseTransactionMgr {
                     newPartitionLoadedTableIds.add(tableId);
                 }
                 partition.updateVisibleVersionAndTime(version, versionTime);
-                LOG.info("sout: set partition {}'s visible version to [{}]", partition.getId(), version);
+                LOG.debug("set partition={}, visible version={}", partition.getId(), version);
                 if (LOG.isDebugEnabled()) {
                     LOG.debug("transaction state {} set partition {}'s version to [{}]",
                             transactionState, partition.getId(), version);
@@ -2625,9 +2559,9 @@ public class DatabaseTransactionMgr {
                             }
                         }
 
-                        checkQuorumReplicas(transactionState, tableId, partition, tablet, loadRequiredReplicaNum,
-                                allowPublishOneSucc, newVersion, tabletSuccReplicas, tabletWriteFailedReplicas,
-                                tabletVersionFailedReplicas, publishResult, logs);
+                        publishResult = checkQuorumReplicas(transactionState, tableId, partition, tablet,
+                                loadRequiredReplicaNum, allowPublishOneSucc, newVersion, tabletSuccReplicas,
+                                tabletWriteFailedReplicas, tabletVersionFailedReplicas, publishResult, logs);
                     }
                 }
             }
@@ -2646,7 +2580,7 @@ public class DatabaseTransactionMgr {
         return publishResult;
     }
 
-    private void checkQuorumReplicas(TransactionState transactionState, long tableId, Partition partition,
+    private PublishResult checkQuorumReplicas(TransactionState transactionState, long tableId, Partition partition,
             Tablet tablet, int loadRequiredReplicaNum, boolean allowPublishOneSucc, long newVersion,
             List<Replica> tabletSuccReplicas, List<Replica> tabletWriteFailedReplicas,
             List<Replica> tabletVersionFailedReplicas, PublishResult publishResult, List<String> logs) {
@@ -2663,7 +2597,7 @@ public class DatabaseTransactionMgr {
                         transactionState, tablet.getId(), newVersion, loadRequiredReplicaNum, tableId, partitionId,
                         partition.getCommittedVersion(), writeDetail));
             }
-            return;
+            return publishResult;
         }
 
         String writeDetail = getTabletWriteDetail(tabletSuccReplicas, tabletWriteFailedReplicas,
@@ -2671,6 +2605,7 @@ public class DatabaseTransactionMgr {
         if (allowPublishOneSucc && healthReplicaNum > 0) {
             if (publishResult == PublishResult.QUORUM_SUCC) {
                 publishResult = PublishResult.TIMEOUT_SUCC;
+                LOG.info("sout: set publish result to timeout succ");
             }
             // We can not do any thing except retrying,
             // because publish task is assigned a version,
@@ -2687,6 +2622,7 @@ public class DatabaseTransactionMgr {
                     loadRequiredReplicaNum, tableId, partitionId, writeDetail));
         } else {
             publishResult = PublishResult.FAILED;
+            LOG.info("sout: set publish result to failed");
             String errMsg = String.format(
                     "publish on tablet %d failed." + " succeed replica num %d < load required replica num %d."
                             + " table: %d, partition: %d, publish version: %d", tablet.getId(), healthReplicaNum,
@@ -2697,6 +2633,7 @@ public class DatabaseTransactionMgr {
                             + "partition %s, tablet detail: %s", transactionState, tablet.getId(), newVersion,
                     loadRequiredReplicaNum, tableId, partitionId, writeDetail));
         }
+        return publishResult;
     }
 
     public void addSubTransaction(long transactionId, long subTransactionId) {
