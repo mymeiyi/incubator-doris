@@ -396,19 +396,19 @@ if [[ -n "${DISABLE_BUILD_UI}" ]]; then
         BUILD_UI=0
     fi
 fi
-
+BUILD_UI=0
 if [[ -n "${DISABLE_BUILD_SPARK_DPP}" ]]; then
     if [[ "${DISABLE_BUILD_SPARK_DPP}" == "ON" ]]; then
         BUILD_SPARK_DPP=0
     fi
 fi
-
+BUILD_SPARK_DPP=0
 if [[ -n "${DISABLE_BUILD_HIVE_UDF}" ]]; then
     if [[ "${DISABLE_BUILD_HIVE_UDF}" == "ON" ]]; then
         BUILD_HIVE_UDF=0
     fi
 fi
-
+BUILD_HIVE_UDF=0
 if [[ -z "${DISABLE_JAVA_CHECK_STYLE}" ]]; then
     DISABLE_JAVA_CHECK_STYLE='OFF'
 fi
