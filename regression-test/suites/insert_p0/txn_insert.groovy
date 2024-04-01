@@ -246,27 +246,36 @@ suite("txn_insert") {
 
         // 8. delete from using and delete from stmt
         if (use_nereids_planner) {
-            for (def ta in ["txn_insert_dt1", "txn_insert_dt2", "txn_insert_dt3", "txn_insert_dt4"]) {
+            for (def ta in ["txn_insert_dt1", "txn_insert_dt2", "txn_insert_dt3", "txn_insert_dt4", "txn_insert_dt5"]) {
                 sql """ drop table if exists ${ta} """
             }
 
-            sql """
-                create table txn_insert_dt1 (
-                    id int,
-                    dt date,
-                    c1 bigint,
-                    c2 string,
-                    c3 double
-                ) unique key (id, dt)
-                partition by range(dt) (
-                    from ("2000-01-01") TO ("2000-01-31") INTERVAL 1 DAY
-                )
-                distributed by hash(id)
-                properties(
-                    'replication_num'='1',
-                    "enable_unique_key_merge_on_write" = "true"
-                );
-            """
+            for (def ta in ["txn_insert_dt1", "txn_insert_dt4", "txn_insert_dt5"]) {
+                sql """
+                    create table ${ta} (
+                        id int,
+                        dt date,
+                        c1 bigint,
+                        c2 string,
+                        c3 double
+                    ) unique key (id, dt)
+                    partition by range(dt) (
+                        from ("2000-01-01") TO ("2000-01-31") INTERVAL 1 DAY
+                    )
+                    distributed by hash(id)
+                    properties(
+                        'replication_num'='1',
+                        "enable_unique_key_merge_on_write" = "true"
+                    );
+                """
+                sql """
+                    INSERT INTO ${ta} VALUES
+                        (1, '2000-01-01', 1, '1', 1.0),
+                        (2, '2000-01-02', 2, '2', 2.0),
+                        (3, '2000-01-03', 3, '3', 3.0);
+                """
+            }
+
             sql """
                 create table txn_insert_dt2 (
                     id int,
@@ -289,29 +298,6 @@ suite("txn_insert") {
                 );
             """
             sql """
-                create table txn_insert_dt4 (
-                    id int,
-                    dt date,
-                    c1 bigint,
-                    c2 string,
-                    c3 double
-                ) unique key (id, dt)
-                partition by range(dt) (
-                    from ("2000-01-01") TO ("2000-01-31") INTERVAL 1 DAY
-                )
-                distributed by hash(id)
-                properties(
-                    'replication_num'='1',
-                    "enable_unique_key_merge_on_write" = "true"
-                );
-            """
-            sql """
-                INSERT INTO txn_insert_dt1 VALUES
-                    (1, '2000-01-01', 1, '1', 1.0),
-                    (2, '2000-01-02', 2, '2', 2.0),
-                    (3, '2000-01-03', 3, '3', 3.0);
-            """
-            sql """
                 INSERT INTO txn_insert_dt2 VALUES
                     (1, '2000-01-10', 10, '10', 10.0),
                     (2, '2000-01-20', 20, '20', 20.0),
@@ -321,12 +307,6 @@ suite("txn_insert") {
             """
             sql """
                 INSERT INTO txn_insert_dt3 VALUES(1),(2),(4),(5);
-            """
-            sql """
-                INSERT INTO txn_insert_dt4 VALUES
-                    (1, '2000-01-01', 1, '1', 1.0),
-                    (2, '2000-01-02', 2, '2', 2.0),
-                    (3, '2000-01-03', 3, '3', 3.0);
             """
             sql """ begin """
             test {
@@ -350,12 +330,17 @@ suite("txn_insert") {
             sql """
                 delete from txn_insert_dt2 where id = 1 or id = 5;
             """
+            sql """
+                delete from txn_insert_dt5 partition(p_20000102) where id = 1 or id = 5;
+            """
             sql """ commit """
             sql """ insert into txn_insert_dt2 VALUES (6, '2000-01-10', 10, '10', 10.0) """
+            sql """ insert into txn_insert_dt5 VALUES (6, '2000-01-10', 10, '10', 10.0) """
             sql "sync"
             order_qt_select27 """select * from txn_insert_dt1 """
-            order_qt_select28 """select * from txn_insert_dt4 """
-            order_qt_select29 """select * from txn_insert_dt2 """
+            order_qt_select28 """select * from txn_insert_dt2 """
+            order_qt_select29 """select * from txn_insert_dt4 """
+            order_qt_select30 """select * from txn_insert_dt5 """
         }
     }
 }
