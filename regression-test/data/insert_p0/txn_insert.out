@@ -299,12 +299,6 @@
 2	3.3	xyz	[1]	[1, 0]
 
 -- !select25 --
-<<<<<<< HEAD
-1	a	101
-
--- !select26 --
-1	a	100
-=======
 \N	\N	\N	[null]	[null, 0]
 \N	\N	\N	[null]	[null, 0]
 \N	\N	\N	[null]	[null, 0]
@@ -963,5 +957,10 @@
 8	a	10
 9	a	10
 9	a	10
->>>>>>> 5ce81cc62a ([improve](txn insert) txn insert support write to one table many times)
+
+-- !select38 --
+1	a	101
+
+-- !select39 --
+1	a	100
 
