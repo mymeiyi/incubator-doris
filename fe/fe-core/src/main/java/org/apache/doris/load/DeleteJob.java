@@ -58,10 +58,12 @@ import org.apache.doris.task.PushTask;
 import org.apache.doris.thrift.TColumn;
 import org.apache.doris.thrift.TPriority;
 import org.apache.doris.thrift.TPushType;
+import org.apache.doris.thrift.TTabletCommitInfo;
 import org.apache.doris.thrift.TTaskType;
 import org.apache.doris.transaction.AbstractTxnStateChangeCallback;
 import org.apache.doris.transaction.GlobalTransactionMgrIface;
 import org.apache.doris.transaction.TabletCommitInfo;
+import org.apache.doris.transaction.TransactionEntry;
 import org.apache.doris.transaction.TransactionState;
 import org.apache.doris.transaction.TransactionStatus;
 
@@ -280,14 +282,22 @@ public class DeleteJob extends AbstractTxnStateChangeCallback implements DeleteJ
 
     @Override
     public long beginTxn() throws Exception {
-        long txnId = Env.getCurrentGlobalTransactionMgr().beginTransaction(deleteInfo.getDbId(),
-                Lists.newArrayList(deleteInfo.getTableId()), label, null,
-                new TransactionState.TxnCoordinator(
-                        TransactionState.TxnSourceType.FE, FrontendOptions.getLocalHostAddress()),
-                TransactionState.LoadJobSourceType.FRONTEND, id, Config.stream_load_default_timeout_second);
-        this.transactionId = txnId;
-        Env.getCurrentGlobalTransactionMgr().getCallbackFactory().addCallback(this);
-        return txnId;
+        ConnectContext connectContext = ConnectContext.get();
+        if (connectContext.isTxnModel()) {
+            TransactionEntry txnEntry = connectContext.getTxnEntry();
+            txnEntry.beginTransaction(targetTbl.getDatabase(), targetTbl);
+            this.transactionId = txnEntry.getTransactionId();
+            return this.transactionId;
+        } else {
+            long txnId = Env.getCurrentGlobalTransactionMgr().beginTransaction(deleteInfo.getDbId(),
+                    Lists.newArrayList(deleteInfo.getTableId()), label, null,
+                    new TransactionState.TxnCoordinator(
+                            TransactionState.TxnSourceType.FE, FrontendOptions.getLocalHostAddress()),
+                    TransactionState.LoadJobSourceType.FRONTEND, id, Config.stream_load_default_timeout_second);
+            this.transactionId = txnId;
+            Env.getCurrentGlobalTransactionMgr().getCallbackFactory().addCallback(this);
+            return txnId;
+        }
     }
 
     @Override
@@ -423,9 +433,18 @@ public class DeleteJob extends AbstractTxnStateChangeCallback implements DeleteJ
                     }
                     tabletCommitInfos.add(new TabletCommitInfo(tabletId, replica.getBackendId()));
                 }));
-        boolean visible = Env.getCurrentGlobalTransactionMgr()
-                .commitAndPublishTransaction(targetDb, Lists.newArrayList(targetTbl),
-                        transactionId, tabletCommitInfos, getTimeoutMs());
+        boolean visible = false;
+        ConnectContext context = ConnectContext.get();
+        if (context.isTxnModel()) {
+            TransactionEntry txnEntry = context.getTxnEntry();
+            txnEntry.addCommitInfos(targetTbl,
+                    tabletCommitInfos.stream().map(c -> new TTabletCommitInfo(c.getTabletId(), c.getBackendId()))
+                            .collect(Collectors.toList()));
+        } else {
+            visible = Env.getCurrentGlobalTransactionMgr()
+                    .commitAndPublishTransaction(targetDb, Lists.newArrayList(targetTbl),
+                            transactionId, tabletCommitInfos, getTimeoutMs());
+        }
 
         StringBuilder sb = new StringBuilder();
         sb.append("{'label':'").append(label);

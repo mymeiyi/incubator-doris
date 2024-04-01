@@ -138,6 +138,7 @@ import org.apache.doris.nereids.parser.NereidsParser;
 import org.apache.doris.nereids.rules.exploration.mv.InitMaterializationContextHook;
 import org.apache.doris.nereids.trees.plans.commands.Command;
 import org.apache.doris.nereids.trees.plans.commands.CreateTableCommand;
+import org.apache.doris.nereids.trees.plans.commands.DeleteFromCommand;
 import org.apache.doris.nereids.trees.plans.commands.DeleteFromUsingCommand;
 import org.apache.doris.nereids.trees.plans.commands.Forward;
 import org.apache.doris.nereids.trees.plans.commands.NotAllowFallback;
@@ -652,7 +653,8 @@ public class StmtExecutor {
         // when we in transaction mode, we only support insert into command and transaction command
         if (context.isTxnModel()) {
             if (!(logicalPlan instanceof BatchInsertIntoTableCommand || logicalPlan instanceof InsertIntoTableCommand
-                    || logicalPlan instanceof UpdateCommand || logicalPlan instanceof DeleteFromUsingCommand)) {
+                    || logicalPlan instanceof UpdateCommand || logicalPlan instanceof DeleteFromUsingCommand
+                    || logicalPlan instanceof DeleteFromCommand)) {
                 String errMsg = "This is in a transaction, only insert, update, delete using, "
                         + "commit, rollback is acceptable.";
                 throw new NereidsException(errMsg, new AnalysisException(errMsg));
