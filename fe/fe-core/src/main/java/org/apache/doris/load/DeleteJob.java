@@ -465,6 +465,9 @@ public class DeleteJob extends AbstractTxnStateChangeCallback implements DeleteJ
 
     @Override
     public void cancel(String reason) {
+        if (ConnectContext.get().isTxnModel()) {
+            return;
+        }
         GlobalTransactionMgrIface globalTransactionMgr = Env.getCurrentGlobalTransactionMgr();
         try {
             globalTransactionMgr.abortTransaction(deleteInfo.getDbId(), transactionId, reason);

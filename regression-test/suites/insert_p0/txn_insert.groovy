@@ -239,11 +239,12 @@ suite("txn_insert") {
             sql """ insert into ${ut_table}_2 select * from ${ut_table}_1; """
             sql """ update ${ut_table}_1 set score = 101 where id = 1; """
             sql """ commit; """
+            sql "sync"
             order_qt_select25 """select * from ${ut_table}_1 """
             order_qt_select26 """select * from ${ut_table}_2 """
         }
 
-        // 8. delete from using stmt
+        // 8. delete from using and delete from stmt
         if (use_nereids_planner) {
             for (def ta in ["txn_insert_dt1", "txn_insert_dt2", "txn_insert_dt3", "txn_insert_dt4"]) {
                 sql """ drop table if exists ${ta} """
@@ -346,9 +347,15 @@ suite("txn_insert") {
                 using txn_insert_dt2 join txn_insert_dt3 on txn_insert_dt2.id = txn_insert_dt3.id
                 where txn_insert_dt4.id = txn_insert_dt2.id;
             """
+            sql """
+                delete from txn_insert_dt2 where id = 1 or id = 5;
+            """
             sql """ commit """
+            sql """ insert into txn_insert_dt2 VALUES (6, '2000-01-10', 10, '10', 10.0) """
+            sql "sync"
             order_qt_select27 """select * from txn_insert_dt1 """
             order_qt_select28 """select * from txn_insert_dt4 """
+            order_qt_select29 """select * from txn_insert_dt2 """
         }
     }
 }
