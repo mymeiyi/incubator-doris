@@ -17,6 +17,7 @@
 
 package org.apache.doris.load;
 
+import org.apache.doris.catalog.Env;
 import org.apache.doris.qe.ConnectContext;
 import org.apache.doris.thrift.TTabletCommitInfo;
 import org.apache.doris.transaction.TabletCommitInfo;
@@ -41,8 +42,7 @@ public class TxnDeleteJob extends DeleteJob {
     @Override
     public long beginTxn() throws Exception {
         TransactionEntry txnEntry = ConnectContext.get().getTxnEntry();
-        txnEntry.beginTransaction(targetTbl.getDatabase(), targetTbl);
-        this.transactionId = txnEntry.getTransactionId();
+        this.transactionId = txnEntry.beginTransaction(targetTbl.getDatabase(), targetTbl);
         this.label = txnEntry.getLabel();
         return this.transactionId;
     }
@@ -51,7 +51,7 @@ public class TxnDeleteJob extends DeleteJob {
     public String commit() throws Exception {
         List<TabletCommitInfo> tabletCommitInfos = generateTabletCommitInfos();
         TransactionEntry txnEntry = ConnectContext.get().getTxnEntry();
-        txnEntry.addCommitInfos(targetTbl,
+        txnEntry.addTabletCommitInfos(transactionId, targetTbl,
                 tabletCommitInfos.stream().map(c -> new TTabletCommitInfo(c.getTabletId(), c.getBackendId()))
                         .collect(Collectors.toList()));
 
@@ -63,5 +63,9 @@ public class TxnDeleteJob extends DeleteJob {
 
     @Override
     public void cancel(String reason) {
+        if (transactionId != INVALID_TXN_ID) {
+            ConnectContext.get().getTxnEntry().removeTable(targetTbl);
+            Env.getCurrentGlobalTransactionMgr().removeSubTransaction(targetTbl.getDatabase().getId(), transactionId);
+        }
     }
 }
