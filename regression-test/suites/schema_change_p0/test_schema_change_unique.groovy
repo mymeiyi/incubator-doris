@@ -61,13 +61,17 @@ suite("test_schema_change_unique", "p0") {
                 }
                 log.info("Stream load result: ${result}".toString())
                 def json = parseJson(result)
-                if (json.Status.toLowerCase().equals("success")) {
+                if (!isGroupCommitMode()) {
+                    assertEquals("success", json.Status.toLowerCase())
                     assertEquals(2500, json.NumberTotalRows)
                     assertEquals(0, json.NumberFilteredRows)
-                } else if (json.Status.toLowerCase().equals("fail") && json.Message.contains("schema version not match")) {
-
                 } else {
-                    assertEquals("success", json.Status.toLowerCase())
+                    if (json.Status.toLowerCase().equals("success")) {
+                        assertEquals(2500, json.NumberTotalRows)
+                        assertEquals(0, json.NumberFilteredRows)
+                    } else if (json.Status.toLowerCase().equals("fail")) {
+                        assertTrue(json.Message.contains("schema version not match"))
+                    }
                 }
             }
         }
