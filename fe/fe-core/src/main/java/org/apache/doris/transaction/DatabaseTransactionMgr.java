@@ -554,7 +554,8 @@ public class DatabaseTransactionMgr {
                 }
 
                 List<MaterializedIndex> allIndices;
-                if (transactionState.getLoadedTblIndexes().isEmpty()) {
+                if (transactionState.getLoadedTblIndexes().isEmpty()
+                        || transactionState.getLoadedTblIndexes().get(tableId) == null) {
                     allIndices = partition.getMaterializedIndices(MaterializedIndex.IndexExtState.ALL);
                 } else {
                     allIndices = Lists.newArrayList();
@@ -2508,7 +2509,8 @@ public class DatabaseTransactionMgr {
 
                 // TODO should use sub transaction load indexes
                 List<MaterializedIndex> allIndices;
-                if (transactionState.getLoadedTblIndexes().isEmpty()) {
+                if (transactionState.getLoadedTblIndexes().isEmpty()
+                        || transactionState.getLoadedTblIndexes().get(tableId) == null) {
                     allIndices = partition.getMaterializedIndices(MaterializedIndex.IndexExtState.ALL);
                 } else {
                     allIndices = Lists.newArrayList();
@@ -2602,7 +2604,6 @@ public class DatabaseTransactionMgr {
         if (allowPublishOneSucc && healthReplicaNum > 0) {
             if (publishResult == PublishResult.QUORUM_SUCC) {
                 publishResult = PublishResult.TIMEOUT_SUCC;
-                LOG.info("sout: set publish result to timeout succ");
             }
             // We can not do any thing except retrying,
             // because publish task is assigned a version,
@@ -2619,7 +2620,6 @@ public class DatabaseTransactionMgr {
                     loadRequiredReplicaNum, tableId, partitionId, writeDetail));
         } else {
             publishResult = PublishResult.FAILED;
-            LOG.info("sout: set publish result to failed");
             String errMsg = String.format(
                     "publish on tablet %d failed." + " succeed replica num %d < load required replica num %d."
                             + " table: %d, partition: %d, publish version: %d", tablet.getId(), healthReplicaNum,
