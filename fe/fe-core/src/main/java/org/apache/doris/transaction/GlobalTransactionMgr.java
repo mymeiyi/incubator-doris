@@ -818,8 +818,7 @@ public class GlobalTransactionMgr implements GlobalTransactionMgrIface {
     public void readFields(DataInput in) throws IOException {
         int numTransactions = in.readInt();
         for (int i = 0; i < numTransactions; ++i) {
-            TransactionState transactionState = new TransactionState();
-            transactionState.readFields(in);
+            TransactionState transactionState = TransactionState.read(in);
             try {
                 DatabaseTransactionMgr dbTransactionMgr = getDatabaseTransactionMgr(transactionState.getDbId());
                 dbTransactionMgr.unprotectUpsertTransactionState(transactionState, true);
