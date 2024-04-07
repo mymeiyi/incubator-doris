@@ -391,17 +391,12 @@ suite("txn_insert") {
             sql """ insert into ${ut_table}_2 select * from ${ut_table}_1; """
             sql """ update ${ut_table}_1 set score = 101 where id = 1; """
             sql """ commit; """
-<<<<<<< HEAD
             sql "sync"
-            order_qt_select25 """select * from ${ut_table}_1 """
-            order_qt_select26 """select * from ${ut_table}_2 """
-=======
             order_qt_select38 """select * from ${ut_table}_1 """
             order_qt_select39 """select * from ${ut_table}_2 """
->>>>>>> ebe2ce6f92 (fix)
         }
 
-        // 8. delete from using and delete from stmt
+        // 12. delete from using and delete from stmt
         if (use_nereids_planner) {
             for (def ta in ["txn_insert_dt1", "txn_insert_dt2", "txn_insert_dt3", "txn_insert_dt4", "txn_insert_dt5"]) {
                 sql """ drop table if exists ${ta} """
@@ -485,19 +480,25 @@ suite("txn_insert") {
                 where txn_insert_dt4.id = txn_insert_dt2.id;
             """
             sql """
-                delete from txn_insert_dt2 where id = 1 or id = 5;
+                delete from txn_insert_dt2 where id = 1;
             """
             sql """
-                delete from txn_insert_dt5 partition(p_20000102) where id = 1 or id = 5;
+                delete from txn_insert_dt2 where id = 5;
+            """
+            sql """
+                delete from txn_insert_dt5 partition(p_20000102) where id = 1;
+            """
+            sql """
+                delete from txn_insert_dt5 partition(p_20000102) where id = 5;
             """
             sql """ commit """
             sql """ insert into txn_insert_dt2 VALUES (6, '2000-01-10', 10, '10', 10.0) """
             sql """ insert into txn_insert_dt5 VALUES (6, '2000-01-10', 10, '10', 10.0) """
             sql "sync"
-            order_qt_select27 """select * from txn_insert_dt1 """
-            order_qt_select28 """select * from txn_insert_dt2 """
-            order_qt_select29 """select * from txn_insert_dt4 """
-            order_qt_select30 """select * from txn_insert_dt5 """
+            order_qt_select40 """select * from txn_insert_dt1 """
+            order_qt_select41 """select * from txn_insert_dt2 """
+            order_qt_select42 """select * from txn_insert_dt4 """
+            order_qt_select43 """select * from txn_insert_dt5 """
         }
     }
 }
