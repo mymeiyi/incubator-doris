@@ -23,6 +23,8 @@ import org.apache.doris.thrift.TUniqueId;
 import org.apache.doris.transaction.TransactionState;
 import org.apache.doris.transaction.TxnCommitAttachment;
 
+import com.google.gson.annotations.SerializedName;
+
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
@@ -33,11 +35,17 @@ public class RLTaskTxnCommitAttachment extends TxnCommitAttachment {
 
     private long jobId;
     private TUniqueId taskId;
+    @SerializedName(value = "filteredRows")
     private long filteredRows;
+    @SerializedName(value = "loadedRows")
     private long loadedRows;
+    @SerializedName(value = "unselectedRows")
     private long unselectedRows;
+    @SerializedName(value = "receivedBytes")
     private long receivedBytes;
+    @SerializedName(value = "taskExecutionTimeMs")
     private long taskExecutionTimeMs;
+    @SerializedName(value = "progress")
     private RoutineLoadProgress progress;
     private String errorLogUrl;
 
