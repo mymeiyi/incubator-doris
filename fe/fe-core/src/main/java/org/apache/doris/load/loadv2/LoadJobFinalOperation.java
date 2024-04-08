@@ -25,6 +25,7 @@ import org.apache.doris.transaction.TransactionState;
 import org.apache.doris.transaction.TxnCommitAttachment;
 
 import com.google.gson.Gson;
+import com.google.gson.annotations.SerializedName;
 import com.google.gson.reflect.TypeToken;
 
 import java.io.DataInput;
@@ -38,13 +39,20 @@ import java.util.Map;
  * It is used to edit the job final state.
  */
 public class LoadJobFinalOperation extends TxnCommitAttachment implements Writable {
+    @SerializedName(value = "id")
     private long id;
+    @SerializedName(value = "loadingStatus")
     private EtlStatus loadingStatus = new EtlStatus();
+    @SerializedName(value = "progress")
     private int progress;
+    @SerializedName(value = "loadStartTimestamp")
     private long loadStartTimestamp;
+    @SerializedName(value = "finishTimestamp")
     private long finishTimestamp;
+    @SerializedName(value = "jobState")
     private JobState jobState;
     // optional
+    @SerializedName(value = "failMsg")
     private FailMsg failMsg;
     // only used for copy into
     private String copyId = "";
