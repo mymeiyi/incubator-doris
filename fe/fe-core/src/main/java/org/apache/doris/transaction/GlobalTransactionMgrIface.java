@@ -193,6 +193,4 @@ public interface GlobalTransactionMgrIface extends Writable {
     public void addSubTransaction(long dbId, long transactionId, long subTransactionId);
 
     public void removeSubTransaction(long dbId, long subTransactionId);
-
-    public void cleanSubTransactions(long dbId, long transactionId);
 }

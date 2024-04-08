@@ -896,14 +896,4 @@ public class GlobalTransactionMgr implements GlobalTransactionMgrIface {
             LOG.warn("remove sub transaction failed. db " + dbId, e);
         }
     }
-
-    @Override
-    public void cleanSubTransactions(long dbId, long transactionId) {
-        try {
-            DatabaseTransactionMgr dbTransactionMgr = getDatabaseTransactionMgr(dbId);
-            dbTransactionMgr.cleanSubTransactions(transactionId);
-        } catch (AnalysisException e) {
-            LOG.warn("clean sub transaction failed. db " + dbId, e);
-        }
-    }
 }
