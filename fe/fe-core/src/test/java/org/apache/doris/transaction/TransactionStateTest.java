@@ -18,15 +18,20 @@
 package org.apache.doris.transaction;
 
 import org.apache.doris.common.FeMetaVersion;
+import org.apache.doris.common.jmockit.Deencapsulation;
 import org.apache.doris.load.loadv2.JobState;
 import org.apache.doris.load.loadv2.LoadJobFinalOperation;
+import org.apache.doris.load.routineload.KafkaProgress;
+import org.apache.doris.load.routineload.RLTaskTxnCommitAttachment;
 import org.apache.doris.meta.MetaContext;
+import org.apache.doris.thrift.TKafkaRLTaskProgress;
 import org.apache.doris.thrift.TUniqueId;
 import org.apache.doris.transaction.TransactionState.LoadJobSourceType;
 import org.apache.doris.transaction.TransactionState.TxnCoordinator;
 import org.apache.doris.transaction.TransactionState.TxnSourceType;
 
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
@@ -38,20 +43,23 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 public class TransactionStateTest {
 
     private static String fileName = "./TransactionStateTest";
     private static String fileName2 = "./TransactionStateTest2";
+    private static String fileName3 = "./TransactionStateTest3";
 
     @After
     public void tearDown() {
         new File(fileName).delete();
         new File(fileName2).delete();
+        new File(fileName3).delete();
     }
 
-    @Test
-    public void testSerDe() throws IOException {
+    private void testSerDe(String fileName, TransactionState transactionState, Consumer<TransactionState> checkFun)
+            throws IOException {
         MetaContext metaContext = new MetaContext();
         metaContext.setMetaVersion(FeMetaVersion.VERSION_CURRENT);
         metaContext.setThreadLocalInfo();
@@ -60,58 +68,74 @@ public class TransactionStateTest {
         File file = new File(fileName);
         file.createNewFile();
         DataOutputStream out = new DataOutputStream(new FileOutputStream(file));
+        transactionState.write(out);
+        out.flush();
+        out.close();
 
+        // 2. Read objects from file
+        DataInputStream in = new DataInputStream(new FileInputStream(file));
+        TransactionState readTransactionState = TransactionState.read(in);
+        checkFun.accept(readTransactionState);
+        in.close();
+    }
+
+    @Test
+    public void testSerDe() throws IOException {
         UUID uuid = UUID.randomUUID();
         TransactionState transactionState = new TransactionState(1000L, Lists.newArrayList(20000L, 20001L),
                 3000, "label123", new TUniqueId(uuid.getMostSignificantBits(), uuid.getLeastSignificantBits()),
                 LoadJobSourceType.BACKEND_STREAMING, new TxnCoordinator(TxnSourceType.BE, "127.0.0.1"), 50000L,
                 60 * 1000L);
-
-        transactionState.write(out);
-        out.flush();
-        out.close();
-
-        // 2. Read objects from file
-        DataInputStream in = new DataInputStream(new FileInputStream(file));
-        TransactionState readTransactionState = TransactionState.read(in);
-
-        Assert.assertEquals(transactionState.getCoordinator().ip, readTransactionState.getCoordinator().ip);
-        in.close();
+        testSerDe(fileName, transactionState, readTransactionState -> {
+            Assert.assertEquals(transactionState.getCoordinator().ip, readTransactionState.getCoordinator().ip);
+        });
     }
 
     @Test
-    public void testSerDeWithTxnCommitAttachment() throws IOException {
-        MetaContext metaContext = new MetaContext();
-        metaContext.setMetaVersion(FeMetaVersion.VERSION_CURRENT);
-        metaContext.setThreadLocalInfo();
-
-        // 1. Write objects to file
-        File file = new File(fileName2);
-        file.createNewFile();
-        DataOutputStream out = new DataOutputStream(new FileOutputStream(file));
-
+    public void testSerDeForBatchLoad() throws IOException {
         UUID uuid = UUID.randomUUID();
+        LoadJobFinalOperation loadJobFinalOperation = new LoadJobFinalOperation(1000L, null, 0, 0, 0, JobState.FINISHED,
+                null);
+        TransactionState transactionState = new TransactionState(1000L, Lists.newArrayList(20000L, 20001L), 3000,
+                "label123", new TUniqueId(uuid.getMostSignificantBits(), uuid.getLeastSignificantBits()),
+                LoadJobSourceType.BACKEND_STREAMING, new TxnCoordinator(TxnSourceType.BE, "127.0.0.1"),
+                TransactionStatus.COMMITTED, "", 100, 50000L, loadJobFinalOperation, 100, 200, 300, 400);
+        testSerDe(fileName2, transactionState, readTransactionState -> {
+            Assert.assertEquals(TransactionState.LoadJobSourceType.BATCH_LOAD_JOB,
+                    readTransactionState.getTxnCommitAttachment().sourceType);
+            Assert.assertTrue(readTransactionState.getTxnCommitAttachment() instanceof LoadJobFinalOperation);
+            LoadJobFinalOperation readLoadJobFinalOperation
+                    = (LoadJobFinalOperation) (readTransactionState.getTxnCommitAttachment());
+            Assert.assertEquals(loadJobFinalOperation.getId(), readLoadJobFinalOperation.getId());
+        });
+    }
+
+    @Test
+    public void testSerDeForRoutineLoad() throws IOException {
+        UUID uuid = UUID.randomUUID();
+        // create a RLTaskTxnCommitAttachment
+        RLTaskTxnCommitAttachment attachment = new RLTaskTxnCommitAttachment();
+        TKafkaRLTaskProgress tKafkaRLTaskProgress = new TKafkaRLTaskProgress();
+        tKafkaRLTaskProgress.partitionCmtOffset = Maps.newHashMap();
+        tKafkaRLTaskProgress.partitionCmtOffset.put(1, 100L);
+        KafkaProgress kafkaProgress = new KafkaProgress(tKafkaRLTaskProgress);
+        Deencapsulation.setField(attachment, "progress", kafkaProgress);
+
         TransactionState transactionState = new TransactionState(1000L, Lists.newArrayList(20000L, 20001L),
                 3000, "label123", new TUniqueId(uuid.getMostSignificantBits(), uuid.getLeastSignificantBits()),
                 LoadJobSourceType.BACKEND_STREAMING, new TxnCoordinator(TxnSourceType.BE, "127.0.0.1"),
                 TransactionStatus.COMMITTED, "", 100, 50000L,
-                new LoadJobFinalOperation(1000L, null, 0, 0, 0, JobState.FINISHED, null),
-                100, 200, 300, 400);
-
-        transactionState.write(out);
-        out.flush();
-        out.close();
-
-        // 2. Read objects from file
-        DataInputStream in = new DataInputStream(new FileInputStream(file));
-        TransactionState readTransactionState = TransactionState.read(in);
-
-        Assert.assertEquals(TransactionState.LoadJobSourceType.BATCH_LOAD_JOB,
-                readTransactionState.getTxnCommitAttachment().sourceType);
-        Assert.assertTrue(readTransactionState.getTxnCommitAttachment() instanceof LoadJobFinalOperation);
-        LoadJobFinalOperation loadJobFinalOperation
-                = (LoadJobFinalOperation) (readTransactionState.getTxnCommitAttachment());
-        Assert.assertEquals(1000L, loadJobFinalOperation.getId());
-        in.close();
+                attachment, 100, 200, 300, 400);
+        testSerDe(fileName3, transactionState, readTransactionState -> {
+            Assert.assertEquals(TransactionState.LoadJobSourceType.ROUTINE_LOAD_TASK,
+                    readTransactionState.getTxnCommitAttachment().sourceType);
+            Assert.assertTrue(readTransactionState.getTxnCommitAttachment() instanceof RLTaskTxnCommitAttachment);
+            RLTaskTxnCommitAttachment readRLTaskTxnCommitAttachment
+                    = (RLTaskTxnCommitAttachment) (readTransactionState.getTxnCommitAttachment());
+            Assert.assertTrue(readRLTaskTxnCommitAttachment.getProgress() instanceof KafkaProgress);
+            KafkaProgress readKafkaProgress = (KafkaProgress) (readRLTaskTxnCommitAttachment.getProgress());
+            Assert.assertEquals(1, readKafkaProgress.getOffsetByPartition().size());
+            Assert.assertEquals(100L, (long) readKafkaProgress.getOffsetByPartition().getOrDefault(1, -1L));
+        });
     }
 }
