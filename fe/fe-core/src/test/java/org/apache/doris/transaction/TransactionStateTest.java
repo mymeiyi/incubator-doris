@@ -19,11 +19,15 @@ package org.apache.doris.transaction;
 
 import org.apache.doris.common.FeMetaVersion;
 import org.apache.doris.common.jmockit.Deencapsulation;
+import org.apache.doris.load.EtlStatus;
+import org.apache.doris.load.FailMsg;
+import org.apache.doris.load.FailMsg.CancelType;
 import org.apache.doris.load.loadv2.JobState;
 import org.apache.doris.load.loadv2.LoadJobFinalOperation;
 import org.apache.doris.load.routineload.KafkaProgress;
 import org.apache.doris.load.routineload.RLTaskTxnCommitAttachment;
 import org.apache.doris.meta.MetaContext;
+import org.apache.doris.thrift.TEtlState;
 import org.apache.doris.thrift.TKafkaRLTaskProgress;
 import org.apache.doris.thrift.TUniqueId;
 import org.apache.doris.transaction.TransactionState.LoadJobSourceType;
@@ -94,12 +98,23 @@ public class TransactionStateTest {
     @Test
     public void testSerDeForBatchLoad() throws IOException {
         UUID uuid = UUID.randomUUID();
-        LoadJobFinalOperation loadJobFinalOperation = new LoadJobFinalOperation(1000L, null, 0, 0, 0, JobState.FINISHED,
-                null);
+        // EtlStatus
+        EtlStatus etlStatus = new EtlStatus();
+        etlStatus.setState(TEtlState.FINISHED);
+        etlStatus.setTrackingUrl("http://123");
+        // FailMsg
+        FailMsg failMsg = new FailMsg();
+        failMsg.setCancelType(CancelType.LOAD_RUN_FAIL);
+        failMsg.setMsg("load run fail");
+        // LoadJobFinalOperation
+        LoadJobFinalOperation loadJobFinalOperation = new LoadJobFinalOperation(1000L, etlStatus, 0, 0, 0,
+                JobState.FINISHED, failMsg);
+        // TransactionState
         TransactionState transactionState = new TransactionState(1000L, Lists.newArrayList(20000L, 20001L), 3000,
                 "label123", new TUniqueId(uuid.getMostSignificantBits(), uuid.getLeastSignificantBits()),
                 LoadJobSourceType.BACKEND_STREAMING, new TxnCoordinator(TxnSourceType.BE, "127.0.0.1"),
                 TransactionStatus.COMMITTED, "", 100, 50000L, loadJobFinalOperation, 100, 200, 300, 400);
+        // check
         testSerDe(fileName2, transactionState, readTransactionState -> {
             Assert.assertEquals(TransactionState.LoadJobSourceType.BATCH_LOAD_JOB,
                     readTransactionState.getTxnCommitAttachment().sourceType);
@@ -107,6 +122,12 @@ public class TransactionStateTest {
             LoadJobFinalOperation readLoadJobFinalOperation
                     = (LoadJobFinalOperation) (readTransactionState.getTxnCommitAttachment());
             Assert.assertEquals(loadJobFinalOperation.getId(), readLoadJobFinalOperation.getId());
+            EtlStatus readLoadingStatus = readLoadJobFinalOperation.getLoadingStatus();
+            Assert.assertEquals(TEtlState.FINISHED, readLoadingStatus.getState());
+            Assert.assertEquals(etlStatus.getTrackingUrl(), readLoadingStatus.getTrackingUrl());
+            FailMsg readFailMsg = readLoadJobFinalOperation.getFailMsg();
+            Assert.assertEquals(failMsg.getCancelType(), readFailMsg.getCancelType());
+            Assert.assertEquals(failMsg.getMsg(), readFailMsg.getMsg());
         });
     }
 
@@ -120,12 +141,13 @@ public class TransactionStateTest {
         tKafkaRLTaskProgress.partitionCmtOffset.put(1, 100L);
         KafkaProgress kafkaProgress = new KafkaProgress(tKafkaRLTaskProgress);
         Deencapsulation.setField(attachment, "progress", kafkaProgress);
-
+        // TransactionState
         TransactionState transactionState = new TransactionState(1000L, Lists.newArrayList(20000L, 20001L),
                 3000, "label123", new TUniqueId(uuid.getMostSignificantBits(), uuid.getLeastSignificantBits()),
                 LoadJobSourceType.BACKEND_STREAMING, new TxnCoordinator(TxnSourceType.BE, "127.0.0.1"),
                 TransactionStatus.COMMITTED, "", 100, 50000L,
                 attachment, 100, 200, 300, 400);
+        // check
         testSerDe(fileName3, transactionState, readTransactionState -> {
             Assert.assertEquals(TransactionState.LoadJobSourceType.ROUTINE_LOAD_TASK,
                     readTransactionState.getTxnCommitAttachment().sourceType);
