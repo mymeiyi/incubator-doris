@@ -216,10 +216,10 @@ under the License.
     </build>
     <modules>
         <module>fe-common</module>
-        <module>spark-dpp</module>
+        <!--<module>spark-dpp</module>-->
         <module>fe-core</module>
-        <module>hive-udf</module>
-        <module>be-java-extensions</module>
+        <!--<module>hive-udf</module>-->
+        <!--<module>be-java-extensions</module>-->
     </modules>
     <properties>
         <!--suppress UnresolvedMavenProperty -->
