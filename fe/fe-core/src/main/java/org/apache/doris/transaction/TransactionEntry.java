@@ -162,12 +162,13 @@ public class TransactionEntry {
     }
 
     // Used for insert into select, return the sub_txn_id for this insert
-    public long beginTransaction(DatabaseIf database, TableIf table) throws UserException {
+    public long beginTransaction(TableIf table) throws UserException {
         if (isTxnBegin()) {
             // FIXME: support mix usage of `insert into values` and `insert into select`
             throw new AnalysisException(
                     "Transaction insert can not insert into values and insert into select at the same time");
         }
+        DatabaseIf database = table.getDatabase();
         if (!isTransactionBegan) {
             this.transactionId = Env.getCurrentGlobalTransactionMgr().beginTransaction(
                     database.getId(), Lists.newArrayList(table.getId()), label,
