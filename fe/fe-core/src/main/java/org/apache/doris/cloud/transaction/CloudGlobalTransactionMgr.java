@@ -1274,9 +1274,4 @@ public class CloudGlobalTransactionMgr implements GlobalTransactionMgrIface {
     public void removeSubTransaction(long dbId, long subTransactionId) {
         throw new UnsupportedOperationException("removeSubTransaction is not supported in cloud");
     }
-
-    @Override
-    public void cleanSubTransactions(long dbId, long transactionId) {
-        throw new UnsupportedOperationException("cleanSubTransactions is not supported in cloud");
-    }
 }
