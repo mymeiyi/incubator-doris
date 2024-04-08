@@ -2633,15 +2633,15 @@ public class DatabaseTransactionMgr {
         return publishResult;
     }
 
-    public void addSubTransaction(long transactionId, long subTransactionId) {
+    protected void addSubTransaction(long transactionId, long subTransactionId) {
         subTxnIdToTxnId.put(subTransactionId, transactionId);
     }
 
-    public void removeSubTransaction(long subTransactionId) {
+    protected void removeSubTransaction(long subTransactionId) {
         subTxnIdToTxnId.remove(subTransactionId);
     }
 
-    public void cleanSubTransactions(long transactionId) {
+    private void cleanSubTransactions(long transactionId) {
         Iterator<Entry<Long, Long>> iterator = subTxnIdToTxnId.entrySet().iterator();
         while (iterator.hasNext()) {
             Entry<Long, Long> entry = iterator.next();
