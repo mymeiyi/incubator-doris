@@ -30,9 +30,12 @@ import org.apache.doris.common.UserException;
 import org.apache.doris.common.util.TimeUtils;
 import org.apache.doris.meta.MetaContext;
 import org.apache.doris.task.PublishVersionTask;
+import org.apache.doris.thrift.TPartitionVersionInfo;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
@@ -42,8 +45,10 @@ import org.junit.rules.ExpectedException;
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 public class DatabaseTransactionMgrTest {
+    private static final Logger LOG = LogManager.getLogger(DatabaseTransactionMgrTest.class);
 
     @Rule
     public ExpectedException expectedEx = ExpectedException.none();
@@ -61,11 +66,29 @@ public class DatabaseTransactionMgrTest {
             new TransactionState.TxnCoordinator(TransactionState.TxnSourceType.FE, "localfe");
 
     public static void setTransactionFinishPublish(TransactionState transactionState, List<Long> backendIds) {
-        for (long backendId : backendIds) {
-            PublishVersionTask task = new PublishVersionTask(backendId, transactionState.getTransactionId(),
-                    transactionState.getDbId(), null, System.currentTimeMillis());
-            task.setFinished(true);
-            transactionState.addPublishVersionTask(backendId, task);
+        if (transactionState.getSubTransactionStates() != null) {
+            LOG.info("txnId={}, subTxnIdToTableCommitInfo={}", transactionState.getTransactionId(),
+                    transactionState.getSubTxnIdToTableCommitInfo());
+            /** the same with {@link PublishVersionDaemon#publishVersion} */
+            for (Entry<Long, TableCommitInfo> entry : transactionState.getSubTxnIdToTableCommitInfo().entrySet()) {
+                long subTxnId = entry.getKey();
+                List<TPartitionVersionInfo> partitionVersionInfos = entry.getValue().generateTPartitionVersionInfos();
+                LOG.info("add publish task, txnId={}, subTxnId={}, backends={}, partitionVersionInfos={}",
+                        transactionState.getTransactionId(), subTxnId, backendIds, partitionVersionInfos);
+                for (Long backendId : backendIds) {
+                    PublishVersionTask task = new PublishVersionTask(backendId, subTxnId,
+                            transactionState.getDbId(), partitionVersionInfos, System.currentTimeMillis());
+                    task.setFinished(true);
+                    transactionState.addPublishVersionTask(backendId, task);
+                }
+            }
+        } else {
+            for (long backendId : backendIds) {
+                PublishVersionTask task = new PublishVersionTask(backendId, transactionState.getTransactionId(),
+                        transactionState.getDbId(), null, System.currentTimeMillis());
+                task.setFinished(true);
+                transactionState.addPublishVersionTask(backendId, task);
+            }
         }
     }
 
