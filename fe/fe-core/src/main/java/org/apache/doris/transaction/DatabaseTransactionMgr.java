@@ -484,7 +484,6 @@ public class DatabaseTransactionMgr {
                                    List<TabletCommitInfo> tabletCommitInfos, TxnCommitAttachment txnCommitAttachment,
                                    Set<Long> errorReplicaIds, Map<Long, Set<Long>> tableToPartition,
                                    Set<Long> totalInvolvedBackends) throws UserException {
-
         long transactionId = transactionState.getTransactionId();
         Database db = env.getInternalCatalog().getDbOrMetaException(dbId);
 
@@ -2030,6 +2029,9 @@ public class DatabaseTransactionMgr {
 
     private void updatePartitionNextVersion(TransactionState transactionState, Database db, boolean isReplay,
             List<TableCommitInfo> tableCommitInfos) {
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("txn_id={}, table commit info={}", transactionState.getTransactionId(), tableCommitInfos);
+        }
         Set<Long> errorReplicaIds = transactionState.getErrorReplicas();
         List<Replica> tabletSuccReplicas = Lists.newArrayList();
         List<Replica> tabletFailedReplicas = Lists.newArrayList();
@@ -2091,7 +2093,10 @@ public class DatabaseTransactionMgr {
                 }
             }
         }
-
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("txn_id={}, partition to next version={}", transactionState.getTransactionId(),
+                    partitionToVersionMap);
+        }
         for (Entry<Partition, Long> entry : partitionToVersionMap.entrySet()) {
             Partition partition = entry.getKey();
             long version = entry.getValue();
