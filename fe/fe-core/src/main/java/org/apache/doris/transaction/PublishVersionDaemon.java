@@ -225,16 +225,7 @@ public class PublishVersionDaemon extends MasterDaemon {
         } catch (MetaNotFoundException e) {
             LOG.warn("exception occur when trying to get rollup tablets info", e);
         }
-        return tableCommitInfo.getIdToPartitionCommitInfo()
-                .values().stream()
-                .map(commitInfo -> {
-                    if (LOG.isDebugEnabled()) {
-                        LOG.debug("try to publish version info partitionid [{}], version [{}]",
-                                commitInfo.getPartitionId(), commitInfo.getVersion());
-                    }
-                    return new TPartitionVersionInfo(commitInfo.getPartitionId(),
-                            commitInfo.getVersion(), 0);
-                }).collect(Collectors.toList());
+        return tableCommitInfo.generateTPartitionVersionInfos();
     }
 
     private void addPublishVersionTask(Set<Long> publishBackends, long transactionId, TransactionState transactionState,
