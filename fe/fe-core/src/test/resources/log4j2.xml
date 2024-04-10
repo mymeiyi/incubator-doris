@@ -36,5 +36,6 @@ under the License.
             <AppenderRef ref="Console"/>
             <AppenderRef ref="RollingFile"/>
         </Root>
+        <Logger name='org.apache.doris' level='DEBUG'/>
     </Loggers>
 </Configuration>
