@@ -45,6 +45,7 @@ import org.apache.doris.load.routineload.RoutineLoadStatistic;
 import org.apache.doris.load.routineload.RoutineLoadTaskInfo;
 import org.apache.doris.meta.MetaContext;
 import org.apache.doris.persist.EditLog;
+import org.apache.doris.task.PublishVersionTask;
 import org.apache.doris.thrift.TKafkaRLTaskProgress;
 import org.apache.doris.thrift.TLoadSourceType;
 import org.apache.doris.thrift.TRLTaskTxnCommitAttachment;
@@ -186,86 +187,98 @@ public class GlobalTransactionMgrTest {
     // commit with only two replicas
     @Test
     public void testCommitTransactionWithOneFailed() throws UserException {
-        TransactionState transactionState = null;
         FakeEnv.setEnv(masterEnv);
-        long transactionId = masterTransMgr.beginTransaction(CatalogTestUtil.testDbId1, Lists.newArrayList(CatalogTestUtil.testTableId1),
-                CatalogTestUtil.testTxnLabel1,
-                transactionSource,
-                LoadJobSourceType.FRONTEND, Config.stream_load_default_timeout_second);
-        // commit a transaction with 1,2 success
-        List<TabletCommitInfo> transTablets = generateTabletCommitInfos(CatalogTestUtil.testTabletId1,
-                Lists.newArrayList(CatalogTestUtil.testBackendId1, CatalogTestUtil.testBackendId2));
         Table testTable1 = masterEnv.getInternalCatalog().getDbOrMetaException(CatalogTestUtil.testDbId1)
                 .getTableOrMetaException(CatalogTestUtil.testTableId1);
-        masterTransMgr.commitTransaction(CatalogTestUtil.testDbId1, Lists.newArrayList(testTable1), transactionId, transTablets);
-        checkVersion(testTable1, CatalogTestUtil.testPartition1, CatalogTestUtil.testIndexId1,
-                CatalogTestUtil.testTabletId1, CatalogTestUtil.testStartVersion, CatalogTestUtil.testStartVersion + 2,
-                CatalogTestUtil.testStartVersion);
-
-        // follower catalog replay the transaction
-        transactionState = fakeEditLog.getTransaction(transactionId);
-        FakeEnv.setEnv(slaveEnv);
-        slaveTransMgr.replayUpsertTransactionState(transactionState);
-        Assert.assertTrue(CatalogTestUtil.compareCatalog(masterEnv, slaveEnv));
-
-        FakeEnv.setEnv(masterEnv);
-        // commit another transaction with 1,3 success
-        long transactionId2 = masterTransMgr.beginTransaction(CatalogTestUtil.testDbId1, Lists.newArrayList(CatalogTestUtil.testTableId1),
-                CatalogTestUtil.testTxnLabel2,
-                transactionSource,
-                LoadJobSourceType.FRONTEND, Config.stream_load_default_timeout_second);
-        transTablets = generateTabletCommitInfos(CatalogTestUtil.testTabletId1,
-                Lists.newArrayList(CatalogTestUtil.testBackendId1, CatalogTestUtil.testBackendId3));
-        try {
-            masterTransMgr.commitTransaction(CatalogTestUtil.testDbId1, Lists.newArrayList(testTable1), transactionId2, transTablets);
-            Assert.fail();
-        } catch (TabletQuorumFailedException e) {
-            transactionState = masterTransMgr.getTransactionState(CatalogTestUtil.testDbId1, transactionId2);
-            // check status is prepare, because the commit failed
-            Assert.assertEquals(TransactionStatus.PREPARE, transactionState.getTransactionStatus());
+        // txn1
+        if (true) {
+            long transactionId = masterTransMgr.beginTransaction(CatalogTestUtil.testDbId1,
+                    Lists.newArrayList(CatalogTestUtil.testTableId1),
+                    CatalogTestUtil.testTxnLabel1,
+                    transactionSource,
+                    LoadJobSourceType.FRONTEND, Config.stream_load_default_timeout_second);
+            // commit a transaction with 1,2 success
+            List<TabletCommitInfo> transTablets = generateTabletCommitInfos(CatalogTestUtil.testTabletId1,
+                    Lists.newArrayList(CatalogTestUtil.testBackendId1, CatalogTestUtil.testBackendId2));
+            // commit txn
+            masterTransMgr.commitTransaction(CatalogTestUtil.testDbId1, Lists.newArrayList(testTable1), transactionId,
+                    transTablets);
+            checkVersion(testTable1, CatalogTestUtil.testPartition1, CatalogTestUtil.testIndexId1,
+                    CatalogTestUtil.testTabletId1, CatalogTestUtil.testStartVersion,
+                    CatalogTestUtil.testStartVersion + 2,
+                    CatalogTestUtil.testStartVersion);
+            // check table1 replica3 last success and failed version
+            checkReplicaVersion(CatalogTestUtil.testDbId1, CatalogTestUtil.testTableId1, CatalogTestUtil.testPartition1,
+                    CatalogTestUtil.testIndexId1, CatalogTestUtil.testTabletId1, CatalogTestUtil.testReplicaId3,
+                    CatalogTestUtil.testStartVersion, CatalogTestUtil.testStartVersion,
+                    CatalogTestUtil.testStartVersion + 1);
+            // follower catalog replay the transaction
+            TransactionState transactionState = fakeEditLog.getTransaction(transactionId);
+            FakeEnv.setEnv(slaveEnv);
+            slaveTransMgr.replayUpsertTransactionState(transactionState);
+            Assert.assertTrue(CatalogTestUtil.compareCatalog(masterEnv, slaveEnv));
         }
-        // check replica version
-        checkVersion(testTable1, CatalogTestUtil.testPartition1, CatalogTestUtil.testIndexId1,
-                CatalogTestUtil.testTabletId1, CatalogTestUtil.testStartVersion, CatalogTestUtil.testStartVersion + 2,
-                CatalogTestUtil.testStartVersion);
-        // the transaction not committed, so that catalog should be equal
-        Assert.assertTrue(CatalogTestUtil.compareCatalog(masterEnv, slaveEnv));
 
-        // commit the second transaction with 1,2,3 success
-        transTablets = generateTabletCommitInfos(CatalogTestUtil.testTabletId1, allBackends);
-        masterTransMgr.commitTransaction(CatalogTestUtil.testDbId1, Lists.newArrayList(testTable1), transactionId2, transTablets);
-        transactionState = fakeEditLog.getTransaction(transactionId2);
-        // check status is commit
-        Assert.assertEquals(TransactionStatus.COMMITTED, transactionState.getTransactionStatus());
-        // check replica version
-        checkVersion(testTable1, CatalogTestUtil.testPartition1, CatalogTestUtil.testIndexId1,
-                CatalogTestUtil.testTabletId1, CatalogTestUtil.testStartVersion, CatalogTestUtil.testStartVersion + 3,
-                CatalogTestUtil.testStartVersion);
-        Partition testPartition = masterEnv.getInternalCatalog().getDbOrMetaException(CatalogTestUtil.testDbId1)
-                .getTableOrMetaException(CatalogTestUtil.testTableId1).getPartition(CatalogTestUtil.testPartition1);
-        Tablet tablet = testPartition.getIndex(CatalogTestUtil.testIndexId1).getTablet(CatalogTestUtil.testTabletId1);
-        Replica replcia1 = tablet.getReplicaById(CatalogTestUtil.testReplicaId1);
-        Replica replcia2 = tablet.getReplicaById(CatalogTestUtil.testReplicaId2);
-        Replica replcia3 = tablet.getReplicaById(CatalogTestUtil.testReplicaId3);
-        Assert.assertEquals(CatalogTestUtil.testStartVersion, replcia1.getVersion());
-        Assert.assertEquals(CatalogTestUtil.testStartVersion, replcia2.getVersion());
-        Assert.assertEquals(CatalogTestUtil.testStartVersion, replcia3.getVersion());
-        Assert.assertEquals(-1, replcia1.getLastFailedVersion());
-        Assert.assertEquals(-1, replcia2.getLastFailedVersion());
-        Assert.assertEquals(CatalogTestUtil.testStartVersion + 1, replcia3.getLastFailedVersion());
+        // txn2
+        long transactionId2;
+        if (true) {
+            FakeEnv.setEnv(masterEnv);
+            // commit another transaction with 1,3 success
+            transactionId2 = masterTransMgr.beginTransaction(CatalogTestUtil.testDbId1,
+                    Lists.newArrayList(CatalogTestUtil.testTableId1),
+                    CatalogTestUtil.testTxnLabel2,
+                    transactionSource,
+                    LoadJobSourceType.FRONTEND, Config.stream_load_default_timeout_second);
+            List<TabletCommitInfo> transTablets = generateTabletCommitInfos(CatalogTestUtil.testTabletId1,
+                    Lists.newArrayList(CatalogTestUtil.testBackendId1, CatalogTestUtil.testBackendId3));
+            try {
+                masterTransMgr.commitTransaction(CatalogTestUtil.testDbId1, Lists.newArrayList(testTable1),
+                        transactionId2, transTablets);
+                Assert.fail();
+            } catch (TabletQuorumFailedException e) {
+                TransactionState transactionState = masterTransMgr.getTransactionState(CatalogTestUtil.testDbId1, transactionId2);
+                // check status is prepare, because the commit failed
+                Assert.assertEquals(TransactionStatus.PREPARE, transactionState.getTransactionStatus());
+            }
+            // check replica version
+            checkVersion(testTable1, CatalogTestUtil.testPartition1, CatalogTestUtil.testIndexId1,
+                    CatalogTestUtil.testTabletId1, CatalogTestUtil.testStartVersion,
+                    CatalogTestUtil.testStartVersion + 2,
+                    CatalogTestUtil.testStartVersion);
+            // the transaction not committed, so that catalog should be equal
+            Assert.assertTrue(CatalogTestUtil.compareCatalog(masterEnv, slaveEnv));
+        }
 
-        // last success version not change, because not published
-        Assert.assertEquals(CatalogTestUtil.testStartVersion, replcia1.getLastSuccessVersion());
-        Assert.assertEquals(CatalogTestUtil.testStartVersion, replcia2.getLastSuccessVersion());
-        Assert.assertEquals(CatalogTestUtil.testStartVersion, replcia3.getLastSuccessVersion());
-        // check partition version
-        Assert.assertEquals(CatalogTestUtil.testStartVersion, testPartition.getVisibleVersion());
-        Assert.assertEquals(CatalogTestUtil.testStartVersion + 3, testPartition.getNextVersion());
+        // txn3: commit the second transaction with 1,2,3 success
+        if (true) {
+            List<TabletCommitInfo> transTablets = generateTabletCommitInfos(CatalogTestUtil.testTabletId1, allBackends);
+            masterTransMgr.commitTransaction(CatalogTestUtil.testDbId1, Lists.newArrayList(testTable1), transactionId2,
+                    transTablets);
+            TransactionState transactionState = fakeEditLog.getTransaction(transactionId2);
+            // check status is committed
+            Assert.assertEquals(TransactionStatus.COMMITTED, transactionState.getTransactionStatus());
+            // check partition visible and next version; check replica version
+            checkVersion(testTable1, CatalogTestUtil.testPartition1, CatalogTestUtil.testIndexId1,
+                    CatalogTestUtil.testTabletId1, CatalogTestUtil.testStartVersion,
+                    CatalogTestUtil.testStartVersion + 3,
+                    CatalogTestUtil.testStartVersion);
+            // check replica last success and failed version: last success version not change, because not published
+            checkReplicaVersion(CatalogTestUtil.testDbId1, CatalogTestUtil.testTableId1, CatalogTestUtil.testPartition1,
+                    CatalogTestUtil.testIndexId1, CatalogTestUtil.testTabletId1, CatalogTestUtil.testReplicaId1,
+                    CatalogTestUtil.testStartVersion, CatalogTestUtil.testStartVersion, -1);
+            checkReplicaVersion(CatalogTestUtil.testDbId1, CatalogTestUtil.testTableId1, CatalogTestUtil.testPartition1,
+                    CatalogTestUtil.testIndexId1, CatalogTestUtil.testTabletId1, CatalogTestUtil.testReplicaId2,
+                    CatalogTestUtil.testStartVersion, CatalogTestUtil.testStartVersion, -1);
+            checkReplicaVersion(CatalogTestUtil.testDbId1, CatalogTestUtil.testTableId1, CatalogTestUtil.testPartition1,
+                    CatalogTestUtil.testIndexId1, CatalogTestUtil.testTabletId1, CatalogTestUtil.testReplicaId3,
+                    CatalogTestUtil.testStartVersion, CatalogTestUtil.testStartVersion,
+                    CatalogTestUtil.testStartVersion + 1);
 
-        transactionState = fakeEditLog.getTransaction(transactionId2);
-        FakeEnv.setEnv(slaveEnv);
-        slaveTransMgr.replayUpsertTransactionState(transactionState);
-        Assert.assertTrue(CatalogTestUtil.compareCatalog(masterEnv, slaveEnv));
+            transactionState = fakeEditLog.getTransaction(transactionId2);
+            FakeEnv.setEnv(slaveEnv);
+            slaveTransMgr.replayUpsertTransactionState(transactionState);
+            Assert.assertTrue(CatalogTestUtil.compareCatalog(masterEnv, slaveEnv));
+        }
     }
 
     // all replica committed success
@@ -281,26 +294,13 @@ public class GlobalTransactionMgrTest {
                 Lists.newArrayList(CatalogTestUtil.testTableId1), CatalogTestUtil.testTxnLabel1, transactionSource,
                 LoadJobSourceType.FRONTEND, Config.stream_load_default_timeout_second);
         TransactionState transactionState = fakeEditLog.getTransaction(transactionId);
-        List<SubTransactionState> subTransactionStates = new ArrayList<>();
-        // commit table1
-        subTransactionStates.add(generateSubTransactionState(transactionState, transactionId, table1,
-                CatalogTestUtil.testTabletId1, allBackends, false));
-        // commit table2
-        subTransactionStates.add(generateSubTransactionState(transactionState, transactionId + 1, table2,
-                CatalogTestUtil.testTabletId2, allBackends));
-        // commit table1
-        subTransactionStates.add(generateSubTransactionState(transactionState, transactionId + 3, table1,
-                CatalogTestUtil.testTabletId1, allBackends));
-        // check partition version
-        checkVersion(table1, CatalogTestUtil.testPartition1, CatalogTestUtil.testIndexId1,
-                CatalogTestUtil.testTabletId1, CatalogTestUtil.testStartVersion, CatalogTestUtil.testStartVersion + 1,
-                CatalogTestUtil.testStartVersion);
-        checkVersion(table2, CatalogTestUtil.testPartition2, CatalogTestUtil.testIndexId2,
-                CatalogTestUtil.testTabletId2, CatalogTestUtil.testStartVersion, CatalogTestUtil.testStartVersion + 1,
-                CatalogTestUtil.testStartVersion);
-        // commit txn
-        transactionState.setSubTransactionStates(subTransactionStates);
-        LOG.info("sub txn states={}", transactionState.getSubTransactionStates());
+        // commit table1, table2, table1
+        List<SubTransactionInfo> subTransactionInfos = Lists.newArrayList(
+                new SubTransactionInfo(table1, CatalogTestUtil.testTabletId1, allBackends),
+                new SubTransactionInfo(table2, CatalogTestUtil.testTabletId2, allBackends),
+                new SubTransactionInfo(table1, CatalogTestUtil.testTabletId1, allBackends));
+        List<SubTransactionState> subTransactionStates = generateSubTransactionStates(transactionState,
+                subTransactionInfos);
         masterTransMgr.commitTransaction(CatalogTestUtil.testDbId1, Lists.newArrayList(table1, table2), transactionId,
                 subTransactionStates, 300000);
         // check status is committed
@@ -318,7 +318,22 @@ public class GlobalTransactionMgrTest {
         Assert.assertTrue(CatalogTestUtil.compareCatalog(masterEnv, slaveEnv));
     }
 
-    // commit with only two replicas
+    /**
+     * commit with only two replicas
+     * txn1 -> commit success
+     *   sub_txn1: table1, replica: 1, 2 success
+     *   sub_txn2: table2, all replicas success
+     *   sub_txn3: table1, all replicas success
+     * txn2 -> commit failed
+     *   sub_txn1: table1, all replicas success
+     *   sub_txn2: table1, replica: 1, 3 success
+     *   sub_txn3: table2, all replicas success
+     * txn3 -> commit success
+     *   sub_txn1: table1, all replicas success
+     *   sub_txn2: table1, all replicas success
+     *   sub_txn3: table2, all replicas success
+     *   sub_txn4: table2, all replicas success
+     */
     @Test
     public void testCommitTransactionWithSubTxnAndOneFailed() throws UserException {
         FakeEnv.setEnv(masterEnv);
@@ -326,43 +341,194 @@ public class GlobalTransactionMgrTest {
                 .getTableOrMetaException(CatalogTestUtil.testTableId1);
         Table table2 = masterEnv.getInternalCatalog().getDbOrMetaException(CatalogTestUtil.testDbId1)
                 .getTableOrMetaException(CatalogTestUtil.testTableId2);
+        Replica replica13 = getReplica(CatalogTestUtil.testDbId1, CatalogTestUtil.testTableId1,
+                CatalogTestUtil.testPartition1, CatalogTestUtil.testIndexId1, CatalogTestUtil.testTabletId1,
+                CatalogTestUtil.testReplicaId3);
+        // txn1
+        if (true) {
+            // check partition version
+            checkVersion(table1, CatalogTestUtil.testPartition1, CatalogTestUtil.testIndexId1,
+                    CatalogTestUtil.testTabletId1, CatalogTestUtil.testStartVersion,
+                    CatalogTestUtil.testStartVersion + 1,
+                    CatalogTestUtil.testStartVersion);
+            checkVersion(table2, CatalogTestUtil.testPartition2, CatalogTestUtil.testIndexId2,
+                    CatalogTestUtil.testTabletId2, CatalogTestUtil.testStartVersion,
+                    CatalogTestUtil.testStartVersion + 1,
+                    CatalogTestUtil.testStartVersion);
+            // begin txn
+            long transactionId = masterTransMgr.beginTransaction(CatalogTestUtil.testDbId1,
+                    Lists.newArrayList(CatalogTestUtil.testTableId1), CatalogTestUtil.testTxnLabel1, transactionSource,
+                    LoadJobSourceType.FRONTEND, Config.stream_load_default_timeout_second);
+            TransactionState transactionState = fakeEditLog.getTransaction(transactionId);
+            // commit table1 with 1, 2 success; table2 with all success; table1 with all success
+            List<SubTransactionInfo> subTransactionInfos = Lists.newArrayList(
+                    new SubTransactionInfo(table1, CatalogTestUtil.testTabletId1,
+                            Lists.newArrayList(CatalogTestUtil.testBackendId1, CatalogTestUtil.testBackendId2)),
+                    new SubTransactionInfo(table2, CatalogTestUtil.testTabletId2, allBackends),
+                    new SubTransactionInfo(table1, CatalogTestUtil.testTabletId1, allBackends));
+            List<SubTransactionState> subTransactionStates = generateSubTransactionStates(transactionState,
+                    subTransactionInfos);
+            // commit txn
+            masterTransMgr.commitTransaction(CatalogTestUtil.testDbId1, Lists.newArrayList(table1, table2),
+                    transactionId,
+                    subTransactionStates, 300000);
+            // check status is committed
+            Assert.assertEquals(TransactionStatus.COMMITTED, transactionState.getTransactionStatus());
+            // check partition version
+            checkVersion(table1, CatalogTestUtil.testPartition1, CatalogTestUtil.testIndexId1,
+                    CatalogTestUtil.testTabletId1, CatalogTestUtil.testStartVersion,
+                    CatalogTestUtil.testStartVersion + 3,
+                    CatalogTestUtil.testStartVersion);
+            checkVersion(table2, CatalogTestUtil.testPartition2, CatalogTestUtil.testIndexId2,
+                    CatalogTestUtil.testTabletId2, CatalogTestUtil.testStartVersion,
+                    CatalogTestUtil.testStartVersion + 2,
+                    CatalogTestUtil.testStartVersion);
+            // check table1 replica3 last success and failed version
+            checkReplicaVersion(replica13, CatalogTestUtil.testStartVersion, CatalogTestUtil.testStartVersion,
+                    CatalogTestUtil.testStartVersion + 1);
+            // follower catalog replay the transaction
+            transactionState = fakeEditLog.getTransaction(transactionId);
+            FakeEnv.setEnv(slaveEnv);
+            slaveTransMgr.replayUpsertTransactionState(transactionState);
+            Assert.assertTrue(CatalogTestUtil.compareCatalog(masterEnv, slaveEnv));
+        }
+        // txn2
+        long transactionId;
+        if (true) {
+            FakeEnv.setEnv(masterEnv);
+            transactionId = masterTransMgr.beginTransaction(CatalogTestUtil.testDbId1,
+                    Lists.newArrayList(CatalogTestUtil.testTableId1), CatalogTestUtil.testTxnLabel2, transactionSource,
+                    LoadJobSourceType.FRONTEND, Config.stream_load_default_timeout_second);
+            TransactionState transactionState = fakeEditLog.getTransaction(transactionId);
+            // commit table1 with all success; table1 with 1, 3 success; table2 with all success
+            List<SubTransactionInfo> subTransactionInfos = Lists.newArrayList(
+                    new SubTransactionInfo(table1, CatalogTestUtil.testTabletId1, allBackends),
+                    new SubTransactionInfo(table1, CatalogTestUtil.testTabletId1,
+                            Lists.newArrayList(CatalogTestUtil.testBackendId1, CatalogTestUtil.testBackendId3)),
+                    new SubTransactionInfo(table2, CatalogTestUtil.testTabletId2, allBackends));
+            List<SubTransactionState> subTransactionStates = generateSubTransactionStates(transactionState,
+                    subTransactionInfos);
+            // commit txn
+            try {
+                masterTransMgr.commitTransaction(CatalogTestUtil.testDbId1, Lists.newArrayList(table1, table2),
+                        transactionId, subTransactionStates, 300000);
+                Assert.fail();
+            } catch (TabletQuorumFailedException e) {
+                // check status is prepare
+                Assert.assertEquals(TransactionStatus.PREPARE, transactionState.getTransactionStatus());
+            }
+            // check partition version
+            checkVersion(table1, CatalogTestUtil.testPartition1, CatalogTestUtil.testIndexId1,
+                    CatalogTestUtil.testTabletId1, CatalogTestUtil.testStartVersion,
+                    CatalogTestUtil.testStartVersion + 3,
+                    CatalogTestUtil.testStartVersion);
+            checkVersion(table2, CatalogTestUtil.testPartition2, CatalogTestUtil.testIndexId2,
+                    CatalogTestUtil.testTabletId2, CatalogTestUtil.testStartVersion,
+                    CatalogTestUtil.testStartVersion + 2,
+                    CatalogTestUtil.testStartVersion);
+            // check table1 replica3 last success and failed version
+            checkReplicaVersion(replica13, CatalogTestUtil.testStartVersion, CatalogTestUtil.testStartVersion,
+                    CatalogTestUtil.testStartVersion + 1);
+            // the transaction not committed, so that catalog should be equal
+            Assert.assertTrue(CatalogTestUtil.compareCatalog(masterEnv, slaveEnv));
+        }
+        // txn3
+        if (true) {
+            TransactionState transactionState = fakeEditLog.getTransaction(transactionId);
+            // commit table1 with all success; table1 with all success; table2 with all success; table2 with all success
+            List<SubTransactionInfo> subTransactionInfos = Lists.newArrayList(
+                    new SubTransactionInfo(table1, CatalogTestUtil.testTabletId1, allBackends),
+                    new SubTransactionInfo(table1, CatalogTestUtil.testTabletId1, allBackends),
+                    new SubTransactionInfo(table2, CatalogTestUtil.testTabletId2, allBackends),
+                    new SubTransactionInfo(table2, CatalogTestUtil.testTabletId2, allBackends));
+            List<SubTransactionState> subTransactionStates = generateSubTransactionStates(transactionState,
+                    subTransactionInfos);
+            // commit txn
+            masterTransMgr.commitTransaction(CatalogTestUtil.testDbId1, Lists.newArrayList(table1, table2),
+                    transactionId, subTransactionStates, 300000);
+            Assert.assertEquals(TransactionStatus.COMMITTED, transactionState.getTransactionStatus());
+            // check partition version
+            checkVersion(table1, CatalogTestUtil.testPartition1, CatalogTestUtil.testIndexId1,
+                    CatalogTestUtil.testTabletId1, CatalogTestUtil.testStartVersion,
+                    CatalogTestUtil.testStartVersion + 5,
+                    CatalogTestUtil.testStartVersion);
+            checkVersion(table2, CatalogTestUtil.testPartition2, CatalogTestUtil.testIndexId2,
+                    CatalogTestUtil.testTabletId2, CatalogTestUtil.testStartVersion,
+                    CatalogTestUtil.testStartVersion + 4,
+                    CatalogTestUtil.testStartVersion);
+            // check table1 replica last success and failed version: last success version not change,
+            // because not published
+            if (true) {
+                checkReplicaVersion(CatalogTestUtil.testDbId1, CatalogTestUtil.testTableId1,
+                        CatalogTestUtil.testPartition1, CatalogTestUtil.testIndexId1, CatalogTestUtil.testTabletId1,
+                        CatalogTestUtil.testReplicaId1, CatalogTestUtil.testStartVersion,
+                        CatalogTestUtil.testStartVersion, -1);
+                checkReplicaVersion(CatalogTestUtil.testDbId1, CatalogTestUtil.testTableId1,
+                        CatalogTestUtil.testPartition1, CatalogTestUtil.testIndexId1, CatalogTestUtil.testTabletId1,
+                        CatalogTestUtil.testReplicaId2, CatalogTestUtil.testStartVersion,
+                        CatalogTestUtil.testStartVersion, -1);
+                checkReplicaVersion(replica13, CatalogTestUtil.testStartVersion, CatalogTestUtil.testStartVersion,
+                        CatalogTestUtil.testStartVersion + 1);
+            }
+            // check table2 replica last success and failed version
+            if (true) {
+                Partition testPartition = masterEnv.getInternalCatalog().getDbOrMetaException(CatalogTestUtil.testDbId1)
+                        .getTableOrMetaException(CatalogTestUtil.testTableId2)
+                        .getPartition(CatalogTestUtil.testPartition2);
+                Tablet tablet = testPartition.getIndex(CatalogTestUtil.testIndexId2)
+                        .getTablet(CatalogTestUtil.testTabletId2);
+                for (Replica replica : tablet.getReplicas()) {
+                    Assert.assertEquals(-1, replica.getLastFailedVersion());
+                    Assert.assertEquals(CatalogTestUtil.testStartVersion, replica.getLastSuccessVersion());
+                }
+            }
+
+            transactionState = fakeEditLog.getTransaction(transactionId);
+            FakeEnv.setEnv(slaveEnv);
+            slaveTransMgr.replayUpsertTransactionState(transactionState);
+            Assert.assertTrue(CatalogTestUtil.compareCatalog(masterEnv, slaveEnv));
+        }
+    }
+
+    /**
+     * txn -> TabletQuorumFailedException
+     *   sub_txn1: table1, replica: 1, 2 success
+     *   sub_txn2: table1, replica: 1, 3 success
+     *   sub_txn3: table1, replica: 2, 3 success
+     */
+    @Test
+    public void testCommitTransactionWithSubTxnAndReplicaFailed() throws UserException {
+        FakeEnv.setEnv(masterEnv);
+        Table table1 = masterEnv.getInternalCatalog().getDbOrMetaException(CatalogTestUtil.testDbId1)
+                .getTableOrMetaException(CatalogTestUtil.testTableId1);
+        // check partition version
+        checkVersion(table1, CatalogTestUtil.testPartition1, CatalogTestUtil.testIndexId1,
+                CatalogTestUtil.testTabletId1, CatalogTestUtil.testStartVersion, CatalogTestUtil.testStartVersion + 1,
+                CatalogTestUtil.testStartVersion);
         // begin txn
         long transactionId = masterTransMgr.beginTransaction(CatalogTestUtil.testDbId1,
                 Lists.newArrayList(CatalogTestUtil.testTableId1), CatalogTestUtil.testTxnLabel1, transactionSource,
                 LoadJobSourceType.FRONTEND, Config.stream_load_default_timeout_second);
         TransactionState transactionState = fakeEditLog.getTransaction(transactionId);
-        List<SubTransactionState> subTransactionStates = new ArrayList<>();
-        // commit table1 with 1, 2 success
-        subTransactionStates.add(generateSubTransactionState(transactionState, transactionId, table1,
-                CatalogTestUtil.testTabletId1, Lists.newArrayList(CatalogTestUtil.testBackendId1,
-                        CatalogTestUtil.testBackendId2), false));
-        // commit table2 with all success
-        subTransactionStates.add(generateSubTransactionState(transactionState, transactionId + 1, table2,
-                CatalogTestUtil.testTabletId2, allBackends));
-        // commit table 1 with all success
-        subTransactionStates.add(generateSubTransactionState(transactionState, transactionId + 3, table1,
-                CatalogTestUtil.testTabletId1, allBackends));
-        // check partition version
-        checkVersion(table1, CatalogTestUtil.testPartition1, CatalogTestUtil.testIndexId1,
-                CatalogTestUtil.testTabletId1, CatalogTestUtil.testStartVersion, CatalogTestUtil.testStartVersion + 1,
-                CatalogTestUtil.testStartVersion);
-        checkVersion(table2, CatalogTestUtil.testPartition2, CatalogTestUtil.testIndexId2,
-                CatalogTestUtil.testTabletId2, CatalogTestUtil.testStartVersion, CatalogTestUtil.testStartVersion + 1,
-                CatalogTestUtil.testStartVersion);
+        // commit table1 with 1, 2 success; table2 with all success; table1 with all success
+        List<SubTransactionInfo> subTransactionInfos = Lists.newArrayList(
+                new SubTransactionInfo(table1, CatalogTestUtil.testTabletId1,
+                        Lists.newArrayList(CatalogTestUtil.testBackendId1, CatalogTestUtil.testBackendId2)),
+                new SubTransactionInfo(table1, CatalogTestUtil.testTabletId1,
+                        Lists.newArrayList(CatalogTestUtil.testBackendId1, CatalogTestUtil.testBackendId3)),
+                new SubTransactionInfo(table1, CatalogTestUtil.testTabletId1,
+                        Lists.newArrayList(CatalogTestUtil.testBackendId2, CatalogTestUtil.testBackendId2)));
+        List<SubTransactionState> subTransactionStates = generateSubTransactionStates(transactionState,
+                subTransactionInfos);
         // commit txn
-        transactionState.setSubTransactionStates(subTransactionStates);
-        LOG.info("sub txn states={}", transactionState.getSubTransactionStates());
-        masterTransMgr.commitTransaction(CatalogTestUtil.testDbId1, Lists.newArrayList(table1, table2), transactionId,
-                subTransactionStates, 300000);
-        // check status is committed
-        Assert.assertEquals(TransactionStatus.COMMITTED, transactionState.getTransactionStatus());
-        // check partition version
-        checkVersion(table1, CatalogTestUtil.testPartition1, CatalogTestUtil.testIndexId1,
-                CatalogTestUtil.testTabletId1, CatalogTestUtil.testStartVersion, CatalogTestUtil.testStartVersion + 3,
-                CatalogTestUtil.testStartVersion);
-        checkVersion(table2, CatalogTestUtil.testPartition2, CatalogTestUtil.testIndexId2,
-                CatalogTestUtil.testTabletId2, CatalogTestUtil.testStartVersion, CatalogTestUtil.testStartVersion + 2,
-                CatalogTestUtil.testStartVersion);
+        try {
+            masterTransMgr.commitTransaction(CatalogTestUtil.testDbId1, Lists.newArrayList(table1),
+                    transactionId,
+                    subTransactionStates, 300000);
+        } catch (TabletQuorumFailedException e) {
+            // check status is prepare, because the commit failed
+            Assert.assertEquals(TransactionStatus.PREPARE, transactionState.getTransactionStatus());
+        }
     }
 
     @Test
@@ -533,127 +699,131 @@ public class GlobalTransactionMgrTest {
 
     @Test
     public void testFinishTransactionWithOneFailed() throws UserException {
-        Partition testPartition = masterEnv.getInternalCatalog().getDbOrMetaException(CatalogTestUtil.testDbId1)
-                .getTableOrMetaException(CatalogTestUtil.testTableId1).getPartition(CatalogTestUtil.testPartition1);
-        Tablet tablet = testPartition.getIndex(CatalogTestUtil.testIndexId1).getTablet(CatalogTestUtil.testTabletId1);
-        FakeEnv.setEnv(masterEnv);
-        long transactionId = masterTransMgr.beginTransaction(CatalogTestUtil.testDbId1, Lists.newArrayList(CatalogTestUtil.testTableId1),
-                CatalogTestUtil.testTxnLabel1,
-                transactionSource,
-                LoadJobSourceType.FRONTEND, Config.stream_load_default_timeout_second);
-        // commit a transaction with 1,2 success
-        List<TabletCommitInfo> transTablets = generateTabletCommitInfos(CatalogTestUtil.testTabletId1,
-                Lists.newArrayList(CatalogTestUtil.testBackendId1, CatalogTestUtil.testBackendId2));
         Table testTable1 = masterEnv.getInternalCatalog().getDbOrMetaException(CatalogTestUtil.testDbId1)
                 .getTableOrMetaException(CatalogTestUtil.testTableId1);
-        masterTransMgr.commitTransaction(CatalogTestUtil.testDbId1, Lists.newArrayList(testTable1), transactionId, transTablets);
-
-        // follower catalog replay the transaction
-        TransactionState transactionState = fakeEditLog.getTransaction(transactionId);
-        FakeEnv.setEnv(slaveEnv);
-        slaveTransMgr.replayUpsertTransactionState(transactionState);
-        Assert.assertTrue(CatalogTestUtil.compareCatalog(masterEnv, slaveEnv));
-
-        // master finish the transaction failed
-        FakeEnv.setEnv(masterEnv);
-        DatabaseTransactionMgrTest.setTransactionFinishPublish(transactionState,
-                Lists.newArrayList(CatalogTestUtil.testBackendId1, CatalogTestUtil.testBackendId2));
-
-        // backend2 publish failed
-        transactionState.getPublishVersionTasks()
-                .get(CatalogTestUtil.testBackendId2).get(0).getErrorTablets().add(CatalogTestUtil.testTabletId1);
-        masterTransMgr.finishTransaction(CatalogTestUtil.testDbId1, transactionId);
-        Assert.assertEquals(TransactionStatus.COMMITTED, transactionState.getTransactionStatus());
+        Partition testPartition = testTable1.getPartition(CatalogTestUtil.testPartition1);
+        Tablet tablet = testPartition.getIndex(CatalogTestUtil.testIndexId1).getTablet(CatalogTestUtil.testTabletId1);
         Replica replica1 = tablet.getReplicaById(CatalogTestUtil.testReplicaId1);
         Replica replica2 = tablet.getReplicaById(CatalogTestUtil.testReplicaId2);
         Replica replica3 = tablet.getReplicaById(CatalogTestUtil.testReplicaId3);
-        // because after calling `finishTransaction`, the txn state is COMMITTED, not VISIBLE,
-        // so all replicas' version are not changed.
-        Assert.assertEquals(CatalogTestUtil.testStartVersion, replica1.getVersion());
-        Assert.assertEquals(CatalogTestUtil.testStartVersion, replica2.getVersion());
-        Assert.assertEquals(CatalogTestUtil.testStartVersion, replica3.getVersion());
-        Assert.assertEquals(-1, replica1.getLastFailedVersion());
-        Assert.assertEquals(-1, replica2.getLastFailedVersion());
-        Assert.assertEquals(CatalogTestUtil.testStartVersion + 1, replica3.getLastFailedVersion());
 
-        // backend2 publish success
-        Map<Long, Long> backend2SuccTablets = Maps.newHashMap();
-        backend2SuccTablets.put(CatalogTestUtil.testTabletId1, 0L);
-        transactionState.getPublishVersionTasks()
-                .get(CatalogTestUtil.testBackendId2).get(0).setSuccTablets(backend2SuccTablets);
-        masterTransMgr.finishTransaction(CatalogTestUtil.testDbId1, transactionId);
-        Assert.assertEquals(TransactionStatus.VISIBLE, transactionState.getTransactionStatus());
-        Assert.assertEquals(CatalogTestUtil.testStartVersion + 1, replica1.getVersion());
-        Assert.assertEquals(CatalogTestUtil.testStartVersion + 1, replica2.getVersion());
-        Assert.assertEquals(CatalogTestUtil.testStartVersion, replica3.getVersion());
-        Assert.assertEquals(-1, replica1.getLastFailedVersion());
-        Assert.assertEquals(-1, replica2.getLastFailedVersion());
-        Assert.assertEquals(CatalogTestUtil.testStartVersion + 1, replica3.getLastFailedVersion());
+        // commit a transaction with 1,2 success
+        if (true) {
+            FakeEnv.setEnv(masterEnv);
+            long transactionId = masterTransMgr.beginTransaction(CatalogTestUtil.testDbId1,
+                    Lists.newArrayList(CatalogTestUtil.testTableId1),
+                    CatalogTestUtil.testTxnLabel1,
+                    transactionSource,
+                    LoadJobSourceType.FRONTEND, Config.stream_load_default_timeout_second);
+            List<TabletCommitInfo> transTablets = generateTabletCommitInfos(CatalogTestUtil.testTabletId1,
+                    Lists.newArrayList(CatalogTestUtil.testBackendId1, CatalogTestUtil.testBackendId2));
+            masterTransMgr.commitTransaction(CatalogTestUtil.testDbId1, Lists.newArrayList(testTable1), transactionId,
+                    transTablets);
 
-        // follower catalog replay the transaction
-        transactionState = fakeEditLog.getTransaction(transactionId);
-        FakeEnv.setEnv(slaveEnv);
-        slaveTransMgr.replayUpsertTransactionState(transactionState);
-        Assert.assertTrue(CatalogTestUtil.compareCatalog(masterEnv, slaveEnv));
+            // follower catalog replay the transaction
+            TransactionState transactionState = fakeEditLog.getTransaction(transactionId);
+            FakeEnv.setEnv(slaveEnv);
+            slaveTransMgr.replayUpsertTransactionState(transactionState);
+            Assert.assertTrue(CatalogTestUtil.compareCatalog(masterEnv, slaveEnv));
 
-        FakeEnv.setEnv(masterEnv);
+            // master finish the transaction failed
+            FakeEnv.setEnv(masterEnv);
+            DatabaseTransactionMgrTest.setTransactionFinishPublish(transactionState,
+                    Lists.newArrayList(CatalogTestUtil.testBackendId1, CatalogTestUtil.testBackendId2));
+
+            // backend2 publish failed
+            transactionState.getPublishVersionTasks()
+                    .get(CatalogTestUtil.testBackendId2).get(0).getErrorTablets().add(CatalogTestUtil.testTabletId1);
+            masterTransMgr.finishTransaction(CatalogTestUtil.testDbId1, transactionId);
+            Assert.assertEquals(TransactionStatus.COMMITTED, transactionState.getTransactionStatus());
+            // because after calling `finishTransaction`, the txn state is COMMITTED, not VISIBLE,
+            // so all replicas' version are not changed.
+            checkReplicaVersion(replica1, CatalogTestUtil.testStartVersion, CatalogTestUtil.testStartVersion, -1);
+            checkReplicaVersion(replica2, CatalogTestUtil.testStartVersion, CatalogTestUtil.testStartVersion, -1);
+            checkReplicaVersion(replica3, CatalogTestUtil.testStartVersion, CatalogTestUtil.testStartVersion,
+                    CatalogTestUtil.testStartVersion + 1);
+
+            // backend2 publish success
+            Map<Long, Long> backend2SuccTablets = Maps.newHashMap();
+            backend2SuccTablets.put(CatalogTestUtil.testTabletId1, 0L);
+            transactionState.getPublishVersionTasks()
+                    .get(CatalogTestUtil.testBackendId2).get(0).setSuccTablets(backend2SuccTablets);
+            masterTransMgr.finishTransaction(CatalogTestUtil.testDbId1, transactionId);
+            Assert.assertEquals(TransactionStatus.VISIBLE, transactionState.getTransactionStatus());
+            checkReplicaVersion(replica1, CatalogTestUtil.testStartVersion + 1, CatalogTestUtil.testStartVersion + 1,
+                    -1);
+            checkReplicaVersion(replica2, CatalogTestUtil.testStartVersion + 1, CatalogTestUtil.testStartVersion + 1,
+                    -1);
+            checkReplicaVersion(replica3, CatalogTestUtil.testStartVersion, CatalogTestUtil.testStartVersion,
+                    CatalogTestUtil.testStartVersion + 1);
+
+            // follower catalog replay the transaction
+            transactionState = fakeEditLog.getTransaction(transactionId);
+            FakeEnv.setEnv(slaveEnv);
+            slaveTransMgr.replayUpsertTransactionState(transactionState);
+            Assert.assertTrue(CatalogTestUtil.compareCatalog(masterEnv, slaveEnv));
+        }
+
         // commit another transaction with 1,3 success
-        long transactionId2 = masterTransMgr.beginTransaction(CatalogTestUtil.testDbId1, Lists.newArrayList(CatalogTestUtil.testTableId1),
-                CatalogTestUtil.testTxnLabel2,
-                transactionSource,
-                LoadJobSourceType.FRONTEND, Config.stream_load_default_timeout_second);
-        transTablets = generateTabletCommitInfos(CatalogTestUtil.testTabletId1,
-                Lists.newArrayList(CatalogTestUtil.testBackendId1, CatalogTestUtil.testBackendId3));
-        try {
-            masterTransMgr.commitTransaction(CatalogTestUtil.testDbId1, Lists.newArrayList(testTable1), transactionId2, transTablets);
-            Assert.fail();
-        } catch (TabletQuorumFailedException e) {
-            transactionState = masterTransMgr.getTransactionState(CatalogTestUtil.testDbId1, transactionId2);
-            // check status is prepare, because the commit failed
-            Assert.assertEquals(TransactionStatus.PREPARE, transactionState.getTransactionStatus());
+        long transactionId2;
+        if (true) {
+            FakeEnv.setEnv(masterEnv);
+            transactionId2 = masterTransMgr.beginTransaction(CatalogTestUtil.testDbId1,
+                    Lists.newArrayList(CatalogTestUtil.testTableId1),
+                    CatalogTestUtil.testTxnLabel2,
+                    transactionSource,
+                    LoadJobSourceType.FRONTEND, Config.stream_load_default_timeout_second);
+            List<TabletCommitInfo> transTablets = generateTabletCommitInfos(CatalogTestUtil.testTabletId1,
+                    Lists.newArrayList(CatalogTestUtil.testBackendId1, CatalogTestUtil.testBackendId3));
+            try {
+                masterTransMgr.commitTransaction(CatalogTestUtil.testDbId1, Lists.newArrayList(testTable1),
+                        transactionId2, transTablets);
+                Assert.fail();
+            } catch (TabletQuorumFailedException e) {
+                TransactionState transactionState = masterTransMgr.getTransactionState(CatalogTestUtil.testDbId1,
+                        transactionId2);
+                // check status is prepare, because the commit failed
+                Assert.assertEquals(TransactionStatus.PREPARE, transactionState.getTransactionStatus());
+            }
         }
 
         // commit the second transaction with 1,2,3 success
-        transTablets = generateTabletCommitInfos(CatalogTestUtil.testTabletId1, allBackends);
-        masterTransMgr.commitTransaction(CatalogTestUtil.testDbId1, Lists.newArrayList(testTable1), transactionId2, transTablets);
-        transactionState = fakeEditLog.getTransaction(transactionId2);
-        // check status is commit
-        Assert.assertEquals(TransactionStatus.COMMITTED, transactionState.getTransactionStatus());
-        // check replica version
-        testPartition = masterEnv.getInternalCatalog().getDbOrMetaException(CatalogTestUtil.testDbId1)
-                .getTableOrMetaException(CatalogTestUtil.testTableId1).getPartition(CatalogTestUtil.testPartition1);
-        // check partition version
-        Assert.assertEquals(CatalogTestUtil.testStartVersion + 1, testPartition.getVisibleVersion());
-        Assert.assertEquals(CatalogTestUtil.testStartVersion + 3, testPartition.getNextVersion());
+        if (true) {
+            List<TabletCommitInfo> transTablets = generateTabletCommitInfos(CatalogTestUtil.testTabletId1, allBackends);
+            masterTransMgr.commitTransaction(CatalogTestUtil.testDbId1, Lists.newArrayList(testTable1), transactionId2,
+                    transTablets);
+            TransactionState transactionState = fakeEditLog.getTransaction(transactionId2);
+            // check status is commit
+            Assert.assertEquals(TransactionStatus.COMMITTED, transactionState.getTransactionStatus());
+            // check partition version
+            checkPartitionVersion(testPartition, CatalogTestUtil.testStartVersion + 1,
+                    CatalogTestUtil.testStartVersion + 3);
 
-        // follower catalog replay the transaction
-        transactionState = fakeEditLog.getTransaction(transactionId2);
-        FakeEnv.setEnv(slaveEnv);
-        slaveTransMgr.replayUpsertTransactionState(transactionState);
-        Assert.assertTrue(CatalogTestUtil.compareCatalog(masterEnv, slaveEnv));
+            // follower catalog replay the transaction
+            transactionState = fakeEditLog.getTransaction(transactionId2);
+            FakeEnv.setEnv(slaveEnv);
+            slaveTransMgr.replayUpsertTransactionState(transactionState);
+            Assert.assertTrue(CatalogTestUtil.compareCatalog(masterEnv, slaveEnv));
 
-        // master finish the transaction2
-        DatabaseTransactionMgrTest.setTransactionFinishPublish(transactionState, allBackends);
-        masterTransMgr.finishTransaction(CatalogTestUtil.testDbId1, transactionId2);
-        Assert.assertEquals(TransactionStatus.VISIBLE, transactionState.getTransactionStatus());
-        Assert.assertEquals(CatalogTestUtil.testStartVersion + 2, replica1.getVersion());
-        Assert.assertEquals(CatalogTestUtil.testStartVersion + 2, replica2.getVersion());
-        Assert.assertEquals(CatalogTestUtil.testStartVersion, replica3.getVersion());
-        Assert.assertEquals(-1, replica1.getLastFailedVersion());
-        Assert.assertEquals(-1, replica2.getLastFailedVersion());
-        Assert.assertEquals(CatalogTestUtil.testStartVersion + 1, replica3.getLastFailedVersion());
+            // master finish the transaction2
+            DatabaseTransactionMgrTest.setTransactionFinishPublish(transactionState, allBackends);
+            masterTransMgr.finishTransaction(CatalogTestUtil.testDbId1, transactionId2);
+            Assert.assertEquals(TransactionStatus.VISIBLE, transactionState.getTransactionStatus());
+            checkReplicaVersion(replica1, CatalogTestUtil.testStartVersion + 2, CatalogTestUtil.testStartVersion + 2,
+                    -1);
+            checkReplicaVersion(replica2, CatalogTestUtil.testStartVersion + 2, CatalogTestUtil.testStartVersion + 2,
+                    -1);
+            checkReplicaVersion(replica3, CatalogTestUtil.testStartVersion, CatalogTestUtil.testStartVersion + 2,
+                    CatalogTestUtil.testStartVersion + 1);
+            // check partition version
+            checkPartitionVersion(testPartition, CatalogTestUtil.testStartVersion + 2,
+                    CatalogTestUtil.testStartVersion + 3);
 
-        Assert.assertEquals(CatalogTestUtil.testStartVersion + 2, replica1.getLastSuccessVersion());
-        Assert.assertEquals(CatalogTestUtil.testStartVersion + 2, replica2.getLastSuccessVersion());
-        Assert.assertEquals(CatalogTestUtil.testStartVersion + 2, replica3.getLastSuccessVersion());
-        // check partition version
-        Assert.assertEquals(CatalogTestUtil.testStartVersion + 2, testPartition.getVisibleVersion());
-        Assert.assertEquals(CatalogTestUtil.testStartVersion + 3, testPartition.getNextVersion());
-
-        transactionState = fakeEditLog.getTransaction(transactionId2);
-        FakeEnv.setEnv(slaveEnv);
-        slaveTransMgr.replayUpsertTransactionState(transactionState);
-        Assert.assertTrue(CatalogTestUtil.compareCatalog(masterEnv, slaveEnv));
+            transactionState = fakeEditLog.getTransaction(transactionId2);
+            FakeEnv.setEnv(slaveEnv);
+            slaveTransMgr.replayUpsertTransactionState(transactionState);
+            Assert.assertTrue(CatalogTestUtil.compareCatalog(masterEnv, slaveEnv));
+        }
     }
 
     @Test
@@ -663,21 +833,6 @@ public class GlobalTransactionMgrTest {
                 .getTableOrMetaException(CatalogTestUtil.testTableId1);
         Table table2 = masterEnv.getInternalCatalog().getDbOrMetaException(CatalogTestUtil.testDbId1)
                 .getTableOrMetaException(CatalogTestUtil.testTableId2);
-        // begin txn
-        long transactionId = masterTransMgr.beginTransaction(CatalogTestUtil.testDbId1,
-                Lists.newArrayList(CatalogTestUtil.testTableId1), CatalogTestUtil.testTxnLabel1, transactionSource,
-                LoadJobSourceType.FRONTEND, Config.stream_load_default_timeout_second);
-        TransactionState transactionState = fakeEditLog.getTransaction(transactionId);
-        List<SubTransactionState> subTransactionStates = new ArrayList<>();
-        // commit table1
-        subTransactionStates.add(generateSubTransactionState(transactionState, transactionId, table1,
-                CatalogTestUtil.testTabletId1, allBackends, false));
-        // commit table2
-        subTransactionStates.add(generateSubTransactionState(transactionState, transactionId + 1, table2,
-                CatalogTestUtil.testTabletId2, allBackends));
-        // commit table1
-        subTransactionStates.add(generateSubTransactionState(transactionState, transactionId + 3, table1,
-                CatalogTestUtil.testTabletId1, allBackends));
         // check partition version
         checkVersion(table1, CatalogTestUtil.testPartition1, CatalogTestUtil.testIndexId1,
                 CatalogTestUtil.testTabletId1, CatalogTestUtil.testStartVersion, CatalogTestUtil.testStartVersion + 1,
@@ -685,9 +840,19 @@ public class GlobalTransactionMgrTest {
         checkVersion(table2, CatalogTestUtil.testPartition2, CatalogTestUtil.testIndexId2,
                 CatalogTestUtil.testTabletId2, CatalogTestUtil.testStartVersion, CatalogTestUtil.testStartVersion + 1,
                 CatalogTestUtil.testStartVersion);
+        // begin txn
+        long transactionId = masterTransMgr.beginTransaction(CatalogTestUtil.testDbId1,
+                Lists.newArrayList(CatalogTestUtil.testTableId1), CatalogTestUtil.testTxnLabel1, transactionSource,
+                LoadJobSourceType.FRONTEND, Config.stream_load_default_timeout_second);
+        TransactionState transactionState = fakeEditLog.getTransaction(transactionId);
+        // commit table1, table2, table1
+        List<SubTransactionInfo> subTransactionInfos = Lists.newArrayList(
+                new SubTransactionInfo(table1, CatalogTestUtil.testTabletId1, allBackends),
+                new SubTransactionInfo(table2, CatalogTestUtil.testTabletId2, allBackends),
+                new SubTransactionInfo(table1, CatalogTestUtil.testTabletId1, allBackends));
+        List<SubTransactionState> subTransactionStates = generateSubTransactionStates(transactionState,
+                subTransactionInfos);
         // commit txn
-        transactionState.setSubTransactionStates(subTransactionStates);
-        LOG.info("sub txn states={}", transactionState.getSubTransactionStates());
         masterTransMgr.commitTransaction(CatalogTestUtil.testDbId1, Lists.newArrayList(table1, table2), transactionId,
                 subTransactionStates, 300000);
         // check status is committed
@@ -706,8 +871,12 @@ public class GlobalTransactionMgrTest {
 
         // finish transaction
         DatabaseTransactionMgrTest.setTransactionFinishPublish(transactionState, allBackends);
-        transactionState.getPublishVersionTasks()
-                .get(CatalogTestUtil.testBackendId1).get(0).getErrorTablets().add(CatalogTestUtil.testTabletId1);
+        List<PublishVersionTask> publishVersionTasks = transactionState.getPublishVersionTasks()
+                .get(CatalogTestUtil.testBackendId1).stream()
+                .filter(t -> t.getTransactionId() == subTransactionStates.get(2).getSubTransactionId())
+                .collect(Collectors.toList());
+        Assert.assertEquals(1, publishVersionTasks.size());
+        publishVersionTasks.get(0).getErrorTablets().add(CatalogTestUtil.testTabletId1);
         masterTransMgr.finishTransaction(CatalogTestUtil.testDbId1, transactionId);
         Assert.assertEquals(TransactionStatus.VISIBLE, transactionState.getTransactionStatus());
 
@@ -716,16 +885,17 @@ public class GlobalTransactionMgrTest {
                 .getTableOrMetaException(CatalogTestUtil.testTableId1).getPartition(CatalogTestUtil.testPartition1);
         Assert.assertEquals(CatalogTestUtil.testStartVersion + 2, testPartition.getVisibleVersion());
         Assert.assertEquals(CatalogTestUtil.testStartVersion + 3, testPartition.getNextVersion());
-        // check replica version
+        // check table1 replica version, table1 has 3 replicas
         Tablet tablet = testPartition.getIndex(CatalogTestUtil.testIndexId1).getTablet(CatalogTestUtil.testTabletId1);
         for (Replica replica : tablet.getReplicas()) {
             if (replica.getId() == CatalogTestUtil.testReplicaId1) {
+                // TODO replica version is [CatalogTestUtil.testStartVersion + 1] is an improvement
                 Assert.assertEquals(CatalogTestUtil.testStartVersion, replica.getVersion());
             } else {
                 Assert.assertEquals(CatalogTestUtil.testStartVersion + 2, replica.getVersion());
             }
         }
-        // check table2 version
+        // check table2 version, table2 has 1 replicas
         checkVersion(table2, CatalogTestUtil.testPartition2, CatalogTestUtil.testIndexId2,
                 CatalogTestUtil.testTabletId2, CatalogTestUtil.testStartVersion + 1,
                 CatalogTestUtil.testStartVersion + 2, CatalogTestUtil.testStartVersion + 1);
@@ -735,9 +905,110 @@ public class GlobalTransactionMgrTest {
         Assert.assertTrue(CatalogTestUtil.compareCatalog(masterEnv, slaveEnv));
     }
 
-    private SubTransactionState generateSubTransactionState(TransactionState transactionState, long subTransactionId,
-            Table table, long tabletId, List<Long> backendIds) {
-        return generateSubTransactionState(transactionState, subTransactionId, table, tabletId, backendIds, true);
+    /**
+     * commit with only two replicas
+     * txn1 -> commit success
+     *   sub_txn1: table1, replica: 1, 2 success
+     *   sub_txn2: table2, all replicas success
+     *   sub_txn3: table1, all replicas success
+     * txn2 -> commit failed
+     *   sub_txn1: table1, all replicas success
+     *   sub_txn2: table1, replica: 1, 3 success
+     *   sub_txn3: table2, all replicas success
+     * txn3 -> commit success
+     *   sub_txn1: table1, all replicas success
+     *   sub_txn2: table1, all replicas success
+     *   sub_txn3: table2, all replicas success
+     *   sub_txn4: table2, all replicas success
+     */
+    @Test
+    public void testFinishTransactionWithSubTransactionAndOneFailed() throws UserException {
+        FakeEnv.setEnv(masterEnv);
+        Table table1 = masterEnv.getInternalCatalog().getDbOrMetaException(CatalogTestUtil.testDbId1)
+                .getTableOrMetaException(CatalogTestUtil.testTableId1);
+        Table table2 = masterEnv.getInternalCatalog().getDbOrMetaException(CatalogTestUtil.testDbId1)
+                .getTableOrMetaException(CatalogTestUtil.testTableId2);
+        Replica replica13 = getReplica(CatalogTestUtil.testDbId1, CatalogTestUtil.testTableId1,
+                CatalogTestUtil.testPartition1, CatalogTestUtil.testIndexId1, CatalogTestUtil.testTabletId1,
+                CatalogTestUtil.testReplicaId3);
+        // txn1
+        if (true) {
+            // check partition version
+            checkVersion(table1, CatalogTestUtil.testPartition1, CatalogTestUtil.testIndexId1,
+                    CatalogTestUtil.testTabletId1, CatalogTestUtil.testStartVersion,
+                    CatalogTestUtil.testStartVersion + 1,
+                    CatalogTestUtil.testStartVersion);
+            checkVersion(table2, CatalogTestUtil.testPartition2, CatalogTestUtil.testIndexId2,
+                    CatalogTestUtil.testTabletId2, CatalogTestUtil.testStartVersion,
+                    CatalogTestUtil.testStartVersion + 1,
+                    CatalogTestUtil.testStartVersion);
+            // begin txn
+            long transactionId = masterTransMgr.beginTransaction(CatalogTestUtil.testDbId1,
+                    Lists.newArrayList(CatalogTestUtil.testTableId1), CatalogTestUtil.testTxnLabel1, transactionSource,
+                    LoadJobSourceType.FRONTEND, Config.stream_load_default_timeout_second);
+            TransactionState transactionState = fakeEditLog.getTransaction(transactionId);
+            // commit table1 with 1, 2 success; table2 with all success; table1 with all success
+            List<SubTransactionInfo> subTransactionInfos = Lists.newArrayList(
+                    new SubTransactionInfo(table1, CatalogTestUtil.testTabletId1,
+                            Lists.newArrayList(CatalogTestUtil.testBackendId1, CatalogTestUtil.testBackendId2)),
+                    new SubTransactionInfo(table2, CatalogTestUtil.testTabletId2, allBackends),
+                    new SubTransactionInfo(table1, CatalogTestUtil.testTabletId1, allBackends));
+            List<SubTransactionState> subTransactionStates = generateSubTransactionStates(transactionState,
+                    subTransactionInfos);
+            // commit txn
+            masterTransMgr.commitTransaction(CatalogTestUtil.testDbId1, Lists.newArrayList(table1, table2),
+                    transactionId,
+                    subTransactionStates, 300000);
+            // check status is committed
+            Assert.assertEquals(TransactionStatus.COMMITTED, transactionState.getTransactionStatus());
+            // check partition version
+            checkVersion(table1, CatalogTestUtil.testPartition1, CatalogTestUtil.testIndexId1,
+                    CatalogTestUtil.testTabletId1, CatalogTestUtil.testStartVersion,
+                    CatalogTestUtil.testStartVersion + 3,
+                    CatalogTestUtil.testStartVersion);
+            checkVersion(table2, CatalogTestUtil.testPartition2, CatalogTestUtil.testIndexId2,
+                    CatalogTestUtil.testTabletId2, CatalogTestUtil.testStartVersion,
+                    CatalogTestUtil.testStartVersion + 2,
+                    CatalogTestUtil.testStartVersion);
+            // check table1 replica3 last success and failed version
+            checkReplicaVersion(replica13, CatalogTestUtil.testStartVersion, CatalogTestUtil.testStartVersion,
+                    CatalogTestUtil.testStartVersion + 1);
+            // follower catalog replay the transaction
+            transactionState = fakeEditLog.getTransaction(transactionId);
+            FakeEnv.setEnv(slaveEnv);
+            slaveTransMgr.replayUpsertTransactionState(transactionState);
+            Assert.assertTrue(CatalogTestUtil.compareCatalog(masterEnv, slaveEnv));
+        }
+    }
+
+    class SubTransactionInfo {
+        Table table;
+        long tabletId;
+        List<Long> backends;
+
+        SubTransactionInfo(Table table, long tabletId, List<Long> backends) {
+            this.table = table;
+            this.tabletId = tabletId;
+            this.backends = backends;
+        }
+    }
+
+    private List<SubTransactionState> generateSubTransactionStates(TransactionState transactionState,
+            List<SubTransactionInfo> subTransactionInfos) {
+        List<SubTransactionState> subTransactionStates = new ArrayList<>();
+        for (int i = 0; i < subTransactionInfos.size(); i++) {
+            SubTransactionInfo subTransactionInfo = subTransactionInfos.get(i);
+            Table table = subTransactionInfo.table;
+            long tabletId = subTransactionInfo.tabletId;
+            List<Long> backends = subTransactionInfo.backends;
+            long subTxnId = i == 0 ? transactionState.getTransactionId() : masterTransMgr.getNextTransactionId();
+            boolean addTableId = i == 0 ? false : true;
+            subTransactionStates.add(generateSubTransactionState(transactionState, subTxnId, table,
+                    tabletId, backends, addTableId));
+        }
+        transactionState.setSubTransactionStates(subTransactionStates);
+        LOG.info("sub txn states={}", transactionState.getSubTransactionStates());
+        return subTransactionStates;
     }
 
     private SubTransactionState generateSubTransactionState(TransactionState transactionState, long subTransactionId,
@@ -758,21 +1029,46 @@ public class GlobalTransactionMgrTest {
                 .collect(Collectors.toList());
     }
 
-    // check version after commit transaction
+    private void checkPartitionVersion(Partition partition, long visibleVersion, long nextVersion) {
+        LOG.info("partition={}, visibleVersion={}, nextVersion={}, committedVersion={}", partition.getName(),
+                partition.getVisibleVersion(), partition.getNextVersion(), partition.getCommittedVersion());
+        Assert.assertEquals(visibleVersion, partition.getVisibleVersion());
+        Assert.assertEquals(nextVersion, partition.getNextVersion());
+    }
+
+    // check partition visible and next version; check replica version
     private void checkVersion(Table table, String partitionName, long indexId, long tabletId,
             long partitionVisibleVersion, long partitionNextVersion, long replicaVersion) {
-        Partition testPartition = table.getPartition(partitionName);
+        Partition partition = table.getPartition(partitionName);
         // check partition version
-        LOG.info("table={}, partition={}, visibleVersion={}, nextVersion={}", table.getName(),
-                testPartition.getName(), testPartition.getVisibleVersion(), testPartition.getNextVersion());
-        Assert.assertEquals(partitionVisibleVersion, testPartition.getVisibleVersion());
-        Assert.assertEquals(partitionNextVersion, testPartition.getNextVersion());
+        checkPartitionVersion(partition, partitionVisibleVersion, partitionNextVersion);
         // check partition next version
-        Tablet tablet = testPartition.getIndex(indexId).getTablet(tabletId);
+        Tablet tablet = partition.getIndex(indexId).getTablet(tabletId);
         for (Replica replica : tablet.getReplicas()) {
-            LOG.info("table={}, partition={}, index={}, tablet={}, replica={}, version={}", table.getName(),
-                    testPartition.getName(), indexId, tabletId, replica.getId(), replica.getVersion());
+            LOG.info("table={}, partition={}, index={}, tablet={}, replica={}, version={}, "
+                            + "last_success_version={}, last_failed_version={}", table.getName(), partition.getName(),
+                    indexId, tabletId, replica.getId(), replica.getVersion(), replica.getLastSuccessVersion(),
+                    replica.getLastFailedVersion());
             Assert.assertEquals(replicaVersion, replica.getVersion());
         }
+    }
+
+    private Replica getReplica(long dbId, long tableId, String partitionName, long indexId, long tabletId,
+            long replicaId) throws MetaNotFoundException {
+        return masterEnv.getInternalCatalog().getDbOrMetaException(dbId).getTableOrMetaException(tableId)
+                .getPartition(partitionName).getIndex(indexId).getTablet(tabletId).getReplicaById(replicaId);
+    }
+
+    // check replica last success and failed version
+    private void checkReplicaVersion(long dbId, long tableId, String partitionName, long indexId, long tabletId,
+            long replicaId, long version, long lastSuccessVersion, long lastFailedVersion) throws MetaNotFoundException {
+        Replica replica = getReplica(dbId, tableId, partitionName, indexId, tabletId, replicaId);
+        checkReplicaVersion(replica, version, lastSuccessVersion, lastFailedVersion);
+    }
+
+    private void checkReplicaVersion(Replica replica, long version, long lastSuccessVersion, long lastFailedVersion) {
+        Assert.assertEquals(version, replica.getVersion());
+        Assert.assertEquals(lastSuccessVersion, replica.getLastSuccessVersion());
+        Assert.assertEquals(lastFailedVersion, replica.getLastFailedVersion());
     }
 }
