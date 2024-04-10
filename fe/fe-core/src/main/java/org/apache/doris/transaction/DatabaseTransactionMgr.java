@@ -2038,6 +2038,8 @@ public class DatabaseTransactionMgr {
         Set<Long> errorReplicaIds = transactionState.getErrorReplicas();
         List<Replica> tabletSuccReplicas = Lists.newArrayList();
         List<Replica> tabletFailedReplicas = Lists.newArrayList();
+        // one replica should set last_failed_version once
+        Set<Long> failedVersionSetReplicas = new HashSet<>();
 
         Map<Partition, Long> partitionToVersionMap = Maps.newHashMap();
         for (TableCommitInfo tableCommitInfo : tableCommitInfos) {
@@ -2066,9 +2068,17 @@ public class DatabaseTransactionMgr {
                         tabletSuccReplicas.clear();
                         for (Replica replica : tablet.getReplicas()) {
                             if (errorReplicaIds.contains(replica.getId())) {
-                                // TODO(cmy): do we need to update last failed version here?
-                                // because in updateCatalogAfterVisible, it will be updated again.
-                                replica.updateLastFailedVersion(partitionCommitInfo.getVersion());
+                                if (!failedVersionSetReplicas.contains(replica.getId())) {
+                                    if (LOG.isDebugEnabled()) {
+                                        LOG.debug("txn_id={}, set replica={}, last_failed_version={}",
+                                                transactionState.getTransactionId(), replica.getId(),
+                                                partitionCommitInfo.getVersion());
+                                    }
+                                    // TODO(cmy): do we need to update last failed version here?
+                                    // because in updateCatalogAfterVisible, it will be updated again.
+                                    replica.updateLastFailedVersion(partitionCommitInfo.getVersion());
+                                    failedVersionSetReplicas.add(replica.getId());
+                                }
                                 tabletFailedReplicas.add(replica);
                             } else {
                                 tabletSuccReplicas.add(replica);
@@ -2558,10 +2568,11 @@ public class DatabaseTransactionMgr {
                                             tabletVersionFailedReplicas);
                                     LOG.debug("after checkReplicaContinuousVersion for txn_id={}, sub_txn_id={}, "
                                                     + "tablet_id={}, new_version={}, success_replicas={}, "
-                                                    + "write_failed_replicas={}, version_failed_replicas={}",
-                                            transactionState.getTransactionId(),
+                                                    + "error_replicas={}, write_failed_replicas={}, "
+                                                    + "version_failed_replicas={}", transactionState.getTransactionId(),
                                             subTransactionState.getSubTransactionId(), tablet.getId(), newVersion,
-                                            tabletSuccReplicas, tabletWriteFailedReplicas, tabletVersionFailedReplicas);
+                                            tabletSuccReplicas, errorReplicaIds, tabletWriteFailedReplicas,
+                                            tabletVersionFailedReplicas);
                                 }
                             }
                         }
