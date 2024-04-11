@@ -2122,6 +2122,8 @@ public class DatabaseTransactionMgr {
         Set<Long> errorReplicaIds = transactionState.getErrorReplicas();
         AnalysisManager analysisManager = Env.getCurrentEnv().getAnalysisManager();
         List<Long> newPartitionLoadedTableIds = new ArrayList<>();
+        // one replica should set last_failed_version once
+        Set<Long> failedVersionSetReplicas = new HashSet<>();
 
         Collection<TableCommitInfo> tableCommitInfos;
         if (!transactionState.getSubTxnIdToTableCommitInfo().isEmpty()) {
@@ -2154,9 +2156,10 @@ public class DatabaseTransactionMgr {
                     for (Tablet tablet : index.getTablets()) {
                         for (Replica replica : tablet.getReplicas()) {
                             long lastFailedVersion = replica.getLastFailedVersion();
-                            long newVersion = newCommitVersion;
+                            long newVersion = replica.getVersion();
                             long lastSuccessVersion = replica.getLastSuccessVersion();
                             if (!errorReplicaIds.contains(replica.getId())) {
+                                newVersion = newCommitVersion;
                                 if (!replica.checkVersionCatchUp(partition.getVisibleVersion(), true)) {
                                     // this means the replica has error in the past, but we did not observe it
                                     // during upgrade, one job maybe in quorum finished state, for example,
@@ -2171,16 +2174,29 @@ public class DatabaseTransactionMgr {
                                 // success version always move forward
                                 lastSuccessVersion = newCommitVersion;
                             } else {
-                                // for example, A,B,C 3 replicas, B,C failed during publish version,
-                                // then B C will be set abnormal all loading will failed, B,C will have to recovery
-                                // by clone, it is very inefficient and maybe lost data Using this method, B,C will
-                                // publish failed, and fe will publish again, not update their last failed version
-                                // if B is publish successfully in next turn, then B is normal and C will be set
-                                // abnormal so that quorum is maintained and loading will go on.
-                                newVersion = replica.getVersion();
-                                if (newCommitVersion > lastFailedVersion) {
-                                    lastFailedVersion = newCommitVersion;
+                                if (!failedVersionSetReplicas.contains(replica.getId())) {
+                                    // for example, A,B,C 3 replicas, B,C failed during publish version,
+                                    // then B C will be set abnormal all loading will failed, B,C will have to recovery
+                                    // by clone, it is very inefficient and maybe lost data Using this method, B,C will
+                                    // publish failed, and fe will publish again, not update their last failed version
+                                    // if B is publish successfully in next turn, then B is normal and C will be set
+                                    // abnormal so that quorum is maintained and loading will go on.
+                                    newVersion = replica.getVersion();
+                                    if (newCommitVersion > lastFailedVersion) {
+                                        lastFailedVersion = newCommitVersion;
+                                    }
+                                    failedVersionSetReplicas.add(replica.getId());
+                                    if (LOG.isDebugEnabled()) {
+                                        LOG.debug("txn_id={}, set replica={}, last_failed_version={}",
+                                                transactionState.getTransactionId(), replica.getId(),
+                                                partitionCommitInfo.getVersion());
+                                    }
                                 }
+                            }
+                            if (LOG.isDebugEnabled()) {
+                                LOG.debug("txn_id={}, set replica={}, version={}, last_failed_version={}, "
+                                                + "last_success_version={}", transactionState.getTransactionId(),
+                                        replica.getId(), newVersion, lastFailedVersion, lastSuccessVersion);
                             }
                             replica.updateVersionWithFailedInfo(newVersion, lastFailedVersion, lastSuccessVersion);
                         }
@@ -2586,7 +2602,8 @@ public class DatabaseTransactionMgr {
         }
 
         boolean needLog = publishResult != PublishResult.FAILED
-                || now - transactionState.getLastPublishLogTime() > Config.publish_fail_log_interval_second * 1000L;
+                || now - transactionState.getLastPublishLogTime() > Config.publish_fail_log_interval_second * 1000L
+                || LOG.isDebugEnabled();
         if (needLog) {
             transactionState.setLastPublishLogTime(now);
             for (String log : logs) {
