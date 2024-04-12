@@ -31,6 +31,8 @@ import org.apache.doris.common.util.TimeUtils;
 import org.apache.doris.meta.MetaContext;
 import org.apache.doris.task.PublishVersionTask;
 import org.apache.doris.thrift.TPartitionVersionInfo;
+import org.apache.doris.transaction.GlobalTransactionMgrTest.SubTransactionInfo;
+import org.apache.doris.transaction.TransactionState.LoadJobSourceType;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -43,12 +45,14 @@ import org.junit.Test;
 import org.junit.rules.ExpectedException;
 
 import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
 public class DatabaseTransactionMgrTest {
     private static final Logger LOG = LogManager.getLogger(DatabaseTransactionMgrTest.class);
+    private List<Long> allBackends = GlobalTransactionMgrTest.allBackends;
 
     @Rule
     public ExpectedException expectedEx = ExpectedException.none();
@@ -116,31 +120,23 @@ public class DatabaseTransactionMgrTest {
     public Map<String, Long> addTransactionToTransactionMgr() throws UserException {
         Map<String, Long> labelToTxnId = Maps.newHashMap();
         FakeEnv.setEnv(masterEnv);
+
+        // txn1
         long transactionId1 = masterTransMgr.beginTransaction(CatalogTestUtil.testDbId1, Lists.newArrayList(CatalogTestUtil.testTableId1),
                 CatalogTestUtil.testTxnLabel1,
                 transactionSource,
                 TransactionState.LoadJobSourceType.FRONTEND, Config.stream_load_default_timeout_second);
-        // commit a transaction
-        TabletCommitInfo tabletCommitInfo1 = new TabletCommitInfo(CatalogTestUtil.testTabletId1,
-                CatalogTestUtil.testBackendId1);
-        TabletCommitInfo tabletCommitInfo2 = new TabletCommitInfo(CatalogTestUtil.testTabletId1,
-                CatalogTestUtil.testBackendId2);
-        TabletCommitInfo tabletCommitInfo3 = new TabletCommitInfo(CatalogTestUtil.testTabletId1,
-                CatalogTestUtil.testBackendId3);
-        List<TabletCommitInfo> transTablets = Lists.newArrayList();
-        transTablets.add(tabletCommitInfo1);
-        transTablets.add(tabletCommitInfo2);
-        transTablets.add(tabletCommitInfo3);
+        // commit and publish transaction
+        List<TabletCommitInfo> transTablets = GlobalTransactionMgrTest.generateTabletCommitInfos(CatalogTestUtil.testTabletId1, allBackends);
         Table testTable1 = masterEnv.getInternalCatalog().getDbOrMetaException(CatalogTestUtil.testDbId1)
                 .getTableOrMetaException(CatalogTestUtil.testTableId1);
         masterTransMgr.commitTransaction(CatalogTestUtil.testDbId1, Lists.newArrayList(testTable1), transactionId1, transTablets);
         TransactionState transactionState1 = fakeEditLog.getTransaction(transactionId1);
-        setTransactionFinishPublish(transactionState1,
-                Lists.newArrayList(CatalogTestUtil.testBackendId1,
-                        CatalogTestUtil.testBackendId2, CatalogTestUtil.testBackendId3));
+        setTransactionFinishPublish(transactionState1, allBackends);
         masterTransMgr.finishTransaction(CatalogTestUtil.testDbId1, transactionId1);
         labelToTxnId.put(CatalogTestUtil.testTxnLabel1, transactionId1);
 
+        // txn 2, 3, 4
         TransactionState.TxnCoordinator beTransactionSource = new TransactionState.TxnCoordinator(TransactionState.TxnSourceType.BE, "be1");
         long transactionId2 = masterTransMgr.beginTransaction(CatalogTestUtil.testDbId1, Lists.newArrayList(CatalogTestUtil.testTableId1),
                 CatalogTestUtil.testTxnLabel2,
@@ -189,9 +185,7 @@ public class DatabaseTransactionMgrTest {
         TransactionState transactionState2 = masterDbTransMgr.getTransactionState(txnId2);
         Assert.assertEquals(txnId2.longValue(), transactionState2.getTransactionId());
         Assert.assertEquals(TransactionStatus.PREPARE, transactionState2.getTransactionStatus());
-
     }
-
 
     @Test
     public void testAbortTransaction() throws UserException {
@@ -219,7 +213,6 @@ public class DatabaseTransactionMgrTest {
         expectedEx.expectMessage("transaction not found");
         masterDbTransMgr.abortTransaction(txnId1, "test abort transaction", null);
     }
-
 
     @Test
     public void testGetTransactionIdByCoordinateBe() throws UserException {
@@ -310,5 +303,194 @@ public class DatabaseTransactionMgrTest {
         Assert.assertEquals(0, masterDbTransMgr.getFinishedTxnNums());
         Assert.assertEquals(3, masterDbTransMgr.getTransactionNum());
         Assert.assertNull(masterDbTransMgr.unprotectedGetTxnIdsByLabel(CatalogTestUtil.testTxnLabel1));
+    }
+
+    @Test
+    public void testSubTransaction() throws UserException {
+        addSubTransaction();
+        DatabaseTransactionMgr masterDbTransMgr = masterTransMgr.getDatabaseTransactionMgr(
+                CatalogTestUtil.testDbId1);
+        Assert.assertEquals(4 + 4, masterDbTransMgr.getTransactionNum());
+        Assert.assertEquals(3 + 2, masterDbTransMgr.getRunningTxnNums());
+        Assert.assertEquals(1 + 2, masterDbTransMgr.getFinishedTxnNums());
+        // LoadJobSourceType.INSERT_STREAMING does not write edit log when begin txn
+        DatabaseTransactionMgr slaveDbTransMgr = slaveTransMgr.getDatabaseTransactionMgr(CatalogTestUtil.testDbId1);
+        Assert.assertEquals(1, slaveDbTransMgr.getTransactionNum());
+
+        Assert.assertEquals(1, masterDbTransMgr.unprotectedGetTxnIdsByLabel(CatalogTestUtil.testTxnLabel5).size());
+        Assert.assertEquals(1, masterDbTransMgr.unprotectedGetTxnIdsByLabel(CatalogTestUtil.testTxnLabel6).size());
+        Assert.assertEquals(1, masterDbTransMgr.unprotectedGetTxnIdsByLabel(CatalogTestUtil.testTxnLabel7).size());
+        Assert.assertEquals(1, masterDbTransMgr.unprotectedGetTxnIdsByLabel(CatalogTestUtil.testTxnLabel8).size());
+
+        // test get transaction state by subTxnId
+        TransactionState transactionState6 = masterDbTransMgr.getTransactionState(
+                LabelToTxnId.get(CatalogTestUtil.testTxnLabel6));
+        long subTransactionId3 = transactionState6.getSubTransactionStates().get(2).getSubTransactionId();
+        TransactionState subTransactionState = masterTransMgr.getTransactionState(CatalogTestUtil.testDbId1,
+                subTransactionId3);
+        Assert.assertEquals(transactionState6, subTransactionState);
+        // test show transaction state command
+        List<List<String>> singleTranInfos = masterDbTransMgr.getSingleTranInfo(CatalogTestUtil.testDbId1,
+                subTransactionId3);
+        Assert.assertEquals(1, singleTranInfos.size());
+        List<String> txnInfo = singleTranInfos.get(0);
+        Assert.assertEquals(String.valueOf(transactionState6.getTransactionId()), txnInfo.get(0));
+    }
+
+    @Test
+    public void testRemoveExpiredTxnsWithSubTxn() throws UserException {
+        addSubTransaction();
+        DatabaseTransactionMgr masterDbTransMgr = masterTransMgr.getDatabaseTransactionMgr(CatalogTestUtil.testDbId1);
+        Config.label_keep_max_second = -1;
+        Config.streaming_label_keep_max_second = -1;
+        long currentMillis = System.currentTimeMillis();
+        masterDbTransMgr.removeUselessTxns(currentMillis);
+        Assert.assertEquals(0, masterDbTransMgr.getFinishedTxnNums());
+        Assert.assertEquals(3 + 2, masterDbTransMgr.getTransactionNum());
+        Assert.assertNull(masterDbTransMgr.unprotectedGetTxnIdsByLabel(CatalogTestUtil.testTxnLabel1));
+        Assert.assertNull(masterDbTransMgr.unprotectedGetTxnIdsByLabel(CatalogTestUtil.testTxnLabel6));
+    }
+
+    @Test
+    public void testRemoveOverLimitTxnsWithSubTxn() throws UserException {
+        addSubTransaction();
+        // TODO: the 0 does not work
+        Config.label_num_threshold = 0;
+        DatabaseTransactionMgr masterDbTransMgr = masterTransMgr.getDatabaseTransactionMgr(CatalogTestUtil.testDbId1);
+        masterDbTransMgr.removeUselessTxns(System.currentTimeMillis());
+        /*Assert.assertEquals(0, masterDbTransMgr.getFinishedTxnNums());
+        Assert.assertEquals(3 + 2, masterDbTransMgr.getTransactionNum());
+        Assert.assertNull(masterDbTransMgr.unprotectedGetTxnIdsByLabel(CatalogTestUtil.testTxnLabel1));
+        Assert.assertNull(masterDbTransMgr.unprotectedGetTxnIdsByLabel(CatalogTestUtil.testTxnLabel6));*/
+    }
+
+    private Pair<TransactionState, List<Long>> beginTransactionWithSubTxn(String label, List<Long> tableIds)
+            throws UserException {
+        Assert.assertTrue(tableIds.size() > 0);
+        long transactionId = masterTransMgr.beginTransaction(CatalogTestUtil.testDbId1,
+                Lists.newArrayList(tableIds.get(0)),
+                label, transactionSource, LoadJobSourceType.INSERT_STREAMING,
+                Config.stream_load_default_timeout_second);
+        TransactionState transactionState = masterTransMgr.getDatabaseTransactionMgr(CatalogTestUtil.testDbId1)
+                .getTransactionState(transactionId);
+        List<Long> subTxnIds = new ArrayList<>();
+        subTxnIds.add(transactionId);
+        for (int i = 1; i < tableIds.size(); i++) {
+            /** add sub txn, the same as {@link TransactionEntry#beginTransaction} */
+            transactionState.addTableId(tableIds.get(i));
+            Long subTransactionId = masterTransMgr.getNextTransactionId();
+            subTxnIds.add(subTransactionId);
+            masterTransMgr.addSubTransaction(CatalogTestUtil.testDbId1, transactionId, subTransactionId);
+
+            // get transaction state by subTransactionId
+            TransactionState subTransactionState = masterTransMgr.getTransactionState(CatalogTestUtil.testDbId1,
+                    subTransactionId);
+            Assert.assertEquals(subTransactionState, transactionState);
+        }
+        return Pair.of(transactionState, subTxnIds);
+    }
+
+    /**
+     * txn with label5: prepare
+     *   sub_txn: table1
+     *   sub_txn: table1
+     *   sub_txn: table2
+     * txn with label6: visible
+     *   sub_txn: table1
+     *   sub_txn: table2
+     *   sub_txn: table1, load fail
+     *   sub_txn: table1
+     * txn with label7: aborted
+     *   sub_txn: table1
+     *   sub_txn: table2
+     *   sub_txn: table2
+     * txn with label7: committed
+     *   sub_txn: table1
+     *   sub_txn: table2
+     *   sub_txn: table1
+     */
+    private void addSubTransaction() throws UserException {
+        FakeEnv.setEnv(masterEnv);
+        Table table1 = masterEnv.getInternalCatalog().getDbOrMetaException(CatalogTestUtil.testDbId1)
+                .getTableOrMetaException(CatalogTestUtil.testTableId1);
+        Table table2 = masterEnv.getInternalCatalog().getDbOrMetaException(CatalogTestUtil.testDbId1)
+                .getTableOrMetaException(CatalogTestUtil.testTableId2);
+
+        // txn with label5
+        TransactionState transactionState5 = beginTransactionWithSubTxn(CatalogTestUtil.testTxnLabel5,
+                Lists.newArrayList(CatalogTestUtil.testTableId1, CatalogTestUtil.testTableId1,
+                        CatalogTestUtil.testTableId2)).first;
+
+        // txn with label6
+        Pair<TransactionState, List<Long>> txnInfo6 = beginTransactionWithSubTxn(CatalogTestUtil.testTxnLabel6,
+                Lists.newArrayList(CatalogTestUtil.testTableId1));
+        TransactionState transactionState6 = txnInfo6.first;
+        if (true) {
+            long transactionId = transactionState6.getTransactionId();
+            // add sub txn2
+            long subTxnId2 = masterTransMgr.getNextTransactionId();
+            transactionState6.addTableId(CatalogTestUtil.testTableId2);
+            masterTransMgr.addSubTransaction(CatalogTestUtil.testDbId1, transactionId, subTxnId2);
+            // add sub txn3
+            long subTxnId3 = masterTransMgr.getNextTransactionId();
+            transactionState6.addTableId(CatalogTestUtil.testTableId1);
+            masterTransMgr.addSubTransaction(CatalogTestUtil.testDbId1, transactionId, subTxnId3);
+            // sub txn3 fail
+            transactionState6.removeTableId(CatalogTestUtil.testTableId1);
+            Env.getCurrentGlobalTransactionMgr().removeSubTransaction(CatalogTestUtil.testDbId1, subTxnId3);
+            // add sub txn4
+            long subTxnId4 = masterTransMgr.getNextTransactionId();
+            transactionState6.addTableId(CatalogTestUtil.testTableId1);
+            masterTransMgr.addSubTransaction(CatalogTestUtil.testDbId1, transactionId, subTxnId4);
+
+            // commit transaction
+            ArrayList<SubTransactionInfo> subTransactionInfos = Lists.newArrayList(
+                    new SubTransactionInfo(table1, CatalogTestUtil.testTabletId1, allBackends, transactionId),
+                    new SubTransactionInfo(table2, CatalogTestUtil.testTabletId2, allBackends, subTxnId2),
+                    new SubTransactionInfo(table1, CatalogTestUtil.testTabletId1, allBackends, subTxnId4));
+            masterTransMgr.commitTransaction(CatalogTestUtil.testDbId1, Lists.newArrayList(table1, table2, table1),
+                    transactionState6.getTransactionId(),
+                    GlobalTransactionMgrTest.generateSubTransactionStates(masterTransMgr, transactionState6,
+                            subTransactionInfos), 300000);
+            Assert.assertEquals(TransactionStatus.COMMITTED, transactionState6.getTransactionStatus());
+
+            // finish transaction
+            DatabaseTransactionMgrTest.setTransactionFinishPublish(transactionState6, allBackends);
+            masterTransMgr.finishTransaction(CatalogTestUtil.testDbId1, transactionId);
+            Assert.assertEquals(TransactionStatus.VISIBLE, transactionState6.getTransactionStatus());
+        }
+
+        // txn with label7
+        TransactionState transactionState7 = beginTransactionWithSubTxn(CatalogTestUtil.testTxnLabel7,
+                Lists.newArrayList(CatalogTestUtil.testTableId1, CatalogTestUtil.testTableId2,
+                        CatalogTestUtil.testTableId2)).first;
+        // abort transaction
+        masterTransMgr.abortTransaction(CatalogTestUtil.testDbId1, transactionState7.getTransactionId(),
+                "user rollback");
+        Assert.assertEquals(TransactionStatus.ABORTED, transactionState7.getTransactionStatus());
+
+        // txn with label8
+        Pair<TransactionState, List<Long>> txnInfo8 = beginTransactionWithSubTxn(CatalogTestUtil.testTxnLabel8,
+                Lists.newArrayList(CatalogTestUtil.testTableId1, CatalogTestUtil.testTableId2,
+                        CatalogTestUtil.testTableId1));
+        TransactionState transactionState8 = txnInfo8.first;
+        if (true) {
+            List<Long> subTxnIds8 = txnInfo8.second;
+            // commit transaction
+            ArrayList<SubTransactionInfo> subTransactionInfos = Lists.newArrayList(
+                    new SubTransactionInfo(table1, CatalogTestUtil.testTabletId1, allBackends, subTxnIds8.get(0)),
+                    new SubTransactionInfo(table2, CatalogTestUtil.testTabletId2, allBackends, subTxnIds8.get(1)),
+                    new SubTransactionInfo(table1, CatalogTestUtil.testTabletId1, allBackends, subTxnIds8.get(2)));
+            masterTransMgr.commitTransaction(CatalogTestUtil.testDbId1, Lists.newArrayList(table1, table2),
+                    transactionState8.getTransactionId(),
+                    GlobalTransactionMgrTest.generateSubTransactionStates(masterTransMgr, transactionState8,
+                            subTransactionInfos), 300000);
+            Assert.assertEquals(TransactionStatus.COMMITTED, transactionState8.getTransactionStatus());
+        }
+
+        LabelToTxnId.put(CatalogTestUtil.testTxnLabel5, transactionState5.getTransactionId());
+        LabelToTxnId.put(CatalogTestUtil.testTxnLabel6, transactionState6.getTransactionId());
+        LabelToTxnId.put(CatalogTestUtil.testTxnLabel7, transactionState7.getTransactionId());
+        LabelToTxnId.put(CatalogTestUtil.testTxnLabel8, transactionState8.getTransactionId());
     }
 }

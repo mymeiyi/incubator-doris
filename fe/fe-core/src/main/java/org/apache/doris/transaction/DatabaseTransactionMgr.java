@@ -1628,14 +1628,16 @@ public class DatabaseTransactionMgr {
             idToFinalStatusTransactionState.put(transactionState.getTransactionId(), transactionState);
             if (transactionState.isShortTxn()) {
                 finalStatusTransactionStateDequeShort.add(transactionState);
+                LOG.debug("sout: short add {}", transactionState);
             } else {
                 finalStatusTransactionStateDequeLong.add(transactionState);
+                LOG.debug("sout: long add {}", transactionState);
             }
         }
         updateTxnLabels(transactionState);
     }
 
-    public int getRunningTxnNum() {
+    public int getRunningTxnNumsWithLock() {
         readLock();
         try {
             return runningTxnNums;
@@ -1844,6 +1846,8 @@ public class DatabaseTransactionMgr {
         // delete expired txns
         writeLock();
         try {
+            LOG.debug("sout: final short: {}", finalStatusTransactionStateDequeShort);
+            LOG.debug("sout: final long: {}", finalStatusTransactionStateDequeLong);
             Pair<Long, Integer> expiredTxnsInfoForShort = unprotectedRemoveUselessTxns(currentMillis,
                     finalStatusTransactionStateDequeShort, MAX_REMOVE_TXN_PER_ROUND);
             Pair<Long, Integer> expiredTxnsInfoForLong = unprotectedRemoveUselessTxns(currentMillis,

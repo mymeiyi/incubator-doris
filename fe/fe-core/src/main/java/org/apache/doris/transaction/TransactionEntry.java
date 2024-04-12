@@ -271,9 +271,10 @@ public class TransactionEntry {
         }
     }
 
-    public void removeTable(Table table) {
+    public void abortSubTransaction(long subTransactionId, Table table) {
         if (isTransactionBegan) {
             this.transactionState.removeTableId(table.getId());
+            Env.getCurrentGlobalTransactionMgr().removeSubTransaction(table.getDatabase().getId(), subTransactionId);
         }
     }
 
