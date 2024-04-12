@@ -1635,7 +1635,7 @@ public class DatabaseTransactionMgr {
         updateTxnLabels(transactionState);
     }
 
-    public int getRunningTxnNum() {
+    public int getRunningTxnNumsWithLock() {
         readLock();
         try {
             return runningTxnNums;
