@@ -17,7 +17,6 @@
 
 package org.apache.doris.load;
 
-import org.apache.doris.catalog.Env;
 import org.apache.doris.qe.ConnectContext;
 import org.apache.doris.thrift.TTabletCommitInfo;
 import org.apache.doris.transaction.TabletCommitInfo;
@@ -64,8 +63,7 @@ public class TxnDeleteJob extends DeleteJob {
     @Override
     public void cancel(String reason) {
         if (transactionId != INVALID_TXN_ID) {
-            ConnectContext.get().getTxnEntry().removeTable(targetTbl);
-            Env.getCurrentGlobalTransactionMgr().removeSubTransaction(targetTbl.getDatabase().getId(), transactionId);
+            ConnectContext.get().getTxnEntry().abortSubTransaction(transactionId, targetTbl);
         }
     }
 }

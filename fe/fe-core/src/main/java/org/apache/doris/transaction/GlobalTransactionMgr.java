@@ -768,7 +768,7 @@ public class GlobalTransactionMgr implements GlobalTransactionMgrIface {
 
     @Override
     public long getAllRunningTxnNum() {
-        return updateTxnMetric(databaseTransactionMgr -> (long) databaseTransactionMgr.getRunningTxnNum(),
+        return updateTxnMetric(databaseTransactionMgr -> (long) databaseTransactionMgr.getRunningTxnNumsWithLock(),
                 MetricRepo.DB_GAUGE_TXN_NUM);
     }
 
