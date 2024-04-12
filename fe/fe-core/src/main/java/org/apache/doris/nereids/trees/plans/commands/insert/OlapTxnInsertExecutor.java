@@ -17,7 +17,6 @@
 
 package org.apache.doris.nereids.trees.plans.commands.insert;
 
-import org.apache.doris.catalog.Env;
 import org.apache.doris.catalog.Table;
 import org.apache.doris.common.util.DebugUtil;
 import org.apache.doris.nereids.NereidsPlanner;
@@ -89,8 +88,7 @@ public class OlapTxnInsertExecutor extends OlapInsertExecutor {
 
     private void cleanTransaction() {
         if (txnId != INVALID_TXN_ID) {
-            ctx.getTxnEntry().removeTable((Table) table);
-            Env.getCurrentGlobalTransactionMgr().removeSubTransaction(table.getDatabase().getId(), txnId);
+            ctx.getTxnEntry().abortSubTransaction(txnId, (Table) table);
         }
     }
 }
