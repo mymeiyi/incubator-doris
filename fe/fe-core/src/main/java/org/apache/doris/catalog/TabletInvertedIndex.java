@@ -259,20 +259,9 @@ public class TabletInvertedIndex {
                                                     + "clear it from backend [{}]", transactionId, backendId);
                                         }
                                     } else if (transactionState.getTransactionStatus() == TransactionStatus.VISIBLE) {
-                                        TableCommitInfo tableCommitInfo;
-                                        if (transactionState.getSubTransactionStates().isEmpty()) {
-                                            tableCommitInfo = transactionState.getTableCommitInfo(
-                                                    tabletMeta.getTableId());
-                                        } else {
-                                            tableCommitInfo = transactionState.getSubTxnIdToTableCommitInfo()
-                                                    .get(transactionId);
-                                        }
-                                        PartitionCommitInfo partitionCommitInfo = tableCommitInfo == null
-                                                ? null : tableCommitInfo.getPartitionCommitInfo(partitionId);
-                                        if (partitionCommitInfo != null) {
-                                            TPartitionVersionInfo versionInfo
-                                                    = new TPartitionVersionInfo(tabletMeta.getPartitionId(),
-                                                    partitionCommitInfo.getVersion(), 0);
+                                        TPartitionVersionInfo versionInfo = generatePartitionVersionInfoWhenReport(
+                                                transactionState, transactionId, tabletMeta, partitionId);
+                                        if (versionInfo != null) {
                                             synchronized (transactionsToPublish) {
                                                 ListMultimap<Long, TPartitionVersionInfo> map
                                                         = transactionsToPublish.get(transactionState.getDbId());
@@ -297,25 +286,11 @@ public class TabletInvertedIndex {
                                                 if (errorTablets != null) {
                                                     for (int i = 0; i < errorTablets.size(); i++) {
                                                         if (tabletId == errorTablets.get(i)) {
-                                                            TableCommitInfo tableCommitInfo;
-                                                            if (transactionState.getSubTransactionStates().isEmpty()) {
-                                                                tableCommitInfo
-                                                                        = transactionState.getTableCommitInfo(
-                                                                        tabletMeta.getTableId());
-                                                            } else {
-                                                                tableCommitInfo =
-                                                                        transactionState.getSubTxnIdToTableCommitInfo()
-                                                                        .get(transactionId);
-                                                            }
-                                                            PartitionCommitInfo partitionCommitInfo =
-                                                                    tableCommitInfo == null ? null :
-                                                                            tableCommitInfo.getPartitionCommitInfo(
-                                                                                    partitionId);
-                                                            if (partitionCommitInfo != null) {
-                                                                TPartitionVersionInfo versionInfo
-                                                                        = new TPartitionVersionInfo(
-                                                                        tabletMeta.getPartitionId(),
-                                                                        partitionCommitInfo.getVersion(), 0);
+                                                            TPartitionVersionInfo versionInfo
+                                                                    = generatePartitionVersionInfoWhenReport(
+                                                                    transactionState, transactionId, tabletMeta,
+                                                                    partitionId);
+                                                            if (versionInfo != null) {
                                                                 synchronized (transactionsToPublish) {
                                                                     ListMultimap<Long, TPartitionVersionInfo> map
                                                                             = transactionsToPublish.get(
@@ -376,6 +351,25 @@ public class TabletInvertedIndex {
                 tabletDeleteFromMeta.size(), tabletFoundInMeta.size(), tabletMigrationMap.size(),
                 transactionsToClear.size(), transactionsToPublish.size(), tabletToUpdate.size(),
                 tabletRecoveryMap.size(), (end - start));
+    }
+
+    // the transactionId may be sub transaction id or transaction id
+    private TPartitionVersionInfo generatePartitionVersionInfoWhenReport(TransactionState transactionState,
+            long transactionId, TabletMeta tabletMeta, long partitionId) {
+        TableCommitInfo tableCommitInfo;
+        if (transactionState.getSubTransactionStates() != null) {
+            tableCommitInfo = transactionState.getTableCommitInfo(
+                    tabletMeta.getTableId());
+        } else {
+            tableCommitInfo = transactionState.getSubTxnIdToTableCommitInfo()
+                    .get(transactionId);
+        }
+        if (tableCommitInfo != null && tableCommitInfo.getPartitionCommitInfo(partitionId) != null) {
+            PartitionCommitInfo partitionCommitInfo = tableCommitInfo.getPartitionCommitInfo(partitionId);
+            return new TPartitionVersionInfo(tabletMeta.getPartitionId(),
+                    partitionCommitInfo.getVersion(), 0);
+        }
+        return null;
     }
 
     public Long getTabletIdByReplica(long replicaId) {

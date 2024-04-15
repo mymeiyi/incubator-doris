@@ -66,4 +66,10 @@ public class TxnDeleteJob extends DeleteJob {
             ConnectContext.get().getTxnEntry().abortSubTransaction(transactionId, targetTbl);
         }
     }
+
+    @Override
+    public long getTimeoutMs() {
+        long timeout = super.getTimeoutMs();
+        return Math.min(timeout, ConnectContext.get().getTxnEntry().getTimeout());
+    }
 }

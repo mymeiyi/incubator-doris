@@ -1806,10 +1806,17 @@ public class DatabaseTransactionMgr {
                 throw new AnalysisException("Transaction[" + txnId + "] does not exist.");
             }
 
-            for (Map.Entry<Long, TableCommitInfo> entry : transactionState.getIdToTableCommitInfos().entrySet()) {
+            Iterator<TableCommitInfo> idToTableCommitInfos;
+            if (transactionState.getSubTransactionStates() != null) {
+                idToTableCommitInfos = transactionState.getSubTxnIdToTableCommitInfo().values().iterator();
+            } else {
+                idToTableCommitInfos = transactionState.getIdToTableCommitInfos().values().iterator();
+            }
+            while (idToTableCommitInfos.hasNext()) {
+                TableCommitInfo tableCommitInfo = idToTableCommitInfos.next();
                 List<Comparable> tableInfo = new ArrayList<>();
-                tableInfo.add(entry.getKey());
-                tableInfo.add(Joiner.on(", ").join(entry.getValue().getIdToPartitionCommitInfo().values().stream().map(
+                tableInfo.add(tableCommitInfo.getTableId());
+                tableInfo.add(Joiner.on(", ").join(tableCommitInfo.getIdToPartitionCommitInfo().values().stream().map(
                         PartitionCommitInfo::getPartitionId).collect(Collectors.toList())));
                 tableInfos.add(tableInfo);
             }
@@ -1828,12 +1835,21 @@ public class DatabaseTransactionMgr {
                 throw new AnalysisException("Transaction[" + txnId + "] does not exist.");
             }
 
-            TableCommitInfo tableCommitInfo = transactionState.getIdToTableCommitInfos().get(tableId);
-            Map<Long, PartitionCommitInfo> idToPartitionCommitInfo = tableCommitInfo.getIdToPartitionCommitInfo();
-            for (Map.Entry<Long, PartitionCommitInfo> entry : idToPartitionCommitInfo.entrySet()) {
-                List<Comparable> partitionInfo = new ArrayList<Comparable>();
-                partitionInfo.add(entry.getKey());
-                partitionInfo.add(entry.getValue().getVersion());
+            List<PartitionCommitInfo> partitionCommitInfos = new ArrayList<>();
+            if (transactionState.getSubTransactionStates() != null) {
+                for (TableCommitInfo tableCommitInfo : transactionState.getSubTxnIdToTableCommitInfo().values()) {
+                    if (tableCommitInfo.getTableId() == tableId) {
+                        partitionCommitInfos.addAll(tableCommitInfo.getIdToPartitionCommitInfo().values());
+                    }
+                }
+            } else {
+                partitionCommitInfos.addAll(
+                        transactionState.getIdToTableCommitInfos().get(tableId).getIdToPartitionCommitInfo().values());
+            }
+            for (PartitionCommitInfo partitionCommitInfo : partitionCommitInfos) {
+                List<Comparable> partitionInfo = new ArrayList<>();
+                partitionInfo.add(partitionCommitInfo.getPartitionId());
+                partitionInfo.add(partitionCommitInfo.getVersion());
                 partitionInfos.add(partitionInfo);
             }
         } finally {

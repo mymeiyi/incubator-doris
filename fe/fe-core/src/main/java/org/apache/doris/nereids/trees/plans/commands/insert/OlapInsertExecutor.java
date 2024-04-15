@@ -108,7 +108,7 @@ public class OlapInsertExecutor extends AbstractInsertExecutor {
                 && physicalOlapTableSink.getDmlCommandType() == DMLCommandType.INSERT;
         try {
             // TODO refactor this to avoid call legacy planner's function
-            int timeout = ctx.getExecTimeout();
+            long timeout = getTimeout();
             olapTableSink.init(ctx.queryId(), txnId, database.getId(),
                     timeout,
                     ctx.getSessionVariable().getSendBatchParallelism(),
@@ -269,5 +269,9 @@ public class OlapInsertExecutor extends AbstractInsertExecutor {
                 txnStatus, loadedRows, filteredRows);
         // update it, so that user can get loaded rows in fe.audit.log
         ctx.updateReturnRows((int) loadedRows);
+    }
+
+    public long getTimeout() {
+        return ctx.getExecTimeout();
     }
 }
