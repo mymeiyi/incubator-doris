@@ -362,9 +362,9 @@ suite("txn_insert") {
             order_qt_select35 """select * from ${pt}_1"""
             order_qt_select36 """select * from ${pt}_2"""
             order_qt_select37 """select * from ${pt}_3"""
-        }
 
-        sql """ set enable_insert_strict = true """
+            sql """ set enable_insert_strict = true """
+        }
 
         // 11. update stmt
         if (use_nereids_planner) {
@@ -499,6 +499,25 @@ suite("txn_insert") {
             order_qt_select41 """select * from txn_insert_dt2 """
             order_qt_select42 """select * from txn_insert_dt4 """
             order_qt_select43 """select * from txn_insert_dt5 """
+        }
+
+        // 13. decrease be 'pending_data_expire_time_sec' config
+        if (use_nereids_planner) {
+            def backendId_to_params = get_be_param("pending_data_expire_time_sec")
+            try {
+                set_be_param.call("pending_data_expire_time_sec", "1")
+                sql """ begin; """
+                sql """ insert into ${table}_0 select * from ${table}_1; """
+                sql """ insert into ${table}_0 select * from ${table}_2; """
+                sql """ insert into ${table}_0 select * from ${table}_1; """
+                sql """ insert into ${table}_0 select * from ${table}_2; """
+                sleep(5000)
+                sql """ commit; """
+                sql "sync"
+                order_qt_select44 """select * from ${table}_0 """
+            } finally {
+                set_original_be_param("pending_data_expire_time_sec", backendId_to_params)
+            }
         }
     }
 }

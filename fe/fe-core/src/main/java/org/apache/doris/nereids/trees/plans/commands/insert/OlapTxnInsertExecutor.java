@@ -86,6 +86,11 @@ public class OlapTxnInsertExecutor extends OlapInsertExecutor {
         cleanTransaction();
     }
 
+    @Override
+    public long getTimeout() {
+        return Math.min(super.getTimeout(), ctx.getTxnEntry().getTimeout());
+    }
+
     private void cleanTransaction() {
         if (txnId != INVALID_TXN_ID) {
             ctx.getTxnEntry().abortSubTransaction(txnId, (Table) table);

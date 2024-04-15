@@ -71,6 +71,7 @@ public class TransactionEntry {
     private long transactionId = -1;
     private TransactionState transactionState;
     private List<SubTransactionState> subTransactionStates = new ArrayList<>();
+    private long timeoutTimestamp = -1;
 
     public TransactionEntry() {
     }
@@ -170,10 +171,12 @@ public class TransactionEntry {
         }
         DatabaseIf database = table.getDatabase();
         if (!isTransactionBegan) {
+            long timeoutSecond = ConnectContext.get().getExecTimeout();
+            this.timeoutTimestamp = System.currentTimeMillis() + timeoutSecond * 1000;
             this.transactionId = Env.getCurrentGlobalTransactionMgr().beginTransaction(
                     database.getId(), Lists.newArrayList(table.getId()), label,
                     new TxnCoordinator(TxnSourceType.FE, FrontendOptions.getLocalHostAddress()),
-                    LoadJobSourceType.INSERT_STREAMING, ConnectContext.get().getExecTimeout());
+                    LoadJobSourceType.INSERT_STREAMING, timeoutSecond);
             this.isTransactionBegan = true;
             this.database = database;
             this.transactionState = Env.getCurrentGlobalTransactionMgr()
@@ -194,8 +197,9 @@ public class TransactionEntry {
     public TransactionStatus commitTransaction() throws Exception {
         if (isTransactionBegan) {
             transactionState.setSubTransactionStates(subTransactionStates);
-            if (Env.getCurrentGlobalTransactionMgr().commitAndPublishTransaction(database, transactionId,
-                    subTransactionStates, ConnectContext.get().getExecTimeout())) {
+            if (Env.getCurrentGlobalTransactionMgr()
+                    .commitAndPublishTransaction(database, transactionId, subTransactionStates,
+                            ConnectContext.get().getSessionVariable().getInsertVisibleTimeoutMs())) {
                 return TransactionStatus.VISIBLE;
             } else {
                 return TransactionStatus.COMMITTED;
@@ -293,5 +297,9 @@ public class TransactionEntry {
 
     public boolean isTransactionBegan() {
         return this.isTransactionBegan;
+    }
+
+    public long getTimeout() {
+        return (timeoutTimestamp - System.currentTimeMillis()) / 1000;
     }
 }

@@ -248,8 +248,7 @@ public class GlobalTransactionMgr implements GlobalTransactionMgrIface {
      * @note callers should get all tables' write locks before call this api
      */
     public void commitTransaction(long dbId, List<Table> tableList, long transactionId,
-            List<SubTransactionState> subTransactionStates, long timeoutMillis)
-            throws UserException {
+            List<SubTransactionState> subTransactionStates, long timeout) throws UserException {
         if (Config.disable_load_job) {
             throw new TransactionCommitFailedException("disable_load_job is set to true, all load jobs are prevented");
         }

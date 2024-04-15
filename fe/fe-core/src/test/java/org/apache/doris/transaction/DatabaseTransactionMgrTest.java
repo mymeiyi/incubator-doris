@@ -325,6 +325,7 @@ public class DatabaseTransactionMgrTest {
         // test get transaction state by subTxnId
         TransactionState transactionState6 = masterDbTransMgr.getTransactionState(
                 LabelToTxnId.get(CatalogTestUtil.testTxnLabel6));
+        long transactionId6 = transactionState6.getTransactionId();
         long subTransactionId3 = transactionState6.getSubTransactionStates().get(2).getSubTransactionId();
         TransactionState subTransactionState = masterTransMgr.getTransactionState(CatalogTestUtil.testDbId1,
                 subTransactionId3);
@@ -334,7 +335,54 @@ public class DatabaseTransactionMgrTest {
                 subTransactionId3);
         Assert.assertEquals(1, singleTranInfos.size());
         List<String> txnInfo = singleTranInfos.get(0);
-        Assert.assertEquals(String.valueOf(transactionState6.getTransactionId()), txnInfo.get(0));
+        Assert.assertEquals(String.valueOf(transactionId6), txnInfo.get(0));
+
+        // test get table transaction info: table_id to partition_id map
+        List<List<Comparable>> tableTransInfos = masterDbTransMgr.getTableTransInfo(transactionId6);
+        LOG.info("tableTransInfos: {}", tableTransInfos);
+        Assert.assertEquals(3, tableTransInfos.size());
+        List<Comparable> tableTransInfo0 = tableTransInfos.get(0);
+        Assert.assertEquals(2, tableTransInfo0.size());
+        Assert.assertEquals(2L, tableTransInfo0.get(0));
+        Assert.assertEquals("3", tableTransInfo0.get(1));
+        List<Comparable> tableTransInfo1 = tableTransInfos.get(1);
+        Assert.assertEquals(2, tableTransInfo1.size());
+        Assert.assertEquals(15L, tableTransInfo1.get(0));
+        Assert.assertEquals("16", tableTransInfo1.get(1));
+        List<Comparable> tableTransInfo2 = tableTransInfos.get(2);
+        Assert.assertEquals(2, tableTransInfo2.size());
+        Assert.assertEquals(2L, tableTransInfo2.get(0));
+        Assert.assertEquals("3", tableTransInfo2.get(1));
+
+        // test get partition transaction info
+        List<List<Comparable>> partitionTransInfos1 = masterDbTransMgr.getPartitionTransInfo(transactionId6,
+                CatalogTestUtil.testTableId1);
+        LOG.info("partitionTransInfos for table1: {}", partitionTransInfos1);
+        Assert.assertEquals(2, partitionTransInfos1.size());
+        List<Comparable> partitionTransInfo0 = partitionTransInfos1.get(0);
+        Assert.assertEquals(2, partitionTransInfo0.size());
+        Assert.assertEquals(3L, partitionTransInfo0.get(0));
+        Assert.assertEquals(14L, partitionTransInfo0.get(1));
+        List<Comparable> partitionTransInfo1 = partitionTransInfos1.get(1);
+        Assert.assertEquals(2, partitionTransInfo1.size());
+        Assert.assertEquals(3L, partitionTransInfo1.get(0));
+        Assert.assertEquals(15L, partitionTransInfo1.get(1));
+        List<List<Comparable>> partitionTransInfos2 = masterDbTransMgr.getPartitionTransInfo(transactionId6,
+                CatalogTestUtil.testTableId2);
+        LOG.info("partitionTransInfos for table2: {}", partitionTransInfos2);
+        Assert.assertEquals(1, partitionTransInfos2.size());
+        List<Comparable> partitionTransInfo3 = partitionTransInfos2.get(0);
+        Assert.assertEquals(2, partitionTransInfo3.size());
+        Assert.assertEquals(16L, partitionTransInfo3.get(0));
+        Assert.assertEquals(13L, partitionTransInfo3.get(1));
+
+        // test delete transaction
+        masterDbTransMgr.replayDeleteTransaction(transactionState6);
+        Assert.assertEquals(4 + 3, masterDbTransMgr.getTransactionNum());
+        Assert.assertEquals(3 + 2, masterDbTransMgr.getRunningTxnNums());
+        Assert.assertEquals(1 + 1, masterDbTransMgr.getFinishedTxnNums());
+        Assert.assertNull(masterDbTransMgr.unprotectedGetTxnIdsByLabel(CatalogTestUtil.testTxnLabel6));
+        Assert.assertNull(masterDbTransMgr.getTransactionState(subTransactionId3));
     }
 
     @Test
