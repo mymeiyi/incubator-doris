@@ -64,6 +64,7 @@ import org.apache.doris.thrift.TQueryType;
 import org.apache.doris.thrift.TScanRangeLocations;
 import org.apache.doris.thrift.TScanRangeParams;
 import org.apache.doris.thrift.TUniqueId;
+import org.apache.doris.transaction.TransactionState;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -112,10 +113,12 @@ public class StreamLoadPlanner {
         return destTable;
     }
 
+    // the caller should get table read lock when call this method
     public TExecPlanFragmentParams plan(TUniqueId loadId) throws UserException {
         return this.plan(loadId, 1);
     }
 
+    // the caller should get table read lock when call this method
     // create the plan. the plan's query id and load id are same, using the parameter 'loadId'
     public TExecPlanFragmentParams plan(TUniqueId loadId, int fragmentInstanceIdIndex) throws UserException {
         if (destTable.getKeysType() != KeysType.UNIQUE_KEYS
@@ -339,14 +342,22 @@ public class StreamLoadPlanner {
         params.setQueryGlobals(queryGlobals);
         params.setTableName(destTable.getName());
         // LOG.debug("stream load txn id: {}, plan: {}", streamLoadTask.getTxnId(), params);
+
+        TransactionState transactionState = Env.getCurrentGlobalTransactionMgr()
+                .getTransactionState(destTable.getDatabase().getId(), taskInfo.getTxnId());
+        if (transactionState != null) {
+            transactionState.addTableIndexes(destTable);
+        }
         return params;
     }
 
+    // the caller should get table read lock when call this method
     // single table plan fragmentInstanceIndex is 1(default value)
     public TPipelineFragmentParams planForPipeline(TUniqueId loadId) throws UserException {
         return this.planForPipeline(loadId, 1);
     }
 
+    // the caller should get table read lock when call this method
     public TPipelineFragmentParams planForPipeline(TUniqueId loadId, int fragmentInstanceIdIndex) throws UserException {
         if (destTable.getKeysType() != KeysType.UNIQUE_KEYS
                 && taskInfo.getMergeType() != LoadTask.MergeType.APPEND) {
@@ -571,6 +582,12 @@ public class StreamLoadPlanner {
 
         pipParams.setQueryGlobals(queryGlobals);
         pipParams.setTableName(destTable.getName());
+
+        TransactionState transactionState = Env.getCurrentGlobalTransactionMgr()
+                .getTransactionState(destTable.getDatabase().getId(), taskInfo.getTxnId());
+        if (transactionState != null) {
+            transactionState.addTableIndexes(destTable);
+        }
         return pipParams;
     }
 
