@@ -19,12 +19,14 @@ import java.sql.Connection
 import java.sql.DriverManager
 import java.sql.Statement
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 suite("txn_insert_values_with_schema_change") {
     def table = "txn_insert_values_with_schema_change"
 
     def dbName = "regression_test_insert_p0"
-    def url = getServerPrepareJdbcUrl(context.config.jdbcUrl, dbName).replace("&useServerPrepStmts=true", "")
+    def url = getServerPrepareJdbcUrl(context.config.jdbcUrl, dbName).replace("&useServerPrepStmts=true", "") + "&useLocalSessionState=true"
+    logger.info("url: ${url}")
     List<String> errors = new ArrayList<>()
     CountDownLatch insertLatch = new CountDownLatch(1)
     CountDownLatch schemaChangeLatch = new CountDownLatch(1)
@@ -69,7 +71,7 @@ suite("txn_insert_values_with_schema_change") {
             statement.execute("insert into ${table} values(1, 'b', 20), (2, 'c', 30);")
 
             schemaChangeLatch.countDown()
-            insertLatch.await()
+            insertLatch.await(2, TimeUnit.MINUTES)
 
             statement.execute("insert into ${table} values(3, 'd', 40);")
             statement.execute("commit")
@@ -82,7 +84,7 @@ suite("txn_insert_values_with_schema_change") {
     def schemaChange = { sql, job_state ->
         try (Connection conn = DriverManager.getConnection(url, context.config.jdbcUser, context.config.jdbcPassword);
              Statement statement = conn.createStatement()) {
-            schemaChangeLatch.await()
+            schemaChangeLatch.await(2, TimeUnit.MINUTES)
             statement.execute(sql)
             getAlterTableState(job_state)
             insertLatch.countDown()

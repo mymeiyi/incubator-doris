@@ -254,7 +254,6 @@ public class StreamLoadHandler {
                 if (txnState == null) {
                     throw new UserException("txn does not exist: " + request.getTxnId());
                 }
-                txnState.addTableIndexes(table);
                 if (request.isPartialUpdate()) {
                     txnState.setSchemaForPartialUpdate(table);
                 }

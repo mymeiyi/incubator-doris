@@ -975,7 +975,6 @@ public abstract class RoutineLoadJob extends AbstractTxnStateChangeCallback impl
             if (txnState == null) {
                 throw new MetaNotFoundException("txn does not exist: " + txnId);
             }
-            txnState.addTableIndexes(planner.getDestTable());
             if (isPartialUpdate) {
                 txnState.setSchemaForPartialUpdate((OlapTable) table);
             }
@@ -1019,7 +1018,6 @@ public abstract class RoutineLoadJob extends AbstractTxnStateChangeCallback impl
             if (txnState == null) {
                 throw new MetaNotFoundException("txn does not exist: " + txnId);
             }
-            txnState.addTableIndexes(planner.getDestTable());
             if (isPartialUpdate) {
                 txnState.setSchemaForPartialUpdate((OlapTable) table);
             }
