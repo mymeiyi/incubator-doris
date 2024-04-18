@@ -15,8 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-suite("txn_insert_publish_timeout", "nonConcurrent") {
-    def table = "txn_insert_publish_timeout"
+import com.mysql.cj.jdbc.StatementImpl
+import java.sql.Connection
+import java.sql.DriverManager
+import java.sql.Statement
+
+suite("txn_insert_inject_case", "nonConcurrent") {
+    def table = "txn_insert_inject_case"
 
     sql " SET enable_nereids_planner = true; "
     sql " SET enable_fallback_to_original_planner = false; "
@@ -38,7 +43,7 @@ suite("txn_insert_publish_timeout", "nonConcurrent") {
     sql """insert into ${table}_1 values(1, 2.2, "abc", [], []), (2, 3.3, "xyz", [1], [1, 0]), (null, null, null, [null], [null, 0])  """
     sql """insert into ${table}_2 values(3, 2.2, "abc", [], []), (4, 3.3, "xyz", [1], [1, 0]), (null, null, null, [null], [null, 0])  """
 
-    // insert into select
+    // 1. publish timeout
     def backendId_to_params = get_be_param("pending_data_expire_time_sec")
     try {
         // test be report tablet and expire txns and fe handle it
@@ -64,13 +69,52 @@ suite("txn_insert_publish_timeout", "nonConcurrent") {
         def rowCount = 0
         for (int i = 0; i < 30; i++) {
             def result = sql "SELECT COUNT(*) FROM ${table}_0"
+            logger.info("select result: ${result}")
             rowCount = result[0][0]
             if (rowCount == 12) {
-                return
+                break
             }
             sleep(2000)
         }
         assertEquals(12, rowCount)
     }
 
+    // 2. commit failed
+    def dbName = "regression_test_insert_p0"
+    def url = getServerPrepareJdbcUrl(context.config.jdbcUrl, dbName).replace("&useServerPrepStmts=true", "") + "&useLocalSessionState=true"
+    logger.info("url: ${url}")
+    def get_txn_id_from_server_info = { serverInfo ->
+        logger.info("result server info: " + serverInfo)
+        int index = serverInfo.indexOf("txnId")
+        int index2 = serverInfo.indexOf("'}", index)
+        String txnStr = serverInfo.substring(index + 8, index2)
+        logger.info("txnId: " + txnStr)
+        return Long.parseLong(txnStr)
+    }
+    GetDebugPoint().enableDebugPointForAllFEs('DatabaseTransactionMgr.commitTransaction.failed')
+    long txn_id = 0
+    try (Connection conn = DriverManager.getConnection(url, context.config.jdbcUser, context.config.jdbcPassword);
+        Statement statement = conn.createStatement()) {
+        statement.execute("SET enable_nereids_planner = true")
+        statement.execute("SET enable_fallback_to_original_planner = false")
+
+        statement.execute("begin");
+        statement.execute("insert into ${table}_0 select * from ${table}_1;")
+        txn_id = get_txn_id_from_server_info((((StatementImpl) statement).results).getServerInfo())
+        statement.execute("insert into ${table}_0 select * from ${table}_2;")
+        try {
+            statement.execute("commit")
+            assertTrue(false, "commit should fail")
+        } catch (Exception e) {
+            logger.error("commit failed", e);
+        }
+    } finally {
+        GetDebugPoint().disableDebugPointForAllFEs('DatabaseTransactionMgr.commitTransaction.failed')
+    }
+    assertNotEquals(txn_id, 0)
+    def txn_info = sql_return_maparray """ show transaction where id = ${txn_id} """
+    logger.info("txn_info: ${txn_info}")
+    assertEquals(1, txn_info.size())
+    assertEquals("ABORTED", txn_info[0].get("TransactionStatus"))
+    assertTrue(txn_info[0].get("Reason").contains("DebugPoint: DatabaseTransactionMgr.commitTransaction.failed"))
 }
