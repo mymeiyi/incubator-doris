@@ -1784,6 +1784,15 @@ public class DatabaseTransactionMgr {
                         beId, transactionState.getTransactionId(), Lists.newArrayList());
                 clearTransactionTasks.add(task);
             }
+            if (transactionState.getSubTransactionStates() != null) {
+                for (SubTransactionState subTransactionState : transactionState.getSubTransactionStates()) {
+                    for (Long beId : allBeIds) {
+                        ClearTransactionTask task = new ClearTransactionTask(
+                                beId, subTransactionState.getSubTransactionId(), Lists.newArrayList());
+                        clearTransactionTasks.add(task);
+                    }
+                }
+            }
 
             // try to group send tasks, not sending every time a txn is aborted. to avoid too many task rpc.
             if (clearTransactionTasks.size() > allBeIds.size() * 2) {

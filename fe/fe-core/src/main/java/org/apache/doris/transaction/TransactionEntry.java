@@ -264,6 +264,7 @@ public class TransactionEntry {
     public long abortTransaction()
             throws UserException, TException, ExecutionException, InterruptedException, TimeoutException {
         if (isTransactionBegan) {
+            transactionState.setSubTransactionStates(subTransactionStates);
             Env.getCurrentGlobalTransactionMgr().abortTransaction(database.getId(), transactionId, "user rollback");
             return transactionId;
         } else if (isTxnBegin()) {

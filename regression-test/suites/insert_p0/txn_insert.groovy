@@ -570,6 +570,7 @@ suite("txn_insert") {
         }
 
         // 15. txn insert does not commit or rollback by user, and txn is aborted because timeout
+        // TODO find a way to check be txn_manager is also cleaned
         if (use_nereids_planner) {
             CountDownLatch insertLatch = new CountDownLatch(1)
             def txn_id = 0
