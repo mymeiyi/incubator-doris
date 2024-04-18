@@ -357,12 +357,10 @@ public class TabletInvertedIndex {
     private TPartitionVersionInfo generatePartitionVersionInfoWhenReport(TransactionState transactionState,
             long transactionId, TabletMeta tabletMeta, long partitionId) {
         TableCommitInfo tableCommitInfo;
-        if (transactionState.getSubTransactionStates() != null) {
-            tableCommitInfo = transactionState.getTableCommitInfo(
-                    tabletMeta.getTableId());
+        if (transactionState.getSubTransactionStates() == null) {
+            tableCommitInfo = transactionState.getTableCommitInfo(tabletMeta.getTableId());
         } else {
-            tableCommitInfo = transactionState.getSubTxnIdToTableCommitInfo()
-                    .get(transactionId);
+            tableCommitInfo = transactionState.getSubTxnIdToTableCommitInfo().get(transactionId);
         }
         if (tableCommitInfo != null && tableCommitInfo.getPartitionCommitInfo(partitionId) != null) {
             PartitionCommitInfo partitionCommitInfo = tableCommitInfo.getPartitionCommitInfo(partitionId);

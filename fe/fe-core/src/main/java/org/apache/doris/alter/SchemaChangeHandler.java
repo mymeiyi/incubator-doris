@@ -1960,6 +1960,8 @@ public class SchemaChangeHandler extends AlterHandler {
                 } else if (alterClause instanceof ReorderColumnsClause) {
                     // reorder column
                     processReorderColumn((ReorderColumnsClause) alterClause, olapTable, indexSchemaMap);
+                    LOG.info("sout: reorder column, indexSchemaMap: {}, table: {}, table index: {}", indexSchemaMap,
+                            olapTable.getName(), olapTable.getIndexIdToMeta());
                     lightSchemaChange = false;
                 } else if (alterClause instanceof ModifyTablePropertiesClause) {
                     // modify table properties
@@ -2050,7 +2052,7 @@ public class SchemaChangeHandler extends AlterHandler {
             } // end for alter clauses
 
             if (LOG.isDebugEnabled()) {
-                LOG.debug("table: {}({}), lightSchemaChange: {}, lightIndexChange: {},"
+                LOG.debug("sout: table: {}({}), lightSchemaChange: {}, lightIndexChange: {},"
                         + " buildIndexChange: {}, indexSchemaMap:{}",
                         olapTable.getName(), olapTable.getId(), lightSchemaChange,
                         lightIndexChange, buildIndexChange, indexSchemaMap);

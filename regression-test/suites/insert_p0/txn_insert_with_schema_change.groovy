@@ -49,16 +49,18 @@ suite("txn_insert_with_schema_change") {
     }
     sql """ insert into ${table}_0 values(0, '0', 0) """
     sql """ insert into ${table}_1 values(1, '1', 1), (2, '2', 2) """
-    sql """ insert into ${table}_2 values(3, '3', 3), (4, '4', 4), (5, '5', 5), (6, '6', 6) """
+    sql """ insert into ${table}_2 values(3, '3', 3), (4, '4', 4), (5, '5', 5) """
 
     def getAlterTableState = { job_state ->
         def retry = 0
         sql "use ${dbName};"
+        def last_state = ""
         while (true) {
             sleep(2000)
             def state = sql " show alter table column where tablename = '${table}_0' order by CreateTime desc limit 1"
             logger.info("alter table state: ${state}")
-            if (state.size() > 0 && state[0][9] == job_state) {
+            last_state = state[0][9]
+            if (state.size() > 0 && last_state == job_state) {
                 return
             }
             retry++
@@ -66,7 +68,7 @@ suite("txn_insert_with_schema_change") {
                 break
             }
         }
-        Assert.fail("alter table job state is not ${job_state} after retry 10 times")
+        assertTrue(false, "alter table job state is ${last_state}, not ${job_state} after retry 10 times")
     }
 
     def txnInsert = {
@@ -75,14 +77,14 @@ suite("txn_insert_with_schema_change") {
             statement.execute("SET enable_nereids_planner = true")
             statement.execute("SET enable_fallback_to_original_planner = false")
             statement.execute("begin")
-            statement.execute("insert into ${table}_0 select * from ${table}_1;")
+            statement.execute("insert into ${table}_0(id, name, score) select * from ${table}_1;")
 
             schemaChangeLatch.countDown()
             insertLatch.await(2, TimeUnit.MINUTES)
 
             statement.execute("insert into ${table}_0(id, name, score) select * from ${table}_2;")
             statement.execute("commit")
-        } catch (Exception e) {
+        } catch (Throwable e) {
             logger.error("txn insert failed", e)
             errors.add("txn insert failed " + e.getMessage())
         }
@@ -95,37 +97,45 @@ suite("txn_insert_with_schema_change") {
             statement.execute(sql)
             getAlterTableState(job_state)
             insertLatch.countDown()
-        } catch (Exception e) {
+        } catch (Throwable e) {
             logger.error("schema change failed", e)
             errors.add("schema change failed " + e.getMessage())
         }
     }
 
     // 1. do light weight schema change: add column
-    /*Thread insert_thread = new Thread(() -> txnInsert())
-    Thread schema_change_thread = new Thread(() -> schemaChange("alter table ${table}_0 ADD column age int after name;", "FINISHED"))
-    insert_thread.start()
-    schema_change_thread.start()
-    insert_thread.join()
-    schema_change_thread.join()
+    if (true) {
+        insertLatch = new CountDownLatch(1)
+        schemaChangeLatch = new CountDownLatch(1)
+        Thread insert_thread = new Thread(() -> txnInsert())
+        Thread schema_change_thread = new Thread(() -> schemaChange("alter table ${table}_0 ADD column age int after name;", "FINISHED"))
+        insert_thread.start()
+        schema_change_thread.start()
+        insert_thread.join()
+        schema_change_thread.join()
 
-    logger.info("errors: " + errors)
-    assertEquals(0, errors.size())
-    order_qt_select1 """select id, name, score from ${table}_0 """
-    getAlterTableState("FINISHED")
-    order_qt_select2 """select id, name, score from ${table} """*/
+        logger.info("errors: " + errors)
+        assertEquals(0, errors.size())
+        order_qt_select1 """select id, name, score from ${table}_0 """
+        getAlterTableState("FINISHED")
+        order_qt_select2 """select id, name, score from ${table}_0 """
+    }
 
     // 2. do hard weight schema change: change order
-    Thread insert_thread = new Thread(() -> txnInsert())
-    Thread schema_change_thread = new Thread(() -> schemaChange("alter table ${table}_0 order by (id, score, name);", "WAITING_TXN"))
-    insert_thread.start()
-    schema_change_thread.start()
-    insert_thread.join()
-    schema_change_thread.join()
+    if (true) {
+        insertLatch = new CountDownLatch(1)
+        schemaChangeLatch = new CountDownLatch(1)
+        Thread insert_thread = new Thread(() -> txnInsert())
+        Thread schema_change_thread = new Thread(() -> schemaChange("alter table ${table}_0 order by (id, score, age, name);", "WAITING_TXN"))
+        insert_thread.start()
+        schema_change_thread.start()
+        insert_thread.join()
+        schema_change_thread.join()
 
-    logger.info("errors: " + errors)
-    assertEquals(0, errors.size())
-    order_qt_select1 """select id, name, score from ${table}_0 """
-    getAlterTableState("FINISHED")
-    order_qt_select2 """select id, name, score from ${table} """
+        logger.info("errors: " + errors)
+        assertEquals(0, errors.size())
+        order_qt_select1 """select id, name, score from ${table}_0 """
+        getAlterTableState("FINISHED")
+        order_qt_select2 """select id, name, score from ${table}_0 """
+    }
 }

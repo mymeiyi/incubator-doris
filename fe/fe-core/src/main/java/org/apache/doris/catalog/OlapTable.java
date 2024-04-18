@@ -793,11 +793,16 @@ public class OlapTable extends Table implements MTMVRelatedTableIf {
     }
 
     public List<Column> getSchemaByIndexId(Long indexId, boolean full) {
-        if (full) {
-            return indexIdToMeta.get(indexId).getSchema();
-        } else {
-            return indexIdToMeta.get(indexId).getSchema().stream().filter(column -> column.isVisible())
-                    .collect(Collectors.toList());
+        try {
+            if (full) {
+                return indexIdToMeta.get(indexId).getSchema();
+            } else {
+                return indexIdToMeta.get(indexId).getSchema().stream().filter(column -> column.isVisible())
+                        .collect(Collectors.toList());
+            }
+        } catch (Throwable e) {
+            LOG.error("sout: indexId={}, indexIdToMeta={}", indexId, indexIdToMeta, e);
+            throw e;
         }
     }
 
