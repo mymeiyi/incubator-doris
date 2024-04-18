@@ -126,11 +126,11 @@ public class TransactionEntry {
         return txnConf != null && txnConf.isNeedTxn();
     }
 
-    public boolean isTxnIniting() {
+    public boolean isInsertValuesTxnIniting() {
         return isTxnModel() && txnConf.getTxnId() == -1;
     }
 
-    public boolean isTxnBegin() {
+    private boolean isInsertValuesTxnBegan() {
         return isTxnModel() && txnConf.getTxnId() != -1;
     }
 
@@ -164,7 +164,7 @@ public class TransactionEntry {
 
     // Used for insert into select, return the sub_txn_id for this insert
     public long beginTransaction(TableIf table) throws UserException {
-        if (isTxnBegin()) {
+        if (isInsertValuesTxnBegan()) {
             // FIXME: support mix usage of `insert into values` and `insert into select`
             throw new AnalysisException(
                     "Transaction insert can not insert into values and insert into select at the same time");
@@ -197,7 +197,7 @@ public class TransactionEntry {
     public TransactionStatus commitTransaction() throws Exception {
         if (isTransactionBegan) {
             try {
-                transactionState.setSubTransactionStates(subTransactionStates);
+                beforeFinishTransaction();
                 if (Env.getCurrentGlobalTransactionMgr()
                         .commitAndPublishTransaction(database, transactionId, subTransactionStates,
                                 ConnectContext.get().getSessionVariable().getInsertVisibleTimeoutMs())) {
@@ -215,7 +215,7 @@ public class TransactionEntry {
                 }
                 throw e;
             }
-        } else if (isTxnBegin()) {
+        } else if (isInsertValuesTxnBegan()) {
             InsertStreamTxnExecutor executor = new InsertStreamTxnExecutor(this);
             if (dataToSend.size() > 0) {
                 // send rest data
@@ -264,10 +264,10 @@ public class TransactionEntry {
     public long abortTransaction()
             throws UserException, TException, ExecutionException, InterruptedException, TimeoutException {
         if (isTransactionBegan) {
-            transactionState.setSubTransactionStates(subTransactionStates);
+            beforeFinishTransaction();
             Env.getCurrentGlobalTransactionMgr().abortTransaction(database.getId(), transactionId, "user rollback");
             return transactionId;
-        } else if (isTxnBegin()) {
+        } else if (isInsertValuesTxnBegan()) {
             InsertStreamTxnExecutor executor = new InsertStreamTxnExecutor(this);
             executor.abortTransaction();
             return txnConf.getTxnId();
@@ -277,10 +277,18 @@ public class TransactionEntry {
         }
     }
 
+    private void beforeFinishTransaction() {
+        if (isTransactionBegan) {
+            List<Long> tableIds = transactionState.getTableIdList().stream().distinct().collect(Collectors.toList());
+            transactionState.setTableIdList(tableIds);
+            transactionState.setSubTransactionStates(subTransactionStates);
+        }
+    }
+
     public long getTransactionId() {
         if (isTransactionBegan) {
             return transactionId;
-        } else if (isTxnBegin()) {
+        } else if (isInsertValuesTxnBegan()) {
             return txnConf.getTxnId();
         } else {
             return -1;
