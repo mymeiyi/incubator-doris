@@ -44,6 +44,7 @@ import org.apache.doris.common.MetaNotFoundException;
 import org.apache.doris.common.Pair;
 import org.apache.doris.common.QuotaExceedException;
 import org.apache.doris.common.UserException;
+import org.apache.doris.common.util.DebugPointUtil;
 import org.apache.doris.common.util.DebugUtil;
 import org.apache.doris.common.util.InternalDatabaseUtil;
 import org.apache.doris.common.util.MetaLockUtils;
@@ -821,6 +822,11 @@ public class DatabaseTransactionMgr {
             transactionState = unprotectedGetTransactionState(transactionId);
         } finally {
             readUnlock();
+        }
+
+        if (DebugPointUtil.isEnable("DatabaseTransactionMgr.commitTransaction.failed")) {
+            throw new TabletQuorumFailedException(transactionId,
+                    "DebugPoint: DatabaseTransactionMgr.commitTransaction.failed");
         }
 
         checkTransactionStateBeforeCommit(db, tableList, transactionId, false, transactionState);
@@ -1628,10 +1634,8 @@ public class DatabaseTransactionMgr {
             idToFinalStatusTransactionState.put(transactionState.getTransactionId(), transactionState);
             if (transactionState.isShortTxn()) {
                 finalStatusTransactionStateDequeShort.add(transactionState);
-                LOG.debug("sout: short add {}", transactionState);
             } else {
                 finalStatusTransactionStateDequeLong.add(transactionState);
-                LOG.debug("sout: long add {}", transactionState);
             }
         }
         updateTxnLabels(transactionState);
@@ -1780,6 +1784,15 @@ public class DatabaseTransactionMgr {
                         beId, transactionState.getTransactionId(), Lists.newArrayList());
                 clearTransactionTasks.add(task);
             }
+            if (transactionState.getSubTransactionStates() != null) {
+                for (SubTransactionState subTransactionState : transactionState.getSubTransactionStates()) {
+                    for (Long beId : allBeIds) {
+                        ClearTransactionTask task = new ClearTransactionTask(
+                                beId, subTransactionState.getSubTransactionId(), Lists.newArrayList());
+                        clearTransactionTasks.add(task);
+                    }
+                }
+            }
 
             // try to group send tasks, not sending every time a txn is aborted. to avoid too many task rpc.
             if (clearTransactionTasks.size() > allBeIds.size() * 2) {
@@ -1862,8 +1875,6 @@ public class DatabaseTransactionMgr {
         // delete expired txns
         writeLock();
         try {
-            LOG.debug("sout: final short: {}", finalStatusTransactionStateDequeShort);
-            LOG.debug("sout: final long: {}", finalStatusTransactionStateDequeLong);
             Pair<Long, Integer> expiredTxnsInfoForShort = unprotectedRemoveUselessTxns(currentMillis,
                     finalStatusTransactionStateDequeShort, MAX_REMOVE_TXN_PER_ROUND);
             Pair<Long, Integer> expiredTxnsInfoForLong = unprotectedRemoveUselessTxns(currentMillis,

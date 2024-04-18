@@ -21,6 +21,7 @@ import org.apache.doris.catalog.Database;
 import org.apache.doris.catalog.DatabaseIf;
 import org.apache.doris.catalog.Env;
 import org.apache.doris.catalog.Table;
+import org.apache.doris.catalog.TableIf;
 import org.apache.doris.cloud.proto.Cloud.CommitTxnResponse;
 import org.apache.doris.common.AnalysisException;
 import org.apache.doris.common.Config;
@@ -307,8 +308,10 @@ public class GlobalTransactionMgr implements GlobalTransactionMgrIface {
             List<SubTransactionState> subTransactionStates, long timeoutMillis) throws UserException {
         StopWatch stopWatch = new StopWatch();
         stopWatch.start();
-        List<Table> tableList = subTransactionStates.stream().map(SubTransactionState::getTable).distinct()
+        List<Long> tableIdList = subTransactionStates.stream().map(s -> s.getTable().getId()).distinct()
                 .collect(Collectors.toList());
+        List<? extends TableIf> tableIfList = db.getTablesOnIdOrderOrThrowException(tableIdList);
+        List<Table> tableList = tableIfList.stream().map(t -> (Table) t).collect(Collectors.toList());
         if (!MetaLockUtils.tryWriteLockTablesOrMetaException(tableList, timeoutMillis, TimeUnit.MILLISECONDS)) {
             throw new UserException("get tableList write lock timeout, tableList=("
                     + StringUtils.join(tableList, ",") + ")");

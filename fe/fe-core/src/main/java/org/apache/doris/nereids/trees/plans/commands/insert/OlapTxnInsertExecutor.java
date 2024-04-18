@@ -17,6 +17,7 @@
 
 package org.apache.doris.nereids.trees.plans.commands.insert;
 
+import org.apache.doris.catalog.OlapTable;
 import org.apache.doris.catalog.Table;
 import org.apache.doris.common.util.DebugUtil;
 import org.apache.doris.nereids.NereidsPlanner;
@@ -24,6 +25,7 @@ import org.apache.doris.nereids.exceptions.AnalysisException;
 import org.apache.doris.qe.ConnectContext;
 import org.apache.doris.qe.QueryState.MysqlStateType;
 import org.apache.doris.transaction.TransactionEntry;
+import org.apache.doris.transaction.TransactionState;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -89,6 +91,15 @@ public class OlapTxnInsertExecutor extends OlapInsertExecutor {
     @Override
     public long getTimeout() {
         return Math.min(super.getTimeout(), ctx.getTxnEntry().getTimeout());
+    }
+
+    @Override
+    protected void addTableIndexes(TransactionState state) {
+        OlapTable olapTable = (OlapTable) table;
+        LOG.info("txnId={}, indexIds={}", txnId, olapTable.getIndexIdToMeta().keySet());
+        /*if (!state.getLoadedTblIndexes().containsKey(olapTable.getId())) {
+            state.getLoadedTblIndexes().put(olapTable.getId(), olapTable.getIndexIdToMeta().keySet());
+        }*/
     }
 
     private void cleanTransaction() {

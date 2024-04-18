@@ -19,6 +19,13 @@
 // /testing/trino-product-tests/src/main/resources/sql-tests/testcases
 // and modified by Doris.
 
+import com.mysql.cj.jdbc.StatementImpl
+import java.sql.Connection
+import java.sql.DriverManager
+import java.sql.Statement
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+
 suite("txn_insert") {
     def table = "txn_insert_tbl"
 
@@ -518,6 +525,85 @@ suite("txn_insert") {
             } finally {
                 set_original_be_param("pending_data_expire_time_sec", backendId_to_params)
             }
+        }
+
+        // 14. txn insert does not commit or rollback by user, and txn is aborted because connection is closed
+        def dbName = "regression_test_insert_p0"
+        def url = getServerPrepareJdbcUrl(context.config.jdbcUrl, dbName).replace("&useServerPrepStmts=true", "") + "&useLocalSessionState=true"
+        logger.info("url: ${url}")
+        def get_txn_id_from_server_info = { serverInfo ->
+            logger.info("result server info: " + serverInfo)
+            int index = serverInfo.indexOf("txnId")
+            int index2 = serverInfo.indexOf("'}", index)
+            String txnStr = serverInfo.substring(index + 8, index2)
+            logger.info("txnId: " + txnStr)
+            return Long.parseLong(txnStr)
+        }
+        if (use_nereids_planner) {
+            def txn_id = 0
+            Thread thread = new Thread(() -> {
+                try (Connection conn = DriverManager.getConnection(url, context.config.jdbcUser, context.config.jdbcPassword);
+                     Statement statement = conn.createStatement()) {
+                    statement.execute("SET enable_nereids_planner = true")
+                    statement.execute("SET enable_fallback_to_original_planner = false")
+                    statement.execute("begin");
+                    statement.execute("insert into ${table}_0 select * from ${table}_1;")
+                    txn_id = get_txn_id_from_server_info((((StatementImpl) statement).results).getServerInfo())
+                }
+            })
+            thread.start()
+            thread.join()
+            assertNotEquals(txn_id, 0)
+            def txn_state = ""
+            for (int i = 0; i < 20; i++) {
+                def txn_info = sql_return_maparray """ show transaction where id = ${txn_id} """
+                logger.info("txn_info: ${txn_info}")
+                assertEquals(1, txn_info.size())
+                txn_state = txn_info[0].get("TransactionStatus")
+                if ("ABORTED" == txn_state) {
+                    break
+                } else {
+                    sleep(2000)
+                }
+            }
+            assertEquals("ABORTED", txn_state)
+        }
+
+        // 15. txn insert does not commit or rollback by user, and txn is aborted because timeout
+        // TODO find a way to check be txn_manager is also cleaned
+        if (use_nereids_planner) {
+            CountDownLatch insertLatch = new CountDownLatch(1)
+            def txn_id = 0
+            Thread thread = new Thread(() -> {
+                try (Connection conn = DriverManager.getConnection(url, context.config.jdbcUser, context.config.jdbcPassword);
+                     Statement statement = conn.createStatement()) {
+                    statement.execute("SET enable_nereids_planner = true")
+                    statement.execute("SET enable_fallback_to_original_planner = false")
+                    statement.execute("SET insert_timeout = 5")
+                    statement.execute("SET query_timeout = 5")
+                    statement.execute("begin");
+                    statement.execute("insert into ${table}_0 select * from ${table}_1;")
+                    txn_id = get_txn_id_from_server_info((((StatementImpl) statement).results).getServerInfo())
+                    insertLatch.countDown()
+                    sleep(60000)
+                }
+            })
+            thread.start()
+            insertLatch.await(1, TimeUnit.MINUTES)
+            assertNotEquals(txn_id, 0)
+            def txn_state = ""
+            for (int i = 0; i < 20; i++) {
+                def txn_info = sql_return_maparray """ show transaction where id = ${txn_id} """
+                logger.info("txn_info: ${txn_info}")
+                assertEquals(1, txn_info.size())
+                txn_state = txn_info[0].get("TransactionStatus")
+                if ("ABORTED" == txn_state) {
+                    break
+                } else {
+                    sleep(2000)
+                }
+            }
+            assertEquals("ABORTED", txn_state)
         }
     }
 }

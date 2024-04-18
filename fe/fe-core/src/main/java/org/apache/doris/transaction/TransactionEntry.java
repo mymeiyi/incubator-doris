@@ -196,13 +196,24 @@ public class TransactionEntry {
 
     public TransactionStatus commitTransaction() throws Exception {
         if (isTransactionBegan) {
-            transactionState.setSubTransactionStates(subTransactionStates);
-            if (Env.getCurrentGlobalTransactionMgr()
-                    .commitAndPublishTransaction(database, transactionId, subTransactionStates,
-                            ConnectContext.get().getSessionVariable().getInsertVisibleTimeoutMs())) {
-                return TransactionStatus.VISIBLE;
-            } else {
-                return TransactionStatus.COMMITTED;
+            try {
+                transactionState.setSubTransactionStates(subTransactionStates);
+                if (Env.getCurrentGlobalTransactionMgr()
+                        .commitAndPublishTransaction(database, transactionId, subTransactionStates,
+                                ConnectContext.get().getSessionVariable().getInsertVisibleTimeoutMs())) {
+                    return TransactionStatus.VISIBLE;
+                } else {
+                    return TransactionStatus.COMMITTED;
+                }
+            } catch (UserException e) {
+                LOG.error("Failed to commit transaction", e);
+                try {
+                    Env.getCurrentGlobalTransactionMgr()
+                            .abortTransaction(database.getId(), transactionId, e.getMessage());
+                } catch (Exception e1) {
+                    LOG.error("Failed to abort transaction", e1);
+                }
+                throw e;
             }
         } else if (isTxnBegin()) {
             InsertStreamTxnExecutor executor = new InsertStreamTxnExecutor(this);
@@ -253,6 +264,7 @@ public class TransactionEntry {
     public long abortTransaction()
             throws UserException, TException, ExecutionException, InterruptedException, TimeoutException {
         if (isTransactionBegan) {
+            transactionState.setSubTransactionStates(subTransactionStates);
             Env.getCurrentGlobalTransactionMgr().abortTransaction(database.getId(), transactionId, "user rollback");
             return transactionId;
         } else if (isTxnBegin()) {
