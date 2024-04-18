@@ -19,12 +19,11 @@
 // /testing/trino-product-tests/src/main/resources/sql-tests/testcases
 // and modified by Doris.
 
-import com.mysql.cj.jdbc.StatementImpl
 import java.sql.Connection
 import java.sql.DriverManager
 import java.sql.Statement
-import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.CompletableFuture
 
 suite("txn_insert_concurrent_insert") {
     def tableName = "txn_insert_concurrent_insert"
@@ -96,20 +95,19 @@ suite("txn_insert_concurrent_insert") {
             stmt.execute("insert into ${tableName}_1 select * from ${tableName}_2 where L_ORDERKEY > 500000;")
             stmt.execute("insert into ${tableName}_0 select * from ${tableName}_2 where L_ORDERKEY < 30000;")
             stmt.execute("commit")
+            logger.info("finish txn insert for " + Thread.currentThread().getName())
         } catch (Throwable e) {
             logger.error("txn insert failed", e)
         }
     }
 
-    List<Thread> threadList = new ArrayList<>()
+    List<CompletableFuture<Void>> futures = new ArrayList<>()
     for (int i = 0; i < 20; i++) {
-        Thread thread = new Thread({ txn_insert() }, "txn_insert_concurrent_inser_thread_${i}")
-        thread.start()
-        threadList.add(thread)
+        CompletableFuture<Void> future = CompletableFuture.runAsync(txn_insert)
+        futures.add(future)
     }
-    for (def thread : threadList) {
-        thread.join(60000)
-    }
+    CompletableFuture<?>[] futuresArray = futures.toArray(new CompletableFuture[0])
+    CompletableFuture.allOf(futuresArray).get(2, TimeUnit.MINUTES)
     sql """ sync """
 
     def result = sql """ select count() from ${tableName}_0 """
