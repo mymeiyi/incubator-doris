@@ -55,8 +55,8 @@ public class TxnDeleteJob extends DeleteJob {
                         .collect(Collectors.toList()));
 
         StringBuilder sb = new StringBuilder();
-        sb.append("{'label':'").append(label).append("', 'txnId':'").append(transactionId);
-        sb.append("', 'status':'").append(TransactionStatus.PREPARE.name()).append("'").append("}");
+        sb.append("{'label':'").append(label).append("', 'status':'").append(TransactionStatus.PREPARE.name())
+                .append("', 'txnId':'").append(transactionId).append("'").append("}");
         return sb.toString();
     }
 

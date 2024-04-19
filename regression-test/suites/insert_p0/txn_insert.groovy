@@ -527,7 +527,17 @@ suite("txn_insert") {
             }
         }
 
-        // 14. txn insert does not commit or rollback by user, and txn is aborted because connection is closed
+        // 14. delete and insert
+        if (use_nereids_planner) {
+            sql """ begin; """
+            sql """ delete from ${table}_0 where k1 = 1 or k1 = 2; """
+            sql """ insert into ${table}_0 select * from ${table}_1 where k1 = 1 or k1 = 2; """
+            sql """ commit; """
+            sql "sync"
+            order_qt_select45 """select * from ${table}_0"""
+        }
+
+        // 15. txn insert does not commit or rollback by user, and txn is aborted because connection is closed
         def dbName = "regression_test_insert_p0"
         def url = getServerPrepareJdbcUrl(context.config.jdbcUrl, dbName).replace("&useServerPrepStmts=true", "") + "&useLocalSessionState=true"
         logger.info("url: ${url}")
@@ -569,7 +579,7 @@ suite("txn_insert") {
             assertEquals("ABORTED", txn_state)
         }
 
-        // 15. txn insert does not commit or rollback by user, and txn is aborted because timeout
+        // 16. txn insert does not commit or rollback by user, and txn is aborted because timeout
         // TODO find a way to check be txn_manager is also cleaned
         if (use_nereids_planner) {
             CountDownLatch insertLatch = new CountDownLatch(1)
