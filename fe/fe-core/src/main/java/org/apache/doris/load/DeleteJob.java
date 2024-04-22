@@ -740,4 +740,8 @@ public class DeleteJob extends AbstractTxnStateChangeCallback implements DeleteJ
             return deleteConditions;
         }
     }
+
+    protected void addTableIndexes(TransactionState state) {
+        state.addTableIndexes(targetTbl);
+    }
 }

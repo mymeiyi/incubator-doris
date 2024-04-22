@@ -53,18 +53,18 @@ suite("txn_insert_with_schema_change") {
         assertTrue(false, "alter table job state is ${last_state}, not ${job_state} after retry ${retry} times")
     }
 
-    def txnInsert = { sql ->
+    def txnInsert = { sqls ->
         try (Connection conn = DriverManager.getConnection(url, context.config.jdbcUser, context.config.jdbcPassword);
              Statement statement = conn.createStatement()) {
             statement.execute("SET enable_nereids_planner = true")
             statement.execute("SET enable_fallback_to_original_planner = false")
             statement.execute("begin")
-            statement.execute(sql)
+            statement.execute(sqls[0])
 
             schemaChangeLatch.countDown()
             insertLatch.await(2, TimeUnit.MINUTES)
 
-            statement.execute("insert into ${table}_0(id, name, score) select * from ${table}_2;")
+            statement.execute(sqls[1])
             statement.execute("commit")
         } catch (Throwable e) {
             logger.error("txn insert failed", e)
@@ -88,11 +88,15 @@ suite("txn_insert_with_schema_change") {
     }
 
     def sqls = [
-            "insert into ${table}_0(id, name, score) select * from ${table}_1;",
-            "delete from ${table}_0 where id = 0 or id = 3;"
+            ["insert into ${table}_0(id, name, score) select * from ${table}_1;",
+             "insert into ${table}_0(id, name, score) select * from ${table}_2;"],
+            ["delete from ${table}_0 where id = 0 or id = 3;",
+             "insert into ${table}_0(id, name, score) select * from ${table}_2;"],
+            ["insert into ${table}_0(id, name, score) select * from ${table}_2;",
+             "delete from ${table}_0 where id = 0 or id = 3;"]
     ]
 
-    for (def insert_sql: sqls) {
+    for (def insert_sqls: sqls) {
         for (int j = 0; j < 3; j++) {
             def tableName = table + "_" + j
             sql """ DROP TABLE IF EXISTS $tableName force """
@@ -111,12 +115,12 @@ suite("txn_insert_with_schema_change") {
         sql """ insert into ${table}_1 values(1, '1', 1), (2, '2', 2) """
         sql """ insert into ${table}_2 values(3, '3', 3), (4, '4', 4), (5, '5', 5) """
 
-        logger.info("sql: ${insert_sql}")
+        logger.info("insert sqls: ${insert_sqls}")
         // 1. do light weight schema change: add column
         if (true) {
             insertLatch = new CountDownLatch(1)
             schemaChangeLatch = new CountDownLatch(1)
-            Thread insert_thread = new Thread(() -> txnInsert(insert_sql))
+            Thread insert_thread = new Thread(() -> txnInsert(insert_sqls))
             Thread schema_change_thread = new Thread(() -> schemaChange("alter table ${table}_0 ADD column age int after name;", null))
             insert_thread.start()
             schema_change_thread.start()
@@ -134,7 +138,7 @@ suite("txn_insert_with_schema_change") {
         if (true) {
             insertLatch = new CountDownLatch(1)
             schemaChangeLatch = new CountDownLatch(1)
-            Thread insert_thread = new Thread(() -> txnInsert(insert_sql))
+            Thread insert_thread = new Thread(() -> txnInsert(insert_sqls))
             Thread schema_change_thread = new Thread(() -> schemaChange("alter table ${table}_0 order by (id, score, age, name);", "WAITING_TXN"))
             insert_thread.start()
             schema_change_thread.start()
