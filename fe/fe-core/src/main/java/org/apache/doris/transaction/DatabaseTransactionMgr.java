@@ -1081,7 +1081,13 @@ public class DatabaseTransactionMgr {
         // drop table without force while there are committed transactions on table and writeLockTablesIfExist is
         // a blocking function, the returned result would be the existed table list which hold write lock
         Database db = env.getInternalCatalog().getDbOrMetaException(transactionState.getDbId());
-        List<Long> tableIdList = transactionState.getTableIdList();
+        List<Long> tableIdList;
+        if (transactionState.getSubTransactionStates() == null) {
+            tableIdList = transactionState.getTableIdList();
+        } else {
+            tableIdList = transactionState.getSubTransactionStates().stream().map(s -> s.getTable().getId()).distinct()
+                    .collect(Collectors.toList());
+        }
         if (LOG.isDebugEnabled()) {
             LOG.debug("finish transaction {} with tables {}", transactionId, tableIdList);
         }

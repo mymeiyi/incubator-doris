@@ -97,9 +97,9 @@ public class OlapTxnInsertExecutor extends OlapInsertExecutor {
     protected void addTableIndexes(TransactionState state) {
         OlapTable olapTable = (OlapTable) table;
         LOG.info("txnId={}, indexIds={}", txnId, olapTable.getIndexIdToMeta().keySet());
-        /*if (!state.getLoadedTblIndexes().containsKey(olapTable.getId())) {
-            state.getLoadedTblIndexes().put(olapTable.getId(), olapTable.getIndexIdToMeta().keySet());
-        }*/
+        if (!state.getLoadedTblIndexes().containsKey(olapTable.getId())) {
+            state.addTableIndexes(olapTable);
+        }
     }
 
     private void cleanTransaction() {
