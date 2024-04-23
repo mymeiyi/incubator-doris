@@ -669,7 +669,6 @@ public class TransactionState implements Writable {
     public synchronized void addTableIndexes(OlapTable table) {
         Set<Long> indexIds = loadedTblIndexes.computeIfAbsent(table.getId(), k -> Sets.newHashSet());
         // always equal the index ids
-        // TODO why clear? why add all?
         indexIds.clear();
         indexIds.addAll(table.getIndexIdToMeta().keySet());
     }
