@@ -244,74 +244,8 @@ public class TabletInvertedIndex {
 
                             // check if should clear transactions
                             if (backendTabletInfo.isSetTransactionIds()) {
-                                List<Long> transactionIds = backendTabletInfo.getTransactionIds();
-                                GlobalTransactionMgrIface transactionMgr = Env.getCurrentGlobalTransactionMgr();
-                                for (Long transactionId : transactionIds) {
-                                    TransactionState transactionState
-                                            = transactionMgr.getTransactionState(tabletMeta.getDbId(), transactionId);
-                                    if (transactionState == null
-                                            || transactionState.getTransactionStatus() == TransactionStatus.ABORTED) {
-                                        synchronized (transactionsToClear) {
-                                            transactionsToClear.put(transactionId, tabletMeta.getPartitionId());
-                                        }
-                                        if (LOG.isDebugEnabled()) {
-                                            LOG.debug("transaction id [{}] is not valid any more, "
-                                                    + "clear it from backend [{}]", transactionId, backendId);
-                                        }
-                                    } else if (transactionState.getTransactionStatus() == TransactionStatus.VISIBLE) {
-                                        TPartitionVersionInfo versionInfo = generatePartitionVersionInfoWhenReport(
-                                                transactionState, transactionId, tabletMeta, partitionId);
-                                        if (versionInfo != null) {
-                                            synchronized (transactionsToPublish) {
-                                                ListMultimap<Long, TPartitionVersionInfo> map
-                                                        = transactionsToPublish.get(transactionState.getDbId());
-                                                if (map == null) {
-                                                    map = ArrayListMultimap.create();
-                                                    transactionsToPublish.put(transactionState.getDbId(), map);
-                                                }
-                                                map.put(transactionId, versionInfo);
-                                            }
-                                        }
-                                    } else if (transactionState.getTransactionStatus() == TransactionStatus.COMMITTED) {
-                                        // for some reasons, transaction pushlish succeed replica num less than quorum,
-                                        // this transaction's status can not to be VISIBLE, and this publish task of
-                                        // this replica of this tablet on this backend need retry publish success to
-                                        // make transaction VISIBLE when last publish failed.
-                                        Map<Long, List<PublishVersionTask>> publishVersionTask =
-                                                        transactionState.getPublishVersionTasks();
-                                        List<PublishVersionTask> tasks = publishVersionTask.get(backendId);
-                                        for (PublishVersionTask task : tasks) {
-                                            if (task != null && task.isFinished()) {
-                                                List<Long> errorTablets = task.getErrorTablets();
-                                                if (errorTablets != null) {
-                                                    for (int i = 0; i < errorTablets.size(); i++) {
-                                                        if (tabletId == errorTablets.get(i)) {
-                                                            TPartitionVersionInfo versionInfo
-                                                                    = generatePartitionVersionInfoWhenReport(
-                                                                    transactionState, transactionId, tabletMeta,
-                                                                    partitionId);
-                                                            if (versionInfo != null) {
-                                                                synchronized (transactionsToPublish) {
-                                                                    ListMultimap<Long, TPartitionVersionInfo> map
-                                                                            = transactionsToPublish.get(
-                                                                            transactionState.getDbId());
-                                                                    if (map == null) {
-                                                                        map = ArrayListMultimap.create();
-                                                                        transactionsToPublish.put(
-                                                                                transactionState.getDbId(), map);
-                                                                    }
-                                                                    map.put(transactionId, versionInfo);
-                                                                }
-                                                            }
-                                                            break;
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-
-                                    }
-                                }
+                                handleBackendTransactions(backendId, backendTabletInfo.getTransactionIds(), tabletId,
+                                        tabletMeta, transactionsToPublish, transactionsToClear);
                             } // end for txn id
 
                             // update replicase's version count
@@ -353,6 +287,48 @@ public class TabletInvertedIndex {
                 tabletRecoveryMap.size(), (end - start));
     }
 
+    private void handleBackendTransactions(long backendId, List<Long> transactionIds, long tabletId,
+            TabletMeta tabletMeta, Map<Long, ListMultimap<Long, TPartitionVersionInfo>> transactionsToPublish,
+            ListMultimap<Long, Long> transactionsToClear) {
+        GlobalTransactionMgrIface transactionMgr = Env.getCurrentGlobalTransactionMgr();
+        long partitionId = tabletMeta.getPartitionId();
+        for (Long transactionId : transactionIds) {
+            TransactionState transactionState = transactionMgr.getTransactionState(tabletMeta.getDbId(), transactionId);
+            if (transactionState == null || transactionState.getTransactionStatus() == TransactionStatus.ABORTED) {
+                synchronized (transactionsToClear) {
+                    transactionsToClear.put(transactionId, tabletMeta.getPartitionId());
+                }
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("transaction id [{}] is not valid any more, clear it from backend [{}]",
+                            transactionId, backendId);
+                }
+            } else if (transactionState.getTransactionStatus() == TransactionStatus.VISIBLE) {
+                publishPartition(transactionState, transactionId, tabletMeta, partitionId, transactionsToPublish);
+            } else if (transactionState.getTransactionStatus() == TransactionStatus.COMMITTED) {
+                // for some reasons, transaction pushlish succeed replica num less than quorum,
+                // this transaction's status can not to be VISIBLE, and this publish task of
+                // this replica of this tablet on this backend need retry publish success to
+                // make transaction VISIBLE when last publish failed.
+                Map<Long, List<PublishVersionTask>> publishVersionTask = transactionState.getPublishVersionTasks();
+                List<PublishVersionTask> tasks = publishVersionTask.get(backendId);
+                for (PublishVersionTask task : tasks) {
+                    if (task != null && task.isFinished()) {
+                        List<Long> errorTablets = task.getErrorTablets();
+                        if (errorTablets != null) {
+                            for (int i = 0; i < errorTablets.size(); i++) {
+                                if (tabletId == errorTablets.get(i)) {
+                                    publishPartition(transactionState, transactionId, tabletMeta, partitionId,
+                                            transactionsToPublish);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     // the transactionId may be sub transaction id or transaction id
     private TPartitionVersionInfo generatePartitionVersionInfoWhenReport(TransactionState transactionState,
             long transactionId, TabletMeta tabletMeta, long partitionId) {
@@ -368,6 +344,23 @@ public class TabletInvertedIndex {
                     partitionCommitInfo.getVersion(), 0);
         }
         return null;
+    }
+
+    private void publishPartition(TransactionState transactionState, long transactionId, TabletMeta tabletMeta,
+            long partitionId, Map<Long, ListMultimap<Long, TPartitionVersionInfo>> transactionsToPublish) {
+        TPartitionVersionInfo versionInfo = generatePartitionVersionInfoWhenReport(transactionState,
+                transactionId, tabletMeta, partitionId);
+        if (versionInfo != null) {
+            synchronized (transactionsToPublish) {
+                ListMultimap<Long, TPartitionVersionInfo> map = transactionsToPublish.get(
+                        transactionState.getDbId());
+                if (map == null) {
+                    map = ArrayListMultimap.create();
+                    transactionsToPublish.put(transactionState.getDbId(), map);
+                }
+                map.put(transactionId, versionInfo);
+            }
+        }
     }
 
     public Long getTabletIdByReplica(long replicaId) {
