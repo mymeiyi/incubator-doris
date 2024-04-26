@@ -31,11 +31,20 @@ public class SubTransactionState {
     private Table table;
     @Getter
     private List<TTabletCommitInfo> tabletCommitInfos;
+    @Getter
+    private SubTransactionType subTransactionType;
 
-    public SubTransactionState(long subTransactionId, Table table, List<TTabletCommitInfo> tabletCommitInfos) {
+    public enum SubTransactionType {
+        INSERT,
+        DELETE
+    }
+
+    public SubTransactionState(long subTransactionId, Table table, List<TTabletCommitInfo> tabletCommitInfos,
+            SubTransactionType subTransactionType) {
         this.subTransactionId = subTransactionId;
         this.table = table;
         this.tabletCommitInfos = tabletCommitInfos;
+        this.subTransactionType = subTransactionType;
     }
 
     @Override
@@ -44,6 +53,7 @@ public class SubTransactionState {
                 + "subTransactionId=" + subTransactionId
                 + ", table=" + table
                 + ", tabletCommitInfos=" + tabletCommitInfos
+                + ", subTransactionType=" + subTransactionType
                 + '}';
     }
 }

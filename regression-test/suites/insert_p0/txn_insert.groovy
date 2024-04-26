@@ -537,7 +537,20 @@ suite("txn_insert") {
             order_qt_select45 """select * from ${table}_0"""
         }
 
-        // 15. txn insert does not commit or rollback by user, and txn is aborted because connection is closed
+        // 15. insert and delete
+        if (use_nereids_planner) {
+            order_qt_select46 """select * from ${table}_1"""
+            sql """ begin; """
+            sql """ insert into ${table}_0 select * from ${table}_1 where k1 = 1 or k1 = 2; """
+            sql """ delete from ${table}_0 where k1 = 1 or k1 = 2; """
+            sql """ insert into ${table}_1 select * from ${table}_0 where k1 = 1 or k1 = 2; """
+            sql """ commit; """
+            sql "sync"
+            order_qt_select47 """select * from ${table}_0"""
+            order_qt_select48 """select * from ${table}_1"""
+        }
+
+        // 16. txn insert does not commit or rollback by user, and txn is aborted because connection is closed
         def dbName = "regression_test_insert_p0"
         def url = getServerPrepareJdbcUrl(context.config.jdbcUrl, dbName).replace("&useServerPrepStmts=true", "") + "&useLocalSessionState=true"
         logger.info("url: ${url}")
@@ -579,7 +592,7 @@ suite("txn_insert") {
             assertEquals("ABORTED", txn_state)
         }
 
-        // 16. txn insert does not commit or rollback by user, and txn is aborted because timeout
+        // 17. txn insert does not commit or rollback by user, and txn is aborted because timeout
         // TODO find a way to check be txn_manager is also cleaned
         if (use_nereids_planner) {
             CountDownLatch insertLatch = new CountDownLatch(1)

@@ -336,7 +336,7 @@ public class TabletInvertedIndex {
         if (transactionState.getSubTransactionStates() == null) {
             tableCommitInfo = transactionState.getTableCommitInfo(tabletMeta.getTableId());
         } else {
-            tableCommitInfo = transactionState.getSubTxnIdToTableCommitInfo().get(transactionId);
+            tableCommitInfo = transactionState.getTableCommitInfoBySubTxnId(transactionId);
         }
         if (tableCommitInfo != null && tableCommitInfo.getPartitionCommitInfo(partitionId) != null) {
             PartitionCommitInfo partitionCommitInfo = tableCommitInfo.getPartitionCommitInfo(partitionId);

@@ -1155,7 +1155,7 @@ public class DatabaseTransactionMgr {
 
     private void setTableVersion(TransactionState transactionState, Database db) {
         List<TableCommitInfo> tableCommitInfos = transactionState.getIdToTableCommitInfos().isEmpty()
-                ? Lists.newArrayList(transactionState.getSubTxnIdToTableCommitInfo().values())
+                ? transactionState.getSubTxnTableCommitInfos()
                 : Lists.newArrayList(transactionState.getIdToTableCommitInfos().values());
         for (TableCommitInfo tableCommitInfo : tableCommitInfos) {
             long tableId = tableCommitInfo.getTableId();
@@ -1227,8 +1227,8 @@ public class DatabaseTransactionMgr {
         Map<Long, Long> partitionToVisibleVersion = new HashMap<>();
         while (iterator.hasNext()) {
             SubTransactionState subTransactionState = iterator.next();
-            TableCommitInfo tableCommitInfo = transactionState.getSubTxnIdToTableCommitInfo()
-                    .get(subTransactionState.getSubTransactionId());
+            TableCommitInfo tableCommitInfo = transactionState.getTableCommitInfoBySubTxnId(
+                    subTransactionState.getSubTransactionId());
             if (tableCommitInfo == null) {
                 continue;
             }
@@ -1827,7 +1827,7 @@ public class DatabaseTransactionMgr {
 
             Iterator<TableCommitInfo> idToTableCommitInfos;
             if (transactionState.getSubTransactionStates() != null) {
-                idToTableCommitInfos = transactionState.getSubTxnIdToTableCommitInfo().values().iterator();
+                idToTableCommitInfos = transactionState.getSubTxnTableCommitInfos().iterator();
             } else {
                 idToTableCommitInfos = transactionState.getIdToTableCommitInfos().values().iterator();
             }
@@ -1856,7 +1856,7 @@ public class DatabaseTransactionMgr {
 
             List<PartitionCommitInfo> partitionCommitInfos = new ArrayList<>();
             if (transactionState.getSubTransactionStates() != null) {
-                for (TableCommitInfo tableCommitInfo : transactionState.getSubTxnIdToTableCommitInfo().values()) {
+                for (TableCommitInfo tableCommitInfo : transactionState.getSubTxnTableCommitInfos()) {
                     if (tableCommitInfo.getTableId() == tableId) {
                         partitionCommitInfos.addAll(tableCommitInfo.getIdToPartitionCommitInfo().values());
                     }
@@ -2058,8 +2058,7 @@ public class DatabaseTransactionMgr {
 
     private void updateCatalogAfterCommitted(TransactionState transactionState, Database db, boolean isReplay) {
         if (transactionState.getSubTransactionStates() != null) {
-            List<TableCommitInfo> tableCommitInfos = transactionState.getSubTxnIdToTableCommitInfo().entrySet().stream()
-                    .map(e -> e.getValue()).collect(Collectors.toList());
+            List<TableCommitInfo> tableCommitInfos = transactionState.getSubTxnTableCommitInfos();
             updatePartitionNextVersion(transactionState, db, isReplay, tableCommitInfos);
         } else {
             updatePartitionNextVersion(transactionState, db, isReplay,
@@ -2164,7 +2163,7 @@ public class DatabaseTransactionMgr {
 
         Collection<TableCommitInfo> tableCommitInfos;
         if (!transactionState.getSubTxnIdToTableCommitInfo().isEmpty()) {
-            tableCommitInfos = transactionState.getSubTxnIdToTableCommitInfo().values();
+            tableCommitInfos = transactionState.getSubTxnTableCommitInfos();
         } else {
             tableCommitInfos = transactionState.getIdToTableCommitInfos().values();
         }
@@ -2564,7 +2563,7 @@ public class DatabaseTransactionMgr {
         PublishResult publishResult = PublishResult.QUORUM_SUCC;
         for (SubTransactionState subTransactionState : transactionState.getSubTransactionStates()) {
             long subTxnId = subTransactionState.getSubTransactionId();
-            TableCommitInfo tableCommitInfo = transactionState.getSubTxnIdToTableCommitInfo().get(subTxnId);
+            TableCommitInfo tableCommitInfo = transactionState.getTableCommitInfoBySubTxnId(subTxnId);
             if (tableCommitInfo == null) {
                 continue;
             }

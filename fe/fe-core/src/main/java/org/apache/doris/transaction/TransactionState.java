@@ -47,6 +47,7 @@ import org.apache.logging.log4j.Logger;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -56,6 +57,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 public class TransactionState implements Writable {
     private static final Logger LOG = LogManager.getLogger(TransactionState.class);
@@ -300,8 +302,10 @@ public class TransactionState implements Writable {
     private Map<Long, SchemaInfo> txnSchemas = new HashMap<>();
 
     @Getter
-    @Setter
     private List<SubTransactionState> subTransactionStates;
+    @Getter
+    @SerializedName(value = "subTxnIds")
+    private List<Long> subTxnIds;
     @Getter
     @SerializedName(value = "subTxnIdToTableCommitInfo")
     private Map<Long, TableCommitInfo> subTxnIdToTableCommitInfo = new TreeMap<>();
@@ -849,5 +853,26 @@ public class TransactionState implements Writable {
             }
         }
         return true;
+    }
+
+    public void setSubTransactionStates(List<SubTransactionState> subTransactionStates) {
+        this.subTransactionStates = subTransactionStates;
+        this.subTxnIds = subTransactionStates.stream().map(SubTransactionState::getSubTransactionId)
+                .collect(Collectors.toList());
+    }
+
+    public TableCommitInfo getTableCommitInfoBySubTxnId(long subTxnId) {
+        return subTxnIdToTableCommitInfo.get(subTxnId);
+    }
+
+    public List<TableCommitInfo> getSubTxnTableCommitInfos() {
+        List<TableCommitInfo> tableCommitInfos = new ArrayList<>();
+        for (Long subTxnId : subTxnIds) {
+            TableCommitInfo tableCommitInfo = subTxnIdToTableCommitInfo.get(subTxnId);
+            if (tableCommitInfo != null) {
+                tableCommitInfos.add(tableCommitInfo);
+            }
+        }
+        return tableCommitInfos;
     }
 }

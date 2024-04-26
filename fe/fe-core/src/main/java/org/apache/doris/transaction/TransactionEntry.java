@@ -35,6 +35,7 @@ import org.apache.doris.thrift.TTabletCommitInfo;
 import org.apache.doris.thrift.TTxnParams;
 import org.apache.doris.thrift.TWaitingTxnStatusRequest;
 import org.apache.doris.thrift.TWaitingTxnStatusResult;
+import org.apache.doris.transaction.SubTransactionState.SubTransactionType;
 import org.apache.doris.transaction.TransactionState.LoadJobSourceType;
 import org.apache.doris.transaction.TransactionState.TxnCoordinator;
 import org.apache.doris.transaction.TransactionState.TxnSourceType;
@@ -281,6 +282,18 @@ public class TransactionEntry {
         if (isTransactionBegan) {
             List<Long> tableIds = transactionState.getTableIdList().stream().distinct().collect(Collectors.toList());
             transactionState.setTableIdList(tableIds);
+            subTransactionStates.sort((s1, s2) -> {
+                if (s1.getSubTransactionType() == SubTransactionType.INSERT
+                        && s2.getSubTransactionType() == SubTransactionType.DELETE) {
+                    return 1;
+                } else if (s1.getSubTransactionType() == SubTransactionType.DELETE
+                        && s2.getSubTransactionType() == SubTransactionType.INSERT) {
+                    return -1;
+                } else {
+                    return Long.compare(s1.getSubTransactionId(), s2.getSubTransactionId());
+                }
+            });
+            LOG.info("subTransactionStates={}", subTransactionStates);
             transactionState.setSubTransactionStates(subTransactionStates);
         }
     }
@@ -302,12 +315,13 @@ public class TransactionEntry {
         }
     }
 
-    public void addTabletCommitInfos(long subTxnId, Table table, List<TTabletCommitInfo> commitInfos) {
+    public void addTabletCommitInfos(long subTxnId, Table table, List<TTabletCommitInfo> commitInfos,
+            SubTransactionType subTransactionType) {
         if (LOG.isDebugEnabled()) {
             LOG.debug("label={}, txn_id={}, sub_txn_id={}, table={}, commit_infos={}",
                     label, transactionId, subTxnId, table, commitInfos);
         }
-        this.subTransactionStates.add(new SubTransactionState(subTxnId, table, commitInfos));
+        this.subTransactionStates.add(new SubTransactionState(subTxnId, table, commitInfos, subTransactionType));
         Preconditions.checkState(transactionState.getTableIdList().size() == subTransactionStates.size(),
                 "txn_id={}, expect table_list={}, but is={}",
                 transactionId,
