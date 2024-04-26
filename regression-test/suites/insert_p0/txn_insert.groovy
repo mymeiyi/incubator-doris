@@ -544,6 +544,8 @@ suite("txn_insert") {
             sql """ insert into ${table}_0 select * from ${table}_1 where k1 = 1 or k1 = 2; """
             sql """ delete from ${table}_0 where k1 = 1 or k1 = 2; """
             sql """ insert into ${table}_1 select * from ${table}_0 where k1 = 1 or k1 = 2; """
+            sql """ delete from ${table}_0 where k1 = 1 or k1 = 2; """
+            sql """ delete from ${table}_1 where k1 = 1; """
             sql """ commit; """
             sql "sync"
             order_qt_select47 """select * from ${table}_0"""
