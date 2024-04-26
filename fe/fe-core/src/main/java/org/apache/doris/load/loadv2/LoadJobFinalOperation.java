@@ -41,18 +41,18 @@ import java.util.Map;
 public class LoadJobFinalOperation extends TxnCommitAttachment implements Writable {
     @SerializedName(value = "id")
     private long id;
-    @SerializedName(value = "loadingStatus")
+    @SerializedName(value = "ls")
     private EtlStatus loadingStatus = new EtlStatus();
-    @SerializedName(value = "progress")
+    @SerializedName(value = "pro")
     private int progress;
-    @SerializedName(value = "loadStartTimestamp")
+    @SerializedName(value = "lst")
     private long loadStartTimestamp;
-    @SerializedName(value = "finishTimestamp")
+    @SerializedName(value = "ft")
     private long finishTimestamp;
-    @SerializedName(value = "jobState")
+    @SerializedName(value = "js")
     private JobState jobState;
     // optional
-    @SerializedName(value = "failMsg")
+    @SerializedName(value = "fm")
     private FailMsg failMsg;
     // only used for copy into
     private String copyId = "";

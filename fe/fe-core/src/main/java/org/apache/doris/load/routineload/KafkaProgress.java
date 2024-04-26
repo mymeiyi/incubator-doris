@@ -55,7 +55,7 @@ public class KafkaProgress extends RoutineLoadProgress {
 
     // (partition id, begin offset)
     // the offset saved here is the next offset need to be consumed
-    @SerializedName(value = "partitionIdToOffset")
+    @SerializedName(value = "pito")
     private Map<Integer, Long> partitionIdToOffset = Maps.newConcurrentMap();
 
     public KafkaProgress() {

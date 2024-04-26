@@ -35,17 +35,17 @@ public class RLTaskTxnCommitAttachment extends TxnCommitAttachment {
 
     private long jobId;
     private TUniqueId taskId;
-    @SerializedName(value = "filteredRows")
+    @SerializedName(value = "fr")
     private long filteredRows;
-    @SerializedName(value = "loadedRows")
+    @SerializedName(value = "lr")
     private long loadedRows;
-    @SerializedName(value = "unselectedRows")
+    @SerializedName(value = "ur")
     private long unselectedRows;
-    @SerializedName(value = "receivedBytes")
+    @SerializedName(value = "rb")
     private long receivedBytes;
-    @SerializedName(value = "taskExecutionTimeMs")
+    @SerializedName(value = "tet")
     private long taskExecutionTimeMs;
-    @SerializedName(value = "progress")
+    @SerializedName(value = "pro")
     private RoutineLoadProgress progress;
     private String errorLogUrl;
 

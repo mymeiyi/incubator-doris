@@ -304,10 +304,10 @@ public class TransactionState implements Writable {
     @Getter
     private List<SubTransactionState> subTransactionStates;
     @Getter
-    @SerializedName(value = "subTxnIds")
+    @SerializedName(value = "sti")
     private List<Long> subTxnIds;
     @Getter
-    @SerializedName(value = "subTxnIdToTableCommitInfo")
+    @SerializedName(value = "stot")
     private Map<Long, TableCommitInfo> subTxnIdToTableCommitInfo = new TreeMap<>();
     @Getter
     @Setter

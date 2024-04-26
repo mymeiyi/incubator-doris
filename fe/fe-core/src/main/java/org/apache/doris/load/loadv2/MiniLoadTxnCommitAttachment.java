@@ -28,12 +28,12 @@ import java.io.DataOutput;
 import java.io.IOException;
 
 public class MiniLoadTxnCommitAttachment extends TxnCommitAttachment {
-    @SerializedName(value = "loadedRows")
+    @SerializedName(value = "lr")
     private long loadedRows;
-    @SerializedName(value = "filteredRows")
+    @SerializedName(value = "fr")
     private long filteredRows;
     // optional
-    @SerializedName(value = "errorLogUrl")
+    @SerializedName(value = "elr")
     private String errorLogUrl;
 
     public MiniLoadTxnCommitAttachment() {

@@ -27,7 +27,7 @@ import java.io.DataOutput;
 import java.io.IOException;
 
 public abstract class RoutineLoadProgress implements Writable {
-    @SerializedName(value = "loadDataSourceType")
+    @SerializedName(value = "ldst")
     protected LoadDataSourceType loadDataSourceType;
     protected boolean isTypeRead = false;
 
