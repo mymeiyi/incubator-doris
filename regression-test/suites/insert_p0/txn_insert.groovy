@@ -306,6 +306,7 @@ suite("txn_insert") {
             }
             sql """ insert into ${unique_table}_0 values(1, "a", 10), (2, "b", 20), (3, "c", 30); """
             sql """ insert into ${unique_table}_1 values(1, "a", 11), (2, "b", 19), (4, "d", 40); """
+            sql """ insert into ${unique_table}_2 values(1, "a", 9), (2, "b", 21), (4, "d", 39), (5, "e", 50); """
             sql """ begin """
             sql """ insert into ${unique_table}_2 select * from ${unique_table}_0; """
             sql """ insert into ${unique_table}_1 select * from ${unique_table}_0; """
