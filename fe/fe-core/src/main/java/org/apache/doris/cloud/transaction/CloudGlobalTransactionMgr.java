@@ -24,6 +24,7 @@ import org.apache.doris.catalog.MaterializedIndex;
 import org.apache.doris.catalog.OlapTable;
 import org.apache.doris.catalog.Partition;
 import org.apache.doris.catalog.Table;
+import org.apache.doris.catalog.TableIf;
 import org.apache.doris.catalog.Tablet;
 import org.apache.doris.catalog.TabletInvertedIndex;
 import org.apache.doris.catalog.TabletMeta;
@@ -511,6 +512,21 @@ public class CloudGlobalTransactionMgr implements GlobalTransactionMgrIface {
         afterCommitTxnResp(commitTxnResponse);
     }
 
+    private void commitTransaction(long dbId, List<Table> tableList, long transactionId,
+            List<SubTransactionState> subTransactionStates, long timeout) throws UserException {
+        LOG.info("try to commit transaction, transactionId: {}", transactionId);
+        if (Config.disable_load_job) {
+            throw new TransactionCommitFailedException(
+                    "disable_load_job is set to true, all load jobs are not allowed");
+        }
+
+        // TODO calculate delete bitmap for MOW table
+        /*List<OlapTable> mowTableList = getMowTableList(tableList);
+        if (subTransactionStates != null && !subTxnIdToTxnId.isEmpty() && !mowTableList.isEmpty()) {
+            calcDeleteBitmapForMow(dbId, mowTableList, transactionId, tabletCommitInfos);
+        }*/
+    }
+
     private List<OlapTable> getMowTableList(List<Table> tableList) {
         List<OlapTable> mowTableList = new ArrayList<>();
         for (Table table : tableList) {
@@ -743,7 +759,23 @@ public class CloudGlobalTransactionMgr implements GlobalTransactionMgrIface {
     @Override
     public boolean commitAndPublishTransaction(DatabaseIf db, long transactionId,
             List<SubTransactionState> subTransactionStates, long timeoutMillis) throws UserException {
-        throw new UnsupportedOperationException("commitAndPublishTransaction is not supported in cloud");
+        // TODO calculate delete bitmap for mow table
+        List<Long> tableIdList = subTransactionStates.stream().map(s -> s.getTable().getId()).distinct()
+                .collect(Collectors.toList());
+        List<? extends TableIf> tableIfList = db.getTablesOnIdOrderOrThrowException(tableIdList);
+        List<Table> tableList = tableIfList.stream().map(t -> (Table) t).collect(Collectors.toList());
+        if (!MetaLockUtils.tryCommitLockTables(tableList, timeoutMillis, TimeUnit.MILLISECONDS)) {
+            // DELETE_BITMAP_LOCK_ERR will be retried on be
+            throw new UserException(InternalErrorCode.DELETE_BITMAP_LOCK_ERR,
+                    "get table cloud commit lock timeout, tableList=("
+                            + StringUtils.join(tableList, ",") + ")");
+        }
+        try {
+            commitTransaction(db.getId(), tableList, transactionId, subTransactionStates, timeoutMillis);
+        } finally {
+            MetaLockUtils.commitUnlockTables(tableList);
+        }
+        return true;
     }
 
     @Override
