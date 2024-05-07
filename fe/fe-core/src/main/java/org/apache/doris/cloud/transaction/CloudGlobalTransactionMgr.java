@@ -1309,13 +1309,17 @@ public class CloudGlobalTransactionMgr implements GlobalTransactionMgrIface {
         throw new Exception(NOT_SUPPORTED_MSG);
     }
 
+    private final Map<Long, Long> subTxnIdToTxnId = Maps.newHashMap();
+
     @Override
     public void addSubTransaction(long dbId, long transactionId, long subTransactionId) {
-        throw new UnsupportedOperationException("addSubTransaction is not supported in cloud");
+        // throw new UnsupportedOperationException("addSubTransaction is not supported in cloud");
+        subTxnIdToTxnId.put(subTransactionId, transactionId);
     }
 
     @Override
     public void removeSubTransaction(long dbId, long subTransactionId) {
-        throw new UnsupportedOperationException("removeSubTransaction is not supported in cloud");
+        subTxnIdToTxnId.remove(subTransactionId);
+        // throw new UnsupportedOperationException("removeSubTransaction is not supported in cloud");
     }
 }
