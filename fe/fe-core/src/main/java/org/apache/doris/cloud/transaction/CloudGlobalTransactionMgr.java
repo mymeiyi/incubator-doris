@@ -1093,6 +1093,11 @@ public class CloudGlobalTransactionMgr implements GlobalTransactionMgrIface {
 
     @Override
     public TransactionState getTransactionState(long dbId, long transactionId) {
+        if (subTxnIdToTxnId.containsKey(transactionId)) {
+            LOG.info("try to get transaction state, subTxnIdToTxnId:{}, transactionId:{}", transactionId,
+                    subTxnIdToTxnId.get(transactionId));
+            transactionId = subTxnIdToTxnId.get(transactionId);
+        }
         LOG.info("try to get transaction state, dbId:{}, transactionId:{}", dbId, transactionId);
         GetTxnRequest.Builder builder = GetTxnRequest.newBuilder();
         builder.setDbId(dbId);
