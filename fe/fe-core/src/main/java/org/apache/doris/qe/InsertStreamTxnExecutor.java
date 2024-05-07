@@ -20,6 +20,7 @@ package org.apache.doris.qe;
 import org.apache.doris.catalog.Database;
 import org.apache.doris.catalog.Env;
 import org.apache.doris.catalog.OlapTable;
+import org.apache.doris.cloud.planner.CloudStreamLoadPlanner;
 import org.apache.doris.common.Config;
 import org.apache.doris.common.UserException;
 import org.apache.doris.planner.StreamLoadPlanner;
@@ -69,7 +70,9 @@ public class InsertStreamTxnExecutor {
         OlapTable table = (OlapTable) txnEntry.getTable();
         // StreamLoadTask's id == request's load_id
         StreamLoadTask streamLoadTask = StreamLoadTask.fromTStreamLoadPutRequest(request);
-        StreamLoadPlanner planner = new StreamLoadPlanner((Database) txnEntry.getDb(), table, streamLoadTask);
+        StreamLoadPlanner planner = Config.isCloudMode() ? new CloudStreamLoadPlanner((Database) txnEntry.getDb(),
+                table, streamLoadTask, ConnectContext.get() != null ? ConnectContext.get().getCloudCluster() : null)
+                : new StreamLoadPlanner((Database) txnEntry.getDb(), table, streamLoadTask);
         boolean enablePipelineLoad = Config.enable_pipeline_load;
         TPipelineFragmentParamsList pipelineParamsList = new TPipelineFragmentParamsList();
         TExecPlanFragmentParamsList paramsList = new TExecPlanFragmentParamsList();
