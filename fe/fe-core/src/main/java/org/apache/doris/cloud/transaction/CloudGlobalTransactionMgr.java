@@ -1123,6 +1123,8 @@ public class CloudGlobalTransactionMgr implements GlobalTransactionMgrIface {
         throw new AnalysisException(NOT_SUPPORTED_MSG);
     }
 
+    private final Map<Long, Long> subTxnIdToTxnId = Maps.newHashMap();
+
     @Override
     public TransactionState getTransactionState(long dbId, long transactionId) {
         if (subTxnIdToTxnId.containsKey(transactionId)) {
