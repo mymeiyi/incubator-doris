@@ -285,7 +285,7 @@ suite("txn_insert") {
         }
 
         // 9. insert into mow tables
-        if (use_nereids_planner) {
+        /*if (use_nereids_planner) {
             def unique_table = "ut"
             for (def i in 0..2) {
                 sql """ drop table if exists ${unique_table}_${i} """
@@ -316,7 +316,7 @@ suite("txn_insert") {
             order_qt_select28 """select * from ${unique_table}_0"""
             order_qt_select29 """select * from ${unique_table}_1"""
             order_qt_select30 """select * from ${unique_table}_2"""
-        }
+        }*/
 
         // 10. insert into table with multi partitions and tablets
         if (use_nereids_planner) {

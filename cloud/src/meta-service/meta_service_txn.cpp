@@ -1542,6 +1542,7 @@ void MetaServiceImpl::commit_txn_with_sub_txn(::google::protobuf::RpcController*
     // TODO should we consider sub_txn_id?
     std::unordered_map<int64_t, TabletStats> tablet_stats; // tablet_id -> stats
     for (auto& [_, tmp_rowsets_meta] : sub_txn_to_tmp_rowsets_meta) {
+        std::unordered_map<int64_t, int64_t> partition_id_to_version;
         for (auto& [_, i] : tmp_rowsets_meta) {
             int64_t tablet_id = i.tablet_id();
             int64_t table_id = tablet_ids[tablet_id].table_id();
@@ -1563,12 +1564,15 @@ void MetaServiceImpl::commit_txn_with_sub_txn(::google::protobuf::RpcController*
 
             // Update rowset version
             int64_t new_version = new_versions[ver_key];
-            new_versions[ver_key] = new_version + 1;
-            new_version = new_versions[ver_key];
+            if (partition_id_to_version.count(partition_id) == 0) {
+                new_versions[ver_key] = new_version + 1;
+                new_version = new_versions[ver_key];
+                partition_id_to_version[partition_id] = new_version;
+            }
             i.set_start_version(new_version);
             i.set_end_version(new_version);
             LOG(INFO) << "xxx update rowset version, txn_id=" << txn_id
-                      << ", tablet_id=" << tablet_id << ", partition_id=" << partition_id
+                      << ", table_id=" << table_id << ", partition_id=" << partition_id
                       << ", tablet_id=" << tablet_id << ", new_version=" << new_version;
 
             std::string key = meta_rowset_key({instance_id, tablet_id, i.end_version()});
