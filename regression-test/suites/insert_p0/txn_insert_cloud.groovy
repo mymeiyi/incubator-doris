@@ -26,8 +26,8 @@ import java.sql.Statement
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
-suite("txn_insert") {
-    if (isCloudMode()) {
+suite("txn_insert_cloud") {
+    if (!isCloudMode()) {
         return
     }
     def table = "txn_insert_tbl"
