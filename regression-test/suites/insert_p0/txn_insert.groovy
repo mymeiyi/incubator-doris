@@ -27,9 +27,6 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
 suite("txn_insert") {
-    if (isCloudMode()) {
-        return
-    }
     def table = "txn_insert_tbl"
 
     def get_observer_fe_url = {
@@ -45,7 +42,7 @@ suite("txn_insert") {
         return null
     }
 
-    for (def use_nereids_planner : [/*false,*/ true]) {
+    for (def use_nereids_planner : [false, true]) {
         sql " SET enable_nereids_planner = $use_nereids_planner; "
 
         sql """ DROP TABLE IF EXISTS $table """
@@ -288,7 +285,7 @@ suite("txn_insert") {
         }
 
         // 9. insert into mow tables
-        /*if (use_nereids_planner) {
+        if (use_nereids_planner) {
             def unique_table = "ut"
             for (def i in 0..2) {
                 sql """ drop table if exists ${unique_table}_${i} """
@@ -319,7 +316,7 @@ suite("txn_insert") {
             order_qt_select28 """select * from ${unique_table}_0"""
             order_qt_select29 """select * from ${unique_table}_1"""
             order_qt_select30 """select * from ${unique_table}_2"""
-        }*/
+        }
 
         // 10. insert into table with multi partitions and tablets
         if (use_nereids_planner) {
@@ -376,8 +373,8 @@ suite("txn_insert") {
             sql """ set enable_insert_strict = true """
         }
 
-        // 11. update stmt: this is a mow table
-        /*if (use_nereids_planner) {
+        // 11. update stmt
+        if (use_nereids_planner) {
             def ut_table = "txn_insert_ut"
             for (def i in 1..2) {
                 def tableName = ut_table + "_" + i
@@ -404,10 +401,10 @@ suite("txn_insert") {
             sql "sync"
             order_qt_select38 """select * from ${ut_table}_1 """
             order_qt_select39 """select * from ${ut_table}_2 """
-        }*/
+        }
 
-        // 12. delete from using and delete from stmt: contains mow table
-        /*if (use_nereids_planner) {
+        // 12. delete from using and delete from stmt
+        if (use_nereids_planner) {
             for (def ta in ["txn_insert_dt1", "txn_insert_dt2", "txn_insert_dt3", "txn_insert_dt4", "txn_insert_dt5"]) {
                 sql """ drop table if exists ${ta} """
             }
@@ -509,7 +506,7 @@ suite("txn_insert") {
             order_qt_select41 """select * from txn_insert_dt2 """
             order_qt_select42 """select * from txn_insert_dt4 """
             order_qt_select43 """select * from txn_insert_dt5 """
-        }*/
+        }
 
         // 13. decrease be 'pending_data_expire_time_sec' config
         if (use_nereids_planner) {
@@ -580,7 +577,7 @@ suite("txn_insert") {
             thread.start()
             thread.join()
             assertNotEquals(txn_id, 0)
-            /*def txn_state = ""
+            def txn_state = ""
             for (int i = 0; i < 20; i++) {
                 def txn_info = sql_return_maparray """ show transaction where id = ${txn_id} """
                 logger.info("txn_info: ${txn_info}")
@@ -592,7 +589,7 @@ suite("txn_insert") {
                     sleep(2000)
                 }
             }
-            assertEquals("ABORTED", txn_state)*/
+            assertEquals("ABORTED", txn_state)
         }
 
         // 17. txn insert does not commit or rollback by user, and txn is aborted because timeout
@@ -616,7 +613,7 @@ suite("txn_insert") {
             thread.start()
             insertLatch.await(1, TimeUnit.MINUTES)
             assertNotEquals(txn_id, 0)
-            /*def txn_state = ""
+            def txn_state = ""
             for (int i = 0; i < 20; i++) {
                 def txn_info = sql_return_maparray """ show transaction where id = ${txn_id} """
                 logger.info("txn_info: ${txn_info}")
@@ -628,7 +625,7 @@ suite("txn_insert") {
                     sleep(2000)
                 }
             }
-            assertEquals("ABORTED", txn_state)*/
+            assertEquals("ABORTED", txn_state)
 
             // after the txn is timeout: do insert/ commit/ rollback
             try {
