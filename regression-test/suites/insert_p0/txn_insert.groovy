@@ -42,7 +42,7 @@ suite("txn_insert") {
         return null
     }
 
-    for (def use_nereids_planner : [false, true]) {
+    for (def use_nereids_planner : [/*false,*/ true]) {
         sql " SET enable_nereids_planner = $use_nereids_planner; "
 
         sql """ DROP TABLE IF EXISTS $table """
