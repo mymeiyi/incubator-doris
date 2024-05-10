@@ -43,6 +43,7 @@ import org.apache.doris.transaction.TransactionState.TxnSourceType;
 import org.apache.doris.transaction.TransactionStatus;
 import org.apache.doris.transaction.TxnCommitAttachment;
 
+import com.google.common.collect.Lists;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -302,7 +303,7 @@ public class TxnUtil {
             LOG.debug("txnInfo={}", txnInfo);
         }
         long dbId = txnInfo.getDbId();
-        List<Long> tableIdList = txnInfo.getTableIdsList();
+        List<Long> tableIdList = Lists.newArrayList(txnInfo.getTableIdsList());
         long transactionId = txnInfo.getTxnId();
         String label = txnInfo.getLabel();
 
