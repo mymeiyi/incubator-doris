@@ -1529,7 +1529,7 @@ void MetaServiceImpl::commit_txn_with_sub_txn(::google::protobuf::RpcController*
             }
             version = version_pb.version();
         } else {
-            version = 0;
+            version = 1;
         }
         new_versions[version_keys[i]] = version;
         LOG(INFO) << "xxx get partition_version_key=" << hex(version_keys[i])
