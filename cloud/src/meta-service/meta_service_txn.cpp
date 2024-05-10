@@ -1500,10 +1500,10 @@ void MetaServiceImpl::commit_txn_with_sub_txn(::google::protobuf::RpcController*
         std::string ver_key = partition_version_key({instance_id, db_id, table_id, partition_id});
         if (new_versions.count(ver_key) == 0) {
             new_versions.insert({ver_key, 0});
-            version_keys.push_back(std::move(ver_key));
             LOG(INFO) << "xxx add a partition_version_key=" << hex(ver_key) << " txn_id=" << txn_id
                       << ", db_id=" << db_id << ", table_id=" << table_id
                       << ", partition_id=" << partition_id;
+            version_keys.push_back(std::move(ver_key));
         }
     }
     std::vector<std::optional<std::string>> version_values;
@@ -1547,7 +1547,7 @@ void MetaServiceImpl::commit_txn_with_sub_txn(::google::protobuf::RpcController*
             int64_t table_id = tablet_ids[tablet_id].table_id();
             int64_t partition_id = i.partition_id();
             std::string ver_key = partition_version_key({instance_id, db_id, table_id, partition_id});
-            if (new_versions[ver_key] == 0) [[unlikely]] {
+            if (new_versions.count(ver_key) == 0) [[unlikely]] {
                 LOG(INFO) << "xxx failed to get partition_version_key=" << hex(ver_key)
                           << " txn_id=" << txn_id << ", db_id=" << db_id
                           << ", table_id=" << table_id << ", partition_id=" << partition_id;
