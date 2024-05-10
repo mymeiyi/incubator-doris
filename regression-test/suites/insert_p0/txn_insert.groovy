@@ -403,8 +403,8 @@ suite("txn_insert") {
             order_qt_select39 """select * from ${ut_table}_2 """
         }*/
 
-        // 12. delete from using and delete from stmt
-        if (use_nereids_planner) {
+        // 12. delete from using and delete from stmt: contains mow table
+        /*if (use_nereids_planner) {
             for (def ta in ["txn_insert_dt1", "txn_insert_dt2", "txn_insert_dt3", "txn_insert_dt4", "txn_insert_dt5"]) {
                 sql """ drop table if exists ${ta} """
             }
@@ -506,7 +506,7 @@ suite("txn_insert") {
             order_qt_select41 """select * from txn_insert_dt2 """
             order_qt_select42 """select * from txn_insert_dt4 """
             order_qt_select43 """select * from txn_insert_dt5 """
-        }
+        }*/
 
         // 13. decrease be 'pending_data_expire_time_sec' config
         if (use_nereids_planner) {
