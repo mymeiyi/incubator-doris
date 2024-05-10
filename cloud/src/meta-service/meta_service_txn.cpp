@@ -1566,6 +1566,9 @@ void MetaServiceImpl::commit_txn_with_sub_txn(::google::protobuf::RpcController*
             new_versions[ver_key] = new_version + 1;
             i.set_start_version(new_version);
             i.set_end_version(new_version);
+            LOG(INFO) << "xxx update rowset version, txn_id=" << txn_id
+                      << ", tablet_id=" << tablet_id << ", partition_id=" << partition_id
+                      << ", tablet_id=" << tablet_id << ", new_version=" << new_version;
 
             std::string key = meta_rowset_key({instance_id, tablet_id, i.end_version()});
             std::string val;
