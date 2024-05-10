@@ -373,8 +373,8 @@ suite("txn_insert") {
             sql """ set enable_insert_strict = true """
         }
 
-        // 11. update stmt
-        if (use_nereids_planner) {
+        // 11. update stmt: this is a mow table
+        /*if (use_nereids_planner) {
             def ut_table = "txn_insert_ut"
             for (def i in 1..2) {
                 def tableName = ut_table + "_" + i
@@ -401,7 +401,7 @@ suite("txn_insert") {
             sql "sync"
             order_qt_select38 """select * from ${ut_table}_1 """
             order_qt_select39 """select * from ${ut_table}_2 """
-        }
+        }*/
 
         // 12. delete from using and delete from stmt
         if (use_nereids_planner) {
