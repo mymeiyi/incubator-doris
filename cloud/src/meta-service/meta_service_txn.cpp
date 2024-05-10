@@ -1318,8 +1318,9 @@ void MetaServiceImpl::commit_txn_with_sub_txn(::google::protobuf::RpcController*
 
         int num_rowsets = 0;
         std::unique_ptr<int, std::function<void(int*)>> defer_log_range(
-                (int*)0x01, [rs_tmp_key0, rs_tmp_key1, &num_rowsets, &txn_id](int*) {
+                (int*)0x01, [rs_tmp_key0, rs_tmp_key1, &num_rowsets, &txn_id, &sub_txn_id](int*) {
                     LOG(INFO) << "get tmp rowset meta, txn_id=" << txn_id
+                              << ", sub_txn_id=" << sub_txn_id
                               << " num_rowsets=" << num_rowsets << " range=[" << hex(rs_tmp_key0) << ","
                               << hex(rs_tmp_key1) << ")";
                 });
@@ -1500,6 +1501,9 @@ void MetaServiceImpl::commit_txn_with_sub_txn(::google::protobuf::RpcController*
         if (new_versions.count(ver_key) == 0) {
             new_versions.insert({ver_key, 0});
             version_keys.push_back(std::move(ver_key));
+            LOG(INFO) << "xxx add a partition_version_key=" << hex(ver_key) << " txn_id=" << txn_id
+                      << ", db_id=" << db_id << ", table_id=" << table_id
+                      << ", partition_id=" << partition_id;
         }
     }
     std::vector<std::optional<std::string>> version_values;
@@ -1528,6 +1532,8 @@ void MetaServiceImpl::commit_txn_with_sub_txn(::google::protobuf::RpcController*
             version = 0;
         }
         new_versions[version_keys[i]] = version;
+        LOG(INFO) << "xxx get partition_version_key=" << hex(version_keys[i])
+                  << " version:" << version << " txn_id=" << txn_id << ", db_id=" << db_id;
     }
     version_keys.clear();
     version_values.clear();
@@ -1542,6 +1548,9 @@ void MetaServiceImpl::commit_txn_with_sub_txn(::google::protobuf::RpcController*
             int64_t partition_id = i.partition_id();
             std::string ver_key = partition_version_key({instance_id, db_id, table_id, partition_id});
             if (new_versions[ver_key] == 0) [[unlikely]] {
+                LOG(INFO) << "xxx failed to get partition_version_key=" << hex(ver_key)
+                          << " txn_id=" << txn_id << ", db_id=" << db_id
+                          << ", table_id=" << table_id << ", partition_id=" << partition_id;
                 // it is impossible.
                 code = MetaServiceCode::UNDEFINED_ERR;
                 ss << "failed to get partition version key, the target version not exists in "
