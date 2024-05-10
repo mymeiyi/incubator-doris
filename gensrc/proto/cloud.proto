@@ -644,6 +644,15 @@ message CommitTxnRequest {
     // merge-on-write table ids
     repeated int64 mow_table_ids = 6;
     repeated int64 base_tablet_ids= 7; // all tablet from base tables (excluding mv)
+    // for transaction load
+    optional bool is_txn_load = 9;
+    repeated SubTxnInfo sub_txn_infos = 10;
+}
+
+message SubTxnInfo {
+    optional int64 sub_txn_id = 1;
+    optional int64 table_id = 2;
+    repeated int64 base_tablet_ids= 3;
 }
 
 // corresponding to TabletStats in meta_service.h and FrontendServiceImpl.java

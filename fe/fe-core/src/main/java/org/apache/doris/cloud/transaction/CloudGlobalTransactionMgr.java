@@ -51,6 +51,7 @@ import org.apache.doris.cloud.proto.Cloud.LoadJobSourceTypePB;
 import org.apache.doris.cloud.proto.Cloud.MetaServiceCode;
 import org.apache.doris.cloud.proto.Cloud.PrecommitTxnRequest;
 import org.apache.doris.cloud.proto.Cloud.PrecommitTxnResponse;
+import org.apache.doris.cloud.proto.Cloud.SubTxnInfo;
 import org.apache.doris.cloud.proto.Cloud.TableStatsPB;
 import org.apache.doris.cloud.proto.Cloud.TxnInfoPB;
 import org.apache.doris.cloud.proto.Cloud.TxnStatusPB;
@@ -519,12 +520,76 @@ public class CloudGlobalTransactionMgr implements GlobalTransactionMgrIface {
             throw new TransactionCommitFailedException(
                     "disable_load_job is set to true, all load jobs are not allowed");
         }
-
         // TODO calculate delete bitmap for MOW table
-        /*List<OlapTable> mowTableList = getMowTableList(tableList);
-        if (subTransactionStates != null && !subTxnIdToTxnId.isEmpty() && !mowTableList.isEmpty()) {
-            calcDeleteBitmapForMow(dbId, mowTableList, transactionId, tabletCommitInfos);
-        }*/
+        CommitTxnRequest.Builder builder = CommitTxnRequest.newBuilder();
+        builder.setDbId(dbId)
+                .setTxnId(transactionId)
+                .setIs2Pc(false)
+                .setCloudUniqueId(Config.cloud_unique_id)
+                .setIsTxnLoad(true);
+        // add sub txn infos
+        for (SubTransactionState subTransactionState : subTransactionStates) {
+            builder.addSubTxnInfos(SubTxnInfo.newBuilder().setSubTxnId(subTransactionState.getSubTransactionId())
+                    .setTableId(subTransactionState.getTable().getId())
+                    .addAllBaseTabletIds(
+                            getBaseTabletsFromTables(Lists.newArrayList(subTransactionState.getTable()),
+                                    subTransactionState.getTabletCommitInfos().stream()
+                                            .map(c -> new TabletCommitInfo(c.getTabletId(), c.getBackendId()))
+                                            .collect(Collectors.toList())))
+                    .build());
+        }
+        final CommitTxnRequest commitTxnRequest = builder.build();
+        CommitTxnResponse commitTxnResponse = null;
+        int retryTime = 0;
+
+        try {
+            while (retryTime < Config.cloud_meta_service_rpc_failed_retry_times) {
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("retryTime:{}, commitTxnRequest:{}", retryTime, commitTxnRequest);
+                }
+                commitTxnResponse = MetaServiceProxy.getInstance().commitTxn(commitTxnRequest);
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("retryTime:{}, commitTxnResponse:{}", retryTime, commitTxnResponse);
+                }
+                if (commitTxnResponse.getStatus().getCode() != MetaServiceCode.KV_TXN_CONFLICT) {
+                    break;
+                }
+                // sleep random [20, 200] ms, avoid txn conflict
+                LOG.info("commitTxn KV_TXN_CONFLICT, transactionId:{}, retryTime:{}", transactionId, retryTime);
+                backoff();
+                retryTime++;
+            }
+
+            Preconditions.checkNotNull(commitTxnResponse);
+            Preconditions.checkNotNull(commitTxnResponse.getStatus());
+        } catch (Exception e) {
+            LOG.warn("commitTxn failed, transactionId:{}, exception:", transactionId, e);
+            throw new UserException("commitTxn() failed, errMsg:" + e.getMessage());
+        }
+
+        if (commitTxnResponse.getStatus().getCode() != MetaServiceCode.OK
+                && commitTxnResponse.getStatus().getCode() != MetaServiceCode.TXN_ALREADY_VISIBLE) {
+            LOG.warn("commitTxn failed, transactionId:{}, retryTime:{}, commitTxnResponse:{}",
+                    transactionId, retryTime, commitTxnResponse);
+            if (commitTxnResponse.getStatus().getCode() == MetaServiceCode.LOCK_EXPIRED) {
+                // DELETE_BITMAP_LOCK_ERR will be retried on be
+                throw new UserException(InternalErrorCode.DELETE_BITMAP_LOCK_ERR,
+                        "delete bitmap update lock expired, transactionId:" + transactionId);
+            }
+            StringBuilder internalMsgBuilder =
+                    new StringBuilder("commitTxn failed, transactionId:");
+            internalMsgBuilder.append(transactionId);
+            internalMsgBuilder.append(" code:");
+            internalMsgBuilder.append(commitTxnResponse.getStatus().getCode());
+            throw new UserException("internal error, " + internalMsgBuilder.toString());
+        }
+
+        TransactionState txnState = TxnUtil.transactionStateFromPb(commitTxnResponse.getTxnInfo());
+        if (MetricRepo.isInit) {
+            MetricRepo.COUNTER_TXN_SUCCESS.increase(1L);
+            MetricRepo.HISTO_TXN_EXEC_LATENCY.update(txnState.getCommitTime() - txnState.getPrepareTime());
+        }
+        afterCommitTxnResp(commitTxnResponse);
     }
 
     private List<OlapTable> getMowTableList(List<Table> tableList) {
@@ -759,7 +824,6 @@ public class CloudGlobalTransactionMgr implements GlobalTransactionMgrIface {
     @Override
     public boolean commitAndPublishTransaction(DatabaseIf db, long transactionId,
             List<SubTransactionState> subTransactionStates, long timeoutMillis) throws UserException {
-        // TODO calculate delete bitmap for mow table
         List<Long> tableIdList = subTransactionStates.stream().map(s -> s.getTable().getId()).distinct()
                 .collect(Collectors.toList());
         List<? extends TableIf> tableIfList = db.getTablesOnIdOrderOrThrowException(tableIdList);
