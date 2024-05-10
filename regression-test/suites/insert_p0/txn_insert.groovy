@@ -27,6 +27,9 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
 suite("txn_insert") {
+    if (isCloudMode()) {
+        return
+    }
     def table = "txn_insert_tbl"
 
     def get_observer_fe_url = {
