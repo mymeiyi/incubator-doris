@@ -246,6 +246,16 @@ public class MetaServiceProxy {
         }
     }
 
+    public Cloud.AddTxnTableIdResponse addTxnTableId(Cloud.AddTxnTableIdRequest request)
+            throws RpcException {
+        try {
+            final MetaServiceClient client = getProxy();
+            return client.addTxnTableId(request);
+        } catch (Exception e) {
+            throw new RpcException("", e.getMessage(), e);
+        }
+    }
+
     public Cloud.CheckTxnConflictResponse checkTxnConflict(Cloud.CheckTxnConflictRequest request)
             throws RpcException {
         try {

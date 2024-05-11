@@ -200,6 +200,15 @@ public class MetaServiceClient {
         return blockingStub.getCurrentMaxTxnId(request);
     }
 
+    public Cloud.AddTxnTableIdResponse addTxnTableId(Cloud.AddTxnTableIdRequest request) {
+        if (!request.hasCloudUniqueId()) {
+            Cloud.AddTxnTableIdRequest.Builder builder = Cloud.AddTxnTableIdRequest.newBuilder();
+            builder.mergeFrom(request);
+            return blockingStub.addTxnTableId(builder.setCloudUniqueId(Config.cloud_unique_id).build());
+        }
+        return blockingStub.addTxnTableId(request);
+    }
+
     public Cloud.CheckTxnConflictResponse checkTxnConflict(Cloud.CheckTxnConflictRequest request) {
         return blockingStub.checkTxnConflict(request);
     }

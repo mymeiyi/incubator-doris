@@ -31,6 +31,8 @@ import org.apache.doris.catalog.TabletMeta;
 import org.apache.doris.cloud.catalog.CloudPartition;
 import org.apache.doris.cloud.proto.Cloud.AbortTxnRequest;
 import org.apache.doris.cloud.proto.Cloud.AbortTxnResponse;
+import org.apache.doris.cloud.proto.Cloud.AddTxnTableIdRequest;
+import org.apache.doris.cloud.proto.Cloud.AddTxnTableIdResponse;
 import org.apache.doris.cloud.proto.Cloud.BeginTxnRequest;
 import org.apache.doris.cloud.proto.Cloud.BeginTxnResponse;
 import org.apache.doris.cloud.proto.Cloud.CheckTxnConflictRequest;
@@ -121,6 +123,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -824,6 +827,7 @@ public class CloudGlobalTransactionMgr implements GlobalTransactionMgrIface {
     @Override
     public boolean commitAndPublishTransaction(DatabaseIf db, long transactionId,
             List<SubTransactionState> subTransactionStates, long timeoutMillis) throws UserException {
+        cleanSubTransactions(transactionId);
         List<Long> tableIdList = subTransactionStates.stream().map(s -> s.getTable().getId()).distinct()
                 .collect(Collectors.toList());
         List<? extends TableIf> tableIfList = db.getTablesOnIdOrderOrThrowException(tableIdList);
@@ -868,6 +872,7 @@ public class CloudGlobalTransactionMgr implements GlobalTransactionMgrIface {
 
     @Override
     public void abortTransaction(Long dbId, Long transactionId, String reason) throws UserException {
+        cleanSubTransactions(transactionId);
         abortTransaction(dbId, transactionId, reason, null, null);
     }
 
@@ -1420,5 +1425,53 @@ public class CloudGlobalTransactionMgr implements GlobalTransactionMgrIface {
     @Override
     public void removeSubTransaction(long dbId, long subTransactionId) {
         subTxnIdToTxnId.remove(subTransactionId);
+    }
+
+    private void cleanSubTransactions(long transactionId) {
+        Iterator<Entry<Long, Long>> iterator = subTxnIdToTxnId.entrySet().iterator();
+        while (iterator.hasNext()) {
+            Entry<Long, Long> entry = iterator.next();
+            if (entry.getValue() == transactionId) {
+                iterator.remove();
+            }
+        }
+    }
+
+    public TransactionState addTxnTableId(long txnId, long dbId, long tableId) throws UserException {
+        LOG.info("try to add transaction table id, txnId: {}, tableId: {}", txnId, tableId);
+        AddTxnTableIdRequest addTxnTableIdRequest = AddTxnTableIdRequest.newBuilder()
+                .setCloudUniqueId(Config.cloud_unique_id)
+                .setTxnId(txnId).setDbId(dbId).setTableId(tableId).build();
+        AddTxnTableIdResponse addTxnTableIdResponse = null;
+        int retryTime = 0;
+        try {
+            while (retryTime < Config.cloud_meta_service_rpc_failed_retry_times) {
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("retryTime:{}, addTxnTableIdRequest:{}", retryTime, addTxnTableIdRequest);
+                }
+                addTxnTableIdResponse = MetaServiceProxy.getInstance().addTxnTableId(addTxnTableIdRequest);
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("retryTime:{}, addTxnTableIdResponse:{}", retryTime, addTxnTableIdResponse);
+                }
+
+                if (addTxnTableIdResponse.getStatus().getCode() != MetaServiceCode.KV_TXN_CONFLICT) {
+                    break;
+                }
+                LOG.info("addTxnTableId KV_TXN_CONFLICT, retryTime:{}", retryTime);
+                backoff();
+                retryTime++;
+            }
+
+            Preconditions.checkNotNull(addTxnTableIdResponse);
+            Preconditions.checkNotNull(addTxnTableIdResponse.getStatus());
+        } catch (Exception e) {
+            LOG.warn("addTxnTableId failed, exception:", e);
+            throw new UserException("addTxnTableId failed, errMsg:" + e.getMessage());
+        }
+
+        if (addTxnTableIdResponse.getStatus().getCode() != MetaServiceCode.OK) {
+            throw new UserException(addTxnTableIdResponse.getStatus().getMsg());
+        }
+        return TxnUtil.transactionStateFromPb(addTxnTableIdResponse.getTxnInfo());
     }
 }

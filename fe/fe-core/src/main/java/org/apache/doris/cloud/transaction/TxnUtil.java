@@ -303,7 +303,7 @@ public class TxnUtil {
             LOG.debug("txnInfo={}", txnInfo);
         }
         long dbId = txnInfo.getDbId();
-        List<Long> tableIdList = Lists.newArrayList(txnInfo.getTableIdsList());
+        List<Long> tableIdList = txnInfo.getTableIdsList();
         long transactionId = txnInfo.getTxnId();
         String label = txnInfo.getLabel();
 

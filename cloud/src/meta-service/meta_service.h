@@ -80,6 +80,10 @@ public:
                                 GetCurrentMaxTxnResponse* response,
                                 ::google::protobuf::Closure* done) override;
 
+    void add_txn_table_id(::google::protobuf::RpcController* controller,
+                          const AddTxnTableIdRequest* request, AddTxnTableIdResponse* response,
+                          ::google::protobuf::Closure* done) override;
+
     void check_txn_conflict(::google::protobuf::RpcController* controller,
                             const CheckTxnConflictRequest* request,
                             CheckTxnConflictResponse* response,
@@ -323,6 +327,12 @@ public:
                                 GetCurrentMaxTxnResponse* response,
                                 ::google::protobuf::Closure* done) override {
         call_impl(&cloud::MetaService::get_current_max_txn_id, controller, request, response, done);
+    }
+
+    void add_txn_table_id(::google::protobuf::RpcController* controller,
+                          const AddTxnTableIdRequest* request, AddTxnTableIdResponse* response,
+                          ::google::protobuf::Closure* done) override {
+        call_impl(&cloud::MetaService::add_txn_table_id, controller, request, response, done);
     }
 
     void check_txn_conflict(::google::protobuf::RpcController* controller,

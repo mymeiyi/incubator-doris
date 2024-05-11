@@ -24,6 +24,7 @@ import org.apache.doris.catalog.KeysType;
 import org.apache.doris.catalog.OlapTable;
 import org.apache.doris.catalog.Table;
 import org.apache.doris.catalog.TableIf;
+import org.apache.doris.cloud.transaction.CloudGlobalTransactionMgr;
 import org.apache.doris.common.AnalysisException;
 import org.apache.doris.common.Config;
 import org.apache.doris.common.UserException;
@@ -198,8 +199,17 @@ public class TransactionEntry {
                 throw new AnalysisException(
                         "Transaction insert must be in the same database, expect db_id=" + this.database.getId());
             }
-            this.transactionState.addTableId(table.getId());
             long subTxnId = Env.getCurrentGlobalTransactionMgr().getNextTransactionId();
+            if (Config.isCloudMode()) {
+                if (!this.transactionState.getTableIdList().contains(table.getId())) {
+                    this.transactionState
+                            = ((CloudGlobalTransactionMgr) Env.getCurrentGlobalTransactionMgr()).addTxnTableId(
+                            transactionId, table.getDatabase().getId(), table.getId());
+                    LOG.info("sout: table_ids={}", this.transactionState.getTableIdList());
+                }
+            } else {
+                this.transactionState.addTableId(table.getId());
+            }
             Env.getCurrentGlobalTransactionMgr().addSubTransaction(database.getId(), transactionId, subTxnId);
             return subTxnId;
         }
