@@ -200,13 +200,13 @@ public class MetaServiceClient {
         return blockingStub.getCurrentMaxTxnId(request);
     }
 
-    public Cloud.AddTxnTableIdResponse addTxnTableId(Cloud.AddTxnTableIdRequest request) {
+    public Cloud.ModifyTxnTableIdResponse modifyTxnTableId(Cloud.ModifyTxnTableIdRequest request) {
         if (!request.hasCloudUniqueId()) {
-            Cloud.AddTxnTableIdRequest.Builder builder = Cloud.AddTxnTableIdRequest.newBuilder();
+            Cloud.ModifyTxnTableIdRequest.Builder builder = Cloud.ModifyTxnTableIdRequest.newBuilder();
             builder.mergeFrom(request);
-            return blockingStub.addTxnTableId(builder.setCloudUniqueId(Config.cloud_unique_id).build());
+            return blockingStub.modifyTxnTableId(builder.setCloudUniqueId(Config.cloud_unique_id).build());
         }
-        return blockingStub.addTxnTableId(request);
+        return blockingStub.modifyTxnTableId(request);
     }
 
     public Cloud.CheckTxnConflictResponse checkTxnConflict(Cloud.CheckTxnConflictRequest request) {

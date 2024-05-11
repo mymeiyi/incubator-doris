@@ -246,11 +246,11 @@ public class MetaServiceProxy {
         }
     }
 
-    public Cloud.AddTxnTableIdResponse addTxnTableId(Cloud.AddTxnTableIdRequest request)
+    public Cloud.ModifyTxnTableIdResponse modifyTxnTableId(Cloud.ModifyTxnTableIdRequest request)
             throws RpcException {
         try {
             final MetaServiceClient client = getProxy();
-            return client.addTxnTableId(request);
+            return client.modifyTxnTableId(request);
         } catch (Exception e) {
             throw new RpcException("", e.getMessage(), e);
         }

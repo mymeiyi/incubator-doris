@@ -709,14 +709,15 @@ message GetTxnIdResponse {
     optional int64 txn_id = 2;
 }
 
-message AddTxnTableIdRequest {
+message ModifyTxnTableIdRequest {
     optional string cloud_unique_id = 1; // For auth
     optional int64 txn_id = 2;
     optional int64 db_id = 3;
     optional int64 table_id = 4;
+    optional bool add = 5;
 }
 
-message AddTxnTableIdResponse {
+message ModifyTxnTableIdResponse {
     optional MetaServiceResponseStatus status = 1;
     optional TxnInfoPB txn_info = 2;
 }
@@ -1384,7 +1385,7 @@ service MetaService {
     rpc check_txn_conflict(CheckTxnConflictRequest) returns (CheckTxnConflictResponse);
     rpc clean_txn_label(CleanTxnLabelRequest) returns (CleanTxnLabelResponse);
     rpc get_txn_id(GetTxnIdRequest) returns (GetTxnIdResponse);
-    rpc add_txn_table_id(AddTxnTableIdRequest) returns (AddTxnTableIdResponse);
+    rpc modify_txn_table_id(ModifyTxnTableIdRequest) returns (ModifyTxnTableIdResponse);
 
     rpc get_version(GetVersionRequest) returns (GetVersionResponse);
     rpc create_tablets(CreateTabletsRequest) returns (CreateTabletsResponse);

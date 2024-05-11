@@ -330,7 +330,18 @@ public class TransactionEntry {
 
     public void abortSubTransaction(long subTransactionId, Table table) {
         if (isTransactionBegan) {
-            this.transactionState.removeTableId(table.getId());
+            if (Config.isCloudMode()) {
+                try {
+                    this.transactionState
+                            = ((CloudGlobalTransactionMgr) Env.getCurrentGlobalTransactionMgr()).removeTxnTableId(
+                            transactionId, table.getDatabase().getId(), table.getId());
+                    LOG.info("sout: table_ids={}", this.transactionState.getTableIdList());
+                } catch (UserException e) {
+                    LOG.error("Failed to remove table id from transaction state", e);
+                }
+            } else {
+                this.transactionState.removeTableId(table.getId());
+            }
             Env.getCurrentGlobalTransactionMgr().removeSubTransaction(table.getDatabase().getId(), subTransactionId);
         }
     }

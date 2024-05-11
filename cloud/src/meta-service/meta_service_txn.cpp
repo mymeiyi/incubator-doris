@@ -2180,11 +2180,11 @@ void MetaServiceImpl::get_current_max_txn_id(::google::protobuf::RpcController* 
     response->set_current_max_txn_id(current_max_txn_id);
 }
 
-void MetaServiceImpl::add_txn_table_id(::google::protobuf::RpcController* controller,
-                                       const AddTxnTableIdRequest* request,
-                                       AddTxnTableIdResponse* response,
-                                       ::google::protobuf::Closure* done) {
-    RPC_PREPROCESS(add_txn_table_id);
+void MetaServiceImpl::modify_txn_table_id(::google::protobuf::RpcController* controller,
+                                          const ModifyTxnTableIdRequest* request,
+                                          ModifyTxnTableIdResponse* response,
+                                          ::google::protobuf::Closure* done) {
+    RPC_PREPROCESS(modify_txn_table_id);
     int64_t txn_id = request->has_txn_id() ? request->txn_id() : -1;
     if (txn_id < 0) {
         code = MetaServiceCode::INVALID_ARGUMENT;
@@ -2195,6 +2195,7 @@ void MetaServiceImpl::add_txn_table_id(::google::protobuf::RpcController* contro
     int64_t db_id = request->db_id();
     int64_t table_id = request->table_id();
     std::string cloud_unique_id = request->has_cloud_unique_id() ? request->cloud_unique_id() : "";
+    bool is_add = request->add();
     instance_id = get_instance_id(resource_mgr_, cloud_unique_id);
     if (instance_id.empty()) {
         code = MetaServiceCode::INVALID_ARGUMENT;
@@ -2204,7 +2205,7 @@ void MetaServiceImpl::add_txn_table_id(::google::protobuf::RpcController* contro
         return;
     }
 
-    RPC_RATE_LIMIT(add_txn_table_id)
+    RPC_RATE_LIMIT(modify_txn_table_id)
     std::unique_ptr<Transaction> txn;
     TxnErrorCode err = txn_kv_->create_txn(&txn);
     if (err != TxnErrorCode::TXN_OK) {
@@ -2247,7 +2248,15 @@ void MetaServiceImpl::add_txn_table_id(::google::protobuf::RpcController* contro
         return;
     }
     // add table id;
-    txn_info.mutable_table_ids()->Add(table_id);
+    if (is_add) {
+        txn_info.mutable_table_ids()->Add(table_id);
+    } else {
+        auto it = std::find(txn_info.mutable_table_ids()->begin(),
+                            txn_info.mutable_table_ids()->end(), table_id);
+        if (it != txn_info.mutable_table_ids()->end()) {
+            txn_info.mutable_table_ids()->erase(it);
+        }
+    }
     if (!txn_info.SerializeToString(&info_val)) {
         code = MetaServiceCode::PROTOBUF_SERIALIZE_ERR;
         ss << "failed to serialize txn_info when saving, txn_id=" << txn_id;

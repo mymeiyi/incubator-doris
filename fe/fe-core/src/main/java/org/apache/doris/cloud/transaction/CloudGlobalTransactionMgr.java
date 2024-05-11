@@ -31,8 +31,6 @@ import org.apache.doris.catalog.TabletMeta;
 import org.apache.doris.cloud.catalog.CloudPartition;
 import org.apache.doris.cloud.proto.Cloud.AbortTxnRequest;
 import org.apache.doris.cloud.proto.Cloud.AbortTxnResponse;
-import org.apache.doris.cloud.proto.Cloud.AddTxnTableIdRequest;
-import org.apache.doris.cloud.proto.Cloud.AddTxnTableIdResponse;
 import org.apache.doris.cloud.proto.Cloud.BeginTxnRequest;
 import org.apache.doris.cloud.proto.Cloud.BeginTxnResponse;
 import org.apache.doris.cloud.proto.Cloud.CheckTxnConflictRequest;
@@ -51,6 +49,8 @@ import org.apache.doris.cloud.proto.Cloud.GetTxnRequest;
 import org.apache.doris.cloud.proto.Cloud.GetTxnResponse;
 import org.apache.doris.cloud.proto.Cloud.LoadJobSourceTypePB;
 import org.apache.doris.cloud.proto.Cloud.MetaServiceCode;
+import org.apache.doris.cloud.proto.Cloud.ModifyTxnTableIdRequest;
+import org.apache.doris.cloud.proto.Cloud.ModifyTxnTableIdResponse;
 import org.apache.doris.cloud.proto.Cloud.PrecommitTxnRequest;
 import org.apache.doris.cloud.proto.Cloud.PrecommitTxnResponse;
 import org.apache.doris.cloud.proto.Cloud.SubTxnInfo;
@@ -1438,40 +1438,48 @@ public class CloudGlobalTransactionMgr implements GlobalTransactionMgrIface {
     }
 
     public TransactionState addTxnTableId(long txnId, long dbId, long tableId) throws UserException {
+        return modifyTxnTableId(txnId, dbId, tableId, true);
+    }
+
+    public TransactionState removeTxnTableId(long txnId, long dbId, long tableId) throws UserException {
+        return modifyTxnTableId(txnId, dbId, tableId, false);
+    }
+
+    public TransactionState modifyTxnTableId(long txnId, long dbId, long tableId, boolean add) throws UserException {
         LOG.info("try to add transaction table id, txnId: {}, tableId: {}", txnId, tableId);
-        AddTxnTableIdRequest addTxnTableIdRequest = AddTxnTableIdRequest.newBuilder()
+        ModifyTxnTableIdRequest modifyTxnTableIdRequest = ModifyTxnTableIdRequest.newBuilder()
                 .setCloudUniqueId(Config.cloud_unique_id)
-                .setTxnId(txnId).setDbId(dbId).setTableId(tableId).build();
-        AddTxnTableIdResponse addTxnTableIdResponse = null;
+                .setTxnId(txnId).setDbId(dbId).setTableId(tableId).setAdd(add).build();
+        ModifyTxnTableIdResponse modifyTxnTableIdResponse = null;
         int retryTime = 0;
         try {
             while (retryTime < Config.cloud_meta_service_rpc_failed_retry_times) {
                 if (LOG.isDebugEnabled()) {
-                    LOG.debug("retryTime:{}, addTxnTableIdRequest:{}", retryTime, addTxnTableIdRequest);
+                    LOG.debug("retryTime:{}, modifyTxnTableIdRequest:{}", retryTime, modifyTxnTableIdRequest);
                 }
-                addTxnTableIdResponse = MetaServiceProxy.getInstance().addTxnTableId(addTxnTableIdRequest);
+                modifyTxnTableIdResponse = MetaServiceProxy.getInstance().modifyTxnTableId(modifyTxnTableIdRequest);
                 if (LOG.isDebugEnabled()) {
-                    LOG.debug("retryTime:{}, addTxnTableIdResponse:{}", retryTime, addTxnTableIdResponse);
+                    LOG.debug("retryTime:{}, modifyTxnTableIdResponse:{}", retryTime, modifyTxnTableIdResponse);
                 }
 
-                if (addTxnTableIdResponse.getStatus().getCode() != MetaServiceCode.KV_TXN_CONFLICT) {
+                if (modifyTxnTableIdResponse.getStatus().getCode() != MetaServiceCode.KV_TXN_CONFLICT) {
                     break;
                 }
-                LOG.info("addTxnTableId KV_TXN_CONFLICT, retryTime:{}", retryTime);
+                LOG.info("modifyTxnTableId KV_TXN_CONFLICT, retryTime:{}", retryTime);
                 backoff();
                 retryTime++;
             }
 
-            Preconditions.checkNotNull(addTxnTableIdResponse);
-            Preconditions.checkNotNull(addTxnTableIdResponse.getStatus());
+            Preconditions.checkNotNull(modifyTxnTableIdResponse);
+            Preconditions.checkNotNull(modifyTxnTableIdResponse.getStatus());
         } catch (Exception e) {
-            LOG.warn("addTxnTableId failed, exception:", e);
-            throw new UserException("addTxnTableId failed, errMsg:" + e.getMessage());
+            LOG.warn("modifyTxnTableId failed, exception:", e);
+            throw new UserException("modifyTxnTableId failed, errMsg:" + e.getMessage());
         }
 
-        if (addTxnTableIdResponse.getStatus().getCode() != MetaServiceCode.OK) {
-            throw new UserException(addTxnTableIdResponse.getStatus().getMsg());
+        if (modifyTxnTableIdResponse.getStatus().getCode() != MetaServiceCode.OK) {
+            throw new UserException(modifyTxnTableIdResponse.getStatus().getMsg());
         }
-        return TxnUtil.transactionStateFromPb(addTxnTableIdResponse.getTxnInfo());
+        return TxnUtil.transactionStateFromPb(modifyTxnTableIdResponse.getTxnInfo());
     }
 }
