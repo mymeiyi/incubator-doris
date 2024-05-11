@@ -20,9 +20,13 @@ package org.apache.doris.transaction;
 import org.apache.doris.catalog.Database;
 import org.apache.doris.catalog.DatabaseIf;
 import org.apache.doris.catalog.Env;
+import org.apache.doris.catalog.KeysType;
+import org.apache.doris.catalog.OlapTable;
 import org.apache.doris.catalog.Table;
 import org.apache.doris.catalog.TableIf;
+import org.apache.doris.cloud.transaction.CloudGlobalTransactionMgr;
 import org.apache.doris.common.AnalysisException;
+import org.apache.doris.common.Config;
 import org.apache.doris.common.UserException;
 import org.apache.doris.proto.InternalService;
 import org.apache.doris.proto.Types;
@@ -170,6 +174,13 @@ public class TransactionEntry {
             throw new AnalysisException(
                     "Transaction insert can not insert into values and insert into select at the same time");
         }
+        if (Config.isCloudMode()) {
+            OlapTable olapTable = (OlapTable) table;
+            if (olapTable.getKeysType() == KeysType.UNIQUE_KEYS && olapTable.getEnableUniqueKeyMergeOnWrite()) {
+                throw new UserException(
+                        "Transaction load is not supported for merge on write unique keys table in cloud mode");
+            }
+        }
         DatabaseIf database = table.getDatabase();
         if (!isTransactionBegan) {
             long timeoutSecond = ConnectContext.get().getExecTimeout();
@@ -188,8 +199,16 @@ public class TransactionEntry {
                 throw new AnalysisException(
                         "Transaction insert must be in the same database, expect db_id=" + this.database.getId());
             }
-            this.transactionState.addTableId(table.getId());
             long subTxnId = Env.getCurrentGlobalTransactionMgr().getNextTransactionId();
+            if (Config.isCloudMode()) {
+                if (!this.transactionState.getTableIdList().contains(table.getId())) {
+                    this.transactionState
+                            = ((CloudGlobalTransactionMgr) Env.getCurrentGlobalTransactionMgr()).addTxnTableId(
+                            transactionId, table.getDatabase().getId(), table.getId());
+                }
+            } else {
+                this.transactionState.addTableId(table.getId());
+            }
             Env.getCurrentGlobalTransactionMgr().addSubTransaction(database.getId(), transactionId, subTxnId);
             return subTxnId;
         }
@@ -310,7 +329,17 @@ public class TransactionEntry {
 
     public void abortSubTransaction(long subTransactionId, Table table) {
         if (isTransactionBegan) {
-            this.transactionState.removeTableId(table.getId());
+            if (Config.isCloudMode()) {
+                try {
+                    this.transactionState
+                            = ((CloudGlobalTransactionMgr) Env.getCurrentGlobalTransactionMgr()).removeTxnTableId(
+                            transactionId, table.getDatabase().getId(), table.getId());
+                } catch (UserException e) {
+                    LOG.error("Failed to remove table_id={} from txn_id={}", table.getId(), transactionId, e);
+                }
+            } else {
+                this.transactionState.removeTableId(table.getId());
+            }
             Env.getCurrentGlobalTransactionMgr().removeSubTransaction(table.getDatabase().getId(), subTransactionId);
         }
     }
@@ -322,11 +351,12 @@ public class TransactionEntry {
                     label, transactionId, subTxnId, table, commitInfos);
         }
         this.subTransactionStates.add(new SubTransactionState(subTxnId, table, commitInfos, subTransactionType));
-        Preconditions.checkState(transactionState.getTableIdList().size() == subTransactionStates.size(),
-                "txn_id={}, expect table_list={}, but is={}",
-                transactionId,
-                subTransactionStates.stream().map(s -> s.getTable().getId()).collect(Collectors.toList()),
-                transactionState.getTableIdList());
+        if (!Config.isCloudMode()) {
+            Preconditions.checkState(transactionState.getTableIdList().size() == subTransactionStates.size(),
+                    "txn_id=" + transactionId + ", expect table_list=" + subTransactionStates.stream()
+                            .map(s -> s.getTable().getId()).collect(Collectors.toList()) + ", real table_list="
+                            + transactionState.getTableIdList());
+        }
     }
 
     public boolean isTransactionBegan() {

@@ -125,13 +125,13 @@ public class InsertStreamTxnExecutor {
         } finally {
             table.readUnlock();
         }
-
+        // TODO change the be select policy
         BeSelectionPolicy policy = new BeSelectionPolicy.Builder().needLoadAvailable().needQueryAvailable().build();
         List<Long> beIds = Env.getCurrentSystemInfo().selectBackendIdsByPolicy(policy, 1);
         if (beIds.isEmpty()) {
             throw new UserException("No available backend to match the policy: " + policy);
         }
-
+        // TODO always use 0?
         Backend backend = Env.getCurrentSystemInfo().getIdToBackend().get(beIds.get(0));
         txnConf.setUserIp(backend.getHost());
         txnEntry.setBackend(backend);
