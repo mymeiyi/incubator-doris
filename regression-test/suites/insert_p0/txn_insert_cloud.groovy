@@ -307,12 +307,13 @@ suite("txn_insert_cloud") {
                     );
                 """
             }
+            sql """ insert into ${unique_table}_0 values(1, "a", 10), (2, "b", 20), (3, "c", 30); """
+            sql """ insert into ${unique_table}_1 values(1, "a", 11), (2, "b", 19), (4, "d", 40); """
+            sql """ insert into ${unique_table}_2 values(1, "a", 9), (2, "b", 21), (4, "d", 39), (5, "e", 50); """
+            sql """ begin """
             try {
-                sql """ insert into ${unique_table}_0 values(1, "a", 10), (2, "b", 20), (3, "c", 30); """
-                sql """ insert into ${unique_table}_1 values(1, "a", 11), (2, "b", 19), (4, "d", 40); """
-                sql """ insert into ${unique_table}_2 values(1, "a", 9), (2, "b", 21), (4, "d", 39), (5, "e", 50); """
-                sql """ begin """
                 sql """ insert into ${unique_table}_2 select * from ${unique_table}_0; """
+                assertFalse(true, "should not reach here")
                 sql """ insert into ${unique_table}_1 select * from ${unique_table}_0; """
                 sql """ insert into ${unique_table}_2 select * from ${unique_table}_1; """
                 sql """ commit; """
@@ -320,10 +321,10 @@ suite("txn_insert_cloud") {
                 order_qt_select28 """select * from ${unique_table}_0"""
                 order_qt_select29 """select * from ${unique_table}_1"""
                 order_qt_select30 """select * from ${unique_table}_2"""
-                assertFalse(true, "should not reach here")
             } catch (Exception e) {
                 logger.info("exception: $e")
-                assertTrue(e.getMessage().contains("Transaction insert can not insert into values and insert into select at the same time"))
+                assertTrue(e.getMessage().contains("Transaction insert is not supported for merge on write unique keys table in cloud mode"))
+                sql """ rollback """
             }
         }
 
