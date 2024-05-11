@@ -645,6 +645,15 @@ message CommitTxnRequest {
     // merge-on-write table ids
     repeated int64 mow_table_ids = 6;
     repeated int64 base_tablet_ids= 7; // all tablet from base tables (excluding mv)
+    // for transaction load
+    optional bool is_txn_load = 9;
+    repeated SubTxnInfo sub_txn_infos = 10;
+}
+
+message SubTxnInfo {
+    optional int64 sub_txn_id = 1;
+    optional int64 table_id = 2;
+    repeated int64 base_tablet_ids= 3;
 }
 
 // corresponding to TabletStats in meta_service.h and FrontendServiceImpl.java
@@ -699,6 +708,19 @@ message GetTxnIdRequest {
 message GetTxnIdResponse {
     optional MetaServiceResponseStatus status = 1;
     optional int64 txn_id = 2;
+}
+
+message ModifyTxnTableIdRequest {
+    optional string cloud_unique_id = 1; // For auth
+    optional int64 txn_id = 2;
+    optional int64 db_id = 3;
+    optional int64 table_id = 4;
+    optional bool add = 5;
+}
+
+message ModifyTxnTableIdResponse {
+    optional MetaServiceResponseStatus status = 1;
+    optional TxnInfoPB txn_info = 2;
 }
 
 message GetCurrentMaxTxnRequest {
@@ -1364,6 +1386,7 @@ service MetaService {
     rpc check_txn_conflict(CheckTxnConflictRequest) returns (CheckTxnConflictResponse);
     rpc clean_txn_label(CleanTxnLabelRequest) returns (CleanTxnLabelResponse);
     rpc get_txn_id(GetTxnIdRequest) returns (GetTxnIdResponse);
+    rpc modify_txn_table_id(ModifyTxnTableIdRequest) returns (ModifyTxnTableIdResponse);
 
     rpc get_version(GetVersionRequest) returns (GetVersionResponse);
     rpc create_tablets(CreateTabletsRequest) returns (CreateTabletsResponse);
