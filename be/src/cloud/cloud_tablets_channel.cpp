@@ -203,6 +203,7 @@ Status CloudTabletsChannel::close(LoadChannel* parent, const PTabletWriterAddBlo
     std::vector<std::function<Status()>> tasks;
     tasks.reserve(writers_to_commit.size());
     for (auto* writer : writers_to_commit) {
+        LOG(INFO) << "sout: call commit rowset";
         tasks.emplace_back([writer] { return writer->commit_rowset(); });
     }
     _close_status = cloud::bthread_fork_join(tasks, 10);

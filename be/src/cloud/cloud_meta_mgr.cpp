@@ -665,6 +665,8 @@ Status CloudMetaMgr::prepare_rowset(const RowsetMeta& rs_meta,
 
 Status CloudMetaMgr::commit_rowset(const RowsetMeta& rs_meta,
                                    RowsetMetaSharedPtr* existed_rs_meta) {
+    LOG(INFO) << "sout: call commit rowset to ms, tablet_id: " << rs_meta.tablet_id()
+              << ", rowset_id: " << rs_meta.rowset_id();
     VLOG_DEBUG << "commit rowset, tablet_id: " << rs_meta.tablet_id()
                << ", rowset_id: " << rs_meta.rowset_id();
     CreateRowsetRequest req;
