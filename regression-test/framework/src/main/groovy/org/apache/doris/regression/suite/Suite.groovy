@@ -858,12 +858,13 @@ class Suite implements GroovyInterceptable {
     }
 
     void getBackendIpHttpPort(Map<String, String> backendId_to_backendIP, Map<String, String> backendId_to_backendHttpPort) {
-        List<List<Object>> backends = sql("show backends");
-        for (List<Object> backend : backends) {
-            backendId_to_backendIP.put(String.valueOf(backend[0]), String.valueOf(backend[1]));
-            backendId_to_backendHttpPort.put(String.valueOf(backend[0]), String.valueOf(backend[4]));
+        def backends = sql_return_maparray("show backends");
+        for (def backend : backends) {
+            if (backend.get("Alive").equals("true")) {
+                backendId_to_backendIP.put(backend.get("BackendId"), backend.get("Host"));
+                backendId_to_backendHttpPort.put(backend.get("BackendId"), backend.get("HttpPort"));
+            }
         }
-        return;
     }
 
     int getTotalLine(String filePath) {
