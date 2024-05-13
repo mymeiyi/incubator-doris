@@ -662,7 +662,7 @@ void MetaServiceImpl::get_rl_task_commit_attach(::google::protobuf::RpcControlle
 void MetaServiceImpl::commit_txn(::google::protobuf::RpcController* controller,
                                  const CommitTxnRequest* request, CommitTxnResponse* response,
                                  ::google::protobuf::Closure* done) {
-    if (request->is_txn_load()) {
+    if (request->has_is_txn_load() && request->is_txn_load()) {
         commit_txn_with_sub_txn(controller, request, response, done);
         return;
     }
@@ -1239,6 +1239,34 @@ void MetaServiceImpl::commit_txn(::google::protobuf::RpcController* controller,
     response->mutable_txn_info()->CopyFrom(txn_info);
 } // end commit_txn
 
+/**
+ * This process is generally the same as commit_txn, the difference is that
+ * the partitions version will plus 1 in multi sub txns.
+ *
+ * One example:
+ *  Suppose the table, partition, tablet and version info is:
+ *  --------------------------------------------
+ *  | table | partition | tablet    | version |
+ *  --------------------------------------------
+ *  | t1    | t1_p1     | t1_p1.1   | 1       |
+ *  | t1    | t1_p1     | t1_p1.2   | 1       |
+ *  | t1    | t1_p2     | t1_p2.1   | 2       |
+ *  | t2    | t2_p3     | t2_p3.1   | 3       |
+ *  | t2    | t2_p4     | t2_p4.1   | 4       |
+ *  --------------------------------------------
+ *
+ *  Now we commit a txn with 3 sub txns and the tablets are:
+ *    sub_txn1: t1_p1.1, t1_p1.2, t1_p2.1
+ *    sub_txn2: t2_p3.1
+ *    sub_txn3: t1_p1.1, t1_p1.2
+ *  When commit, the partitions version will be:
+ *    sub_txn1: t1_p1(1 -> 2), t1_p2(2 -> 3)
+ *    sub_txn2: t2_p3(3 -> 4)
+ *    sub_txn3: t1_p1(2 -> 3)
+ *  After commit, the partitions version will be:
+ *    t1: t1_p1(3), t1_p2(3)
+ *    t2: t2_p3(4), t2_p4(4)
+ */
 void MetaServiceImpl::commit_txn_with_sub_txn(::google::protobuf::RpcController* controller,
                                               const CommitTxnRequest* request,
                                               CommitTxnResponse* response,
