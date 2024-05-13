@@ -294,6 +294,7 @@ Status CloudSchemaChangeJob::_convert_historical_rowsets(const SchemaChangeParam
                                          st.to_string());
         }
 
+        LOG(INFO) << "sout: call commit rowset in schema change";
         st = _cloud_storage_engine.meta_mgr().commit_rowset(*rowset_writer->rowset_meta(),
                                                             &existed_rs_meta);
         if (!st.ok()) {
