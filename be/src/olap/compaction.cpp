@@ -1062,6 +1062,7 @@ Status CloudCompactionMixin::execute_compact_impl(int64_t permits) {
 
     RETURN_IF_ERROR(do_inverted_index_compaction());
 
+    LOG(INFO) << "sout: call commit rowset in compaction";
     RETURN_IF_ERROR(_engine.meta_mgr().commit_rowset(*_output_rowset->rowset_meta().get()));
 
     // 4. modify rowsets in memory
