@@ -2343,13 +2343,6 @@ void MetaServiceImpl::begin_sub_txn(::google::protobuf::RpcController* controlle
 
     txn_info.mutable_table_ids()->Add(table_id);
     txn_info.mutable_sub_txn_ids()->Add(sub_txn_id);
-    /*else {
-        auto it = txn_info.mutable_table_ids()->end() - 1;
-        if (*it == table_id) {
-            txn_info.mutable_table_ids()->erase(it);
-        }
-        // does not need to remove sub_txn_id
-    }*/
     if (!txn_info.SerializeToString(&info_val)) {
         code = MetaServiceCode::PROTOBUF_SERIALIZE_ERR;
         ss << "failed to serialize txn_info when saving, txn_id=" << txn_id;
@@ -2360,6 +2353,8 @@ void MetaServiceImpl::begin_sub_txn(::google::protobuf::RpcController* controlle
     txn->remove(label_key);
     txn->put(info_key, info_val);
     txn->put(index_key, index_val);
+    LOG(INFO) << "xxx remove label_key=" << hex(label_key) << " txn_id=" << txn_id
+              << " sub_txn_id=" << sub_txn_id;
     LOG(INFO) << "xxx put info_key=" << hex(info_key) << " txn_id=" << txn_id
               << " sub_txn_id=" << sub_txn_id;
     LOG(INFO) << "xxx put index_key=" << hex(index_key) << " txn_id=" << txn_id
@@ -2429,7 +2424,6 @@ void MetaServiceImpl::abort_sub_txn(::google::protobuf::RpcController* controlle
         LOG(WARNING) << msg;
         return;
     }
-
     TxnInfoPB txn_info;
     if (!txn_info.ParseFromString(info_val)) {
         code = MetaServiceCode::PROTOBUF_PARSE_ERR;
@@ -2448,7 +2442,7 @@ void MetaServiceImpl::abort_sub_txn(::google::protobuf::RpcController* controlle
         return;
     }
 
-    // does not need to remove sub_txn_id
+    // remove table_id and does not need to remove sub_txn_id
     auto it = txn_info.mutable_table_ids()->end() - 1;
     if (*it == table_id) {
         txn_info.mutable_table_ids()->erase(it);

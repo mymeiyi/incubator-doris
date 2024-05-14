@@ -1545,6 +1545,23 @@ TEST(MetaServiceTest, BeginAndAbortSubTxnTest) {
             ASSERT_EQ(res.txn_info().table_ids()[1], 1235);
         }
     }
+    // check label key does not exist
+    for (int i = 0; i < 2; i++) {
+        std::string key =
+                txn_label_key({"test_instance", db_id, "test_label_" + std::to_string(i)});
+        std::string val;
+        std::unique_ptr<Transaction> txn;
+        ASSERT_EQ(meta_service->txn_kv()->create_txn(&txn), TxnErrorCode::TXN_OK);
+        ASSERT_EQ(txn->get(key, &val), TxnErrorCode::TXN_KEY_NOT_FOUND);
+    }
+    // check txn index key exist
+    for (auto i : {sub_txn_id1, sub_txn_id2}) {
+        std::string key = txn_index_key({"test_instance", i});
+        std::string val;
+        std::unique_ptr<Transaction> txn;
+        ASSERT_EQ(meta_service->txn_kv()->create_txn(&txn), TxnErrorCode::TXN_OK);
+        ASSERT_EQ(txn->get(key, &val), TxnErrorCode::TXN_OK);
+    }
 }
 
 TEST(MetaServiceTest, AbortTxnTest) {
