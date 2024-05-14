@@ -712,22 +712,33 @@ message GetTxnIdResponse {
     optional int64 txn_id = 2;
 }
 
-message ModifyTxnTableIdRequest {
+message BeginSubTxnRequest {
     optional string cloud_unique_id = 1; // For auth
     optional int64 txn_id = 2;
     optional int64 db_id = 3;
+    // add table_id to txn_state
+    optional int64 table_id = 4;
     // a random label used to generate a sub_txn_id
-    optional string label = 4;
-    // add table_id to txn_state if begin is true; remove table_id from txn_state if abort is true
-    optional int64 table_id = 5;
-    optional bool begin = 6;
-    optional bool abort = 7;
+    optional string label = 5;
 }
 
-message ModifyTxnTableIdResponse {
+message BeginSubTxnResponse {
     optional MetaServiceResponseStatus status = 1;
     optional int64 sub_txn_id = 2;
     optional TxnInfoPB txn_info = 3;
+}
+
+message AbortSubTxnRequest {
+    optional string cloud_unique_id = 1; // For auth
+    optional int64 txn_id = 2;
+    optional int64 db_id = 3;
+    // remove table_id from txn_state
+    optional int64 table_id = 4;
+}
+
+message AbortSubTxnResponse {
+    optional MetaServiceResponseStatus status = 1;
+    optional TxnInfoPB txn_info = 2;
 }
 
 message GetCurrentMaxTxnRequest {
@@ -1393,7 +1404,8 @@ service MetaService {
     rpc check_txn_conflict(CheckTxnConflictRequest) returns (CheckTxnConflictResponse);
     rpc clean_txn_label(CleanTxnLabelRequest) returns (CleanTxnLabelResponse);
     rpc get_txn_id(GetTxnIdRequest) returns (GetTxnIdResponse);
-    rpc modify_txn_table_id(ModifyTxnTableIdRequest) returns (ModifyTxnTableIdResponse);
+    rpc begin_sub_txn(BeginSubTxnRequest) returns (BeginSubTxnResponse);
+    rpc abort_sub_txn(AbortSubTxnRequest) returns (AbortSubTxnResponse);
 
     rpc get_version(GetVersionRequest) returns (GetVersionResponse);
     rpc create_tablets(CreateTabletsRequest) returns (CreateTabletsResponse);
