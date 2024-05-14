@@ -2377,6 +2377,7 @@ void MetaServiceImpl::modify_txn_table_id(::google::protobuf::RpcController* con
         msg = ss.str();
         return;
     }
+    response->set_sub_txn_id(sub_txn_id);
     response->mutable_txn_info()->CopyFrom(txn_info);
 }
 
