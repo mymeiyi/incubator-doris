@@ -378,6 +378,8 @@ message TxnInfoPB {
     optional TxnStatusPB status = 15;
     optional TxnCommitAttachmentPB commit_attachment = 16;
     optional int64 listener_id = 17; //callback id
+    // for transaction load, used for recycle
+    repeated int64 sub_txn_ids = 18;
     // TODO: There are more fields TBD
 }
 
@@ -714,13 +716,18 @@ message ModifyTxnTableIdRequest {
     optional string cloud_unique_id = 1; // For auth
     optional int64 txn_id = 2;
     optional int64 db_id = 3;
-    optional int64 table_id = 4;
-    optional bool add = 5;
+    // a random label used to generate a sub_txn_id
+    optional string label = 4;
+    // add table_id to txn_state if begin is true; remove table_id from txn_state if abort is true
+    optional int64 table_id = 5;
+    optional bool begin = 6;
+    optional bool abort = 7;
 }
 
 message ModifyTxnTableIdResponse {
     optional MetaServiceResponseStatus status = 1;
-    optional TxnInfoPB txn_info = 2;
+    optional int64 sub_txn_id = 2;
+    optional TxnInfoPB txn_info = 3;
 }
 
 message GetCurrentMaxTxnRequest {
