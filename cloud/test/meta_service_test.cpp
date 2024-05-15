@@ -1459,9 +1459,9 @@ TEST(MetaServiceTest, CommitTxnWithSubTxnTest) {
     }
 
     // commit txn
+    CommitTxnRequest req;
     {
         brpc::Controller cntl;
-        CommitTxnRequest req;
         req.set_cloud_unique_id("test_cloud_unique_id");
         req.set_db_id(666);
         req.set_txn_id(txn_id);
@@ -1492,7 +1492,7 @@ TEST(MetaServiceTest, CommitTxnWithSubTxnTest) {
         meta_service->commit_txn(reinterpret_cast<::google::protobuf::RpcController*>(&cntl), &req,
                                  &res, nullptr);
         ASSERT_EQ(res.status().code(), MetaServiceCode::OK);
-        std::cout << res.DebugString() << std::endl;
+        // std::cout << res.DebugString() << std::endl;
         ASSERT_EQ(res.table_ids().size(), 3);
 
         ASSERT_EQ(res.table_ids()[0], t2);
@@ -1509,13 +1509,8 @@ TEST(MetaServiceTest, CommitTxnWithSubTxnTest) {
     }
 
     // doubly commit txn
-    /*{
+    {
         brpc::Controller cntl;
-        CommitTxnRequest req;
-        auto db_id = 666;
-        req.set_cloud_unique_id("test_cloud_unique_id");
-        req.set_db_id(db_id);
-        req.set_txn_id(txn_id);
         CommitTxnResponse res;
         meta_service->commit_txn(reinterpret_cast<::google::protobuf::RpcController*>(&cntl), &req,
                                  &res, nullptr);
@@ -1523,7 +1518,7 @@ TEST(MetaServiceTest, CommitTxnWithSubTxnTest) {
         auto found = res.status().msg().find(
                 fmt::format("transaction is already visible: db_id={} txn_id={}", db_id, txn_id));
         ASSERT_TRUE(found != std::string::npos);
-    }*/
+    }
 }
 
 TEST(MetaServiceTest, BeginAndAbortSubTxnTest) {
