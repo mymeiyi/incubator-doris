@@ -356,12 +356,10 @@ public class TransactionEntry {
                     label, transactionId, subTxnId, table, commitInfos);
         }
         this.subTransactionStates.add(new SubTransactionState(subTxnId, table, commitInfos, subTransactionType));
-        if (!Config.isCloudMode()) {
-            Preconditions.checkState(transactionState.getTableIdList().size() == subTransactionStates.size(),
-                    "txn_id=" + transactionId + ", expect table_list=" + subTransactionStates.stream()
-                            .map(s -> s.getTable().getId()).collect(Collectors.toList()) + ", real table_list="
-                            + transactionState.getTableIdList());
-        }
+        Preconditions.checkState(transactionState.getTableIdList().size() == subTransactionStates.size(),
+                "txn_id=" + transactionId + ", expect table_list=" + subTransactionStates.stream()
+                        .map(s -> s.getTable().getId()).collect(Collectors.toList()) + ", real table_list="
+                        + transactionState.getTableIdList());
     }
 
     public boolean isTransactionBegan() {
