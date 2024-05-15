@@ -2190,6 +2190,16 @@ void MetaServiceImpl::get_current_max_txn_id(::google::protobuf::RpcController* 
     response->set_current_max_txn_id(current_max_txn_id);
 }
 
+/**
+ * 1. Generate a sub_txn_id
+ *
+ * The following steps are done in a txn:
+ * 2. Put txn_index_key in sub_txn_id
+ * 3. Delete txn_label_key in sub_txn_id
+ * 4. Modify the txn state of the txn_id:
+ *    - Add the sub txn id to sub_txn_ids: recycler use it to recycle the txn_index_key
+ *    - Add the table id to table_ids
+ */
 void MetaServiceImpl::begin_sub_txn(::google::protobuf::RpcController* controller,
                                     const BeginSubTxnRequest* request,
                                     BeginSubTxnResponse* response,
@@ -2245,7 +2255,7 @@ void MetaServiceImpl::begin_sub_txn(::google::protobuf::RpcController* controlle
 
     LOG(INFO) << "txn->get label_key=" << hex(label_key) << " label=" << label << " err=" << err;
 
-    // err == OK means label has previous txn ids.
+    // err == OK means this is a retry rpc?
     if (err == TxnErrorCode::TXN_OK) {
         label_val = label_val.substr(0, label_val.size() - VERSION_STAMP_LEN);
     }
@@ -2371,6 +2381,10 @@ void MetaServiceImpl::begin_sub_txn(::google::protobuf::RpcController* controlle
     response->mutable_txn_info()->CopyFrom(txn_info);
 }
 
+/**
+ * 1. Modify the txn state of the txn_id:
+ *    - Remove the table id from table_ids
+ */
 void MetaServiceImpl::abort_sub_txn(::google::protobuf::RpcController* controller,
                                     const AbortSubTxnRequest* request,
                                     AbortSubTxnResponse* response,
