@@ -2448,6 +2448,7 @@ void MetaServiceImpl::abort_sub_txn(::google::protobuf::RpcController* controlle
     if (*it == table_id) {
         txn_info.mutable_table_ids()->erase(it);
     }
+    // TODO should we try to delete txn_label_key if begin_sub_txn failed to delete?
 
     if (!txn_info.SerializeToString(&info_val)) {
         code = MetaServiceCode::PROTOBUF_SERIALIZE_ERR;
