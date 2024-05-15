@@ -27,6 +27,7 @@ import org.apache.doris.catalog.TableIf;
 import org.apache.doris.cloud.transaction.CloudGlobalTransactionMgr;
 import org.apache.doris.common.AnalysisException;
 import org.apache.doris.common.Config;
+import org.apache.doris.common.Pair;
 import org.apache.doris.common.UserException;
 import org.apache.doris.proto.InternalService;
 import org.apache.doris.proto.Types;
@@ -37,6 +38,7 @@ import org.apache.doris.service.FrontendOptions;
 import org.apache.doris.system.Backend;
 import org.apache.doris.thrift.TTabletCommitInfo;
 import org.apache.doris.thrift.TTxnParams;
+import org.apache.doris.thrift.TUniqueId;
 import org.apache.doris.thrift.TWaitingTxnStatusRequest;
 import org.apache.doris.thrift.TWaitingTxnStatusResult;
 import org.apache.doris.transaction.SubTransactionState.SubTransactionType;
@@ -199,14 +201,17 @@ public class TransactionEntry {
                 throw new AnalysisException(
                         "Transaction insert must be in the same database, expect db_id=" + this.database.getId());
             }
-            long subTxnId = Env.getCurrentGlobalTransactionMgr().getNextTransactionId();
+            long subTxnId;
             if (Config.isCloudMode()) {
-                if (!this.transactionState.getTableIdList().contains(table.getId())) {
-                    this.transactionState
-                            = ((CloudGlobalTransactionMgr) Env.getCurrentGlobalTransactionMgr()).addTxnTableId(
-                            transactionId, table.getDatabase().getId(), table.getId());
-                }
+                TUniqueId queryId = ConnectContext.get().queryId();
+                String label = String.format("tl_%x_%x", queryId.hi, queryId.lo);
+                Pair<Long, TransactionState> pair
+                        = ((CloudGlobalTransactionMgr) Env.getCurrentGlobalTransactionMgr()).beginSubTxn(
+                        transactionId, table.getDatabase().getId(), table.getId(), label);
+                this.transactionState = pair.second;
+                subTxnId = pair.first;
             } else {
+                subTxnId = Env.getCurrentGlobalTransactionMgr().getNextTransactionId();
                 this.transactionState.addTableId(table.getId());
             }
             Env.getCurrentGlobalTransactionMgr().addSubTransaction(database.getId(), transactionId, subTxnId);
@@ -332,7 +337,7 @@ public class TransactionEntry {
             if (Config.isCloudMode()) {
                 try {
                     this.transactionState
-                            = ((CloudGlobalTransactionMgr) Env.getCurrentGlobalTransactionMgr()).removeTxnTableId(
+                            = ((CloudGlobalTransactionMgr) Env.getCurrentGlobalTransactionMgr()).abortSubTxn(
                             transactionId, table.getDatabase().getId(), table.getId());
                 } catch (UserException e) {
                     LOG.error("Failed to remove table_id={} from txn_id={}", table.getId(), transactionId, e);

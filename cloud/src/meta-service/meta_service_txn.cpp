@@ -1654,7 +1654,8 @@ void MetaServiceImpl::commit_txn_with_sub_txn(::google::protobuf::RpcController*
 
         int64_t table_id = std::get<int64_t>(std::get<0>(out[4]));
         int64_t partition_id = std::get<int64_t>(std::get<0>(out[5]));
-        VLOG_DEBUG << " table_id=" << table_id << " partition_id=" << partition_id;
+        VLOG_DEBUG << "txn_id=" << txn_id << " table_id=" << table_id
+                   << " partition_id=" << partition_id << " version=" << i.second;
 
         response->add_table_ids(table_id);
         response->add_partition_ids(partition_id);
@@ -2189,11 +2190,21 @@ void MetaServiceImpl::get_current_max_txn_id(::google::protobuf::RpcController* 
     response->set_current_max_txn_id(current_max_txn_id);
 }
 
-void MetaServiceImpl::modify_txn_table_id(::google::protobuf::RpcController* controller,
-                                          const ModifyTxnTableIdRequest* request,
-                                          ModifyTxnTableIdResponse* response,
-                                          ::google::protobuf::Closure* done) {
-    RPC_PREPROCESS(modify_txn_table_id);
+/**
+ * 1. Generate a sub_txn_id
+ *
+ * The following steps are done in a txn:
+ * 2. Put txn_index_key in sub_txn_id
+ * 3. Delete txn_label_key in sub_txn_id
+ * 4. Modify the txn state of the txn_id:
+ *    - Add the sub txn id to sub_txn_ids: recycler use it to recycle the txn_index_key
+ *    - Add the table id to table_ids
+ */
+void MetaServiceImpl::begin_sub_txn(::google::protobuf::RpcController* controller,
+                                    const BeginSubTxnRequest* request,
+                                    BeginSubTxnResponse* response,
+                                    ::google::protobuf::Closure* done) {
+    RPC_PREPROCESS(begin_sub_txn);
     int64_t txn_id = request->has_txn_id() ? request->txn_id() : -1;
     if (txn_id < 0) {
         code = MetaServiceCode::INVALID_ARGUMENT;
@@ -2201,9 +2212,17 @@ void MetaServiceImpl::modify_txn_table_id(::google::protobuf::RpcController* con
         msg = ss.str();
         return;
     }
-    int64_t db_id = request->db_id();
-    int64_t table_id = request->table_id();
-    bool is_add = request->add();
+    int64_t db_id = request->has_db_id() ? request->db_id() : -1;
+    int64_t table_id = request->has_table_id() ? request->table_id() : -1;
+    std::string label = request->has_label() ? request->label() : "";
+    if (label.empty() || db_id < 0 || table_id < 0) {
+        code = MetaServiceCode::INVALID_ARGUMENT;
+        ss << "invalid argument, label=" << label << " db_id=" << db_id
+           << ", table_id=" << table_id;
+        msg = ss.str();
+        return;
+    }
+
     std::string cloud_unique_id = request->has_cloud_unique_id() ? request->cloud_unique_id() : "";
     instance_id = get_instance_id(resource_mgr_, cloud_unique_id);
     if (instance_id.empty()) {
@@ -2214,7 +2233,7 @@ void MetaServiceImpl::modify_txn_table_id(::google::protobuf::RpcController* con
         return;
     }
 
-    RPC_RATE_LIMIT(modify_txn_table_id)
+    RPC_RATE_LIMIT(begin_sub_txn)
     std::unique_ptr<Transaction> txn;
     TxnErrorCode err = txn_kv_->create_txn(&txn);
     if (err != TxnErrorCode::TXN_OK) {
@@ -2225,7 +2244,85 @@ void MetaServiceImpl::modify_txn_table_id(::google::protobuf::RpcController* con
         return;
     }
 
-    // Get txn info with db_id and txn_id
+    const std::string label_key = txn_label_key({instance_id, db_id, label});
+    std::string label_val;
+    err = txn->get(label_key, &label_val);
+    if (err != TxnErrorCode::TXN_OK && err != TxnErrorCode::TXN_KEY_NOT_FOUND) {
+        code = cast_as<ErrCategory::READ>(err);
+        ss << "txn->get failed(), err=" << err << " label=" << label;
+        msg = ss.str();
+        return;
+    }
+
+    LOG(INFO) << "txn->get label_key=" << hex(label_key) << " label=" << label << " err=" << err;
+
+    // err == OK means this is a retry rpc?
+    if (err == TxnErrorCode::TXN_OK) {
+        label_val = label_val.substr(0, label_val.size() - VERSION_STAMP_LEN);
+    }
+
+    // ret > 0, means label not exist previously.
+    txn->atomic_set_ver_value(label_key, label_val);
+    LOG(INFO) << "txn->atomic_set_ver_value label_key=" << hex(label_key);
+
+    err = txn->commit();
+    if (err != TxnErrorCode::TXN_OK) {
+        code = cast_as<ErrCategory::COMMIT>(err);
+        ss << "txn->commit failed(), label=" << label << " err=" << err;
+        msg = ss.str();
+        return;
+    }
+
+    // 2. Get sub txn id from version stamp
+    txn.reset();
+    err = txn_kv_->create_txn(&txn);
+    if (err != TxnErrorCode::TXN_OK) {
+        code = cast_as<ErrCategory::CREATE>(err);
+        ss << "failed to create txn when get txn id, label=" << label << " err=" << err;
+        msg = ss.str();
+        return;
+    }
+
+    label_val.clear();
+    err = txn->get(label_key, &label_val);
+    if (err != TxnErrorCode::TXN_OK) {
+        code = cast_as<ErrCategory::READ>(err);
+        ss << "txn->get() failed, label=" << label << " err=" << err;
+        msg = ss.str();
+        return;
+    }
+
+    LOG(INFO) << "txn->get label_key=" << hex(label_key) << " label=" << label << " err=" << err;
+
+    // Generated by TxnKv system
+    int64_t sub_txn_id = 0;
+    int ret =
+            get_txn_id_from_fdb_ts(std::string_view(label_val).substr(
+                                           label_val.size() - VERSION_STAMP_LEN, label_val.size()),
+                                   &sub_txn_id);
+    if (ret != 0) {
+        code = MetaServiceCode::TXN_GEN_ID_ERR;
+        ss << "get_txn_id_from_fdb_ts() failed, label=" << label << " ret=" << ret;
+        msg = ss.str();
+        return;
+    }
+
+    LOG(INFO) << "get_txn_id_from_fdb_ts() label=" << label << " sub_txn_id=" << sub_txn_id
+              << " txn_id=" << txn_id << " label_val.size()=" << label_val.size();
+
+    // write txn_index_key
+    const std::string index_key = txn_index_key({instance_id, sub_txn_id});
+    std::string index_val;
+    TxnIndexPB index_pb;
+    if (!index_pb.SerializeToString(&index_val)) {
+        code = MetaServiceCode::PROTOBUF_SERIALIZE_ERR;
+        ss << "failed to serialize txn_index_pb "
+           << "label=" << label << " txn_id=" << txn_id;
+        msg = ss.str();
+        return;
+    }
+
+    // Get and update txn info with db_id and txn_id
     std::string info_val; // Will be reused when saving updated txn
     const std::string info_key = txn_info_key({instance_id, db_id, txn_id});
     err = txn->get(info_key, &info_val);
@@ -2256,23 +2353,128 @@ void MetaServiceImpl::modify_txn_table_id(::google::protobuf::RpcController* con
         return;
     }
 
-    if (is_add) {
-        txn_info.mutable_table_ids()->Add(table_id);
-    } else {
-        auto it = std::find(txn_info.mutable_table_ids()->begin(),
-                            txn_info.mutable_table_ids()->end(), table_id);
-        if (it != txn_info.mutable_table_ids()->end()) {
-            txn_info.mutable_table_ids()->erase(it);
-        }
-    }
+    txn_info.mutable_table_ids()->Add(table_id);
+    txn_info.mutable_sub_txn_ids()->Add(sub_txn_id);
     if (!txn_info.SerializeToString(&info_val)) {
         code = MetaServiceCode::PROTOBUF_SERIALIZE_ERR;
         ss << "failed to serialize txn_info when saving, txn_id=" << txn_id;
         msg = ss.str();
         return;
     }
+
+    txn->remove(label_key);
     txn->put(info_key, info_val);
-    LOG(INFO) << "xxx put info_key=" << hex(info_key) << " txn_id=" << txn_id;
+    txn->put(index_key, index_val);
+    LOG(INFO) << "xxx remove label_key=" << hex(label_key) << " txn_id=" << txn_id
+              << " sub_txn_id=" << sub_txn_id;
+    LOG(INFO) << "xxx put info_key=" << hex(info_key) << " txn_id=" << txn_id
+              << " sub_txn_id=" << sub_txn_id;
+    LOG(INFO) << "xxx put index_key=" << hex(index_key) << " txn_id=" << txn_id
+              << " sub_txn_id=" << sub_txn_id;
+    err = txn->commit();
+    if (err != TxnErrorCode::TXN_OK) {
+        code = cast_as<ErrCategory::COMMIT>(err);
+        ss << "failed to commit kv txn, txn_id=" << txn_id << " err=" << err;
+        msg = ss.str();
+        return;
+    }
+    response->set_sub_txn_id(sub_txn_id);
+    response->mutable_txn_info()->CopyFrom(txn_info);
+}
+
+/**
+ * 1. Modify the txn state of the txn_id:
+ *    - Remove the table id from table_ids
+ */
+void MetaServiceImpl::abort_sub_txn(::google::protobuf::RpcController* controller,
+                                    const AbortSubTxnRequest* request,
+                                    AbortSubTxnResponse* response,
+                                    ::google::protobuf::Closure* done) {
+    RPC_PREPROCESS(abort_sub_txn);
+    int64_t txn_id = request->has_txn_id() ? request->txn_id() : -1;
+    if (txn_id < 0) {
+        code = MetaServiceCode::INVALID_ARGUMENT;
+        ss << "invalid txn_id, it may be not given or set properly, txn_id=" << txn_id;
+        msg = ss.str();
+        return;
+    }
+    int64_t db_id = request->has_db_id() ? request->db_id() : -1;
+    int64_t table_id = request->has_table_id() ? request->table_id() : -1;
+    if (db_id < 0 || table_id < 0) {
+        code = MetaServiceCode::INVALID_ARGUMENT;
+        ss << "invalid argument, db_id=" << db_id << ", table_id=" << table_id;
+        msg = ss.str();
+        return;
+    }
+
+    std::string cloud_unique_id = request->has_cloud_unique_id() ? request->cloud_unique_id() : "";
+    instance_id = get_instance_id(resource_mgr_, cloud_unique_id);
+    if (instance_id.empty()) {
+        code = MetaServiceCode::INVALID_ARGUMENT;
+        ss << "cannot find instance_id with cloud_unique_id="
+           << (cloud_unique_id.empty() ? "(empty)" : cloud_unique_id);
+        msg = ss.str();
+        return;
+    }
+
+    RPC_RATE_LIMIT(abort_sub_txn)
+    std::unique_ptr<Transaction> txn;
+    TxnErrorCode err = txn_kv_->create_txn(&txn);
+    if (err != TxnErrorCode::TXN_OK) {
+        code = cast_as<ErrCategory::CREATE>(err);
+        ss << "txn_kv_->create_txn() failed, err=" << err << " txn_id=" << txn_id
+           << " db_id=" << db_id;
+        msg = ss.str();
+        return;
+    }
+
+    // Get and update txn info with db_id and txn_id
+    std::string info_val; // Will be reused when saving updated txn
+    const std::string info_key = txn_info_key({instance_id, db_id, txn_id});
+    err = txn->get(info_key, &info_val);
+    if (err != TxnErrorCode::TXN_OK) {
+        code = err == TxnErrorCode::TXN_KEY_NOT_FOUND ? MetaServiceCode::TXN_ID_NOT_FOUND
+                                                      : cast_as<ErrCategory::READ>(err);
+        ss << "failed to get txn_info, db_id=" << db_id << " txn_id=" << txn_id << " err=" << err;
+        msg = ss.str();
+        LOG(WARNING) << msg;
+        return;
+    }
+    TxnInfoPB txn_info;
+    if (!txn_info.ParseFromString(info_val)) {
+        code = MetaServiceCode::PROTOBUF_PARSE_ERR;
+        ss << "failed to parse txn_info, db_id=" << db_id << " txn_id=" << txn_id;
+        msg = ss.str();
+        LOG(WARNING) << msg;
+        return;
+    }
+    DCHECK(txn_info.txn_id() == txn_id);
+    if (txn_info.status() != TxnStatusPB::TXN_STATUS_PREPARED) {
+        code = MetaServiceCode::TXN_INVALID_STATUS;
+        ss << "transaction status is " << txn_info.status() << " : db_id=" << db_id
+           << " txn_id=" << txn_id;
+        msg = ss.str();
+        LOG(WARNING) << msg;
+        return;
+    }
+
+    // remove table_id and does not need to remove sub_txn_id
+    auto it = txn_info.mutable_table_ids()->end() - 1;
+    if (*it == table_id) {
+        txn_info.mutable_table_ids()->erase(it);
+    }
+    // TODO should we try to delete txn_label_key if begin_sub_txn failed to delete?
+
+    if (!txn_info.SerializeToString(&info_val)) {
+        code = MetaServiceCode::PROTOBUF_SERIALIZE_ERR;
+        ss << "failed to serialize txn_info when saving, txn_id=" << txn_id;
+        msg = ss.str();
+        return;
+    }
+
+    txn->put(info_key, info_val);
+    LOG(INFO) << "xxx put info_key=" << hex(info_key) << " txn_id=" << txn_id
+            /*<< " sub_txn_id=" << sub_txn_id*/;
     err = txn->commit();
     if (err != TxnErrorCode::TXN_OK) {
         code = cast_as<ErrCategory::COMMIT>(err);

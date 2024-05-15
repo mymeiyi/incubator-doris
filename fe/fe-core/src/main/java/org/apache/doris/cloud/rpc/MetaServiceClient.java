@@ -200,13 +200,22 @@ public class MetaServiceClient {
         return blockingStub.getCurrentMaxTxnId(request);
     }
 
-    public Cloud.ModifyTxnTableIdResponse modifyTxnTableId(Cloud.ModifyTxnTableIdRequest request) {
+    public Cloud.BeginSubTxnResponse beginSubTxn(Cloud.BeginSubTxnRequest request) {
         if (!request.hasCloudUniqueId()) {
-            Cloud.ModifyTxnTableIdRequest.Builder builder = Cloud.ModifyTxnTableIdRequest.newBuilder();
+            Cloud.BeginSubTxnRequest.Builder builder = Cloud.BeginSubTxnRequest.newBuilder();
             builder.mergeFrom(request);
-            return blockingStub.modifyTxnTableId(builder.setCloudUniqueId(Config.cloud_unique_id).build());
+            return blockingStub.beginSubTxn(builder.setCloudUniqueId(Config.cloud_unique_id).build());
         }
-        return blockingStub.modifyTxnTableId(request);
+        return blockingStub.beginSubTxn(request);
+    }
+
+    public Cloud.AbortSubTxnResponse abortSubTxn(Cloud.AbortSubTxnRequest request) {
+        if (!request.hasCloudUniqueId()) {
+            Cloud.AbortSubTxnRequest.Builder builder = Cloud.AbortSubTxnRequest.newBuilder();
+            builder.mergeFrom(request);
+            return blockingStub.abortSubTxn(builder.setCloudUniqueId(Config.cloud_unique_id).build());
+        }
+        return blockingStub.abortSubTxn(request);
     }
 
     public Cloud.CheckTxnConflictResponse checkTxnConflict(Cloud.CheckTxnConflictRequest request) {
