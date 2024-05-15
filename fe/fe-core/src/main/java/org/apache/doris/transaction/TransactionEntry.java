@@ -338,7 +338,7 @@ public class TransactionEntry {
                 try {
                     this.transactionState
                             = ((CloudGlobalTransactionMgr) Env.getCurrentGlobalTransactionMgr()).abortSubTxn(
-                            transactionId, table.getDatabase().getId(), table.getId());
+                            transactionId, subTransactionId, table.getDatabase().getId(), table.getId());
                 } catch (UserException e) {
                     LOG.error("Failed to remove table_id={} from txn_id={}", table.getId(), transactionId, e);
                 }

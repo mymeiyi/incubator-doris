@@ -1540,7 +1540,7 @@ TEST(MetaServiceTest, BeginAndAbortSubTxnTest) {
         ASSERT_EQ(res.status().code(), MetaServiceCode::OK);
         txn_id = res.txn_id();
     }
-    // case: add table id twice
+    // case: begin 2 sub txn
     int64_t sub_txn_id1 = -1;
     int64_t sub_txn_id2 = -1;
     for (int i = 0; i < 2; i++) {
@@ -1586,13 +1586,14 @@ TEST(MetaServiceTest, BeginAndAbortSubTxnTest) {
             }
         }
     }
-    // case: remove table id
+    // case: abort sub txn
     {
         {
             brpc::Controller cntl;
             AbortSubTxnRequest req;
             req.set_cloud_unique_id("test_cloud_unique_id");
             req.set_txn_id(txn_id);
+            req.set_sub_txn_id(sub_txn_id2);
             req.set_db_id(db_id);
             req.set_table_id(1235);
             AbortSubTxnResponse res;

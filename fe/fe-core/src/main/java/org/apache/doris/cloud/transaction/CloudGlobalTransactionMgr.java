@@ -1435,10 +1435,11 @@ public class CloudGlobalTransactionMgr implements GlobalTransactionMgrIface {
                 TxnUtil.transactionStateFromPb(response.getTxnInfo()));
     }
 
-    public TransactionState abortSubTxn(long txnId, long dbId, long tableId) throws UserException {
-        LOG.info("try to abort sub transaction, txnId: {}, dbId: {}, tableId: {}", txnId, dbId, tableId);
+    public TransactionState abortSubTxn(long txnId, long subTxnId, long dbId, long tableId) throws UserException {
+        LOG.info("try to abort sub transaction, txnId: {}, subTxnId: {}, dbId: {}, tableId: {}", txnId, subTxnId, dbId,
+                tableId);
         AbortSubTxnRequest request = AbortSubTxnRequest.newBuilder().setCloudUniqueId(Config.cloud_unique_id)
-                .setTxnId(txnId).setDbId(dbId).setTableId(tableId).build();
+                .setTxnId(txnId).setSubTxnId(subTxnId).setDbId(dbId).setTableId(tableId).build();
         AbortSubTxnResponse response = null;
         int retryTime = 0;
         try {
