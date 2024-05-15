@@ -732,8 +732,9 @@ message AbortSubTxnRequest {
     optional string cloud_unique_id = 1; // For auth
     optional int64 txn_id = 2;
     optional int64 db_id = 3;
+    optional int64 sub_txn_id = 4;
     // remove table_id from txn_state
-    optional int64 table_id = 4;
+    optional int64 table_id = 5;
 }
 
 message AbortSubTxnResponse {

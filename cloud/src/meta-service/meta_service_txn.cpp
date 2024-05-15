@@ -2400,9 +2400,11 @@ void MetaServiceImpl::abort_sub_txn(::google::protobuf::RpcController* controlle
     }
     int64_t db_id = request->has_db_id() ? request->db_id() : -1;
     int64_t table_id = request->has_table_id() ? request->table_id() : -1;
-    if (db_id < 0 || table_id < 0) {
+    int64_t sub_txn_id = request->has_sub_txn_id() ? request->sub_txn_id() : -1;
+    if (db_id < 0 || table_id < 0 || sub_txn_id < 0) {
         code = MetaServiceCode::INVALID_ARGUMENT;
-        ss << "invalid argument, db_id=" << db_id << ", table_id=" << table_id;
+        ss << "invalid argument, db_id=" << db_id << ", table_id=" << table_id
+           << ", sub_txn_id=" << sub_txn_id;
         msg = ss.str();
         return;
     }
@@ -2423,7 +2425,7 @@ void MetaServiceImpl::abort_sub_txn(::google::protobuf::RpcController* controlle
     if (err != TxnErrorCode::TXN_OK) {
         code = cast_as<ErrCategory::CREATE>(err);
         ss << "txn_kv_->create_txn() failed, err=" << err << " txn_id=" << txn_id
-           << " db_id=" << db_id;
+           << " sub_txn_id=" << sub_txn_id << " db_id=" << db_id;
         msg = ss.str();
         return;
     }
@@ -2435,7 +2437,8 @@ void MetaServiceImpl::abort_sub_txn(::google::protobuf::RpcController* controlle
     if (err != TxnErrorCode::TXN_OK) {
         code = err == TxnErrorCode::TXN_KEY_NOT_FOUND ? MetaServiceCode::TXN_ID_NOT_FOUND
                                                       : cast_as<ErrCategory::READ>(err);
-        ss << "failed to get txn_info, db_id=" << db_id << " txn_id=" << txn_id << " err=" << err;
+        ss << "failed to get txn_info, db_id=" << db_id << " txn_id=" << txn_id
+           << " sub_txn_id=" << sub_txn_id << " err=" << err;
         msg = ss.str();
         LOG(WARNING) << msg;
         return;
@@ -2443,7 +2446,8 @@ void MetaServiceImpl::abort_sub_txn(::google::protobuf::RpcController* controlle
     TxnInfoPB txn_info;
     if (!txn_info.ParseFromString(info_val)) {
         code = MetaServiceCode::PROTOBUF_PARSE_ERR;
-        ss << "failed to parse txn_info, db_id=" << db_id << " txn_id=" << txn_id;
+        ss << "failed to parse txn_info, db_id=" << db_id << " txn_id=" << txn_id
+           << " sub_txn_id=" << sub_txn_id;
         msg = ss.str();
         LOG(WARNING) << msg;
         return;
@@ -2452,7 +2456,7 @@ void MetaServiceImpl::abort_sub_txn(::google::protobuf::RpcController* controlle
     if (txn_info.status() != TxnStatusPB::TXN_STATUS_PREPARED) {
         code = MetaServiceCode::TXN_INVALID_STATUS;
         ss << "transaction status is " << txn_info.status() << " : db_id=" << db_id
-           << " txn_id=" << txn_id;
+           << " txn_id=" << txn_id << " sub_txn_id=" << sub_txn_id;
         msg = ss.str();
         LOG(WARNING) << msg;
         return;
@@ -2467,18 +2471,20 @@ void MetaServiceImpl::abort_sub_txn(::google::protobuf::RpcController* controlle
 
     if (!txn_info.SerializeToString(&info_val)) {
         code = MetaServiceCode::PROTOBUF_SERIALIZE_ERR;
-        ss << "failed to serialize txn_info when saving, txn_id=" << txn_id;
+        ss << "failed to serialize txn_info when saving, txn_id=" << txn_id
+           << " sub_txn_id=" << sub_txn_id;
         msg = ss.str();
         return;
     }
 
     txn->put(info_key, info_val);
     LOG(INFO) << "xxx put info_key=" << hex(info_key) << " txn_id=" << txn_id
-            /*<< " sub_txn_id=" << sub_txn_id*/;
+              << " sub_txn_id=" << sub_txn_id;
     err = txn->commit();
     if (err != TxnErrorCode::TXN_OK) {
         code = cast_as<ErrCategory::COMMIT>(err);
-        ss << "failed to commit kv txn, txn_id=" << txn_id << " err=" << err;
+        ss << "failed to commit kv txn, txn_id=" << txn_id << " sub_txn_id=" << sub_txn_id
+           << " err=" << err;
         msg = ss.str();
         return;
     }
