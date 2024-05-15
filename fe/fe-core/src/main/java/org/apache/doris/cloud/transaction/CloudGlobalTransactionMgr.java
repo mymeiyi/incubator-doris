@@ -28,8 +28,12 @@ import org.apache.doris.catalog.Tablet;
 import org.apache.doris.catalog.TabletInvertedIndex;
 import org.apache.doris.catalog.TabletMeta;
 import org.apache.doris.cloud.catalog.CloudPartition;
+import org.apache.doris.cloud.proto.Cloud.AbortSubTxnRequest;
+import org.apache.doris.cloud.proto.Cloud.AbortSubTxnResponse;
 import org.apache.doris.cloud.proto.Cloud.AbortTxnRequest;
 import org.apache.doris.cloud.proto.Cloud.AbortTxnResponse;
+import org.apache.doris.cloud.proto.Cloud.BeginSubTxnRequest;
+import org.apache.doris.cloud.proto.Cloud.BeginSubTxnResponse;
 import org.apache.doris.cloud.proto.Cloud.BeginTxnRequest;
 import org.apache.doris.cloud.proto.Cloud.BeginTxnResponse;
 import org.apache.doris.cloud.proto.Cloud.CheckTxnConflictRequest;
@@ -48,8 +52,6 @@ import org.apache.doris.cloud.proto.Cloud.GetTxnRequest;
 import org.apache.doris.cloud.proto.Cloud.GetTxnResponse;
 import org.apache.doris.cloud.proto.Cloud.LoadJobSourceTypePB;
 import org.apache.doris.cloud.proto.Cloud.MetaServiceCode;
-import org.apache.doris.cloud.proto.Cloud.ModifyTxnTableIdRequest;
-import org.apache.doris.cloud.proto.Cloud.ModifyTxnTableIdResponse;
 import org.apache.doris.cloud.proto.Cloud.PrecommitTxnRequest;
 import org.apache.doris.cloud.proto.Cloud.PrecommitTxnResponse;
 import org.apache.doris.cloud.proto.Cloud.SubTxnInfo;
@@ -66,6 +68,7 @@ import org.apache.doris.common.InternalErrorCode;
 import org.apache.doris.common.LabelAlreadyUsedException;
 import org.apache.doris.common.MarkedCountDownLatch;
 import org.apache.doris.common.MetaNotFoundException;
+import org.apache.doris.common.Pair;
 import org.apache.doris.common.QuotaExceedException;
 import org.apache.doris.common.UserException;
 import org.apache.doris.common.util.DebugPointUtil;
@@ -1392,49 +1395,80 @@ public class CloudGlobalTransactionMgr implements GlobalTransactionMgrIface {
         }
     }
 
-    public TransactionState addTxnTableId(long txnId, long dbId, long tableId) throws UserException {
-        return modifyTxnTableId(txnId, dbId, tableId, true);
-    }
-
-    public TransactionState removeTxnTableId(long txnId, long dbId, long tableId) throws UserException {
-        return modifyTxnTableId(txnId, dbId, tableId, false);
-    }
-
-    private TransactionState modifyTxnTableId(long txnId, long dbId, long tableId, boolean add) throws UserException {
-        LOG.info("try to modify transaction table id, txnId: {}, tableId: {}, isAdd: {}", txnId, tableId, add);
-        ModifyTxnTableIdRequest modifyTxnTableIdRequest = ModifyTxnTableIdRequest.newBuilder()
-                .setCloudUniqueId(Config.cloud_unique_id)
-                .setTxnId(txnId).setDbId(dbId).setTableId(tableId).setAdd(add).build();
-        ModifyTxnTableIdResponse modifyTxnTableIdResponse = null;
+    public Pair<Long, TransactionState> beginSubTxn(long txnId, long dbId, long tableId, String label)
+            throws UserException {
+        LOG.info("try to begin sub transaction, txnId: {}, dbId: {}, tableId: {}, label: {}, abort: {}", txnId,
+                dbId, tableId, label);
+        BeginSubTxnRequest request = BeginSubTxnRequest.newBuilder().setCloudUniqueId(Config.cloud_unique_id)
+                .setTxnId(txnId).setDbId(dbId).setTableId(tableId).setLabel(label).build();
+        BeginSubTxnResponse response = null;
         int retryTime = 0;
         try {
             while (retryTime < Config.cloud_meta_service_rpc_failed_retry_times) {
                 if (LOG.isDebugEnabled()) {
-                    LOG.debug("retryTime:{}, modifyTxnTableIdRequest:{}", retryTime, modifyTxnTableIdRequest);
+                    LOG.debug("retryTime:{}, beginSubTxnRequest:{}", retryTime, request);
                 }
-                modifyTxnTableIdResponse = MetaServiceProxy.getInstance().modifyTxnTableId(modifyTxnTableIdRequest);
+                response = MetaServiceProxy.getInstance().beginSubTxn(request);
                 if (LOG.isDebugEnabled()) {
-                    LOG.debug("retryTime:{}, modifyTxnTableIdResponse:{}", retryTime, modifyTxnTableIdResponse);
+                    LOG.debug("retryTime:{}, beginSubTxnResponse:{}", retryTime, response);
                 }
 
-                if (modifyTxnTableIdResponse.getStatus().getCode() != MetaServiceCode.KV_TXN_CONFLICT) {
+                if (response.getStatus().getCode() != MetaServiceCode.KV_TXN_CONFLICT) {
                     break;
                 }
-                LOG.info("modifyTxnTableId KV_TXN_CONFLICT, retryTime:{}", retryTime);
+                LOG.info("beginSubTxn KV_TXN_CONFLICT, retryTime:{}", retryTime);
                 backoff();
                 retryTime++;
             }
 
-            Preconditions.checkNotNull(modifyTxnTableIdResponse);
-            Preconditions.checkNotNull(modifyTxnTableIdResponse.getStatus());
+            Preconditions.checkNotNull(response);
+            Preconditions.checkNotNull(response.getStatus());
         } catch (Exception e) {
-            LOG.warn("modifyTxnTableId failed, exception:", e);
-            throw new UserException("modifyTxnTableId failed, errMsg:" + e.getMessage());
+            LOG.warn("beginSubTxn failed, exception:", e);
+            throw new UserException("beginSubTxn failed, errMsg:" + e.getMessage());
         }
 
-        if (modifyTxnTableIdResponse.getStatus().getCode() != MetaServiceCode.OK) {
-            throw new UserException(modifyTxnTableIdResponse.getStatus().getMsg());
+        if (response.getStatus().getCode() != MetaServiceCode.OK) {
+            throw new UserException(response.getStatus().getMsg());
         }
-        return TxnUtil.transactionStateFromPb(modifyTxnTableIdResponse.getTxnInfo());
+        return Pair.of(response.hasSubTxnId() ? response.getSubTxnId() : 0,
+                TxnUtil.transactionStateFromPb(response.getTxnInfo()));
+    }
+
+    public TransactionState abortSubTxn(long txnId, long dbId, long tableId) throws UserException {
+        LOG.info("try to abort sub transaction, txnId: {}, dbId: {}, tableId: {}", txnId, dbId, tableId);
+        AbortSubTxnRequest request = AbortSubTxnRequest.newBuilder().setCloudUniqueId(Config.cloud_unique_id)
+                .setTxnId(txnId).setDbId(dbId).setTableId(tableId).build();
+        AbortSubTxnResponse response = null;
+        int retryTime = 0;
+        try {
+            while (retryTime < Config.cloud_meta_service_rpc_failed_retry_times) {
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("retryTime:{}, abortSubTxnRequest:{}", retryTime, request);
+                }
+                response = MetaServiceProxy.getInstance().abortSubTxn(request);
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("retryTime:{}, abortSubTxnResponse:{}", retryTime, response);
+                }
+
+                if (response.getStatus().getCode() != MetaServiceCode.KV_TXN_CONFLICT) {
+                    break;
+                }
+                LOG.info("abortSubTxn KV_TXN_CONFLICT, retryTime:{}", retryTime);
+                backoff();
+                retryTime++;
+            }
+
+            Preconditions.checkNotNull(response);
+            Preconditions.checkNotNull(response.getStatus());
+        } catch (Exception e) {
+            LOG.warn("abortSubTxn failed, exception:", e);
+            throw new UserException("abortSubTxn failed, errMsg:" + e.getMessage());
+        }
+
+        if (response.getStatus().getCode() != MetaServiceCode.OK) {
+            throw new UserException(response.getStatus().getMsg());
+        }
+        return TxnUtil.transactionStateFromPb(response.getTxnInfo());
     }
 }
