@@ -1654,7 +1654,8 @@ void MetaServiceImpl::commit_txn_with_sub_txn(::google::protobuf::RpcController*
 
         int64_t table_id = std::get<int64_t>(std::get<0>(out[4]));
         int64_t partition_id = std::get<int64_t>(std::get<0>(out[5]));
-        VLOG_DEBUG << " table_id=" << table_id << " partition_id=" << partition_id;
+        VLOG_DEBUG << "txn_id=" << txn_id << " table_id=" << table_id
+                   << " partition_id=" << partition_id << " version=" << i.second;
 
         response->add_table_ids(table_id);
         response->add_partition_ids(partition_id);
