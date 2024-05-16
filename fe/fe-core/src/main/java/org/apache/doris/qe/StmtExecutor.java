@@ -690,7 +690,7 @@ public class StmtExecutor {
             }
         }
         if (logicalPlan instanceof Command) {
-            if (logicalPlan instanceof Forward) {
+            if (!context.isTxnModel() && logicalPlan instanceof Forward) {
                 redirectStatus = ((Forward) logicalPlan).toRedirectStatus();
                 if (isForwardToMaster()) {
                     if (context.getCommand() == MysqlCommand.COM_STMT_PREPARE) {
