@@ -2260,8 +2260,8 @@ public class DatabaseTransactionMgr {
                 }
                 if (partition.getId() == 146323) {
                     try {
-                        LOG.info("sout: start sleep 1 hour");
-                        Thread.sleep(1000 * 60 * 60);
+                        LOG.info("sout: start sleep 30 s");
+                        Thread.sleep(1000 * 30);
                     } catch (Exception e) {
 
                     }
