@@ -195,6 +195,10 @@ public class MasterOpExecutor {
             params.setCloudCluster(cluster);
         }
 
+        if (ctx.isTxnModel()) {
+
+        }
+
         // query options
         params.setQueryOptions(ctx.getSessionVariable().getQueryOptionVariables());
         // session variables

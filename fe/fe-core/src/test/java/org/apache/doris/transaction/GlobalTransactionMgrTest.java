@@ -1104,7 +1104,8 @@ public class GlobalTransactionMgrTest {
 
     protected static List<SubTransactionState> generateSubTransactionStates(GlobalTransactionMgr masterTransMgr,
             TransactionState transactionState, List<SubTransactionInfo> subTransactionInfos) {
-        List<SubTransactionState> subTransactionStates = new ArrayList<>();
+        transactionState.newSubTransactionStates();
+        List<SubTransactionState> subTransactionStates = transactionState.getSubTransactionStates();
         for (int i = 0; i < subTransactionInfos.size(); i++) {
             SubTransactionInfo subTransactionInfo = subTransactionInfos.get(i);
             Table table = subTransactionInfo.table;
@@ -1117,7 +1118,7 @@ public class GlobalTransactionMgrTest {
             subTransactionStates.add(generateSubTransactionState(transactionState, subTxnId, table,
                     tabletId, backends, addTableId));
         }
-        transactionState.setSubTransactionStates(subTransactionStates);
+        transactionState.setSubTransactionStates();
         LOG.info("sub txn states={}", transactionState.getSubTransactionStates());
         return subTransactionStates;
     }

@@ -77,7 +77,7 @@ public class TransactionEntry {
     private boolean isTransactionBegan = false;
     private long transactionId = -1;
     private TransactionState transactionState;
-    private List<SubTransactionState> subTransactionStates = new ArrayList<>();
+    // private List<SubTransactionState> subTransactionStates = new ArrayList<>();
     private long timeoutTimestamp = -1;
 
     public TransactionEntry() {
@@ -195,6 +195,7 @@ public class TransactionEntry {
             this.database = database;
             this.transactionState = Env.getCurrentGlobalTransactionMgr()
                     .getTransactionState(database.getId(), transactionId);
+            this.transactionState.newSubTransactionStates();
             return this.transactionId;
         } else {
             if (this.database.getId() != database.getId()) {
@@ -223,9 +224,9 @@ public class TransactionEntry {
         if (isTransactionBegan) {
             try {
                 beforeFinishTransaction();
-                if (Env.getCurrentGlobalTransactionMgr()
-                        .commitAndPublishTransaction(database, transactionId, subTransactionStates,
-                                ConnectContext.get().getSessionVariable().getInsertVisibleTimeoutMs())) {
+                if (Env.getCurrentGlobalTransactionMgr().commitAndPublishTransaction(database, transactionId,
+                        transactionState.getSubTransactionStates(),
+                        ConnectContext.get().getSessionVariable().getInsertVisibleTimeoutMs())) {
                     return TransactionStatus.VISIBLE;
                 } else {
                     return TransactionStatus.COMMITTED;
@@ -306,7 +307,7 @@ public class TransactionEntry {
         if (isTransactionBegan) {
             List<Long> tableIds = transactionState.getTableIdList().stream().distinct().collect(Collectors.toList());
             transactionState.setTableIdList(tableIds);
-            subTransactionStates.sort((s1, s2) -> {
+            transactionState.getSubTransactionStates().sort((s1, s2) -> {
                 if (s1.getSubTransactionType() == SubTransactionType.INSERT
                         && s2.getSubTransactionType() == SubTransactionType.DELETE) {
                     return 1;
@@ -317,8 +318,8 @@ public class TransactionEntry {
                     return Long.compare(s1.getSubTransactionId(), s2.getSubTransactionId());
                 }
             });
-            LOG.info("subTransactionStates={}", subTransactionStates);
-            transactionState.setSubTransactionStates(subTransactionStates);
+            LOG.info("subTransactionStates={}", transactionState.getSubTransactionStates());
+            // transactionState.setSubTransactionStates(transactionState.getSubTransactionStates());
         }
     }
 
@@ -355,9 +356,11 @@ public class TransactionEntry {
             LOG.debug("label={}, txn_id={}, sub_txn_id={}, table={}, commit_infos={}",
                     label, transactionId, subTxnId, table, commitInfos);
         }
-        this.subTransactionStates.add(new SubTransactionState(subTxnId, table, commitInfos, subTransactionType));
-        Preconditions.checkState(transactionState.getTableIdList().size() == subTransactionStates.size(),
-                "txn_id=" + transactionId + ", expect table_list=" + subTransactionStates.stream()
+        transactionState.getSubTransactionStates()
+                .add(new SubTransactionState(subTxnId, table, commitInfos, subTransactionType));
+        Preconditions.checkState(
+                transactionState.getTableIdList().size() == transactionState.getSubTransactionStates().size(),
+                "txn_id=" + transactionId + ", expect table_list=" + transactionState.getSubTransactionStates().stream()
                         .map(s -> s.getTable().getId()).collect(Collectors.toList()) + ", real table_list="
                         + transactionState.getTableIdList());
     }
