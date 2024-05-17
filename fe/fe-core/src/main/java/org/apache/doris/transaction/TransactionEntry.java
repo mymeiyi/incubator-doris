@@ -27,6 +27,7 @@ import org.apache.doris.catalog.TableIf;
 import org.apache.doris.cloud.transaction.CloudGlobalTransactionMgr;
 import org.apache.doris.common.AnalysisException;
 import org.apache.doris.common.Config;
+import org.apache.doris.common.DdlException;
 import org.apache.doris.common.Pair;
 import org.apache.doris.common.UserException;
 import org.apache.doris.proto.InternalService;
@@ -39,6 +40,7 @@ import org.apache.doris.system.Backend;
 import org.apache.doris.thrift.TLoadTxnBeginRequest;
 import org.apache.doris.thrift.TLoadTxnBeginResult;
 import org.apache.doris.thrift.TTabletCommitInfo;
+import org.apache.doris.thrift.TTxnLoadInfo;
 import org.apache.doris.thrift.TTxnParams;
 import org.apache.doris.thrift.TUniqueId;
 import org.apache.doris.thrift.TWaitingTxnStatusRequest;
@@ -74,6 +76,7 @@ public class TransactionEntry {
     private List<InternalService.PDataRow> dataToSend = new ArrayList<>();
     private long rowsInTransaction = 0;
     private Types.PUniqueId pLoadId;
+    private long dbId = -1;
 
     // for insert into select for multi tables
     private boolean isTransactionBegan = false;
@@ -91,12 +94,24 @@ public class TransactionEntry {
         this.table = table;
     }
 
-    public void buildInfoWhenForward(long dbId, long txnId, long timeoutTimestamp) {
+    public void buildInfoWhenForward(long dbId, long txnId, long timeoutTimestamp) throws DdlException {
         this.setTxnConf(new TTxnParams().setNeedTxn(true));
         this.isTransactionBegan = true;
         this.transactionId = txnId;
         this.timeoutTimestamp = timeoutTimestamp;
         this.transactionState = Env.getCurrentGlobalTransactionMgr().getTransactionState(dbId, txnId);
+        this.label = this.transactionState.getLabel();
+        this.database = Env.getCurrentInternalCatalog().getDbOrDdlException(dbId);
+    }
+
+    public void setTxnLoadInfoInObserver(TTxnLoadInfo txnLoadInfo) {
+        this.transactionId = txnLoadInfo.txnId;
+        this.timeoutTimestamp = txnLoadInfo.timeoutTimestamp;
+        this.dbId = txnLoadInfo.dbId;
+    }
+    
+    public long getDbId() {
+        return dbId;
     }
 
     public String getLabel() {

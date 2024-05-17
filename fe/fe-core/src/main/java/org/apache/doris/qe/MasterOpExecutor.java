@@ -86,6 +86,10 @@ public class MasterOpExecutor {
 
     public void execute() throws Exception {
         result = forward(buildStmtForwardParams());
+        if (ctx.isTxnModel()) {
+            TTxnLoadInfo txnLoadInfo = result.getTxnLoadInfo();
+            ctx.getTxnEntry().setTxnLoadInfoInObserver(txnLoadInfo);
+        }
         waitOnReplaying();
     }
 
@@ -208,12 +212,14 @@ public class MasterOpExecutor {
         LOG.info("forwarding to master with query: {}, isTxnModel={}, isTxnBegan={}", originStmt.originStmt,
                 ctx.isTxnModel(), ctx.getTxnEntry() == null ? "null" : ctx.getTxnEntry().isTransactionBegan());
         // set transaction load info
-        if (ctx.isTxnModel() && ctx.getTxnEntry().isTransactionBegan()) {
+        if (ctx.isTxnModel()) {
             TransactionEntry txnEntry = ctx.getTxnEntry();
             TTxnLoadInfo txnLoadInfo = new TTxnLoadInfo();
-            txnLoadInfo.setDbId(txnEntry.getDb().getId());
-            txnLoadInfo.setTxnId(txnEntry.getTransactionId());
-            txnLoadInfo.setTimeoutTimestamp(txnEntry.getTimeoutTimestamp());
+            if (ctx.getTxnEntry().isTransactionBegan()) {
+                txnLoadInfo.setDbId(txnEntry.getDbId());
+                txnLoadInfo.setTxnId(txnEntry.getTransactionId());
+                txnLoadInfo.setTimeoutTimestamp(txnEntry.getTimeoutTimestamp());
+            }
             params.setTxnLoadInfo(txnLoadInfo);
         }
         return params;

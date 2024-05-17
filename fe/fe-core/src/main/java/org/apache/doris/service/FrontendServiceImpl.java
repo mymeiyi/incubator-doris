@@ -1051,11 +1051,16 @@ public class FrontendServiceImpl implements FrontendService.Iface {
         }
         // txn load info
         if (params.isSetTxnLoadInfo()) {
-            TTxnLoadInfo txnLoadInfo = params.getTxnLoadInfo();
-            TransactionEntry transactionEntry = new TransactionEntry();
-            transactionEntry.buildInfoWhenForward(txnLoadInfo.getDbId(), txnLoadInfo.getTxnId(),
-                    txnLoadInfo.getTimeoutTimestamp());
-            context.setTxnEntry(transactionEntry);
+            try {
+                TransactionEntry transactionEntry = new TransactionEntry();
+                context.setTxnEntry(transactionEntry);
+                TTxnLoadInfo txnLoadInfo = params.getTxnLoadInfo();
+                transactionEntry.buildInfoWhenForward(txnLoadInfo.getDbId(), txnLoadInfo.getTxnId(),
+                        txnLoadInfo.getTimeoutTimestamp());
+            } catch (Exception e) {
+                LOG.warn("failed to set txn load info", e);
+                throw new TException("failed to set txn load info", e);
+            }
         }
         LOG.info("sout: is txn model: {}", context.isTxnModel());
 
@@ -1080,6 +1085,14 @@ public class FrontendServiceImpl implements FrontendService.Iface {
         }
         ConnectContext.remove();
         clearCallback.run();
+        if (params.isSetTxnLoadInfo()) {
+            TTxnLoadInfo txnLoadInfo = params.getTxnLoadInfo();
+            TransactionEntry transactionEntry = ConnectContext.get().getTxnEntry();
+            txnLoadInfo.setDbId(transactionEntry.getDb().getId());
+            txnLoadInfo.setTxnId(transactionEntry.getTransactionId());
+            txnLoadInfo.setTimeoutTimestamp(transactionEntry.getTimeoutTimestamp());
+            result.setTxnLoadInfo(txnLoadInfo);
+        }
         return result;
     }
 
