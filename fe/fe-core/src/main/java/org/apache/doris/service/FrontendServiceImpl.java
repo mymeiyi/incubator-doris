@@ -1039,7 +1039,8 @@ public class FrontendServiceImpl implements FrontendService.Iface {
 
         // add this log so that we can track this stmt
         if (LOG.isDebugEnabled()) {
-            LOG.debug("receive forwarded stmt {} from FE: {}", params.getStmtId(), params.getClientNodeHost());
+            LOG.debug("receive forwarded stmt {} from FE: {}, params: {}", params.getStmtId(),
+                    params.getClientNodeHost(), params);
         }
         ConnectContext context = new ConnectContext(null, true);
         // Set current connected FE to the client address, so that we can know where
@@ -1056,6 +1057,7 @@ public class FrontendServiceImpl implements FrontendService.Iface {
                     txnLoadInfo.getTimeoutTimestamp());
             context.setTxnEntry(transactionEntry);
         }
+        LOG.info("sout: is txn model: {}", context.isTxnModel());
 
         ConnectProcessor processor = null;
         if (context.getConnectType().equals(ConnectType.MYSQL)) {
