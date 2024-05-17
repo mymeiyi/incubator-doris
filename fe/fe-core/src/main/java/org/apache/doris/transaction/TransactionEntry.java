@@ -95,7 +95,7 @@ public class TransactionEntry {
     }
 
     public void buildInfoWhenForward(TTxnLoadInfo txnLoadInfo) throws DdlException {
-        this.setTxnConf(new TTxnParams().setNeedTxn(true));
+        this.setTxnConf(new TTxnParams().setNeedTxn(true).setTxnId(-1));
         if (txnLoadInfo.isSetTxnId()) {
             this.isTransactionBegan = true;
             this.dbId = txnLoadInfo.getDbId();
