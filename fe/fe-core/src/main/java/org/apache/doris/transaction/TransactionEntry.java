@@ -206,7 +206,7 @@ public class TransactionEntry {
                 String token = Env.getCurrentEnv().getLoadManager().getTokenManager().acquireToken();
                 MasterTxnExecutor masterTxnExecutor = new MasterTxnExecutor(ConnectContext.get());
                 TLoadTxnBeginRequest request = new TLoadTxnBeginRequest();
-                request.setDb(txnConf.getDb()).setTbl(txnConf.getTbl()).setToken(token)
+                request.setDb(database.getFullName()).setTbl(table.getName()).setToken(token)
                         .setLabel(label).setUser("").setUserIp("").setPasswd("");
                 TLoadTxnBeginResult result = masterTxnExecutor.beginTxn(request);
                 this.transactionId = result.getTxnId();

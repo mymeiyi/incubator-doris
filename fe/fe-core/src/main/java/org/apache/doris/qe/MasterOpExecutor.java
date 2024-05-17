@@ -205,7 +205,7 @@ public class MasterOpExecutor {
         if (null != ctx.queryId()) {
             params.setQueryId(ctx.queryId());
         }
-
+        LOG.info("forwarding to master with query: {}, isTxnModel={}, isTxnBegan={}", originStmt.originStmt, ctx.getTxnEntry().isTransactionBegan());
         // set transaction load info
         if (ctx.isTxnModel() && ctx.getTxnEntry().isTransactionBegan()) {
             TransactionEntry txnEntry = ctx.getTxnEntry();
