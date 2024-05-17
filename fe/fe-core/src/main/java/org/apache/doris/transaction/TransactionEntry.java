@@ -37,6 +37,7 @@ import org.apache.doris.qe.InsertStreamTxnExecutor;
 import org.apache.doris.qe.MasterTxnExecutor;
 import org.apache.doris.service.FrontendOptions;
 import org.apache.doris.system.Backend;
+import org.apache.doris.thrift.TCommitTxnRequest;
 import org.apache.doris.thrift.TLoadTxnBeginRequest;
 import org.apache.doris.thrift.TLoadTxnBeginResult;
 import org.apache.doris.thrift.TTabletCommitInfo;
@@ -271,6 +272,17 @@ public class TransactionEntry {
                 } else {
                     return TransactionStatus.COMMITTED;
                 }
+                /*if (Config.isCloudMode() || Env.getCurrentEnv().isMaster()) {
+
+                } else {
+                    // send commit request to master
+                    TCommitTxnRequest request = new TCommitTxnRequest();
+                    request.setToken("t");
+                    request.setDbId(dbId);
+                    request.setTxnId(transactionId);
+                    MasterTxnExecutor masterTxnExecutor = new MasterTxnExecutor(ConnectContext.get());
+                    masterTxnExecutor.commitTxn(request);
+                }*/
             } catch (UserException e) {
                 LOG.error("Failed to commit transaction", e);
                 try {

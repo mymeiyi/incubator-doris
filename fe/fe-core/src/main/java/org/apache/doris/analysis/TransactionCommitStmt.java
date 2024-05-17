@@ -17,6 +17,15 @@
 
 package org.apache.doris.analysis;
 
-public class TransactionCommitStmt extends TransactionStmt {
+import org.apache.doris.qe.ConnectContext;
 
+public class TransactionCommitStmt extends TransactionStmt {
+    @Override
+    public RedirectStatus getRedirectStatus() {
+        if (ConnectContext.get() != null && ConnectContext.get().getTxnEntry() != null && ConnectContext.get()
+                .getTxnEntry().isTransactionBegan()) {
+            return RedirectStatus.FORWARD_WITH_SYNC;
+        }
+        return RedirectStatus.NO_FORWARD;
+    }
 }

@@ -19,6 +19,8 @@ package org.apache.doris.qe;
 
 import org.apache.doris.common.ClientPool;
 import org.apache.doris.thrift.FrontendService;
+import org.apache.doris.thrift.TCommitTxnRequest;
+import org.apache.doris.thrift.TCommitTxnResult;
 import org.apache.doris.thrift.TLoadTxnBeginRequest;
 import org.apache.doris.thrift.TLoadTxnBeginResult;
 import org.apache.doris.thrift.TNetworkAddress;
@@ -86,6 +88,42 @@ public class MasterTxnExecutor {
                 throw e;
             } else {
                 TLoadTxnBeginResult result = client.loadTxnBegin(request);
+                isReturnToPool = true;
+                return result;
+            }
+        } finally {
+            if (isReturnToPool) {
+                ClientPool.frontendPool.returnObject(thriftAddress, client);
+            } else {
+                ClientPool.frontendPool.invalidateObject(thriftAddress, client);
+            }
+        }
+    }
+
+    public TCommitTxnResult commitTxn(TCommitTxnRequest request) throws TException {
+        TNetworkAddress thriftAddress = getMasterAddress();
+
+        FrontendService.Client client = getClient(thriftAddress);
+
+        LOG.info("Send commit transaction {} to Master {}", ctx.getStmtId(), thriftAddress);
+
+        boolean isReturnToPool = false;
+        try {
+            TCommitTxnResult result = client.commitTxn(request);
+            isReturnToPool = true;
+            if (result.getStatus().getStatusCode() != TStatusCode.OK) {
+                throw new TException("commit txn failed.");
+            }
+            return result;
+        } catch (TTransportException e) {
+            boolean ok = ClientPool.frontendPool.reopen(client, thriftTimeoutMs);
+            if (!ok) {
+                throw e;
+            }
+            if (e.getType() == TTransportException.TIMED_OUT) {
+                throw e;
+            } else {
+                TCommitTxnResult result = client.commitTxn(request);
                 isReturnToPool = true;
                 return result;
             }
