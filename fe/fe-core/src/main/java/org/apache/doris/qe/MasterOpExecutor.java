@@ -87,9 +87,14 @@ public class MasterOpExecutor {
     public void execute() throws Exception {
         result = forward(buildStmtForwardParams());
         if (ctx.isTxnModel()) {
-            TTxnLoadInfo txnLoadInfo = result.getTxnLoadInfo();
-            ctx.getTxnEntry().setTxnLoadInfoInObserver(txnLoadInfo);
-            LOG.info("sout: set txn entry info: {}", txnLoadInfo);
+            if (result.isSetTxnLoadInfo()) {
+                TTxnLoadInfo txnLoadInfo = result.getTxnLoadInfo();
+                ctx.getTxnEntry().setTxnLoadInfoInObserver(txnLoadInfo);
+                LOG.info("sout: set txn entry info: {}", txnLoadInfo);
+            } else {
+                ctx.setTxnEntry(null);
+                LOG.info("sout: set txn entry to null");
+            }
         }
         waitOnReplaying();
     }
