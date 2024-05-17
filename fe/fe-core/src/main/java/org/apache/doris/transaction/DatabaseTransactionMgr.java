@@ -2258,6 +2258,14 @@ public class DatabaseTransactionMgr {
                     LOG.debug("transaction state {} set partition {}'s version to [{}]",
                             transactionState, partition.getId(), version);
                 }
+                if (partition.getId() == 146323) {
+                    try {
+                        LOG.info("sout: start sleep 1 hour");
+                        Thread.sleep(1000 * 60 * 60);
+                    } catch (Exception e) {
+
+                    }
+                }
             }
             long tableVersion = tableCommitInfo.getVersion();
             long tableVersionTime = tableCommitInfo.getVersionTime();
