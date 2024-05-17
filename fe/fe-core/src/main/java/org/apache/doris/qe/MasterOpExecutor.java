@@ -215,6 +215,7 @@ public class MasterOpExecutor {
         if (ctx.isTxnModel()) {
             TransactionEntry txnEntry = ctx.getTxnEntry();
             TTxnLoadInfo txnLoadInfo = new TTxnLoadInfo();
+            txnLoadInfo.setLabel(txnEntry.getLabel());
             if (ctx.getTxnEntry().isTransactionBegan()) {
                 txnLoadInfo.setDbId(txnEntry.getDbId());
                 txnLoadInfo.setTxnId(txnEntry.getTransactionId());
