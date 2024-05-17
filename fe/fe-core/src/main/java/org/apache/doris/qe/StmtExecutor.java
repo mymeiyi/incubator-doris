@@ -719,6 +719,8 @@ public class StmtExecutor {
                 }
             }
             try {
+                LOG.info("sout: sql={}, redirect status={}", originStmt.originStmt, redirectStatus);
+                ((Command) logicalPlan).run(context, this);
                 ((Command) logicalPlan).run(context, this);
             } catch (MustFallbackException e) {
                 if (LOG.isDebugEnabled()) {
