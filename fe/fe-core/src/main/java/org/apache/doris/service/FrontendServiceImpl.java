@@ -1055,8 +1055,7 @@ public class FrontendServiceImpl implements FrontendService.Iface {
                 TransactionEntry transactionEntry = new TransactionEntry();
                 context.setTxnEntry(transactionEntry);
                 TTxnLoadInfo txnLoadInfo = params.getTxnLoadInfo();
-                transactionEntry.buildInfoWhenForward(txnLoadInfo.getDbId(), txnLoadInfo.getTxnId(),
-                        txnLoadInfo.getTimeoutTimestamp());
+                transactionEntry.buildInfoWhenForward(txnLoadInfo);
             } catch (Exception e) {
                 LOG.warn("failed to set txn load info", e);
                 throw new TException("failed to set txn load info", e);
