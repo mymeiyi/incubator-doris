@@ -207,7 +207,7 @@ public class TransactionEntry {
                 MasterTxnExecutor masterTxnExecutor = new MasterTxnExecutor(ConnectContext.get());
                 TLoadTxnBeginRequest request = new TLoadTxnBeginRequest();
                 request.setDb(database.getFullName()).setTbl(table.getName()).setToken(token)
-                        .setLabel(label).setUser("").setUserIp("").setPasswd("");
+                        .setLabel(label).setUser("").setUserIp("").setPasswd("").setTimeout(timeoutSecond);
                 TLoadTxnBeginResult result = masterTxnExecutor.beginTxn(request);
                 this.transactionId = result.getTxnId();
             }
