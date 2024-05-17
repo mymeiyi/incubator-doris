@@ -1082,8 +1082,6 @@ public class FrontendServiceImpl implements FrontendService.Iface {
         } else {
             context.getState().setOk();
         }
-        ConnectContext.remove();
-        clearCallback.run();
         if (params.isSetTxnLoadInfo()) {
             TTxnLoadInfo txnLoadInfo = params.getTxnLoadInfo();
             TransactionEntry transactionEntry = ConnectContext.get().getTxnEntry();
@@ -1092,6 +1090,8 @@ public class FrontendServiceImpl implements FrontendService.Iface {
             txnLoadInfo.setTimeoutTimestamp(transactionEntry.getTimeoutTimestamp());
             result.setTxnLoadInfo(txnLoadInfo);
         }
+        ConnectContext.remove();
+        clearCallback.run();
         return result;
     }
 
