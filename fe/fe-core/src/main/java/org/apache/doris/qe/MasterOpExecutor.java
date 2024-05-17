@@ -89,6 +89,7 @@ public class MasterOpExecutor {
         if (ctx.isTxnModel()) {
             TTxnLoadInfo txnLoadInfo = result.getTxnLoadInfo();
             ctx.getTxnEntry().setTxnLoadInfoInObserver(txnLoadInfo);
+            LOG.info("sout: set txn entry info: {}", txnLoadInfo);
         }
         waitOnReplaying();
     }
@@ -221,6 +222,7 @@ public class MasterOpExecutor {
                 txnLoadInfo.setTxnId(txnEntry.getTransactionId());
                 txnLoadInfo.setTimeoutTimestamp(txnEntry.getTimeoutTimestamp());
             }
+            LOG.info("sout: set load info when forward: {}", txnLoadInfo);
             params.setTxnLoadInfo(txnLoadInfo);
         }
         return params;

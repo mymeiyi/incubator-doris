@@ -1090,6 +1090,7 @@ public class FrontendServiceImpl implements FrontendService.Iface {
             txnLoadInfo.setTimeoutTimestamp(transactionEntry.getTimeoutTimestamp());
             result.setTxnLoadInfo(txnLoadInfo);
         }
+        LOG.info("sout: sql: {}, result: {}", params.sql, result);
         ConnectContext.remove();
         clearCallback.run();
         return result;

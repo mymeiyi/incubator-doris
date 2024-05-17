@@ -109,6 +109,7 @@ public class TransactionEntry {
     }
 
     public void setTxnLoadInfoInObserver(TTxnLoadInfo txnLoadInfo) {
+        this.isTransactionBegan = true;
         this.transactionId = txnLoadInfo.txnId;
         this.timeoutTimestamp = txnLoadInfo.timeoutTimestamp;
         this.dbId = txnLoadInfo.dbId;
