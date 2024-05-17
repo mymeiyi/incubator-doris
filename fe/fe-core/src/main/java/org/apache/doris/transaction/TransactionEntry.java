@@ -319,7 +319,7 @@ public class TransactionEntry {
                 }
             });
             LOG.info("subTransactionStates={}", transactionState.getSubTransactionStates());
-            // transactionState.setSubTransactionStates(transactionState.getSubTransactionStates());
+            transactionState.setSubTransactionStates();
         }
     }
 
