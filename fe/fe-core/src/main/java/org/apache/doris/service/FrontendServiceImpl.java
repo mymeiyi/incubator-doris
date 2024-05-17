@@ -1085,9 +1085,12 @@ public class FrontendServiceImpl implements FrontendService.Iface {
         if (params.isSetTxnLoadInfo()) {
             TTxnLoadInfo txnLoadInfo = params.getTxnLoadInfo();
             TransactionEntry transactionEntry = ConnectContext.get().getTxnEntry();
-            txnLoadInfo.setDbId(transactionEntry.getDb().getId());
-            txnLoadInfo.setTxnId(transactionEntry.getTransactionId());
-            txnLoadInfo.setTimeoutTimestamp(transactionEntry.getTimeoutTimestamp());
+            // null if this is a commit command
+            if (transactionEntry != null) {
+                txnLoadInfo.setDbId(transactionEntry.getDb().getId());
+                txnLoadInfo.setTxnId(transactionEntry.getTransactionId());
+                txnLoadInfo.setTimeoutTimestamp(transactionEntry.getTimeoutTimestamp());
+            }
             result.setTxnLoadInfo(txnLoadInfo);
         }
         LOG.info("sout: sql: {}, result: {}", params.sql, result);
