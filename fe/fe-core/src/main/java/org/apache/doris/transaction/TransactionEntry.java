@@ -94,14 +94,17 @@ public class TransactionEntry {
         this.table = table;
     }
 
-    public void buildInfoWhenForward(long dbId, long txnId, long timeoutTimestamp) throws DdlException {
+    public void buildInfoWhenForward(TTxnLoadInfo txnLoadInfo) throws DdlException {
         this.setTxnConf(new TTxnParams().setNeedTxn(true));
-        this.isTransactionBegan = true;
-        this.transactionId = txnId;
-        this.timeoutTimestamp = timeoutTimestamp;
-        this.transactionState = Env.getCurrentGlobalTransactionMgr().getTransactionState(dbId, txnId);
-        this.label = this.transactionState.getLabel();
-        this.database = Env.getCurrentInternalCatalog().getDbOrDdlException(dbId);
+        if (txnLoadInfo.isSetTxnId()) {
+            this.isTransactionBegan = true;
+            this.dbId = txnLoadInfo.getDbId();
+            this.transactionId = txnLoadInfo.getTxnId();
+            this.timeoutTimestamp = txnLoadInfo.getTimeoutTimestamp();
+            this.transactionState = Env.getCurrentGlobalTransactionMgr().getTransactionState(dbId, transactionId);
+            this.label = this.transactionState.getLabel();
+            this.database = Env.getCurrentInternalCatalog().getDbOrDdlException(dbId);
+        }
     }
 
     public void setTxnLoadInfoInObserver(TTxnLoadInfo txnLoadInfo) {
@@ -109,7 +112,7 @@ public class TransactionEntry {
         this.timeoutTimestamp = txnLoadInfo.timeoutTimestamp;
         this.dbId = txnLoadInfo.dbId;
     }
-    
+
     public long getDbId() {
         return dbId;
     }
