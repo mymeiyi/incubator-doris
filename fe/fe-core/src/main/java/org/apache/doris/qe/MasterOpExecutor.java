@@ -29,7 +29,9 @@ import org.apache.doris.thrift.TExprNode;
 import org.apache.doris.thrift.TMasterOpRequest;
 import org.apache.doris.thrift.TMasterOpResult;
 import org.apache.doris.thrift.TNetworkAddress;
+import org.apache.doris.thrift.TTxnLoadInfo;
 import org.apache.doris.thrift.TUniqueId;
+import org.apache.doris.transaction.TransactionEntry;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
@@ -195,10 +197,6 @@ public class MasterOpExecutor {
             params.setCloudCluster(cluster);
         }
 
-        if (ctx.isTxnModel()) {
-
-        }
-
         // query options
         params.setQueryOptions(ctx.getSessionVariable().getQueryOptionVariables());
         // session variables
@@ -206,6 +204,16 @@ public class MasterOpExecutor {
         params.setUserVariables(getForwardUserVariables(ctx.getUserVars()));
         if (null != ctx.queryId()) {
             params.setQueryId(ctx.queryId());
+        }
+
+        // set transaction load info
+        if (ctx.isTxnModel() && ctx.getTxnEntry().isTransactionBegan()) {
+            TransactionEntry txnEntry = ctx.getTxnEntry();
+            TTxnLoadInfo txnLoadInfo = new TTxnLoadInfo();
+            txnLoadInfo.setDbId(txnEntry.getDb().getId());
+            txnLoadInfo.setTxnId(txnEntry.getTransactionId());
+            txnLoadInfo.setTimeoutTimestamp(txnEntry.getTimeoutTimestamp());
+            params.setTxnLoadInfo(txnLoadInfo);
         }
         return params;
     }

@@ -1118,7 +1118,7 @@ public class GlobalTransactionMgrTest {
             subTransactionStates.add(generateSubTransactionState(transactionState, subTxnId, table,
                     tabletId, backends, addTableId));
         }
-        transactionState.setSubTransactionStates();
+        transactionState.setSubTxnIds();
         LOG.info("sub txn states={}", transactionState.getSubTransactionStates());
         return subTransactionStates;
     }

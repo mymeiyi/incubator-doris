@@ -237,6 +237,7 @@ import org.apache.doris.thrift.TTableQueryStats;
 import org.apache.doris.thrift.TTableRef;
 import org.apache.doris.thrift.TTableStatus;
 import org.apache.doris.thrift.TTabletLocation;
+import org.apache.doris.thrift.TTxnLoadInfo;
 import org.apache.doris.thrift.TTxnParams;
 import org.apache.doris.thrift.TUniqueId;
 import org.apache.doris.thrift.TUpdateExportTaskStatusRequest;
@@ -244,6 +245,7 @@ import org.apache.doris.thrift.TUpdateFollowerStatsCacheRequest;
 import org.apache.doris.thrift.TWaitingTxnStatusRequest;
 import org.apache.doris.thrift.TWaitingTxnStatusResult;
 import org.apache.doris.transaction.TabletCommitInfo;
+import org.apache.doris.transaction.TransactionEntry;
 import org.apache.doris.transaction.TransactionState;
 import org.apache.doris.transaction.TransactionState.TxnCoordinator;
 import org.apache.doris.transaction.TransactionState.TxnSourceType;
@@ -1045,6 +1047,14 @@ public class FrontendServiceImpl implements FrontendService.Iface {
         context.setCurrentConnectedFEIp(params.getClientNodeHost());
         if (Config.isCloudMode() && !Strings.isNullOrEmpty(params.getCloudCluster())) {
             context.setCloudCluster(params.getCloudCluster());
+        }
+        // txn load info
+        if (params.isSetTxnLoadInfo()) {
+            TTxnLoadInfo txnLoadInfo = params.getTxnLoadInfo();
+            TransactionEntry transactionEntry = new TransactionEntry();
+            transactionEntry.buildInfoWhenForward(txnLoadInfo.getDbId(), txnLoadInfo.getTxnId(),
+                    txnLoadInfo.getTimeoutTimestamp());
+            context.setTxnEntry(transactionEntry);
         }
 
         ConnectProcessor processor = null;

@@ -555,8 +555,9 @@ struct TMasterOpRequest {
 }
 
 struct TTxnLoadInfo {
-    1: optional i64 txnId
-    2: optional i64 timeoutTimestamp
+    1: optional i64 dbId
+    2: optional i64 txnId
+    3: optional i64 timeoutTimestamp
 }
 
 struct TColumnDefinition {

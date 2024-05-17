@@ -859,8 +859,7 @@ public class TransactionState implements Writable {
         this.subTransactionStates = new ArrayList<>();
     }
 
-    // reset it because all sub txns are reordered
-    public void setSubTransactionStates() {
+    public void setSubTxnIds() {
         // this.subTransactionStates = subTransactionStates;
         this.subTxnIds = subTransactionStates.stream().map(SubTransactionState::getSubTransactionId)
                 .collect(Collectors.toList());

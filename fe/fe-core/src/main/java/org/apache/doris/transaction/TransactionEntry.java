@@ -36,6 +36,8 @@ import org.apache.doris.qe.InsertStreamTxnExecutor;
 import org.apache.doris.qe.MasterTxnExecutor;
 import org.apache.doris.service.FrontendOptions;
 import org.apache.doris.system.Backend;
+import org.apache.doris.thrift.TLoadTxnBeginRequest;
+import org.apache.doris.thrift.TLoadTxnBeginResult;
 import org.apache.doris.thrift.TTabletCommitInfo;
 import org.apache.doris.thrift.TTxnParams;
 import org.apache.doris.thrift.TUniqueId;
@@ -87,6 +89,14 @@ public class TransactionEntry {
         this.txnConf = txnConf;
         this.database = db;
         this.table = table;
+    }
+
+    public void buildInfoWhenForward(long dbId, long txnId, long timeoutTimestamp) {
+        this.setTxnConf(new TTxnParams().setNeedTxn(true));
+        this.isTransactionBegan = true;
+        this.transactionId = txnId;
+        this.timeoutTimestamp = timeoutTimestamp;
+        this.transactionState = Env.getCurrentGlobalTransactionMgr().getTransactionState(dbId, txnId);
     }
 
     public String getLabel() {
@@ -170,7 +180,7 @@ public class TransactionEntry {
     }
 
     // Used for insert into select, return the sub_txn_id for this insert
-    public long beginTransaction(TableIf table) throws UserException {
+    public long beginTransaction(TableIf table) throws Exception {
         if (isInsertValuesTxnBegan()) {
             // FIXME: support mix usage of `insert into values` and `insert into select`
             throw new AnalysisException(
@@ -187,10 +197,20 @@ public class TransactionEntry {
         if (!isTransactionBegan) {
             long timeoutSecond = ConnectContext.get().getExecTimeout();
             this.timeoutTimestamp = System.currentTimeMillis() + timeoutSecond * 1000;
-            this.transactionId = Env.getCurrentGlobalTransactionMgr().beginTransaction(
-                    database.getId(), Lists.newArrayList(table.getId()), label,
-                    new TxnCoordinator(TxnSourceType.FE, FrontendOptions.getLocalHostAddress()),
-                    LoadJobSourceType.INSERT_STREAMING, timeoutSecond);
+            if (Config.isCloudMode() || Env.getCurrentEnv().isMaster()) {
+                this.transactionId = Env.getCurrentGlobalTransactionMgr().beginTransaction(
+                        database.getId(), Lists.newArrayList(table.getId()), label,
+                        new TxnCoordinator(TxnSourceType.FE, FrontendOptions.getLocalHostAddress()),
+                        LoadJobSourceType.INSERT_STREAMING, timeoutSecond);
+            } else {
+                String token = Env.getCurrentEnv().getLoadManager().getTokenManager().acquireToken();
+                MasterTxnExecutor masterTxnExecutor = new MasterTxnExecutor(ConnectContext.get());
+                TLoadTxnBeginRequest request = new TLoadTxnBeginRequest();
+                request.setDb(txnConf.getDb()).setTbl(txnConf.getTbl()).setToken(token)
+                        .setLabel(label).setUser("").setUserIp("").setPasswd("");
+                TLoadTxnBeginResult result = masterTxnExecutor.beginTxn(request);
+                this.transactionId = result.getTxnId();
+            }
             this.isTransactionBegan = true;
             this.database = database;
             this.transactionState = Env.getCurrentGlobalTransactionMgr()
@@ -319,7 +339,7 @@ public class TransactionEntry {
                 }
             });
             LOG.info("subTransactionStates={}", transactionState.getSubTransactionStates());
-            transactionState.setSubTransactionStates();
+            transactionState.setSubTxnIds();
         }
     }
 
@@ -371,5 +391,9 @@ public class TransactionEntry {
 
     public long getTimeout() {
         return (timeoutTimestamp - System.currentTimeMillis()) / 1000;
+    }
+
+    public long getTimeoutTimestamp() {
+        return timeoutTimestamp;
     }
 }
