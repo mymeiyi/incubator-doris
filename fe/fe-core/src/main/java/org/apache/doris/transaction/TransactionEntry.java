@@ -17,6 +17,7 @@
 
 package org.apache.doris.transaction;
 
+import org.apache.doris.analysis.RedirectStatus;
 import org.apache.doris.catalog.Database;
 import org.apache.doris.catalog.DatabaseIf;
 import org.apache.doris.catalog.Env;
@@ -34,7 +35,9 @@ import org.apache.doris.proto.InternalService;
 import org.apache.doris.proto.Types;
 import org.apache.doris.qe.ConnectContext;
 import org.apache.doris.qe.InsertStreamTxnExecutor;
+import org.apache.doris.qe.MasterOpExecutor;
 import org.apache.doris.qe.MasterTxnExecutor;
+import org.apache.doris.qe.OriginStatement;
 import org.apache.doris.service.FrontendOptions;
 import org.apache.doris.system.Backend;
 import org.apache.doris.thrift.TLoadTxnBeginRequest;
@@ -326,12 +329,22 @@ public class TransactionEntry {
         return statusResult;
     }
 
-    public long abortTransaction()
-            throws UserException, TException, ExecutionException, InterruptedException, TimeoutException {
+    public long abortTransaction() throws Exception {
         if (isTransactionBegan) {
-            beforeFinishTransaction();
-            Env.getCurrentGlobalTransactionMgr().abortTransaction(database.getId(), transactionId, "user rollback");
-            return transactionId;
+            if (Env.getCurrentEnv().isMaster()) {
+                beforeFinishTransaction();
+                Env.getCurrentGlobalTransactionMgr().abortTransaction(database.getId(), transactionId, "user rollback");
+                return transactionId;
+            } else {
+                OriginStatement originStmt = new OriginStatement("abort", 0);
+                MasterOpExecutor masterOpExecutor = new MasterOpExecutor(originStmt, ConnectContext.get(),
+                        RedirectStatus.NO_FORWARD, false);
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("need to transfer to Master. stmt: {}", originStmt.originStmt);
+                }
+                masterOpExecutor.execute();
+                return transactionId;
+            }
         } else if (isInsertValuesTxnBegan()) {
             InsertStreamTxnExecutor executor = new InsertStreamTxnExecutor(this);
             executor.abortTransaction();
