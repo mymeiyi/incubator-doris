@@ -181,6 +181,7 @@ public class MasterOpExecutor {
             }
         } catch (Throwable e) {
             LOG.warn("forward to master failed", e);
+            throw e;
         } finally {
             if (isReturnToPool) {
                 ClientPool.frontendPool.returnObject(thriftAddress, client);
