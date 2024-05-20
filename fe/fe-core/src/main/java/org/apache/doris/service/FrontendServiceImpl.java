@@ -1076,11 +1076,16 @@ public class FrontendServiceImpl implements FrontendService.Iface {
             proxyQueryIdToConnCtx.put(params.getQueryId(), context);
             clearCallback = () -> proxyQueryIdToConnCtx.remove(params.getQueryId());
         }
-        TMasterOpResult result = processor.proxyExecute(params);
-        if (QueryState.MysqlStateType.ERR.name().equalsIgnoreCase(result.getStatus())) {
-            context.getState().setError(result.getStatus());
-        } else {
-            context.getState().setOk();
+        try {
+            TMasterOpResult result = processor.proxyExecute(params);
+            if (QueryState.MysqlStateType.ERR.name().equalsIgnoreCase(result.getStatus())) {
+                context.getState().setError(result.getStatus());
+            } else {
+                context.getState().setOk();
+            }
+        } catch (Throwable e) {
+            LOG.warn("failed to execute forwarded stmt", e);
+            context.getState().setError(e.getMessage());
         }
         if (params.isSetTxnLoadInfo()) {
             TTxnLoadInfo txnLoadInfo = params.getTxnLoadInfo();
