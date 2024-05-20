@@ -74,7 +74,9 @@ import org.apache.doris.qe.cache.CacheAnalyzer;
 import org.apache.doris.thrift.TExprNode;
 import org.apache.doris.thrift.TMasterOpRequest;
 import org.apache.doris.thrift.TMasterOpResult;
+import org.apache.doris.thrift.TTxnLoadInfo;
 import org.apache.doris.thrift.TUniqueId;
+import org.apache.doris.transaction.TransactionEntry;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
@@ -724,6 +726,13 @@ public abstract class ConnectProcessor {
                 }
             }
 
+            // set transaction entry for transaction load
+            if (request.isSetTxnLoadInfo()) {
+                TransactionEntry transactionEntry = new TransactionEntry();
+                transactionEntry.setTxnInfoInMaster(request.getTxnLoadInfo());
+                ctx.setTxnEntry(transactionEntry);
+            }
+
             TUniqueId queryId; // This query id will be set in ctx
             if (request.isSetQueryId()) {
                 queryId = request.getQueryId();
@@ -767,6 +776,17 @@ public abstract class ConnectProcessor {
                 result.setResultSet(executor.getProxyShowResultSet().tothrift());
             } else if (!executor.getProxyQueryResultBufList().isEmpty()) {
                 result.setQueryResultBufList(executor.getProxyQueryResultBufList());
+            }
+        }
+        if (request.isSetTxnLoadInfo()) {
+            TTxnLoadInfo txnLoadInfo = request.getTxnLoadInfo();
+            TransactionEntry transactionEntry = ConnectContext.get().getTxnEntry();
+            // null if this is a commit command
+            if (transactionEntry != null && transactionEntry.getDb() != null) {
+                txnLoadInfo.setDbId(transactionEntry.getDb().getId());
+                txnLoadInfo.setTxnId(transactionEntry.getTransactionId());
+                txnLoadInfo.setTimeoutTimestamp(transactionEntry.getTimeoutTimestamp());
+                result.setTxnLoadInfo(txnLoadInfo);
             }
         }
         return result;
