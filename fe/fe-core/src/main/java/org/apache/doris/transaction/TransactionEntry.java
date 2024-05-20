@@ -57,12 +57,9 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.apache.thrift.TException;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
 public class TransactionEntry {
@@ -95,74 +92,6 @@ public class TransactionEntry {
         this.database = db;
         this.dbId = this.database.getId();
         this.table = table;
-    }
-
-    /**
-     * handle 2 forward cases:
-     * 1. the first dml stmt in a txn, now the txn is not began: only know the [label]
-     *    beginTxn -> txnId
-     *    calculate timeoutTimestamp
-     *    set dbId
-     * 2. the others dml stmts in a txn, now the txn is already began: know the [label, txnId, dbId, timeoutTimestamp]
-     */
-    public void setTxnInfoInMaster(TTxnLoadInfo txnLoadInfo) throws DdlException {
-        this.setTxnConf(new TTxnParams().setNeedTxn(true).setTxnId(-1));
-        this.label = txnLoadInfo.getLabel();
-        if (txnLoadInfo.isSetTxnId()) {
-            this.dbId = txnLoadInfo.getDbId();
-            this.database = Env.getCurrentInternalCatalog().getDbOrDdlException(dbId);
-            this.transactionId = txnLoadInfo.getTxnId();
-            this.transactionState = Env.getCurrentGlobalTransactionMgr().getTransactionState(dbId, transactionId);
-            Preconditions.checkNotNull(this.transactionState,
-                    "db_id" + dbId + " txn_id=" + transactionId + " not found");
-            Preconditions.checkState(this.label.equals(this.transactionState.getLabel()), "expected label="
-                    + this.label + ", real label=" + this.transactionState.getLabel());
-            this.isTransactionBegan = true;
-            this.timeoutTimestamp = txnLoadInfo.getTimeoutTimestamp();
-        }
-        LOG.info("set txn info in master, label={}, txnId={}, dbId={}, timeoutTimestamp={}",
-                label, transactionId, dbId, timeoutTimestamp);
-    }
-
-    public TTxnLoadInfo getTxnInfoInMaster() {
-        TTxnLoadInfo txnLoadInfo = new TTxnLoadInfo();
-        txnLoadInfo.setLabel(label);
-        txnLoadInfo.setTxnId(transactionId);
-        txnLoadInfo.setDbId(dbId);
-        txnLoadInfo.setTimeoutTimestamp(timeoutTimestamp);
-        LOG.info("master return txn info: {}", txnLoadInfo);
-        return txnLoadInfo;
-    }
-
-    public TTxnLoadInfo getTxnLoadInfoInObserver() throws AnalysisException {
-        if (isInsertValuesTxnBegan()) {
-            throw new AnalysisException(
-                    "Transaction insert can not insert into values and insert into select at the same time");
-        }
-        TTxnLoadInfo txnLoadInfo = new TTxnLoadInfo();
-        txnLoadInfo.setLabel(label);
-        if (this.isTransactionBegan) {
-            txnLoadInfo.setTxnId(transactionId);
-            txnLoadInfo.setDbId(dbId);
-            txnLoadInfo.setTimeoutTimestamp(timeoutTimestamp);
-        }
-        LOG.info("get txn load info in observer: {}", txnLoadInfo);
-        return txnLoadInfo;
-    }
-
-    public void setTxnLoadInfoInObserver(TTxnLoadInfo txnLoadInfo) {
-        Preconditions.checkState(txnLoadInfo.getLabel().equals(this.label),
-                "expected label=" + this.label + ", real label=" + txnLoadInfo.getLabel());
-        this.isTransactionBegan = true;
-        this.transactionId = txnLoadInfo.txnId;
-        this.timeoutTimestamp = txnLoadInfo.timeoutTimestamp;
-        this.dbId = txnLoadInfo.dbId;
-        LOG.info("set txn load info in observer, label={}, txnId={}, dbId={}, timeoutTimestamp={}",
-                label, transactionId, dbId, timeoutTimestamp);
-    }
-
-    public long getDbId() {
-        return dbId;
     }
 
     public String getLabel() {
@@ -324,36 +253,14 @@ public class TransactionEntry {
                     OriginStatement originStmt = new OriginStatement("commit", 0);
                     MasterOpExecutor masterOpExecutor = new MasterOpExecutor(originStmt, ConnectContext.get(),
                             RedirectStatus.NO_FORWARD, false);
-                    if (LOG.isDebugEnabled()) {
-                        LOG.debug("need to transfer to Master. stmt: {}", originStmt.originStmt);
-                    }
+                    LOG.info("forward commit to Master for txn_id={}", this.transactionId);
                     masterOpExecutor.execute();
-
-                    // wait txn visible
-                    TWaitingTxnStatusRequest request = new TWaitingTxnStatusRequest();
-                    request.setDbId(dbId).setTxnId(transactionId);
-                    request.setLabelIsSet(false);
-                    request.setTxnIdIsSet(true);
-
-                    TWaitingTxnStatusResult statusResult = getWaitingTxnStatus(request);
-                    TransactionStatus txnStatus = TransactionStatus.valueOf(statusResult.getTxnStatusId());
-                    if (txnStatus == TransactionStatus.COMMITTED) {
-                        throw new AnalysisException("transaction commit successfully, BUT data will be visible later.");
-                    } else if (txnStatus != TransactionStatus.VISIBLE) {
-                        String errMsg = "commit failed, rollback.";
-                        if (statusResult.getStatus().isSetErrorMsgs()
-                                && statusResult.getStatus().getErrorMsgs().size() > 0) {
-                            errMsg = String.join(". ", statusResult.getStatus().getErrorMsgs());
-                        }
-                        throw new AnalysisException(errMsg);
-                    }
-                    return txnStatus;
+                    return waitingTxnVisible(this.dbId, this.transactionId);
                 }
             } catch (UserException e) {
                 LOG.error("Failed to commit transaction", e);
                 try {
-                    Env.getCurrentGlobalTransactionMgr()
-                            .abortTransaction(database.getId(), transactionId, e.getMessage());
+                    abortTransaction();
                 } catch (Exception e1) {
                     LOG.error("Failed to abort transaction", e1);
                 }
@@ -367,26 +274,8 @@ public class TransactionEntry {
             }
             // commit txn
             executor.commitTransaction();
-
             // wait txn visible
-            TWaitingTxnStatusRequest request = new TWaitingTxnStatusRequest();
-            request.setDbId(txnConf.getDbId()).setTxnId(txnConf.getTxnId());
-            request.setLabelIsSet(false);
-            request.setTxnIdIsSet(true);
-
-            TWaitingTxnStatusResult statusResult = getWaitingTxnStatus(request);
-            TransactionStatus txnStatus = TransactionStatus.valueOf(statusResult.getTxnStatusId());
-            if (txnStatus == TransactionStatus.COMMITTED) {
-                throw new AnalysisException("transaction commit successfully, BUT data will be visible later.");
-            } else if (txnStatus != TransactionStatus.VISIBLE) {
-                String errMsg = "commit failed, rollback.";
-                if (statusResult.getStatus().isSetErrorMsgs()
-                        && statusResult.getStatus().getErrorMsgs().size() > 0) {
-                    errMsg = String.join(". ", statusResult.getStatus().getErrorMsgs());
-                }
-                throw new AnalysisException(errMsg);
-            }
-            return txnStatus;
+            return waitingTxnVisible(txnConf.getDbId(), txnConf.getTxnId());
         } else {
             LOG.info("No transaction to commit");
             return null;
@@ -415,9 +304,7 @@ public class TransactionEntry {
                 OriginStatement originStmt = new OriginStatement("rollback", 0);
                 MasterOpExecutor masterOpExecutor = new MasterOpExecutor(originStmt, ConnectContext.get(),
                         RedirectStatus.NO_FORWARD, false);
-                if (LOG.isDebugEnabled()) {
-                    LOG.debug("need to transfer to Master. stmt: {}", originStmt.originStmt);
-                }
+                LOG.info("forward rollback to Master for txn_id={}", transactionId);
                 masterOpExecutor.execute();
                 return transactionId;
             }
@@ -501,7 +388,89 @@ public class TransactionEntry {
         return (timeoutTimestamp - System.currentTimeMillis()) / 1000;
     }
 
-    public long getTimeoutTimestamp() {
-        return timeoutTimestamp;
+    private TransactionStatus waitingTxnVisible(long dbId, long transactionId) throws Exception {
+        // wait txn visible
+        TWaitingTxnStatusRequest request = new TWaitingTxnStatusRequest();
+        request.setDbId(dbId).setTxnId(transactionId);
+        request.setLabelIsSet(false);
+        request.setTxnIdIsSet(true);
+
+        TWaitingTxnStatusResult statusResult = getWaitingTxnStatus(request);
+        TransactionStatus txnStatus = TransactionStatus.valueOf(statusResult.getTxnStatusId());
+        if (txnStatus == TransactionStatus.COMMITTED) {
+            throw new AnalysisException("transaction commit successfully, BUT data will be visible later.");
+        } else if (txnStatus != TransactionStatus.VISIBLE) {
+            String errMsg = "commit failed, rollback.";
+            if (statusResult.getStatus().isSetErrorMsgs()
+                    && statusResult.getStatus().getErrorMsgs().size() > 0) {
+                errMsg = String.join(". ", statusResult.getStatus().getErrorMsgs());
+            }
+            throw new AnalysisException(errMsg);
+        }
+        return txnStatus;
+    }
+
+    /**
+     * handle 2 forward cases:
+     * 1. the first dml stmt in a txn, now the txn is not began: only know the [label]
+     *    beginTxn -> txnId
+     *    calculate timeoutTimestamp
+     *    set dbId
+     * 2. the others dml stmts in a txn, now the txn is already began: know the [label, txnId, dbId, timeoutTimestamp]
+     */
+    public void setTxnInfoInMaster(TTxnLoadInfo txnLoadInfo) throws DdlException {
+        this.setTxnConf(new TTxnParams().setNeedTxn(true).setTxnId(-1));
+        this.label = txnLoadInfo.getLabel();
+        if (txnLoadInfo.isSetTxnId()) {
+            this.dbId = txnLoadInfo.getDbId();
+            this.database = Env.getCurrentInternalCatalog().getDbOrDdlException(dbId);
+            this.transactionId = txnLoadInfo.getTxnId();
+            this.transactionState = Env.getCurrentGlobalTransactionMgr().getTransactionState(dbId, transactionId);
+            Preconditions.checkNotNull(this.transactionState,
+                    "db_id" + dbId + " txn_id=" + transactionId + " not found");
+            Preconditions.checkState(this.label.equals(this.transactionState.getLabel()), "expected label="
+                    + this.label + ", real label=" + this.transactionState.getLabel());
+            this.isTransactionBegan = true;
+            this.timeoutTimestamp = txnLoadInfo.getTimeoutTimestamp();
+        }
+        LOG.info("set txn info in master, label={}, txnId={}, dbId={}, timeoutTimestamp={}",
+                label, transactionId, dbId, timeoutTimestamp);
+    }
+
+    public TTxnLoadInfo getTxnInfoInMaster() {
+        TTxnLoadInfo txnLoadInfo = new TTxnLoadInfo();
+        txnLoadInfo.setLabel(label);
+        txnLoadInfo.setTxnId(transactionId);
+        txnLoadInfo.setDbId(dbId);
+        txnLoadInfo.setTimeoutTimestamp(timeoutTimestamp);
+        LOG.info("master return txn info: {}", txnLoadInfo);
+        return txnLoadInfo;
+    }
+
+    public TTxnLoadInfo getTxnLoadInfoInObserver() throws AnalysisException {
+        if (isInsertValuesTxnBegan()) {
+            throw new AnalysisException(
+                    "Transaction insert can not insert into values and insert into select at the same time");
+        }
+        TTxnLoadInfo txnLoadInfo = new TTxnLoadInfo();
+        txnLoadInfo.setLabel(label);
+        if (this.isTransactionBegan) {
+            txnLoadInfo.setTxnId(transactionId);
+            txnLoadInfo.setDbId(dbId);
+            txnLoadInfo.setTimeoutTimestamp(timeoutTimestamp);
+        }
+        LOG.info("get txn load info in observer: {}", txnLoadInfo);
+        return txnLoadInfo;
+    }
+
+    public void setTxnLoadInfoInObserver(TTxnLoadInfo txnLoadInfo) {
+        Preconditions.checkState(txnLoadInfo.getLabel().equals(this.label),
+                "expected label=" + this.label + ", real label=" + txnLoadInfo.getLabel());
+        this.isTransactionBegan = true;
+        this.transactionId = txnLoadInfo.txnId;
+        this.timeoutTimestamp = txnLoadInfo.timeoutTimestamp;
+        this.dbId = txnLoadInfo.dbId;
+        LOG.info("set txn load info in observer, label={}, txnId={}, dbId={}, timeoutTimestamp={}",
+                label, transactionId, dbId, timeoutTimestamp);
     }
 }
