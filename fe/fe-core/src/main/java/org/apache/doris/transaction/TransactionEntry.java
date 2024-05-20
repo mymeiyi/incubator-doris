@@ -336,7 +336,7 @@ public class TransactionEntry {
                 Env.getCurrentGlobalTransactionMgr().abortTransaction(database.getId(), transactionId, "user rollback");
                 return transactionId;
             } else {
-                OriginStatement originStmt = new OriginStatement("abort", 0);
+                OriginStatement originStmt = new OriginStatement("rollback", 0);
                 MasterOpExecutor masterOpExecutor = new MasterOpExecutor(originStmt, ConnectContext.get(),
                         RedirectStatus.NO_FORWARD, false);
                 if (LOG.isDebugEnabled()) {
