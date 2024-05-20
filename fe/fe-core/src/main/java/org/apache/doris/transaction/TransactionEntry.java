@@ -285,7 +285,7 @@ public class TransactionEntry {
 
                     // wait txn visible
                     TWaitingTxnStatusRequest request = new TWaitingTxnStatusRequest();
-                    request.setDbId(database.getId()).setTxnId(transactionId);
+                    request.setDbId(dbId).setTxnId(transactionId);
                     request.setLabelIsSet(false);
                     request.setTxnIdIsSet(true);
 
