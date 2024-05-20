@@ -158,6 +158,7 @@ public class MasterOpExecutor {
             isReturnToPool = true;
             return result;
         } catch (TTransportException e) {
+            LOG.warn("forward to master failed", e);
             // wrap the raw exception.
             forwardMsg.append(" : failed");
             Exception exception = new ForwardToMasterException(forwardMsg.toString(), e);
@@ -178,6 +179,8 @@ public class MasterOpExecutor {
                     throw exception;
                 }
             }
+        } catch (Throwable e) {
+            LOG.warn("forward to master failed", e);
         } finally {
             if (isReturnToPool) {
                 ClientPool.frontendPool.returnObject(thriftAddress, client);
