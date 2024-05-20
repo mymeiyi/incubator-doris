@@ -265,13 +265,43 @@ public class TransactionEntry {
     public TransactionStatus commitTransaction() throws Exception {
         if (isTransactionBegan) {
             try {
-                beforeFinishTransaction();
-                if (Env.getCurrentGlobalTransactionMgr().commitAndPublishTransaction(database, transactionId,
-                        transactionState.getSubTransactionStates(),
-                        ConnectContext.get().getSessionVariable().getInsertVisibleTimeoutMs())) {
-                    return TransactionStatus.VISIBLE;
+                if (Env.getCurrentEnv().isMaster()) {
+                    beforeFinishTransaction();
+                    if (Env.getCurrentGlobalTransactionMgr().commitAndPublishTransaction(database, transactionId,
+                            transactionState.getSubTransactionStates(),
+                            ConnectContext.get().getSessionVariable().getInsertVisibleTimeoutMs())) {
+                        return TransactionStatus.VISIBLE;
+                    } else {
+                        return TransactionStatus.COMMITTED;
+                    }
                 } else {
-                    return TransactionStatus.COMMITTED;
+                    OriginStatement originStmt = new OriginStatement("commit", 0);
+                    MasterOpExecutor masterOpExecutor = new MasterOpExecutor(originStmt, ConnectContext.get(),
+                            RedirectStatus.NO_FORWARD, false);
+                    if (LOG.isDebugEnabled()) {
+                        LOG.debug("need to transfer to Master. stmt: {}", originStmt.originStmt);
+                    }
+                    masterOpExecutor.execute();
+
+                    // wait txn visible
+                    TWaitingTxnStatusRequest request = new TWaitingTxnStatusRequest();
+                    request.setDbId(txnConf.getDbId()).setTxnId(txnConf.getTxnId());
+                    request.setLabelIsSet(false);
+                    request.setTxnIdIsSet(true);
+
+                    TWaitingTxnStatusResult statusResult = getWaitingTxnStatus(request);
+                    TransactionStatus txnStatus = TransactionStatus.valueOf(statusResult.getTxnStatusId());
+                    if (txnStatus == TransactionStatus.COMMITTED) {
+                        throw new AnalysisException("transaction commit successfully, BUT data will be visible later.");
+                    } else if (txnStatus != TransactionStatus.VISIBLE) {
+                        String errMsg = "commit failed, rollback.";
+                        if (statusResult.getStatus().isSetErrorMsgs()
+                                && statusResult.getStatus().getErrorMsgs().size() > 0) {
+                            errMsg = String.join(". ", statusResult.getStatus().getErrorMsgs());
+                        }
+                        throw new AnalysisException(errMsg);
+                    }
+                    return txnStatus;
                 }
             } catch (UserException e) {
                 LOG.error("Failed to commit transaction", e);
