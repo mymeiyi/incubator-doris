@@ -1076,27 +1076,28 @@ public class FrontendServiceImpl implements FrontendService.Iface {
             proxyQueryIdToConnCtx.put(params.getQueryId(), context);
             clearCallback = () -> proxyQueryIdToConnCtx.remove(params.getQueryId());
         }
+        TMasterOpResult result = null;
         try {
-            TMasterOpResult result = processor.proxyExecute(params);
+            result = processor.proxyExecute(params);
             if (QueryState.MysqlStateType.ERR.name().equalsIgnoreCase(result.getStatus())) {
                 context.getState().setError(result.getStatus());
             } else {
                 context.getState().setOk();
             }
+            if (params.isSetTxnLoadInfo()) {
+                TTxnLoadInfo txnLoadInfo = params.getTxnLoadInfo();
+                TransactionEntry transactionEntry = ConnectContext.get().getTxnEntry();
+                // null if this is a commit command
+                if (transactionEntry != null) {
+                    txnLoadInfo.setDbId(transactionEntry.getDb().getId());
+                    txnLoadInfo.setTxnId(transactionEntry.getTransactionId());
+                    txnLoadInfo.setTimeoutTimestamp(transactionEntry.getTimeoutTimestamp());
+                    result.setTxnLoadInfo(txnLoadInfo);
+                }
+            }
         } catch (Throwable e) {
             LOG.warn("failed to execute forwarded stmt", e);
             context.getState().setError(e.getMessage());
-        }
-        if (params.isSetTxnLoadInfo()) {
-            TTxnLoadInfo txnLoadInfo = params.getTxnLoadInfo();
-            TransactionEntry transactionEntry = ConnectContext.get().getTxnEntry();
-            // null if this is a commit command
-            if (transactionEntry != null) {
-                txnLoadInfo.setDbId(transactionEntry.getDb().getId());
-                txnLoadInfo.setTxnId(transactionEntry.getTransactionId());
-                txnLoadInfo.setTimeoutTimestamp(transactionEntry.getTimeoutTimestamp());
-                result.setTxnLoadInfo(txnLoadInfo);
-            }
         }
         LOG.info("sout: sql: {}, result: {}", params.sql, result);
         ConnectContext.remove();
