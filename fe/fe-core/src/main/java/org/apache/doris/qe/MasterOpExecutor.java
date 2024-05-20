@@ -20,6 +20,7 @@ package org.apache.doris.qe;
 import org.apache.doris.analysis.LiteralExpr;
 import org.apache.doris.analysis.RedirectStatus;
 import org.apache.doris.catalog.Env;
+import org.apache.doris.common.AnalysisException;
 import org.apache.doris.common.ClientPool;
 import org.apache.doris.common.DdlException;
 import org.apache.doris.common.ErrorCode;
@@ -87,6 +88,10 @@ public class MasterOpExecutor {
     public void execute() throws Exception {
         result = forward(buildStmtForwardParams());
         if (ctx.isTxnModel()) {
+            if (ctx.getTxnEntry().isInsertValuesTxnBegan()) {
+                throw new AnalysisException(
+                        "Transaction insert can not insert into values and insert into select at the same time");
+            }
             if (result.isSetTxnLoadInfo()) {
                 TTxnLoadInfo txnLoadInfo = result.getTxnLoadInfo();
                 ctx.getTxnEntry().setTxnLoadInfoInObserver(txnLoadInfo);

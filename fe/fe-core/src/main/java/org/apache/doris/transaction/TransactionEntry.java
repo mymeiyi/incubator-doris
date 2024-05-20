@@ -166,7 +166,7 @@ public class TransactionEntry {
         return isTxnModel() && txnConf.getTxnId() == -1;
     }
 
-    private boolean isInsertValuesTxnBegan() {
+    public boolean isInsertValuesTxnBegan() {
         return isTxnModel() && txnConf.getTxnId() != -1;
     }
 
