@@ -27,6 +27,7 @@ import org.apache.doris.catalog.TableIf;
 import org.apache.doris.cloud.transaction.CloudGlobalTransactionMgr;
 import org.apache.doris.common.AnalysisException;
 import org.apache.doris.common.Config;
+import org.apache.doris.common.DdlException;
 import org.apache.doris.common.Pair;
 import org.apache.doris.common.UserException;
 import org.apache.doris.proto.InternalService;
@@ -36,7 +37,10 @@ import org.apache.doris.qe.InsertStreamTxnExecutor;
 import org.apache.doris.qe.MasterTxnExecutor;
 import org.apache.doris.service.FrontendOptions;
 import org.apache.doris.system.Backend;
+import org.apache.doris.thrift.TLoadTxnBeginRequest;
+import org.apache.doris.thrift.TLoadTxnBeginResult;
 import org.apache.doris.thrift.TTabletCommitInfo;
+import org.apache.doris.thrift.TTxnLoadInfo;
 import org.apache.doris.thrift.TTxnParams;
 import org.apache.doris.thrift.TUniqueId;
 import org.apache.doris.thrift.TWaitingTxnStatusRequest;
@@ -64,6 +68,7 @@ public class TransactionEntry {
 
     private String label = "";
     private DatabaseIf database;
+    private long dbId = -1;
 
     // for insert into values for one table
     private Table table;
@@ -77,7 +82,6 @@ public class TransactionEntry {
     private boolean isTransactionBegan = false;
     private long transactionId = -1;
     private TransactionState transactionState;
-    private List<SubTransactionState> subTransactionStates = new ArrayList<>();
     private long timeoutTimestamp = -1;
 
     public TransactionEntry() {
@@ -87,6 +91,31 @@ public class TransactionEntry {
         this.txnConf = txnConf;
         this.database = db;
         this.table = table;
+    }
+
+    public void buildInfoWhenForward(TTxnLoadInfo txnLoadInfo) throws DdlException {
+        this.setTxnConf(new TTxnParams().setNeedTxn(true).setTxnId(-1));
+        this.label = txnLoadInfo.getLabel();
+        if (txnLoadInfo.isSetTxnId()) {
+            this.isTransactionBegan = true;
+            this.dbId = txnLoadInfo.getDbId();
+            this.transactionId = txnLoadInfo.getTxnId();
+            this.timeoutTimestamp = txnLoadInfo.getTimeoutTimestamp();
+            this.transactionState = Env.getCurrentGlobalTransactionMgr().getTransactionState(dbId, transactionId);
+            this.label = this.transactionState.getLabel();
+            this.database = Env.getCurrentInternalCatalog().getDbOrDdlException(dbId);
+        }
+    }
+
+    public void setTxnLoadInfoInObserver(TTxnLoadInfo txnLoadInfo) {
+        this.isTransactionBegan = true;
+        this.transactionId = txnLoadInfo.txnId;
+        this.timeoutTimestamp = txnLoadInfo.timeoutTimestamp;
+        this.dbId = txnLoadInfo.dbId;
+    }
+
+    public long getDbId() {
+        return dbId;
     }
 
     public String getLabel() {
@@ -170,7 +199,7 @@ public class TransactionEntry {
     }
 
     // Used for insert into select, return the sub_txn_id for this insert
-    public long beginTransaction(TableIf table) throws UserException {
+    public long beginTransaction(TableIf table) throws Exception {
         if (isInsertValuesTxnBegan()) {
             // FIXME: support mix usage of `insert into values` and `insert into select`
             throw new AnalysisException(
@@ -187,14 +216,25 @@ public class TransactionEntry {
         if (!isTransactionBegan) {
             long timeoutSecond = ConnectContext.get().getExecTimeout();
             this.timeoutTimestamp = System.currentTimeMillis() + timeoutSecond * 1000;
-            this.transactionId = Env.getCurrentGlobalTransactionMgr().beginTransaction(
-                    database.getId(), Lists.newArrayList(table.getId()), label,
-                    new TxnCoordinator(TxnSourceType.FE, FrontendOptions.getLocalHostAddress()),
-                    LoadJobSourceType.INSERT_STREAMING, timeoutSecond);
+            if (Config.isCloudMode() || Env.getCurrentEnv().isMaster()) {
+                this.transactionId = Env.getCurrentGlobalTransactionMgr().beginTransaction(
+                        database.getId(), Lists.newArrayList(table.getId()), label,
+                        new TxnCoordinator(TxnSourceType.FE, FrontendOptions.getLocalHostAddress()),
+                        LoadJobSourceType.INSERT_STREAMING, timeoutSecond);
+            } else {
+                String token = Env.getCurrentEnv().getLoadManager().getTokenManager().acquireToken();
+                MasterTxnExecutor masterTxnExecutor = new MasterTxnExecutor(ConnectContext.get());
+                TLoadTxnBeginRequest request = new TLoadTxnBeginRequest();
+                request.setDb(database.getFullName()).setTbl(table.getName()).setToken(token)
+                        .setLabel(label).setUser("").setUserIp("").setPasswd("").setTimeout(timeoutSecond);
+                TLoadTxnBeginResult result = masterTxnExecutor.beginTxn(request);
+                this.transactionId = result.getTxnId();
+            }
             this.isTransactionBegan = true;
             this.database = database;
             this.transactionState = Env.getCurrentGlobalTransactionMgr()
                     .getTransactionState(database.getId(), transactionId);
+            this.transactionState.resetSubTransactionStates();
             return this.transactionId;
         } else {
             if (this.database.getId() != database.getId()) {
@@ -223,9 +263,9 @@ public class TransactionEntry {
         if (isTransactionBegan) {
             try {
                 beforeFinishTransaction();
-                if (Env.getCurrentGlobalTransactionMgr()
-                        .commitAndPublishTransaction(database, transactionId, subTransactionStates,
-                                ConnectContext.get().getSessionVariable().getInsertVisibleTimeoutMs())) {
+                if (Env.getCurrentGlobalTransactionMgr().commitAndPublishTransaction(database, transactionId,
+                        transactionState.getSubTransactionStates(),
+                        ConnectContext.get().getSessionVariable().getInsertVisibleTimeoutMs())) {
                     return TransactionStatus.VISIBLE;
                 } else {
                     return TransactionStatus.COMMITTED;
@@ -306,7 +346,7 @@ public class TransactionEntry {
         if (isTransactionBegan) {
             List<Long> tableIds = transactionState.getTableIdList().stream().distinct().collect(Collectors.toList());
             transactionState.setTableIdList(tableIds);
-            subTransactionStates.sort((s1, s2) -> {
+            transactionState.getSubTransactionStates().sort((s1, s2) -> {
                 if (s1.getSubTransactionType() == SubTransactionType.INSERT
                         && s2.getSubTransactionType() == SubTransactionType.DELETE) {
                     return 1;
@@ -317,8 +357,8 @@ public class TransactionEntry {
                     return Long.compare(s1.getSubTransactionId(), s2.getSubTransactionId());
                 }
             });
-            LOG.info("subTransactionStates={}", subTransactionStates);
-            transactionState.setSubTransactionStates(subTransactionStates);
+            LOG.info("subTransactionStates={}", transactionState.getSubTransactionStates());
+            transactionState.resetSubTxnIds();
         }
     }
 
@@ -355,9 +395,11 @@ public class TransactionEntry {
             LOG.debug("label={}, txn_id={}, sub_txn_id={}, table={}, commit_infos={}",
                     label, transactionId, subTxnId, table, commitInfos);
         }
-        this.subTransactionStates.add(new SubTransactionState(subTxnId, table, commitInfos, subTransactionType));
-        Preconditions.checkState(transactionState.getTableIdList().size() == subTransactionStates.size(),
-                "txn_id=" + transactionId + ", expect table_list=" + subTransactionStates.stream()
+        transactionState.getSubTransactionStates()
+                .add(new SubTransactionState(subTxnId, table, commitInfos, subTransactionType));
+        Preconditions.checkState(
+                transactionState.getTableIdList().size() == transactionState.getSubTransactionStates().size(),
+                "txn_id=" + transactionId + ", expect table_list=" + transactionState.getSubTransactionStates().stream()
                         .map(s -> s.getTable().getId()).collect(Collectors.toList()) + ", real table_list="
                         + transactionState.getTableIdList());
     }
@@ -368,5 +410,9 @@ public class TransactionEntry {
 
     public long getTimeout() {
         return (timeoutTimestamp - System.currentTimeMillis()) / 1000;
+    }
+
+    public long getTimeoutTimestamp() {
+        return timeoutTimestamp;
     }
 }

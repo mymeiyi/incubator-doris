@@ -237,6 +237,7 @@ import org.apache.doris.thrift.TTableQueryStats;
 import org.apache.doris.thrift.TTableRef;
 import org.apache.doris.thrift.TTableStatus;
 import org.apache.doris.thrift.TTabletLocation;
+import org.apache.doris.thrift.TTxnLoadInfo;
 import org.apache.doris.thrift.TTxnParams;
 import org.apache.doris.thrift.TUniqueId;
 import org.apache.doris.thrift.TUpdateExportTaskStatusRequest;
@@ -244,6 +245,7 @@ import org.apache.doris.thrift.TUpdateFollowerStatsCacheRequest;
 import org.apache.doris.thrift.TWaitingTxnStatusRequest;
 import org.apache.doris.thrift.TWaitingTxnStatusResult;
 import org.apache.doris.transaction.TabletCommitInfo;
+import org.apache.doris.transaction.TransactionEntry;
 import org.apache.doris.transaction.TransactionState;
 import org.apache.doris.transaction.TransactionState.TxnCoordinator;
 import org.apache.doris.transaction.TransactionState.TxnSourceType;
@@ -1037,7 +1039,8 @@ public class FrontendServiceImpl implements FrontendService.Iface {
 
         // add this log so that we can track this stmt
         if (LOG.isDebugEnabled()) {
-            LOG.debug("receive forwarded stmt {} from FE: {}", params.getStmtId(), params.getClientNodeHost());
+            LOG.debug("receive forwarded stmt {} from FE: {}, params: {}", params.getStmtId(),
+                    params.getClientNodeHost(), params);
         }
         ConnectContext context = new ConnectContext(null, true);
         // Set current connected FE to the client address, so that we can know where
@@ -1046,6 +1049,19 @@ public class FrontendServiceImpl implements FrontendService.Iface {
         if (Config.isCloudMode() && !Strings.isNullOrEmpty(params.getCloudCluster())) {
             context.setCloudCluster(params.getCloudCluster());
         }
+        // txn load info
+        if (params.isSetTxnLoadInfo()) {
+            try {
+                TransactionEntry transactionEntry = new TransactionEntry();
+                context.setTxnEntry(transactionEntry);
+                TTxnLoadInfo txnLoadInfo = params.getTxnLoadInfo();
+                transactionEntry.buildInfoWhenForward(txnLoadInfo);
+            } catch (Exception e) {
+                LOG.warn("failed to set txn load info", e);
+                throw new TException("failed to set txn load info", e);
+            }
+        }
+        LOG.info("sout: is txn model: {}", context.isTxnModel());
 
         ConnectProcessor processor = null;
         if (context.getConnectType().equals(ConnectType.MYSQL)) {
@@ -1066,6 +1082,18 @@ public class FrontendServiceImpl implements FrontendService.Iface {
         } else {
             context.getState().setOk();
         }
+        if (params.isSetTxnLoadInfo()) {
+            TTxnLoadInfo txnLoadInfo = params.getTxnLoadInfo();
+            TransactionEntry transactionEntry = ConnectContext.get().getTxnEntry();
+            // null if this is a commit command
+            if (transactionEntry != null) {
+                txnLoadInfo.setDbId(transactionEntry.getDb().getId());
+                txnLoadInfo.setTxnId(transactionEntry.getTransactionId());
+                txnLoadInfo.setTimeoutTimestamp(transactionEntry.getTimeoutTimestamp());
+                result.setTxnLoadInfo(txnLoadInfo);
+            }
+        }
+        LOG.info("sout: sql: {}, result: {}", params.sql, result);
         ConnectContext.remove();
         clearCallback.run();
         return result;

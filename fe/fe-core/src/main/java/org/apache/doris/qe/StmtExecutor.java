@@ -918,7 +918,8 @@ public class StmtExecutor {
             // support select hint e.g. select /*+ SET_VAR(query_timeout=1) */ sleep(3);
             analyzeVariablesInStmt();
 
-            if (!context.isTxnModel()) {
+            if (!context.isTxnModel() || parsedStmt instanceof TransactionCommitStmt
+                    || parsedStmt instanceof TransactionRollbackStmt) {
                 // analyze this query
                 analyze(context.getSessionVariable().toThrift());
 

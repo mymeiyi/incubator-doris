@@ -29,7 +29,9 @@ import org.apache.doris.thrift.TExprNode;
 import org.apache.doris.thrift.TMasterOpRequest;
 import org.apache.doris.thrift.TMasterOpResult;
 import org.apache.doris.thrift.TNetworkAddress;
+import org.apache.doris.thrift.TTxnLoadInfo;
 import org.apache.doris.thrift.TUniqueId;
+import org.apache.doris.transaction.TransactionEntry;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
@@ -84,6 +86,16 @@ public class MasterOpExecutor {
 
     public void execute() throws Exception {
         result = forward(buildStmtForwardParams());
+        if (ctx.isTxnModel()) {
+            if (result.isSetTxnLoadInfo()) {
+                TTxnLoadInfo txnLoadInfo = result.getTxnLoadInfo();
+                ctx.getTxnEntry().setTxnLoadInfoInObserver(txnLoadInfo);
+                LOG.info("sout: set txn entry info: {}", txnLoadInfo);
+            } else {
+                ctx.setTxnEntry(null);
+                LOG.info("sout: set txn entry to null");
+            }
+        }
         waitOnReplaying();
     }
 
@@ -202,6 +214,21 @@ public class MasterOpExecutor {
         params.setUserVariables(getForwardUserVariables(ctx.getUserVars()));
         if (null != ctx.queryId()) {
             params.setQueryId(ctx.queryId());
+        }
+        LOG.info("forwarding to master with query: {}, isTxnModel={}, isTxnBegan={}", originStmt.originStmt,
+                ctx.isTxnModel(), ctx.getTxnEntry() == null ? "null" : ctx.getTxnEntry().isTransactionBegan());
+        // set transaction load info
+        if (ctx.isTxnModel()) {
+            TransactionEntry txnEntry = ctx.getTxnEntry();
+            TTxnLoadInfo txnLoadInfo = new TTxnLoadInfo();
+            txnLoadInfo.setLabel(txnEntry.getLabel());
+            if (ctx.getTxnEntry().isTransactionBegan()) {
+                txnLoadInfo.setDbId(txnEntry.getDbId());
+                txnLoadInfo.setTxnId(txnEntry.getTransactionId());
+                txnLoadInfo.setTimeoutTimestamp(txnEntry.getTimeoutTimestamp());
+            }
+            LOG.info("sout: set load info when forward: {}", txnLoadInfo);
+            params.setTxnLoadInfo(txnLoadInfo);
         }
         return params;
     }
