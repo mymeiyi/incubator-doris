@@ -74,7 +74,6 @@ import org.apache.doris.qe.cache.CacheAnalyzer;
 import org.apache.doris.thrift.TExprNode;
 import org.apache.doris.thrift.TMasterOpRequest;
 import org.apache.doris.thrift.TMasterOpResult;
-import org.apache.doris.thrift.TTxnLoadInfo;
 import org.apache.doris.thrift.TUniqueId;
 import org.apache.doris.transaction.TransactionEntry;
 
@@ -767,6 +766,13 @@ public abstract class ConnectProcessor {
         result.setStatus(ctx.getState().toString());
         if (ctx.getState().getStateType() == MysqlStateType.OK) {
             result.setStatusCode(0);
+            if (request.isSetTxnLoadInfo()) {
+                TransactionEntry transactionEntry = ConnectContext.get().getTxnEntry();
+                // null if this is a commit or rollback command
+                if (transactionEntry != null) {
+                    result.setTxnLoadInfo(transactionEntry.getTxnInfoInMaster());
+                }
+            }
         } else {
             result.setStatusCode(ctx.getState().getErrorCode().getCode());
             result.setErrMessage(ctx.getState().getErrorMessage());
@@ -776,17 +782,6 @@ public abstract class ConnectProcessor {
                 result.setResultSet(executor.getProxyShowResultSet().tothrift());
             } else if (!executor.getProxyQueryResultBufList().isEmpty()) {
                 result.setQueryResultBufList(executor.getProxyQueryResultBufList());
-            }
-        }
-        if (request.isSetTxnLoadInfo()) {
-            TTxnLoadInfo txnLoadInfo = request.getTxnLoadInfo();
-            TransactionEntry transactionEntry = ConnectContext.get().getTxnEntry();
-            // null if this is a commit command
-            if (transactionEntry != null && transactionEntry.getDb() != null) {
-                txnLoadInfo.setDbId(transactionEntry.getDb().getId());
-                txnLoadInfo.setTxnId(transactionEntry.getTransactionId());
-                txnLoadInfo.setTimeoutTimestamp(transactionEntry.getTimeoutTimestamp());
-                result.setTxnLoadInfo(txnLoadInfo);
             }
         }
         return result;

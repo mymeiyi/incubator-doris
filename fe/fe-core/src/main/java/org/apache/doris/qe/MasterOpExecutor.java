@@ -87,18 +87,12 @@ public class MasterOpExecutor {
 
     public void execute() throws Exception {
         result = forward(buildStmtForwardParams());
-        if (ctx.isTxnModel()) {
-            if (ctx.getTxnEntry().isInsertValuesTxnBegan()) {
-                throw new AnalysisException(
-                        "Transaction insert can not insert into values and insert into select at the same time");
-            }
+        if (result.getStatusCode() == 0 && ctx.isTxnModel()) {
             if (result.isSetTxnLoadInfo()) {
-                TTxnLoadInfo txnLoadInfo = result.getTxnLoadInfo();
-                ctx.getTxnEntry().setTxnLoadInfoInObserver(txnLoadInfo);
-                LOG.info("sout: set txn entry info: {}", txnLoadInfo);
+                ctx.getTxnEntry().setTxnLoadInfoInObserver(result.getTxnLoadInfo());
             } else {
                 ctx.setTxnEntry(null);
-                LOG.info("sout: set txn entry to null");
+                LOG.info("set txn entry to null");
             }
         }
         waitOnReplaying();
@@ -196,7 +190,7 @@ public class MasterOpExecutor {
         }
     }
 
-    private TMasterOpRequest buildStmtForwardParams() {
+    private TMasterOpRequest buildStmtForwardParams() throws AnalysisException {
         TMasterOpRequest params = new TMasterOpRequest();
         // node ident
         params.setClientNodeHost(Env.getCurrentEnv().getSelfNode().getHost());
@@ -228,16 +222,7 @@ public class MasterOpExecutor {
                 ctx.isTxnModel(), ctx.getTxnEntry() == null ? "null" : ctx.getTxnEntry().isTransactionBegan());
         // set transaction load info
         if (ctx.isTxnModel()) {
-            TransactionEntry txnEntry = ctx.getTxnEntry();
-            TTxnLoadInfo txnLoadInfo = new TTxnLoadInfo();
-            txnLoadInfo.setLabel(txnEntry.getLabel());
-            if (ctx.getTxnEntry().isTransactionBegan()) {
-                txnLoadInfo.setDbId(txnEntry.getDbId());
-                txnLoadInfo.setTxnId(txnEntry.getTransactionId());
-                txnLoadInfo.setTimeoutTimestamp(txnEntry.getTimeoutTimestamp());
-            }
-            LOG.info("sout: set load info when forward: {}", txnLoadInfo);
-            params.setTxnLoadInfo(txnLoadInfo);
+            params.setTxnLoadInfo(ctx.getTxnEntry().getTxnLoadInfoInObserver());
         }
         return params;
     }

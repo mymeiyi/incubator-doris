@@ -93,28 +93,72 @@ public class TransactionEntry {
     public TransactionEntry(TTxnParams txnConf, Database db, Table table) {
         this.txnConf = txnConf;
         this.database = db;
+        this.dbId = this.database.getId();
         this.table = table;
     }
 
+    /**
+     * handle 2 forward cases:
+     * 1. the first dml stmt in a txn, now the txn is not began: only know the [label]
+     *    beginTxn -> txnId
+     *    calculate timeoutTimestamp
+     *    set dbId
+     * 2. the others dml stmts in a txn, now the txn is already began: know the [label, txnId, dbId, timeoutTimestamp]
+     */
     public void setTxnInfoInMaster(TTxnLoadInfo txnLoadInfo) throws DdlException {
         this.setTxnConf(new TTxnParams().setNeedTxn(true).setTxnId(-1));
         this.label = txnLoadInfo.getLabel();
         if (txnLoadInfo.isSetTxnId()) {
-            this.isTransactionBegan = true;
             this.dbId = txnLoadInfo.getDbId();
-            this.transactionId = txnLoadInfo.getTxnId();
-            this.timeoutTimestamp = txnLoadInfo.getTimeoutTimestamp();
-            this.transactionState = Env.getCurrentGlobalTransactionMgr().getTransactionState(dbId, transactionId);
-            this.label = this.transactionState.getLabel();
             this.database = Env.getCurrentInternalCatalog().getDbOrDdlException(dbId);
+            this.transactionId = txnLoadInfo.getTxnId();
+            this.transactionState = Env.getCurrentGlobalTransactionMgr().getTransactionState(dbId, transactionId);
+            Preconditions.checkNotNull(this.transactionState,
+                    "db_id" + dbId + " txn_id=" + transactionId + " not found");
+            Preconditions.checkState(this.label.equals(this.transactionState.getLabel()), "expected label="
+                    + this.label + ", real label=" + this.transactionState.getLabel());
+            this.isTransactionBegan = true;
+            this.timeoutTimestamp = txnLoadInfo.getTimeoutTimestamp();
         }
+        LOG.info("set txn info in master, label={}, txnId={}, dbId={}, timeoutTimestamp={}",
+                label, transactionId, dbId, timeoutTimestamp);
+    }
+
+    public TTxnLoadInfo getTxnInfoInMaster() {
+        TTxnLoadInfo txnLoadInfo = new TTxnLoadInfo();
+        txnLoadInfo.setLabel(label);
+        txnLoadInfo.setTxnId(transactionId);
+        txnLoadInfo.setDbId(dbId);
+        txnLoadInfo.setTimeoutTimestamp(timeoutTimestamp);
+        LOG.info("master return txn info: {}", txnLoadInfo);
+        return txnLoadInfo;
+    }
+
+    public TTxnLoadInfo getTxnLoadInfoInObserver() throws AnalysisException {
+        if (isInsertValuesTxnBegan()) {
+            throw new AnalysisException(
+                    "Transaction insert can not insert into values and insert into select at the same time");
+        }
+        TTxnLoadInfo txnLoadInfo = new TTxnLoadInfo();
+        txnLoadInfo.setLabel(label);
+        if (this.isTransactionBegan) {
+            txnLoadInfo.setTxnId(transactionId);
+            txnLoadInfo.setDbId(dbId);
+            txnLoadInfo.setTimeoutTimestamp(timeoutTimestamp);
+        }
+        LOG.info("get txn load info in observer: {}", txnLoadInfo);
+        return txnLoadInfo;
     }
 
     public void setTxnLoadInfoInObserver(TTxnLoadInfo txnLoadInfo) {
+        Preconditions.checkState(txnLoadInfo.getLabel().equals(this.label),
+                "expected label=" + this.label + ", real label=" + txnLoadInfo.getLabel());
         this.isTransactionBegan = true;
         this.transactionId = txnLoadInfo.txnId;
         this.timeoutTimestamp = txnLoadInfo.timeoutTimestamp;
         this.dbId = txnLoadInfo.dbId;
+        LOG.info("set txn load info in observer, label={}, txnId={}, dbId={}, timeoutTimestamp={}",
+                label, transactionId, dbId, timeoutTimestamp);
     }
 
     public long getDbId() {
@@ -135,6 +179,7 @@ public class TransactionEntry {
 
     public void setDb(Database db) {
         this.database = db;
+        this.dbId = this.database.getId();
     }
 
     public Table getTable() {
@@ -169,7 +214,7 @@ public class TransactionEntry {
         return isTxnModel() && txnConf.getTxnId() == -1;
     }
 
-    public boolean isInsertValuesTxnBegan() {
+    private boolean isInsertValuesTxnBegan() {
         return isTxnModel() && txnConf.getTxnId() != -1;
     }
 
@@ -235,6 +280,7 @@ public class TransactionEntry {
             }
             this.isTransactionBegan = true;
             this.database = database;
+            this.dbId = this.database.getId();
             this.transactionState = Env.getCurrentGlobalTransactionMgr()
                     .getTransactionState(database.getId(), transactionId);
             this.transactionState.resetSubTransactionStates();

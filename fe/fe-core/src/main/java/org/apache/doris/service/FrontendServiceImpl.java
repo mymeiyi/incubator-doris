@@ -1048,17 +1048,6 @@ public class FrontendServiceImpl implements FrontendService.Iface {
         if (Config.isCloudMode() && !Strings.isNullOrEmpty(params.getCloudCluster())) {
             context.setCloudCluster(params.getCloudCluster());
         }
-        // txn load info
-        /*if (params.isSetTxnLoadInfo()) {
-            try {
-                TransactionEntry transactionEntry = new TransactionEntry();
-                transactionEntry.setTxnInfoInMaster(params.getTxnLoadInfo());
-                context.setTxnEntry(transactionEntry);
-            } catch (Exception e) {
-                LOG.warn("failed to set txn load info", e);
-                throw new TException("failed to set txn load info", e);
-            }
-        }*/
 
         ConnectProcessor processor = null;
         if (context.getConnectType().equals(ConnectType.MYSQL)) {
@@ -1079,18 +1068,6 @@ public class FrontendServiceImpl implements FrontendService.Iface {
         } else {
             context.getState().setOk();
         }
-        /*if (params.isSetTxnLoadInfo()) {
-            TTxnLoadInfo txnLoadInfo = params.getTxnLoadInfo();
-            TransactionEntry transactionEntry = ConnectContext.get().getTxnEntry();
-            // null if this is a commit command
-            if (transactionEntry != null && transactionEntry.getDb() != null) {
-                txnLoadInfo.setDbId(transactionEntry.getDb().getId());
-                txnLoadInfo.setTxnId(transactionEntry.getTransactionId());
-                txnLoadInfo.setTimeoutTimestamp(transactionEntry.getTimeoutTimestamp());
-                result.setTxnLoadInfo(txnLoadInfo);
-            }
-        }
-        LOG.info("sout: sql: {}, result: {}", params.sql, result);*/
         ConnectContext.remove();
         clearCallback.run();
         return result;
