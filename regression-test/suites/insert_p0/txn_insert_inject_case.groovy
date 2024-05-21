@@ -52,7 +52,12 @@ suite("txn_insert_inject_case", "nonConcurrent") {
         sql """ insert into ${table}_0 select * from ${table}_2; """
         sql """ insert into ${table}_0 select * from ${table}_1; """
         sql """ insert into ${table}_0 select * from ${table}_2; """
-        sql """ commit; """
+        try {
+            sql """ commit; """
+        } catch (Exception e) {
+            logger.info("commit failed", e)
+            assertTrue(e.getMessage().contains("transaction commit successfully, BUT data will be visible later."))
+        }
 
         def result = sql "SELECT COUNT(*) FROM ${table}_0"
         rowCount = result[0][0]
