@@ -110,7 +110,10 @@ public class MasterTxnExecutor {
             TWaitingTxnStatusResult result = client.waitingTxnStatus(request);
             isReturnToPool = true;
             if (result.getStatus().getStatusCode() != TStatusCode.OK) {
-                throw new TException("get txn status failed.");
+                throw new TException(
+                        "get txn status (id=" + request.getTxnId() + ") failed, status code: " + result.getStatus()
+                                .getStatusCode() + ", msg: "
+                                + result.getStatus().getErrorMsgs() + ".");
             }
             return result;
         } catch (TTransportException e) {
