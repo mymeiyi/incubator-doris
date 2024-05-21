@@ -547,6 +547,7 @@ public class GlobalTransactionMgr implements GlobalTransactionMgrIface {
             }
             try {
                 Thread.sleep(1000L);
+                LOG.debug("sout: txn_id={}, state={}", request.getTxnId(), txnStatus);
             } catch (InterruptedException e) {
                 LOG.info("commit sleep exception.", e);
             }

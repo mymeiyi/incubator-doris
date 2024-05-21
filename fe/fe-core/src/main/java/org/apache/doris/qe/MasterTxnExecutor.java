@@ -103,7 +103,8 @@ public class MasterTxnExecutor {
 
         FrontendService.Client client = getClient(thriftAddress);
 
-        LOG.info("Send waiting transaction status {} to Master {}", ctx.getStmtId(), thriftAddress);
+        LOG.info("Send waiting transaction status stmtId={}, txnId={} to Master {}", ctx.getStmtId(),
+                request.getTxnId(), thriftAddress);
 
         boolean isReturnToPool = false;
         try {
