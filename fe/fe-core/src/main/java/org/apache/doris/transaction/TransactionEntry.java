@@ -21,10 +21,15 @@ import org.apache.doris.analysis.RedirectStatus;
 import org.apache.doris.catalog.Database;
 import org.apache.doris.catalog.DatabaseIf;
 import org.apache.doris.catalog.Env;
+import org.apache.doris.catalog.KeysType;
+import org.apache.doris.catalog.OlapTable;
 import org.apache.doris.catalog.Table;
 import org.apache.doris.catalog.TableIf;
+import org.apache.doris.cloud.transaction.CloudGlobalTransactionMgr;
 import org.apache.doris.common.AnalysisException;
+import org.apache.doris.common.Config;
 import org.apache.doris.common.DdlException;
+import org.apache.doris.common.Pair;
 import org.apache.doris.common.UserException;
 import org.apache.doris.proto.InternalService;
 import org.apache.doris.proto.Types;
@@ -40,6 +45,7 @@ import org.apache.doris.thrift.TLoadTxnBeginResult;
 import org.apache.doris.thrift.TTabletCommitInfo;
 import org.apache.doris.thrift.TTxnLoadInfo;
 import org.apache.doris.thrift.TTxnParams;
+import org.apache.doris.thrift.TUniqueId;
 import org.apache.doris.thrift.TWaitingTxnStatusRequest;
 import org.apache.doris.thrift.TWaitingTxnStatusResult;
 import org.apache.doris.transaction.SubTransactionState.SubTransactionType;
@@ -176,6 +182,13 @@ public class TransactionEntry {
             throw new AnalysisException(
                     "Transaction insert can not insert into values and insert into select at the same time");
         }
+        if (Config.isCloudMode()) {
+            OlapTable olapTable = (OlapTable) table;
+            if (olapTable.getKeysType() == KeysType.UNIQUE_KEYS && olapTable.getEnableUniqueKeyMergeOnWrite()) {
+                throw new UserException(
+                        "Transaction load is not supported for merge on write unique keys table in cloud mode");
+            }
+        }
         DatabaseIf database = table.getDatabase();
         if (!isTransactionBegan) {
             long timeoutSecond = ConnectContext.get().getExecTimeout();
@@ -206,8 +219,19 @@ public class TransactionEntry {
                 throw new AnalysisException(
                         "Transaction insert must be in the same database, expect db_id=" + this.database.getId());
             }
-            this.transactionState.addTableId(table.getId());
-            long subTxnId = Env.getCurrentGlobalTransactionMgr().getNextTransactionId();
+            long subTxnId;
+            if (Config.isCloudMode()) {
+                TUniqueId queryId = ConnectContext.get().queryId();
+                String label = String.format("tl_%x_%x", queryId.hi, queryId.lo);
+                Pair<Long, TransactionState> pair
+                        = ((CloudGlobalTransactionMgr) Env.getCurrentGlobalTransactionMgr()).beginSubTxn(
+                        transactionId, table.getDatabase().getId(), table.getId(), label);
+                this.transactionState = pair.second;
+                subTxnId = pair.first;
+            } else {
+                subTxnId = Env.getCurrentGlobalTransactionMgr().getNextTransactionId();
+                this.transactionState.addTableId(table.getId());
+            }
             Env.getCurrentGlobalTransactionMgr().addSubTransaction(database.getId(), transactionId, subTxnId);
             return subTxnId;
         }
@@ -329,7 +353,17 @@ public class TransactionEntry {
 
     public void abortSubTransaction(long subTransactionId, Table table) {
         if (isTransactionBegan) {
-            this.transactionState.removeTableId(table.getId());
+            if (Config.isCloudMode()) {
+                try {
+                    this.transactionState
+                            = ((CloudGlobalTransactionMgr) Env.getCurrentGlobalTransactionMgr()).abortSubTxn(
+                            transactionId, subTransactionId, table.getDatabase().getId(), table.getId());
+                } catch (UserException e) {
+                    LOG.error("Failed to remove table_id={} from txn_id={}", table.getId(), transactionId, e);
+                }
+            } else {
+                this.transactionState.removeTableId(table.getId());
+            }
             Env.getCurrentGlobalTransactionMgr().removeSubTransaction(table.getDatabase().getId(), subTransactionId);
         }
     }
