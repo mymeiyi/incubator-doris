@@ -859,6 +859,10 @@ public class TransactionState implements Writable {
         this.subTransactionStates = new ArrayList<>();
     }
 
+    public void setSubTransactionStates(List<SubTransactionState> subTransactionStates) {
+        this.subTransactionStates = subTransactionStates;
+    }
+
     public void resetSubTxnIds() {
         this.subTxnIds = subTransactionStates.stream().map(SubTransactionState::getSubTransactionId)
                 .collect(Collectors.toList());

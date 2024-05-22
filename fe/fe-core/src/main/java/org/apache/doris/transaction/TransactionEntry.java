@@ -83,6 +83,10 @@ public class TransactionEntry {
     private long transactionId = -1;
     private TransactionState transactionState;
     private long timeoutTimestamp = -1;
+    // 1. For cloud mode, we keep subTransactionStates in TransactionEntry;
+    // 2. For doris, we keep subTransactionStates in TransactionState, because if executed in observer,
+    // the dml statements will be forwarded to master, so keep the subTransactionStates is in master.
+    private List<SubTransactionState> subTransactionStates = new ArrayList<>();
 
     public TransactionEntry() {
     }
@@ -193,7 +197,7 @@ public class TransactionEntry {
         if (!isTransactionBegan) {
             long timeoutSecond = ConnectContext.get().getExecTimeout();
             this.timeoutTimestamp = System.currentTimeMillis() + timeoutSecond * 1000;
-            if (Env.getCurrentEnv().isMaster()) {
+            if (Env.getCurrentEnv().isMaster() || Config.isCloudMode()) {
                 this.transactionId = Env.getCurrentGlobalTransactionMgr().beginTransaction(
                         database.getId(), Lists.newArrayList(table.getId()), label,
                         new TxnCoordinator(TxnSourceType.FE, FrontendOptions.getLocalHostAddress()),
@@ -240,7 +244,7 @@ public class TransactionEntry {
     public TransactionStatus commitTransaction() throws Exception {
         if (isTransactionBegan) {
             try {
-                if (Env.getCurrentEnv().isMaster()) {
+                if (Env.getCurrentEnv().isMaster() || Config.isCloudMode()) {
                     beforeFinishTransaction();
                     if (Env.getCurrentGlobalTransactionMgr().commitAndPublishTransaction(database, transactionId,
                             transactionState.getSubTransactionStates(),
@@ -299,7 +303,7 @@ public class TransactionEntry {
 
     private long abortTransaction(String reason) throws Exception {
         if (isTransactionBegan) {
-            if (Env.getCurrentEnv().isMaster()) {
+            if (Env.getCurrentEnv().isMaster() || Config.isCloudMode()) {
                 beforeFinishTransaction();
                 Env.getCurrentGlobalTransactionMgr().abortTransaction(database.getId(), transactionId, reason);
                 return transactionId;
@@ -325,7 +329,9 @@ public class TransactionEntry {
         if (isTransactionBegan) {
             List<Long> tableIds = transactionState.getTableIdList().stream().distinct().collect(Collectors.toList());
             transactionState.setTableIdList(tableIds);
-            transactionState.getSubTransactionStates().sort((s1, s2) -> {
+            List<SubTransactionState> subTransactionStatesPtr = Config.isCloudMode() ? subTransactionStates
+                    : transactionState.getSubTransactionStates();
+            subTransactionStatesPtr.sort((s1, s2) -> {
                 if (s1.getSubTransactionType() == SubTransactionType.INSERT
                         && s2.getSubTransactionType() == SubTransactionType.DELETE) {
                     return 1;
@@ -336,6 +342,9 @@ public class TransactionEntry {
                     return Long.compare(s1.getSubTransactionId(), s2.getSubTransactionId());
                 }
             });
+            if (Config.isCloudMode()) {
+                transactionState.setSubTransactionStates(subTransactionStatesPtr);
+            }
             LOG.info("subTransactionStates={}", transactionState.getSubTransactionStates());
             transactionState.resetSubTxnIds();
         }
@@ -374,13 +383,15 @@ public class TransactionEntry {
             LOG.debug("label={}, txn_id={}, sub_txn_id={}, table={}, commit_infos={}",
                     label, transactionId, subTxnId, table, commitInfos);
         }
-        transactionState.getSubTransactionStates()
+        List<SubTransactionState> subTransactionStatesPtr = Config.isCloudMode() ? subTransactionStates
+                : transactionState.getSubTransactionStates();
+        subTransactionStatesPtr
                 .add(new SubTransactionState(subTxnId, table, commitInfos, subTransactionType));
-        Preconditions.checkState(
-                transactionState.getTableIdList().size() == transactionState.getSubTransactionStates().size(),
-                "txn_id=" + transactionId + ", expect table_list=" + transactionState.getSubTransactionStates().stream()
-                        .map(s -> s.getTable().getId()).collect(Collectors.toList()) + ", real table_list="
-                        + transactionState.getTableIdList());
+        Preconditions.checkState(transactionState.getTableIdList().size() == subTransactionStatesPtr.size(),
+                "txn_id=" + transactionId
+                        + ", expect table_list="
+                        + subTransactionStatesPtr.stream().map(s -> s.getTable().getId()).collect(Collectors.toList())
+                        + ", real table_list=" + transactionState.getTableIdList());
     }
 
     public boolean isTransactionBegan() {
