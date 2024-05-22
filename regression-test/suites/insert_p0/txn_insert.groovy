@@ -290,7 +290,7 @@ suite("txn_insert") {
 
         // 9. insert into table with multi partitions and tablets
         if (use_nereids_planner) {
-            def pt = "multi_partition_t"
+            def pt = "txn_insert_multi_partition_t"
             for (def i in 0..3) {
                 sql """ drop table if exists ${pt}_${i} """
                 sql """
@@ -516,7 +516,7 @@ suite("txn_insert") {
 
         // 15. insert into mow tables
         if (use_nereids_planner) {
-            def unique_table = "ut"
+            def unique_table = "txn_insert_ut"
             for (def i in 0..2) {
                 sql """ drop table if exists ${unique_table}_${i} """
                 sql """
@@ -560,7 +560,7 @@ suite("txn_insert") {
 
         // the following cases are not supported in cloud mode
         if (isCloudMode()) {
-            return
+            break
         }
 
         // 16. update stmt(mow table)
@@ -696,6 +696,16 @@ suite("txn_insert") {
             order_qt_selectmowd2 """select * from txn_insert_dt2 """
             order_qt_selectmowd3 """select * from txn_insert_dt4 """
             order_qt_selectmowd4 """select * from txn_insert_dt5 """
+        }
+    }
+
+    def db_name = "regression_test_insert_p0"
+    def tables = sql """ show tables from $db_name """
+    logger.info("tables: $tables")
+    for (def table_info : tables) {
+        def table_name = table_info[0]
+        if (table_name.startsWith("txn_insert_")) {
+            check_table_version_continuous(db_name, table_name)
         }
     }
 }
