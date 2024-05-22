@@ -118,4 +118,14 @@ suite("txn_insert_concurrent_insert") {
     result = sql """ select count() from ${tableName}_1 """
     logger.info("result: ${result}")
     assertEquals(2606192, result[0][0])
+
+    def db_name = "regression_test_insert_p0"
+    def tables = sql """ show tables from $db_name """
+    logger.info("tables: $tables")
+    for (def table_info : tables) {
+        def table_name = table_info[0]
+        if (table_name.startsWith(tableName)) {
+            check_table_version_continuous(db_name, table_name)
+        }
+    }
 }
