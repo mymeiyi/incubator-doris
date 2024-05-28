@@ -21,8 +21,9 @@ import java.sql.Statement
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.CompletableFuture
 
-suite("txn_insert_concurrent_insert") {
-    def tableName = "txn_insert_concurrent_insert"
+suite("txn_insert_concurrent_insert_duplicate") {
+    def tableName = "txn_insert_concurrent_insert_duplicate"
+    List<String> errors = new ArrayList<>()
 
     for (int i = 0; i < 3; i++) {
         def table_name = "${tableName}_${i}"
@@ -133,11 +134,12 @@ suite("txn_insert_concurrent_insert") {
             logger.info("finish txn insert")
         } catch (Throwable e) {
             logger.error("txn insert failed", e)
+            errors.add("txn insert failed " + e.getMessage())
         }
     }
 
     List<CompletableFuture<Void>> futures = new ArrayList<>()
-    def threadNum = 30
+    def threadNum = 50
     for (int i = 0; i < threadNum; i++) {
         CompletableFuture<Void> future = CompletableFuture.runAsync(txn_insert)
         futures.add(future)
@@ -145,6 +147,8 @@ suite("txn_insert_concurrent_insert") {
     CompletableFuture<?>[] futuresArray = futures.toArray(new CompletableFuture[0])
     CompletableFuture.allOf(futuresArray).get(30, TimeUnit.MINUTES)
     sql """ sync """
+
+    logger.info("errors: " + errors)
 
     def result = sql """ select count() from ${tableName}_0 """
     logger.info("result: ${result}, expected: ${6001215 * threadNum}")
@@ -161,4 +165,6 @@ suite("txn_insert_concurrent_insert") {
             check_table_version_continuous(dbName, table_name)
         }
     }
+
+    assertEquals(0, errors.size())
 }
