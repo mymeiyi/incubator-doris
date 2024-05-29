@@ -134,12 +134,12 @@ suite("txn_insert_concurrent_insert_update") {
     def txn_insert = { ->
         try (Connection conn = DriverManager.getConnection(url, context.config.jdbcUser, context.config.jdbcPassword);
              Statement stmt = conn.createStatement()) {
-            // begin
-            logger.info("execute sql: set enable_unique_key_partial_update = true")
-            stmt.execute("set enable_unique_key_partial_update = true")
-            // begin
-            logger.info("execute sql: begin")
-            stmt.execute("begin")
+            // set session variable and begin
+            def pre_sqls = ["set enable_unique_key_partial_update = true", "begin"]
+            for (def pre_sql : pre_sqls) {
+                logger.info("execute sql: " + pre_sql)
+                stmt.execute(pre_sql)
+            }
             // insert
             List<Integer> list = new ArrayList()
             for (int i = 0; i < sqls.size(); i++) {
@@ -152,10 +152,11 @@ suite("txn_insert_concurrent_insert_update") {
                 logger.info("execute sql: " + sql)
                 stmt.execute(sql)
             }
-            // commit
-            logger.info("execute sql: commit")
-            stmt.execute("commit")
-            logger.info("finish txn insert")
+            def post_sqls = ["commit", """ select count() from ${tableName}_0 """, """ select count() from ${tableName}_1 """]
+            for (def post_sql : post_sqls) {
+                logger.info("execute sql: " + post_sql)
+                stmt.execute(post_sql)
+            }
         } catch (Throwable e) {
             logger.error("txn insert failed", e)
             errors.add("txn insert failed " + e.getMessage())
@@ -176,10 +177,10 @@ suite("txn_insert_concurrent_insert_update") {
 
     def result = sql """ select count() from ${tableName}_0 """
     logger.info("result: ${result}")
-    assertEquals(6001215, result[0][0])
+    assertEquals(2000495, result[0][0])
     result = sql """ select count() from ${tableName}_1 """
     logger.info("result: ${result}")
-    assertEquals(2999666, result[0][0])
+    assertEquals(6001215, result[0][0])
 
     def tables = sql """ show tables from $dbName """
     logger.info("tables: $tables")
