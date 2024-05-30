@@ -1428,7 +1428,7 @@ void MetaServiceImpl::commit_txn_with_sub_txn(::google::protobuf::RpcController*
         return;
     }
 
-    // TODO: do more check like txn state, 2PC etc.
+    // TODO: do more check like txn state
     DCHECK(txn_info.txn_id() == txn_id);
     if (txn_info.status() == TxnStatusPB::TXN_STATUS_ABORTED) {
         code = MetaServiceCode::TXN_ALREADY_ABORTED;
@@ -1440,12 +1440,6 @@ void MetaServiceImpl::commit_txn_with_sub_txn(::google::protobuf::RpcController*
 
     if (txn_info.status() == TxnStatusPB::TXN_STATUS_VISIBLE) {
         code = MetaServiceCode::TXN_ALREADY_VISIBLE;
-        if (request->has_is_2pc() && request->is_2pc()) {
-            ss << "transaction [" << txn_id << "] is already visible, not pre-committed.";
-            msg = ss.str();
-            response->mutable_txn_info()->CopyFrom(txn_info);
-            return;
-        }
         ss << "transaction is already visible: db_id=" << db_id << " txn_id=" << txn_id;
         msg = ss.str();
         response->mutable_txn_info()->CopyFrom(txn_info);
@@ -2206,19 +2200,18 @@ void MetaServiceImpl::begin_sub_txn(::google::protobuf::RpcController* controlle
                                     ::google::protobuf::Closure* done) {
     RPC_PREPROCESS(begin_sub_txn);
     int64_t txn_id = request->has_txn_id() ? request->txn_id() : -1;
-    if (txn_id < 0) {
-        code = MetaServiceCode::INVALID_ARGUMENT;
-        ss << "invalid txn_id, it may be not given or set properly, txn_id=" << txn_id;
-        msg = ss.str();
-        return;
-    }
+    int64_t sub_txn_num = request->has_sub_txn_num() ? request->sub_txn_num() : -1;
     int64_t db_id = request->has_db_id() ? request->db_id() : -1;
-    int64_t table_id = request->has_table_id() ? request->table_id() : -1;
+    auto& table_ids = request->table_ids();
     std::string label = request->has_label() ? request->label() : "";
-    if (label.empty() || db_id < 0 || table_id < 0) {
+    if (txn_id < 0 || sub_txn_num < 0 || db_id < 0 || table_ids.empty() || label.empty()) {
         code = MetaServiceCode::INVALID_ARGUMENT;
-        ss << "invalid argument, label=" << label << " db_id=" << db_id
-           << ", table_id=" << table_id;
+        ss << "invalid argument, txn_id=" << txn_id << ", sub_txn_num=" << sub_txn_num
+           << " db_id=" << db_id  << ", label=" << label << ", table_ids=[" ;
+        for (auto table_id : table_ids) {
+            ss << table_id << ", ";
+        }
+        ss << "]";
         msg = ss.str();
         return;
     }
@@ -2353,8 +2346,22 @@ void MetaServiceImpl::begin_sub_txn(::google::protobuf::RpcController* controlle
         return;
     }
 
-    txn_info.mutable_table_ids()->Add(table_id);
+    if (txn_info.sub_txn_ids().size() != sub_txn_num) {
+        code = MetaServiceCode::UNDEFINED_ERR;
+        ss << "sub_txn_num mismatch, txn_id=" << txn_id << ", expected sub_txn_num=" << sub_txn_num
+           << ", txn_info.sub_txn_ids=[";
+        for (auto id : txn_info.sub_txn_ids()) {
+            ss << id << ", ";
+        }
+        ss << "]";
+        msg = ss.str();
+        LOG(WARNING) << msg;
+    }
     txn_info.mutable_sub_txn_ids()->Add(sub_txn_id);
+    txn_info.mutable_table_ids()->Clear();
+    for (auto table_id : table_ids) {
+        txn_info.mutable_table_ids()->Add(table_id);
+    }
     if (!txn_info.SerializeToString(&info_val)) {
         code = MetaServiceCode::PROTOBUF_SERIALIZE_ERR;
         ss << "failed to serialize txn_info when saving, txn_id=" << txn_id;
@@ -2365,12 +2372,9 @@ void MetaServiceImpl::begin_sub_txn(::google::protobuf::RpcController* controlle
     txn->remove(label_key);
     txn->put(info_key, info_val);
     txn->put(index_key, index_val);
-    LOG(INFO) << "xxx remove label_key=" << hex(label_key) << " txn_id=" << txn_id
-              << " sub_txn_id=" << sub_txn_id;
-    LOG(INFO) << "xxx put info_key=" << hex(info_key) << " txn_id=" << txn_id
-              << " sub_txn_id=" << sub_txn_id;
-    LOG(INFO) << "xxx put index_key=" << hex(index_key) << " txn_id=" << txn_id
-              << " sub_txn_id=" << sub_txn_id;
+    LOG(INFO) << "txn_id=" << txn_id << ", sub_txn_id=" << sub_txn_id
+              << ", remove label_key=" << hex(label_key) << ", put info_key=" << hex(info_key)
+              << ", put index_key=" << hex(index_key);
     err = txn->commit();
     if (err != TxnErrorCode::TXN_OK) {
         code = cast_as<ErrCategory::COMMIT>(err);
@@ -2392,19 +2396,18 @@ void MetaServiceImpl::abort_sub_txn(::google::protobuf::RpcController* controlle
                                     ::google::protobuf::Closure* done) {
     RPC_PREPROCESS(abort_sub_txn);
     int64_t txn_id = request->has_txn_id() ? request->txn_id() : -1;
-    if (txn_id < 0) {
-        code = MetaServiceCode::INVALID_ARGUMENT;
-        ss << "invalid txn_id, it may be not given or set properly, txn_id=" << txn_id;
-        msg = ss.str();
-        return;
-    }
-    int64_t db_id = request->has_db_id() ? request->db_id() : -1;
-    int64_t table_id = request->has_table_id() ? request->table_id() : -1;
     int64_t sub_txn_id = request->has_sub_txn_id() ? request->sub_txn_id() : -1;
-    if (db_id < 0 || table_id < 0 || sub_txn_id < 0) {
+    int64_t sub_txn_num = request->has_sub_txn_num() ? request->sub_txn_num() : -1;
+    int64_t db_id = request->has_db_id() ? request->db_id() : -1;
+    auto& table_ids = request->table_ids();
+    if (txn_id < 0 || sub_txn_id < 0 || sub_txn_num < 0 || db_id < 0) {
         code = MetaServiceCode::INVALID_ARGUMENT;
-        ss << "invalid argument, db_id=" << db_id << ", table_id=" << table_id
-           << ", sub_txn_id=" << sub_txn_id;
+        ss << "invalid argument, txn_id=" << txn_id << ", sub_txn_id=" << sub_txn_id
+           << ", sub_txn_num=" << sub_txn_num << " db_id=" << db_id << ", table_ids=[";
+        for (auto table_id : table_ids) {
+            ss << table_id << ", ";
+        }
+        ss << "]";
         msg = ss.str();
         return;
     }
@@ -2463,9 +2466,20 @@ void MetaServiceImpl::abort_sub_txn(::google::protobuf::RpcController* controlle
     }
 
     // remove table_id and does not need to remove sub_txn_id
-    auto it = txn_info.mutable_table_ids()->end() - 1;
-    if (*it == table_id) {
-        txn_info.mutable_table_ids()->erase(it);
+    if (txn_info.sub_txn_ids().size() != sub_txn_num) {
+        code = MetaServiceCode::UNDEFINED_ERR;
+        ss << "sub_txn_num mismatch, txn_id=" << txn_id << ", sub_txn_id=" << sub_txn_id
+           << ", expected sub_txn_num=" << sub_txn_num << ", txn_info.sub_txn_ids=[";
+        for (auto id : txn_info.sub_txn_ids()) {
+            ss << id << ", ";
+        }
+        ss << "]";
+        msg = ss.str();
+        LOG(WARNING) << msg;
+    }
+    txn_info.mutable_table_ids()->Clear();
+    for (auto table_id : table_ids) {
+        txn_info.mutable_table_ids()->Add(table_id);
     }
     // TODO should we try to delete txn_label_key if begin_sub_txn failed to delete?
 
@@ -2478,13 +2492,13 @@ void MetaServiceImpl::abort_sub_txn(::google::protobuf::RpcController* controlle
     }
 
     txn->put(info_key, info_val);
-    LOG(INFO) << "xxx put info_key=" << hex(info_key) << " txn_id=" << txn_id
-              << " sub_txn_id=" << sub_txn_id;
+    LOG(INFO) << "txn_id=" << txn_id << ", sub_txn_id=" << sub_txn_id
+              << ", put info_key=" << hex(info_key);
     err = txn->commit();
     if (err != TxnErrorCode::TXN_OK) {
         code = cast_as<ErrCategory::COMMIT>(err);
-        ss << "failed to commit kv txn, txn_id=" << txn_id << " sub_txn_id=" << sub_txn_id
-           << " err=" << err;
+        ss << "failed to commit kv txn, txn_id=" << txn_id << ", sub_txn_id=" << sub_txn_id
+           << ", err=" << err;
         msg = ss.str();
         return;
     }
