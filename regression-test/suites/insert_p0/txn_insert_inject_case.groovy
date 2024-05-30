@@ -21,6 +21,10 @@ import java.sql.DriverManager
 import java.sql.Statement
 
 suite("txn_insert_inject_case", "nonConcurrent") {
+    if (isCloudMode()) {
+        return
+    }
+
     def table = "txn_insert_inject_case"
 
     for (int j = 0; j < 3; j++) {
