@@ -1398,9 +1398,11 @@ TEST(MetaServiceTest, CommitTxnWithSubTxnTest) {
         BeginSubTxnRequest req;
         req.set_cloud_unique_id("test_cloud_unique_id");
         req.set_txn_id(txn_id);
+        req.set_sub_txn_num(0);
         req.set_db_id(db_id);
         req.set_label("test_label_0");
-        req.set_table_id(t2);
+        req.mutable_table_ids()->Add(t1);
+        req.mutable_table_ids()->Add(t2);
         BeginSubTxnResponse res;
         meta_service->begin_sub_txn(reinterpret_cast<::google::protobuf::RpcController*>(&cntl),
                                     &req, &res, nullptr);
@@ -1427,9 +1429,12 @@ TEST(MetaServiceTest, CommitTxnWithSubTxnTest) {
         BeginSubTxnRequest req;
         req.set_cloud_unique_id("test_cloud_unique_id");
         req.set_txn_id(txn_id);
+        req.set_sub_txn_num(1);
         req.set_db_id(db_id);
         req.set_label("test_label_1");
-        req.set_table_id(t1);
+        req.mutable_table_ids()->Add(t1);
+        req.mutable_table_ids()->Add(t2);
+        req.mutable_table_ids()->Add(t1);
         BeginSubTxnResponse res;
         meta_service->begin_sub_txn(reinterpret_cast<::google::protobuf::RpcController*>(&cntl),
                                     &req, &res, nullptr);
@@ -1549,9 +1554,14 @@ TEST(MetaServiceTest, BeginAndAbortSubTxnTest) {
             BeginSubTxnRequest req;
             req.set_cloud_unique_id("test_cloud_unique_id");
             req.set_txn_id(txn_id);
+            req.set_sub_txn_num(i);
             req.set_db_id(db_id);
             req.set_label("test_label_" + std::to_string(i));
-            req.set_table_id(1235);
+            req.mutable_table_ids()->Add(1234);
+            req.mutable_table_ids()->Add(1235);
+            if (i == 1) {
+                req.mutable_table_ids()->Add(1235);
+            }
             BeginSubTxnResponse res;
             meta_service->begin_sub_txn(reinterpret_cast<::google::protobuf::RpcController*>(&cntl),
                                         &req, &res, nullptr);
@@ -1594,8 +1604,10 @@ TEST(MetaServiceTest, BeginAndAbortSubTxnTest) {
             req.set_cloud_unique_id("test_cloud_unique_id");
             req.set_txn_id(txn_id);
             req.set_sub_txn_id(sub_txn_id2);
+            req.set_sub_txn_num(2);
             req.set_db_id(db_id);
-            req.set_table_id(1235);
+            req.mutable_table_ids()->Add(1234);
+            req.mutable_table_ids()->Add(1235);
             AbortSubTxnResponse res;
             meta_service->abort_sub_txn(reinterpret_cast<::google::protobuf::RpcController*>(&cntl),
                                         &req, &res, nullptr);

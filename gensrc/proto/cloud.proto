@@ -716,11 +716,13 @@ message GetTxnIdResponse {
 message BeginSubTxnRequest {
     optional string cloud_unique_id = 1; // For auth
     optional int64 txn_id = 2;
-    optional int64 db_id = 3;
-    // add table_id to txn_state
-    optional int64 table_id = 4;
+    // all successful or failed sub txn except the first one
+    optional int64 sub_txn_num = 3;
+    optional int64 db_id = 4;
+    // set table_ids in txn_info
+    repeated int64 table_ids = 5;
     // a random label used to generate a sub_txn_id
-    optional string label = 5;
+    optional string label = 6;
 }
 
 message BeginSubTxnResponse {
@@ -732,10 +734,13 @@ message BeginSubTxnResponse {
 message AbortSubTxnRequest {
     optional string cloud_unique_id = 1; // For auth
     optional int64 txn_id = 2;
-    optional int64 db_id = 3;
-    optional int64 sub_txn_id = 4;
-    // remove table_id from txn_state
-    optional int64 table_id = 5;
+    // used for log
+    optional int64 sub_txn_id = 3;
+    // all successful or failed sub txn except the first one
+    optional int64 sub_txn_num = 4;
+    optional int64 db_id = 5;
+    // set table_ids in txn_info
+    repeated int64 table_ids = 6;
 }
 
 message AbortSubTxnResponse {
