@@ -53,13 +53,17 @@ suite("txn_insert_with_schema_change") {
     def txnInsert = { sqls ->
         try (Connection conn = DriverManager.getConnection(url, context.config.jdbcUser, context.config.jdbcPassword);
              Statement statement = conn.createStatement()) {
+            logger.info("execute sql: begin")
             statement.execute("begin")
+            logger.info("execute sql: ${sqls[0]}")
             statement.execute(sqls[0])
 
             schemaChangeLatch.countDown()
-            insertLatch.await(2, TimeUnit.MINUTES)
+            insertLatch.await(5, TimeUnit.MINUTES)
 
+            logger.info("execute sql: ${sqls[1]}")
             statement.execute(sqls[1])
+            logger.info("execute sql: commit")
             statement.execute("commit")
         } catch (Throwable e) {
             logger.error("txn insert failed", e)
@@ -70,7 +74,8 @@ suite("txn_insert_with_schema_change") {
     def schemaChange = { sql, job_state ->
         try (Connection conn = DriverManager.getConnection(url, context.config.jdbcUser, context.config.jdbcPassword);
              Statement statement = conn.createStatement()) {
-            schemaChangeLatch.await(2, TimeUnit.MINUTES)
+            schemaChangeLatch.await(5, TimeUnit.MINUTES)
+            logger.info("execute sql: ${sql}")
             statement.execute(sql)
             if (job_state != null) {
                 getAlterTableState(job_state)
@@ -93,13 +98,13 @@ suite("txn_insert_with_schema_change") {
 
     for (def insert_sqls: sqls) {
         // TODO skip because it will cause ms core
-        if (insert_sqls[1].startsWith("delete")) {
-            return
+        if (isCloudMode() && insert_sqls[1].startsWith("delete")) {
+            continue
         }
 
         for (int j = 0; j < 3; j++) {
             def tableName = table + "_" + j
-            sql """ DROP TABLE IF EXISTS $tableName force """
+            sql """ DROP TABLE IF EXISTS $tableName """
             sql """
             create table $tableName (
                 `ID` int(11) NOT NULL,
@@ -151,5 +156,6 @@ suite("txn_insert_with_schema_change") {
             getAlterTableState("FINISHED")
             order_qt_select4 """select id, name, score from ${table}_0 """
         }
+        check_table_version_continuous(dbName, table + "_0")
     }
 }
