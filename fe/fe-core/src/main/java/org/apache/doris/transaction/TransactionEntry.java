@@ -87,6 +87,8 @@ public class TransactionEntry {
     // 2. For doris, we keep subTransactionStates in TransactionState, because if executed in observer,
     // the dml statements will be forwarded to master, so keep the subTransactionStates is in master.
     private List<SubTransactionState> subTransactionStates = new ArrayList<>();
+    // Used for cloud mode, including all successful or failed sub transactions except the first one
+    private long allSubTxnNum = 0;
 
     public TransactionEntry() {
     }
@@ -227,9 +229,11 @@ public class TransactionEntry {
             if (Config.isCloudMode()) {
                 TUniqueId queryId = ConnectContext.get().queryId();
                 String label = String.format("tl_%x_%x", queryId.hi, queryId.lo);
+                List<Long> tableIds = getTableIds();
+                tableIds.add(table.getId());
                 Pair<Long, TransactionState> pair
                         = ((CloudGlobalTransactionMgr) Env.getCurrentGlobalTransactionMgr()).beginSubTxn(
-                        transactionId, table.getDatabase().getId(), table.getId(), label);
+                        transactionId, table.getDatabase().getId(), tableIds, label, allSubTxnNum);
                 this.transactionState = pair.second;
                 subTxnId = pair.first;
             } else {
@@ -237,6 +241,7 @@ public class TransactionEntry {
                 this.transactionState.addTableId(table.getId());
             }
             Env.getCurrentGlobalTransactionMgr().addSubTransaction(database.getId(), transactionId, subTxnId);
+            allSubTxnNum++;
             return subTxnId;
         }
     }
@@ -364,9 +369,10 @@ public class TransactionEntry {
         if (isTransactionBegan) {
             if (Config.isCloudMode()) {
                 try {
+                    List<Long> tableIds = getTableIds();
                     this.transactionState
                             = ((CloudGlobalTransactionMgr) Env.getCurrentGlobalTransactionMgr()).abortSubTxn(
-                            transactionId, subTransactionId, table.getDatabase().getId(), table.getId());
+                            transactionId, subTransactionId, table.getDatabase().getId(), tableIds, allSubTxnNum);
                 } catch (UserException e) {
                     LOG.error("Failed to remove table_id={} from txn_id={}", table.getId(), transactionId, e);
                 }
@@ -486,5 +492,11 @@ public class TransactionEntry {
         this.dbId = txnLoadInfo.dbId;
         LOG.info("set txn load info in observer, label={}, txnId={}, dbId={}, timeoutTimestamp={}",
                 label, transactionId, dbId, timeoutTimestamp);
+    }
+
+    private List<Long> getTableIds() {
+        List<SubTransactionState> subTransactionStatesPtr = Config.isCloudMode() ? subTransactionStates
+                : transactionState.getSubTransactionStates();
+        return subTransactionStatesPtr.stream().map(s -> s.getTable().getId()).collect(Collectors.toList());
     }
 }

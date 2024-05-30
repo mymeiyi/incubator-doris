@@ -462,11 +462,11 @@ public class CloudGlobalTransactionMgr implements GlobalTransactionMgrIface {
         }
 
         final CommitTxnRequest commitTxnRequest = builder.build();
-        commitTxn(commitTxnRequest, transactionId, is2PC);
+        commitTxn(commitTxnRequest, transactionId, is2PC, dbId, tableList);
     }
 
-    private void commitTxn(CommitTxnRequest commitTxnRequest, long transactionId, boolean is2PC)
-            throws UserException {
+    private void commitTxn(CommitTxnRequest commitTxnRequest, long transactionId, boolean is2PC, long dbId,
+            List<Table> tableList) throws UserException {
         CommitTxnResponse commitTxnResponse = null;
         int retryTime = 0;
 
@@ -822,7 +822,9 @@ public class CloudGlobalTransactionMgr implements GlobalTransactionMgrIface {
         }
 
         final CommitTxnRequest commitTxnRequest = builder.build();
-        commitTxn(commitTxnRequest, transactionId, false);
+        commitTxn(commitTxnRequest, transactionId, false, db.getId(),
+                subTransactionStates.stream().map(SubTransactionState::getTable)
+                        .collect(Collectors.toList()));
         return true;
     }
 
@@ -1415,12 +1417,12 @@ public class CloudGlobalTransactionMgr implements GlobalTransactionMgrIface {
         }
     }
 
-    public Pair<Long, TransactionState> beginSubTxn(long txnId, long dbId, long tableId, String label)
-            throws UserException {
-        LOG.info("try to begin sub transaction, txnId: {}, dbId: {}, tableId: {}, label: {}, abort: {}", txnId,
-                dbId, tableId, label);
+    public Pair<Long, TransactionState> beginSubTxn(long txnId, long dbId, List<Long> tableIds, String label,
+            long subTxnNum) throws UserException {
+        LOG.info("try to begin sub transaction, txnId: {}, dbId: {}, tableIds: {}, label: {}, subTxnNum: {}", txnId,
+                dbId, tableIds, label, subTxnNum);
         BeginSubTxnRequest request = BeginSubTxnRequest.newBuilder().setCloudUniqueId(Config.cloud_unique_id)
-                .setTxnId(txnId).setDbId(dbId).setTableId(tableId).setLabel(label).build();
+                .setTxnId(txnId).setDbId(dbId).addAllTableIds(tableIds).setLabel(label).setSubTxnNum(subTxnNum).build();
         BeginSubTxnResponse response = null;
         int retryTime = 0;
         try {
@@ -1455,11 +1457,13 @@ public class CloudGlobalTransactionMgr implements GlobalTransactionMgrIface {
                 TxnUtil.transactionStateFromPb(response.getTxnInfo()));
     }
 
-    public TransactionState abortSubTxn(long txnId, long subTxnId, long dbId, long tableId) throws UserException {
-        LOG.info("try to abort sub transaction, txnId: {}, subTxnId: {}, dbId: {}, tableId: {}", txnId, subTxnId, dbId,
-                tableId);
+    public TransactionState abortSubTxn(long txnId, long subTxnId, long dbId, List<Long> tableIds, long subTxnNum)
+            throws UserException {
+        LOG.info("try to abort sub transaction, txnId: {}, subTxnId: {}, dbId: {}, tableIds: {}, subTxnNum: {}", txnId,
+                subTxnId, dbId, tableIds, subTxnNum);
         AbortSubTxnRequest request = AbortSubTxnRequest.newBuilder().setCloudUniqueId(Config.cloud_unique_id)
-                .setTxnId(txnId).setSubTxnId(subTxnId).setDbId(dbId).setTableId(tableId).build();
+                .setTxnId(txnId).setSubTxnId(subTxnId).setDbId(dbId).addAllTableIds(tableIds).setSubTxnNum(subTxnId)
+                .build();
         AbortSubTxnResponse response = null;
         int retryTime = 0;
         try {

@@ -1513,9 +1513,11 @@ TEST(RecyclerTest, recycle_expired_txn_label) {
             BeginSubTxnRequest req;
             req.set_cloud_unique_id(cloud_unique_id);
             req.set_txn_id(txn_id);
+            req.set_sub_txn_num(0);
             req.set_db_id(db_id);
             req.set_label("test_sub_label1");
-            req.set_table_id(table2_id);
+            req.mutable_table_ids()->Add(table_id);
+            req.mutable_table_ids()->Add(table2_id);
             BeginSubTxnResponse res;
             meta_service->begin_sub_txn(reinterpret_cast<::google::protobuf::RpcController*>(&cntl),
                                         &req, &res, nullptr);
@@ -1533,9 +1535,12 @@ TEST(RecyclerTest, recycle_expired_txn_label) {
             BeginSubTxnRequest req;
             req.set_cloud_unique_id(cloud_unique_id);
             req.set_txn_id(txn_id);
+            req.set_sub_txn_num(1);
             req.set_db_id(db_id);
             req.set_label("test_sub_label2");
-            req.set_table_id(table_id);
+            req.mutable_table_ids()->Add(table_id);
+            req.mutable_table_ids()->Add(table2_id);
+            req.mutable_table_ids()->Add(table_id);
             BeginSubTxnResponse res;
             meta_service->begin_sub_txn(reinterpret_cast<::google::protobuf::RpcController*>(&cntl),
                                         &req, &res, nullptr);
@@ -1554,9 +1559,11 @@ TEST(RecyclerTest, recycle_expired_txn_label) {
             AbortSubTxnRequest req;
             req.set_cloud_unique_id("test_cloud_unique_id");
             req.set_txn_id(txn_id);
+            req.set_sub_txn_num(2);
             req.set_sub_txn_id(sub_txn_id3);
             req.set_db_id(db_id);
-            req.set_table_id(table_id);
+            req.mutable_table_ids()->Add(table_id);
+            req.mutable_table_ids()->Add(table2_id);
             AbortSubTxnResponse res;
             meta_service->abort_sub_txn(reinterpret_cast<::google::protobuf::RpcController*>(&cntl),
                                         &req, &res, nullptr);
