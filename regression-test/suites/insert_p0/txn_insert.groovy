@@ -703,21 +703,25 @@ suite("txn_insert") {
 
             try {
                 sql "set enable_unique_key_partial_update = true"
+                sql "set enable_insert_strict = false"
                 sql """ begin """
                 sql """ insert into ${unique_table}_2(id, score) select id, score from ${unique_table}_0; """
                 sql """ insert into ${unique_table}_2(id, score) select id, score from ${unique_table}_1; """
-                sql """ update ${unique_table}_2 set score = score + 100 where id in select id from ${unique_table}_0; """
+                sql """ update ${unique_table}_2 set score = score + 100 where id in (select id from ${unique_table}_0); """
                 sql """ delete from ${unique_table}_2 where id < 1; """
-                sql """ commit; """
+                sql """ commit """
 
                 sql """ delete from ${unique_table}_3 where id < 1; """
                 sql """ insert into ${unique_table}_3(id, score) select id, score from ${unique_table}_0; """
                 sql """ insert into ${unique_table}_3(id, score) select id, score from ${unique_table}_1; """
-                sql """ update ${unique_table}_3 set score = score + 100 where id in select id from ${unique_table}_0; """
+                sql """ update ${unique_table}_3 set score = score + 100 where id in (select id from ${unique_table}_0); """
             } catch (Throwable e) {
                 logger.warn("column update failed", e)
+                assertTrue(false)
             } finally {
+                sql "rollback"
                 sql "set enable_unique_key_partial_update = false"
+                sql "set enable_insert_strict = true"
             }
             sql "sync"
             order_qt_select_cu0 """select * from ${unique_table}_0"""
