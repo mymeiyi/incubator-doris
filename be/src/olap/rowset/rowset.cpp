@@ -106,9 +106,9 @@ Status check_version_continuity(const std::vector<RowsetSharedPtr>& rowsets) {
     auto prev = rowsets.begin();
     for (auto it = rowsets.begin() + 1; it != rowsets.end(); ++it) {
         if ((*prev)->end_version() + 1 != (*it)->start_version()) {
-            return Status::InternalError("versions are not continuity: prev={} cur={}",
+            return Status::InternalError("versions are not continuity: prev={} cur={} partition={}",
                                          (*prev)->version().to_string(),
-                                         (*it)->version().to_string());
+                                         (*it)->version().to_string(), (*prev)->partition_id());
         }
         prev = it;
     }

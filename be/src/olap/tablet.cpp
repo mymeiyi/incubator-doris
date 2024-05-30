@@ -2051,9 +2051,9 @@ Status check_version_continuity(const std::vector<RowsetMetaSharedPtr>& rs_metas
     auto prev = rs_metas.begin();
     for (auto it = rs_metas.begin() + 1; it != rs_metas.end(); ++it) {
         if ((*prev)->end_version() + 1 != (*it)->start_version()) {
-            return Status::InternalError("versions are not continuity: prev={} cur={}",
+            return Status::InternalError("versions are not continuity: prev={} cur={} partition={}",
                                          (*prev)->version().to_string(),
-                                         (*it)->version().to_string());
+                                         (*it)->version().to_string(), (*prev)->partition_id());
         }
         prev = it;
     }
