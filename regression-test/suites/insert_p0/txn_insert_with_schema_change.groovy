@@ -50,13 +50,13 @@ suite("txn_insert_with_schema_change") {
     sql """ insert into ${table}_3 values(1, '1', 1), (2, '2', 2) """
     sql """ insert into ${table}_4 values(3, '3', 3), (4, '4', 4), (5, '5', 5) """
 
-    def getAlterTableState = { job_state ->
+    def getAlterTableState = { tName, job_state ->
         def retry = 0
         sql "use ${dbName};"
         def last_state = ""
         while (true) {
             sleep(2000)
-            def state = sql " show alter table column where tablename = '${table}_0' order by CreateTime desc limit 1"
+            def state = sql " show alter table column where tablename = ${tName} order by CreateTime desc limit 1"
             logger.info("alter table state: ${state}")
             last_state = state[0][9]
             if (state.size() > 0 && last_state == job_state) {
@@ -91,14 +91,14 @@ suite("txn_insert_with_schema_change") {
         }
     }
 
-    def schemaChange = { sql, job_state ->
+    def schemaChange = { sql, tName, job_state ->
         try (Connection conn = DriverManager.getConnection(url, context.config.jdbcUser, context.config.jdbcPassword);
              Statement statement = conn.createStatement()) {
             schemaChangeLatch.await(5, TimeUnit.MINUTES)
             logger.info("execute sql: ${sql}")
             statement.execute(sql)
             if (job_state != null) {
-                getAlterTableState(job_state)
+                getAlterTableState(tName, job_state)
             }
             insertLatch.countDown()
         } catch (Throwable e) {
@@ -129,7 +129,7 @@ suite("txn_insert_with_schema_change") {
             insertLatch = new CountDownLatch(1)
             schemaChangeLatch = new CountDownLatch(1)
             Thread insert_thread = new Thread(() -> txnInsert(insert_sqls))
-            Thread schema_change_thread = new Thread(() -> schemaChange("alter table ${table}_${i} ADD column age int after name;", null))
+            Thread schema_change_thread = new Thread(() -> schemaChange("alter table ${table}_${i} ADD column age int after name;", "${table}_${i}", null))
             insert_thread.start()
             schema_change_thread.start()
             insert_thread.join()
@@ -147,7 +147,7 @@ suite("txn_insert_with_schema_change") {
             insertLatch = new CountDownLatch(1)
             schemaChangeLatch = new CountDownLatch(1)
             Thread insert_thread = new Thread(() -> txnInsert(insert_sqls))
-            Thread schema_change_thread = new Thread(() -> schemaChange("alter table ${table}_${i} order by (id, score, age, name);", "WAITING_TXN"))
+            Thread schema_change_thread = new Thread(() -> schemaChange("alter table ${table}_${i} order by (id, score, age, name);", "${table}_${i}", "WAITING_TXN"))
             insert_thread.start()
             schema_change_thread.start()
             insert_thread.join()
