@@ -18,6 +18,7 @@
 package org.apache.doris.regression.suite
 
 import groovy.json.JsonOutput
+import org.codehaus.groovy.runtime.IOGroovyMethods
 import com.google.common.collect.Maps
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
