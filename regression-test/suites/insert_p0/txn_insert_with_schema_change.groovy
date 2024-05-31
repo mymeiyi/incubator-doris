@@ -56,7 +56,7 @@ suite("txn_insert_with_schema_change") {
         def last_state = ""
         while (true) {
             sleep(2000)
-            def state = sql " show alter table column where tablename = ${tName} order by CreateTime desc limit 1"
+            def state = sql """ show alter table column where tablename = "${tName}" order by CreateTime desc limit 1"""
             logger.info("alter table state: ${state}")
             last_state = state[0][9]
             if (state.size() > 0 && last_state == job_state) {
