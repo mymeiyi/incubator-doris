@@ -30,6 +30,26 @@ suite("txn_insert_with_schema_change") {
     CountDownLatch insertLatch = new CountDownLatch(1)
     CountDownLatch schemaChangeLatch = new CountDownLatch(1)
 
+    for (int j = 0; j < 5; j++) {
+        def tableName = table + "_" + j
+        sql """ DROP TABLE IF EXISTS $tableName """
+        sql """
+            create table $tableName (
+                `ID` int(11) NOT NULL,
+                `NAME` varchar(100) NULL,
+                `score` int(11) NULL
+            ) ENGINE=OLAP
+            duplicate KEY(`id`) 
+            distributed by hash(id) buckets 1
+            properties("replication_num" = "1"); 
+        """
+    }
+    sql """ insert into ${table}_0 values(0, '0', 0) """
+    sql """ insert into ${table}_1 values(0, '0', 0) """
+    sql """ insert into ${table}_2 values(0, '0', 0) """
+    sql """ insert into ${table}_3 values(1, '1', 1), (2, '2', 2) """
+    sql """ insert into ${table}_4 values(3, '3', 3), (4, '4', 4), (5, '5', 5) """
+
     def getAlterTableState = { job_state ->
         def retry = 0
         sql "use ${dbName};"
@@ -88,37 +108,20 @@ suite("txn_insert_with_schema_change") {
     }
 
     def sqls = [
-            ["insert into ${table}_0(id, name, score) select * from ${table}_1;",
-             "insert into ${table}_0(id, name, score) select * from ${table}_2;"],
-            ["delete from ${table}_0 where id = 0 or id = 3;",
-             "insert into ${table}_0(id, name, score) select * from ${table}_2;"],
-            ["insert into ${table}_0(id, name, score) select * from ${table}_2;",
-             "delete from ${table}_0 where id = 0 or id = 3;"]
+            ["insert into ${table}_0(id, name, score) select * from ${table}_3;",
+             "insert into ${table}_0(id, name, score) select * from ${table}_4;"],
+            ["delete from ${table}_1 where id = 0 or id = 3;",
+             "insert into ${table}_1(id, name, score) select * from ${table}_4;"],
+            ["insert into ${table}_2(id, name, score) select * from ${table}_4;",
+             "delete from ${table}_2 where id = 0 or id = 3;"]
     ]
 
-    for (def insert_sqls: sqls) {
+    for (int i = 0; i < sqls.size(); i++) {
+        def insert_sqls = sqls[i]
         // TODO skip because it will cause ms core
         if (isCloudMode() && insert_sqls[1].startsWith("delete")) {
             continue
         }
-
-        for (int j = 0; j < 3; j++) {
-            def tableName = table + "_" + j
-            sql """ DROP TABLE IF EXISTS $tableName """
-            sql """
-            create table $tableName (
-                `ID` int(11) NOT NULL,
-                `NAME` varchar(100) NULL,
-                `score` int(11) NULL
-            ) ENGINE=OLAP
-            duplicate KEY(`id`) 
-            distributed by hash(id) buckets 1
-            properties("replication_num" = "1"); 
-        """
-        }
-        sql """ insert into ${table}_0 values(0, '0', 0) """
-        sql """ insert into ${table}_1 values(1, '1', 1), (2, '2', 2) """
-        sql """ insert into ${table}_2 values(3, '3', 3), (4, '4', 4), (5, '5', 5) """
 
         logger.info("insert sqls: ${insert_sqls}")
         // 1. do light weight schema change: add column
@@ -126,7 +129,7 @@ suite("txn_insert_with_schema_change") {
             insertLatch = new CountDownLatch(1)
             schemaChangeLatch = new CountDownLatch(1)
             Thread insert_thread = new Thread(() -> txnInsert(insert_sqls))
-            Thread schema_change_thread = new Thread(() -> schemaChange("alter table ${table}_0 ADD column age int after name;", null))
+            Thread schema_change_thread = new Thread(() -> schemaChange("alter table ${table}_${i} ADD column age int after name;", null))
             insert_thread.start()
             schema_change_thread.start()
             insert_thread.join()
@@ -134,9 +137,9 @@ suite("txn_insert_with_schema_change") {
 
             logger.info("errors: " + errors)
             assertEquals(0, errors.size())
-            order_qt_select1 """select id, name, score from ${table}_0 """
+            order_qt_select1 """select id, name, score from ${table}_${i} """
             getAlterTableState("FINISHED")
-            order_qt_select2 """select id, name, score from ${table}_0 """
+            order_qt_select2 """select id, name, score from ${table}_${i} """
         }
 
         // 2. do hard weight schema change: change order
@@ -144,7 +147,7 @@ suite("txn_insert_with_schema_change") {
             insertLatch = new CountDownLatch(1)
             schemaChangeLatch = new CountDownLatch(1)
             Thread insert_thread = new Thread(() -> txnInsert(insert_sqls))
-            Thread schema_change_thread = new Thread(() -> schemaChange("alter table ${table}_0 order by (id, score, age, name);", "WAITING_TXN"))
+            Thread schema_change_thread = new Thread(() -> schemaChange("alter table ${table}_${i} order by (id, score, age, name);", "WAITING_TXN"))
             insert_thread.start()
             schema_change_thread.start()
             insert_thread.join()
@@ -152,10 +155,10 @@ suite("txn_insert_with_schema_change") {
 
             logger.info("errors: " + errors)
             assertEquals(0, errors.size())
-            order_qt_select3 """select id, name, score from ${table}_0 """
+            order_qt_select3 """select id, name, score from ${table}_${i} """
             getAlterTableState("FINISHED")
-            order_qt_select4 """select id, name, score from ${table}_0 """
+            order_qt_select4 """select id, name, score from ${table}_${i} """
         }
-        check_table_version_continuous(dbName, table + "_0")
+        check_table_version_continuous(dbName, table + "_" + i)
     }
 }
