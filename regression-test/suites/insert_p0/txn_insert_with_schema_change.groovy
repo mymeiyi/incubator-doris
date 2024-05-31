@@ -138,7 +138,7 @@ suite("txn_insert_with_schema_change") {
             logger.info("errors: " + errors)
             assertEquals(0, errors.size())
             order_qt_select1 """select id, name, score from ${table}_${i} """
-            getAlterTableState("FINISHED")
+            getAlterTableState("${table}_${i}", "FINISHED")
             order_qt_select2 """select id, name, score from ${table}_${i} """
         }
 
@@ -156,7 +156,7 @@ suite("txn_insert_with_schema_change") {
             logger.info("errors: " + errors)
             assertEquals(0, errors.size())
             order_qt_select3 """select id, name, score from ${table}_${i} """
-            getAlterTableState("FINISHED")
+            getAlterTableState("${table}_${i}", "FINISHED")
             order_qt_select4 """select id, name, score from ${table}_${i} """
         }
         check_table_version_continuous(dbName, table + "_" + i)
