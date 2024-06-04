@@ -471,6 +471,9 @@ suite("txn_insert") {
             }
 
             // after the txn is timeout: do insert/ commit/ rollback
+            def insert_timeout = sql """show variables where variable_name = 'insert_timeout';"""
+            def query_timeout = sql """show variables where variable_name = 'query_timeout';"""
+            logger.info("query_timeout: ${query_timeout}, insert_timeout: ${insert_timeout}")
             try {
                 sql "SET insert_timeout = 5"
                 sql "SET query_timeout = 5"
@@ -514,7 +517,8 @@ suite("txn_insert") {
                     assertTrue(e.getMessage().contains("transaction not found"))
                 }*/
             } finally {
-
+                sql "SET insert_timeout = ${insert_timeout[0][1]}"
+                sql "SET query_timeout = ${query_timeout[0][1]}"
             }
         }
 
@@ -702,182 +706,7 @@ suite("txn_insert") {
             order_qt_selectmowd4 """select * from txn_insert_dt5 """
         }
 
-<<<<<<< HEAD
-        // 13. decrease be 'pending_data_expire_time_sec' config
-        if (use_nereids_planner) {
-            def backendId_to_params = get_be_param("pending_data_expire_time_sec")
-            try {
-                set_be_param.call("pending_data_expire_time_sec", "1")
-                sql """ begin; """
-                sql """ insert into ${table}_0 select * from ${table}_1; """
-                sql """ insert into ${table}_0 select * from ${table}_2; """
-                sql """ insert into ${table}_0 select * from ${table}_1; """
-                sql """ insert into ${table}_0 select * from ${table}_2; """
-                sleep(5000)
-                sql """ commit; """
-                sql "sync"
-                order_qt_select44 """select * from ${table}_0 """
-            } finally {
-                set_original_be_param("pending_data_expire_time_sec", backendId_to_params)
-            }
-        }
-
-        // 14. delete and insert
-        if (use_nereids_planner) {
-            sql """ begin; """
-            sql """ delete from ${table}_0 where k1 = 1 or k1 = 2; """
-            sql """ insert into ${table}_0 select * from ${table}_1 where k1 = 1 or k1 = 2; """
-            sql """ commit; """
-            sql "sync"
-            order_qt_select45 """select * from ${table}_0"""
-        }
-
-        // 15. insert and delete
-        if (use_nereids_planner) {
-            order_qt_select46 """select * from ${table}_1"""
-            sql """ begin; """
-            sql """ insert into ${table}_0 select * from ${table}_1 where k1 = 1 or k1 = 2; """
-            sql """ delete from ${table}_0 where k1 = 1 or k1 = 2; """
-            sql """ insert into ${table}_1 select * from ${table}_0 where k1 = 1 or k1 = 2; """
-            sql """ delete from ${table}_0 where k1 = 1 or k1 = 2; """
-            sql """ delete from ${table}_1 where k1 = 1; """
-            sql """ commit; """
-            sql "sync"
-            order_qt_select47 """select * from ${table}_0"""
-            order_qt_select48 """select * from ${table}_1"""
-        }
-
-        // 16. txn insert does not commit or rollback by user, and txn is aborted because connection is closed
-        def dbName = "regression_test_insert_p0"
-        def url = getServerPrepareJdbcUrl(context.config.jdbcUrl, dbName).replace("&useServerPrepStmts=true", "") + "&useLocalSessionState=true"
-        logger.info("url: ${url}")
-        def get_txn_id_from_server_info = { serverInfo ->
-            logger.info("result server info: " + serverInfo)
-            int index = serverInfo.indexOf("txnId")
-            int index2 = serverInfo.indexOf("'}", index)
-            String txnStr = serverInfo.substring(index + 8, index2)
-            logger.info("txnId: " + txnStr)
-            return Long.parseLong(txnStr)
-        }
-        if (use_nereids_planner) {
-            def txn_id = 0
-            Thread thread = new Thread(() -> {
-                try (Connection conn = DriverManager.getConnection(url, context.config.jdbcUser, context.config.jdbcPassword);
-                     Statement statement = conn.createStatement()) {
-                    statement.execute("begin");
-                    statement.execute("insert into ${table}_0 select * from ${table}_1;")
-                    txn_id = get_txn_id_from_server_info((((StatementImpl) statement).results).getServerInfo())
-                }
-            })
-            thread.start()
-            thread.join()
-            assertNotEquals(txn_id, 0)
-            def txn_state = ""
-            for (int i = 0; i < 20; i++) {
-                def txn_info = sql_return_maparray """ show transaction where id = ${txn_id} """
-                logger.info("txn_info: ${txn_info}")
-                assertEquals(1, txn_info.size())
-                txn_state = txn_info[0].get("TransactionStatus")
-                if ("ABORTED" == txn_state) {
-                    break
-                } else {
-                    sleep(2000)
-                }
-            }
-            assertEquals("ABORTED", txn_state)
-        }
-
-        // 17. txn insert does not commit or rollback by user, and txn is aborted because timeout
-        // TODO find a way to check be txn_manager is also cleaned
-        if (use_nereids_planner) {
-            // 1. use show transaction command to check
-            CountDownLatch insertLatch = new CountDownLatch(1)
-            def txn_id = 0
-            Thread thread = new Thread(() -> {
-                try (Connection conn = DriverManager.getConnection(url, context.config.jdbcUser, context.config.jdbcPassword);
-                     Statement statement = conn.createStatement()) {
-                    statement.execute("SET insert_timeout = 5")
-                    statement.execute("SET query_timeout = 5")
-                    statement.execute("begin");
-                    statement.execute("insert into ${table}_0 select * from ${table}_1;")
-                    txn_id = get_txn_id_from_server_info((((StatementImpl) statement).results).getServerInfo())
-                    insertLatch.countDown()
-                    sleep(60000)
-                }
-            })
-            thread.start()
-            insertLatch.await(1, TimeUnit.MINUTES)
-            assertNotEquals(txn_id, 0)
-            def txn_state = ""
-            for (int i = 0; i < 20; i++) {
-                def txn_info = sql_return_maparray """ show transaction where id = ${txn_id} """
-                logger.info("txn_info: ${txn_info}")
-                assertEquals(1, txn_info.size())
-                txn_state = txn_info[0].get("TransactionStatus")
-                if ("ABORTED" == txn_state) {
-                    break
-                } else {
-                    sleep(2000)
-                }
-            }
-            assertEquals("ABORTED", txn_state)
-
-            // after the txn is timeout: do insert/ commit/ rollback
-            def insert_timeout = sql """show variables where variable_name = 'insert_timeout';"""
-            def query_timeout = sql """show variables where variable_name = 'query_timeout';"""
-            logger.info("query_timeout: ${query_timeout}, insert_timeout: ${insert_timeout}")
-            try {
-                sql "SET insert_timeout = 5"
-                sql "SET query_timeout = 5"
-                // 1. do insert after the txn is timeout
-                try {
-                    sql "begin"
-                    sql """ insert into ${table}_0 select * from ${table}_1; """
-                    sleep(10000)
-                    sql """ insert into ${table}_0 select * from ${table}_1; """
-                    assertFalse(true, "should not reach here")
-                } catch (Exception e) {
-                    logger.info("exception: " + e)
-                    assertTrue(e.getMessage().contains("The transaction is already timeout"))
-                } finally {
-                    try {
-                        sql "rollback"
-                    } catch (Exception e) {
-
-                    }
-                }
-                // 2. commit after the txn is timeout, the transaction_clean_interval_second = 30
-                /*try {
-                    sql "begin"
-                    sql """ insert into ${table}_0 select * from ${table}_1; """
-                    sleep(10000)
-                    sql "commit"
-                    assertFalse(true, "should not reach here")
-                } catch (Exception e) {
-                    logger.info("exception: " + e)
-                    assertTrue(e.getMessage().contains("is already aborted. abort reason: timeout by txn manager"))
-                }*/
-                // 3. rollback after the txn is timeout
-                /*try {
-                    sql "begin"
-                    sql """ insert into ${table}_0 select * from ${table}_1; """
-                    sleep(10000)
-                    sql "rollback"
-                    assertFalse(true, "should not reach here")
-                } catch (Exception e) {
-                    logger.info("exception: " + e)
-                    assertTrue(e.getMessage().contains("transaction not found"))
-                }*/
-            } finally {
-                sql "SET insert_timeout = ${insert_timeout[0][1]}"
-                sql "SET query_timeout = ${query_timeout[0][1]}"
-            }
-        }
-
-        // 18. column update
-=======
         // 18. column update(mow table)
->>>>>>> 0b8580f3dd ([improve](txn insert) Txn load support cloud mode)
         if (use_nereids_planner) {
             def unique_table = "txn_insert_cu"
             for (def i in 0..3) {
