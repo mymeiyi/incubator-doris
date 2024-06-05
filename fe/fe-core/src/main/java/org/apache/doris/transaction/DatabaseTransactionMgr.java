@@ -1379,6 +1379,9 @@ public class DatabaseTransactionMgr {
                         if (publishVersionTasks != null) {
                             publishVersionTask = publishVersionTasks.get(0);
                         }
+                        LOG.info("sout: start check table={}, index={}, tablet={}, replica={}, version={}, "
+                                        + "task={}, errorReplicaIds={}", table.getId(), index.getId(), tablet.getId(),
+                                replica.getId(), newVersion, publishVersionTask, errorReplicaIds);
                         checkReplicaContinuousVersionSucc(tablet.getId(), replica, alterReplicaLoadedTxn,
                                 newVersion, publishVersionTask,
                                 errorReplicaIds, tabletSuccReplicas, tabletWriteFailedReplicas,
