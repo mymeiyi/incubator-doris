@@ -1427,6 +1427,7 @@ public class DatabaseTransactionMgr {
             List<Replica> tabletWriteFailedReplicas, List<Replica> tabletVersionFailedReplicas) {
         if (backendPublishTask == null || !backendPublishTask.isFinished()) {
             errorReplicaIds.add(replica.getId());
+            LOG.info("sout: add a error replica={}, tablet_id={}", replica.getId(), tabletId);
         } else {
             Map<Long, Long> backendSuccTablets = backendPublishTask.getSuccTablets();
             // new doris BE will report succ tablets
