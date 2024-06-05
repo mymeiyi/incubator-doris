@@ -251,7 +251,7 @@ public class TransactionEntry {
             try {
                 if (Env.getCurrentEnv().isMaster() || Config.isCloudMode()) {
                     beforeFinishTransaction();
-                    long commitTimeout = Math.min(60000L, Math.max(timeoutTimestamp - System.currentTimeMillis(), 0));
+                    long commitTimeout = Math.min(1000L, Math.max(timeoutTimestamp - System.currentTimeMillis(), 0));
                     if (Env.getCurrentGlobalTransactionMgr().commitAndPublishTransaction(database, transactionId,
                             transactionState.getSubTransactionStates(), commitTimeout)) {
                         return TransactionStatus.VISIBLE;

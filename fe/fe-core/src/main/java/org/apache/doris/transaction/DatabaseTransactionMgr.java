@@ -1607,6 +1607,8 @@ public class DatabaseTransactionMgr {
                 transactionState.addSubTxnTableCommitInfo(subTransactionState, tableCommitInfo);
             }
         }
+        // persist transactionState
+        unprotectUpsertTransactionState(transactionState, false);
 
         // add publish version tasks. set task to null as a placeholder.
         // tasks will be created when publishing version.
@@ -1670,6 +1672,7 @@ public class DatabaseTransactionMgr {
                 // no need to persist it. if prepare txn lost, the following commit will just be failed.
                 // user only need to retry this txn.
                 // The FRONTEND type txn is committed and running asynchronously, so we have to persist it.
+                LOG.info("sout: log insert transaction state: {}", transactionState);
                 editLog.logInsertTransactionState(transactionState);
             }
         }
@@ -2101,7 +2104,7 @@ public class DatabaseTransactionMgr {
     }
 
     private void updateCatalogAfterCommitted(TransactionState transactionState, Database db, boolean isReplay) {
-        if (transactionState.getSubTransactionStates() != null) {
+        if (transactionState.getSubTxnIds() != null) {
             List<TableCommitInfo> tableCommitInfos = transactionState.getSubTxnTableCommitInfos();
             updatePartitionNextVersion(transactionState, db, isReplay, tableCommitInfos);
         } else {

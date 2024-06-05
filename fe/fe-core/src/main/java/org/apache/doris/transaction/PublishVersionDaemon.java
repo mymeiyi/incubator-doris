@@ -128,7 +128,7 @@ public class PublishVersionDaemon extends MasterDaemon {
             publishBackends.addAll(allBackends);
         }
 
-        if (transactionState.getSubTransactionStates() != null) {
+        if (transactionState.getSubTxnIds() != null) {
             for (Entry<Long, TableCommitInfo> entry : transactionState.getSubTxnIdToTableCommitInfo().entrySet()) {
                 long subTxnId = entry.getKey();
                 List<TPartitionVersionInfo> partitionVersionInfos = generatePartitionVersionInfos(entry.getValue(),
@@ -145,8 +145,8 @@ public class PublishVersionDaemon extends MasterDaemon {
                     partitionVersionInfos, beIdToBaseTabletIds, createPublishVersionTaskTime, batchTask);
         }
         transactionState.setSendedTask();
-        LOG.info("send publish tasks for transaction: {}, db: {}", transactionState.getTransactionId(),
-                transactionState.getDbId());
+        LOG.info("send publish tasks for transaction: {}, db: {}, tasks: {}", transactionState.getTransactionId(),
+                transactionState.getDbId(), transactionState.getPublishVersionTasks());
     }
 
     private void tryFinishTxn(List<TransactionState> readyTransactionStates,
