@@ -162,11 +162,13 @@ public class PublishVersionDaemon extends MasterDaemon {
                 for (PublishVersionTask task : tasks) {
                     if (task.isFinished()) {
                         calculateTaskUpdateRows(tableIdToTabletDeltaRows, task);
+                        LOG.info("sout: finish task: {}", task);
                     } else {
                         if (infoService.checkBackendAlive(task.getBackendId())) {
                             hasBackendAliveAndUnfinishedTask.set(true);
                         }
                         notFinishTaskBe.add(beId);
+                        LOG.info("sout: not finish task: {}", task);
                     }
                 }
             });

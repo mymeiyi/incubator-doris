@@ -1492,7 +1492,7 @@ public class DatabaseTransactionMgr {
                 Map<Long, Long> backendSuccTablets = task.getSuccTablets();
                 // new doris BE will report succ tablets
                 if (backendSuccTablets != null) {
-                    if (backendSuccTablets.containsKey(tabletId)) {
+                    if (!backendSuccTablets.containsKey(tabletId)) {
                         failed = true;
                         break;
                     }
@@ -2841,7 +2841,7 @@ public class DatabaseTransactionMgr {
                                         + "replica={}, new_version={}, success_replicas={}, "
                                         + "error_replicas={}, write_failed_replicas={}, "
                                         + "version_failed_replicas={}", transactionState.getTransactionId(),
-                                partition, tablet.getId(), replica.getId(), newVersion,
+                                partition.getId(), tablet.getId(), replica.getId(), newVersion,
                                 tabletSuccReplicas, errorReplicaIds, tabletWriteFailedReplicas,
                                 tabletVersionFailedReplicas);
                     }
