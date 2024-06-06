@@ -2837,7 +2837,7 @@ public class DatabaseTransactionMgr {
                         checkReplicaContinuousVersionSucc(tablet.getId(), replica, alterReplicaLoadedTxn,
                                 newVersion, replicaTasks, errorReplicaIds, tabletSuccReplicas, tabletWriteFailedReplicas,
                                 tabletVersionFailedReplicas);
-                        LOG.debug("after checkReplicaContinuousVersion for txn_id={}, partition={}, tablet_id={}, "
+                        LOG.info("after checkReplicaContinuousVersion for txn_id={}, partition={}, tablet_id={}, "
                                         + "replica={}, new_version={}, success_replicas={}, "
                                         + "error_replicas={}, write_failed_replicas={}, "
                                         + "version_failed_replicas={}", transactionState.getTransactionId(),
