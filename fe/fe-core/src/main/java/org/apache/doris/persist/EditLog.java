@@ -549,6 +549,7 @@ public class EditLog {
                 }
                 case OperationType.OP_UPSERT_TRANSACTION_STATE: {
                     final TransactionState state = (TransactionState) journal.getData();
+                    LOG.info("sout: replay upsert transaction state: {}", state);
                     Env.getCurrentGlobalTransactionMgr().replayUpsertTransactionState(state);
                     if (LOG.isDebugEnabled()) {
                         LOG.debug("logid: {}, opcode: {}, tid: {}", logId, opCode, state.getTransactionId());

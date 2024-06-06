@@ -106,4 +106,16 @@ public class PublishVersionTask extends AgentTask {
     public Map<Long, Map<Long, Long>> getTableIdToTabletDeltaRows() {
         return tableIdToTabletDeltaRows;
     }
+
+    @Override
+    public String toString() {
+        return "PublishVersionTask{" +
+                "transactionId=" + transactionId +
+                ", partitionVersionInfos=" + partitionVersionInfos +
+                ", baseTabletsIds=" + baseTabletsIds +
+                ", errorTablets=" + errorTablets +
+                ", succTablets=" + succTablets +
+                ", tableIdToTabletDeltaRows=" + tableIdToTabletDeltaRows +
+                '}';
+    }
 }

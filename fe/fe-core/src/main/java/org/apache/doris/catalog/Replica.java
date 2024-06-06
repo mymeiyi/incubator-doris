@@ -395,6 +395,7 @@ public class Replica implements Writable {
         long oldLastFailedVersion = this.lastFailedVersion;
         if (version != null) {
             this.version = version;
+            LOG.info("sout: set replica={}, version={}", id, version);
         }
         if (lastSuccessVersion != null) {
             this.lastSuccessVersion = lastSuccessVersion;
@@ -475,6 +476,7 @@ public class Replica implements Writable {
         long oldLastFailedVersion = this.lastFailedVersion;
 
         this.version = newVersion;
+        LOG.info("sout: set replica={}, version={}", id, version);
 
         // just check it
         if (lastSuccessVersion <= this.version) {
@@ -520,6 +522,7 @@ public class Replica implements Writable {
             this.lastFailedTimestamp = -1;
             if (this.version < this.lastSuccessVersion) {
                 this.version = this.lastSuccessVersion;
+                LOG.info("sout: set replica={}, version={}", id, version);
             }
         }
 
