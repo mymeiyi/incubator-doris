@@ -2767,26 +2767,10 @@ public class DatabaseTransactionMgr {
                     }
                 }
             }
-
-            /*List<PublishVersionTask> partitionPublishVersionTasks = new ArrayList<>();
-            for (SubTransactionState subTxnState : subTxns) {
-                long subTransactionId = subTxnState.getSubTransactionId();
-                PublishVersionTask publishVersionTask = null;
-                if (publishVersionTasks != null) {
-                    List<PublishVersionTask> matchedTasks = publishVersionTasks.stream()
-                            .filter(t -> t.getTransactionId() == subTransactionState.getSubTransactionId()
-                                    && t.getPartitionVersionInfos().stream()
-                                    .anyMatch(s -> s.getPartitionId() == partitionId))
-                            .collect(Collectors.toList());
-                    Preconditions.checkState(matchedTasks.size() <= 1,
-                            "matched publish tasks: " + matchedTasks);
-                    if (matchedTasks.size() == 1) {
-                        publishVersionTask = matchedTasks.get(0);
-                    }
-                }
-            }*/
-
-            long newVersion = partition.getVisibleVersion() + 1;
+            // long newVersion = partition.getVisibleVersion() + 1;
+            long lastSubTxnId = subTxns.get(subTxns.size() - 1).getSubTransactionId();
+            long newVersion = transactionState.getTableCommitInfoBySubTxnId(lastSubTxnId)
+                    .getIdToPartitionCommitInfo().get(partitionId).getVersion();
             boolean alterReplicaLoadedTxn = isAlterReplicaLoadedTxn(transactionState.getTransactionId(), table);
             // check success replica number for each tablet.
             // a success replica means:
