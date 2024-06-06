@@ -2771,6 +2771,8 @@ public class DatabaseTransactionMgr {
             long lastSubTxnId = subTxns.get(subTxns.size() - 1).getSubTransactionId();
             long newVersion = transactionState.getTableCommitInfoBySubTxnId(lastSubTxnId)
                     .getIdToPartitionCommitInfo().get(partitionId).getVersion();
+            LOG.info("txn_id={}, partition={}, new_version={}", transactionState.getTransactionId(), partitionId,
+                    newVersion);
             boolean alterReplicaLoadedTxn = isAlterReplicaLoadedTxn(transactionState.getTransactionId(), table);
             // check success replica number for each tablet.
             // a success replica means:
