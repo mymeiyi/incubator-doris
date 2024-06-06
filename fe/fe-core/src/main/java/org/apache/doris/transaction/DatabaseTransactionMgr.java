@@ -1445,13 +1445,6 @@ public class DatabaseTransactionMgr {
             }
         }
 
-        checkReplicaContinuousVersionSucc(tabletId, replica, alterReplicaLoadedTxn, version, errorReplicaIds,
-                tabletSuccReplicas, tabletWriteFailedReplicas, tabletVersionFailedReplicas);
-    }
-
-    private void checkReplicaContinuousVersionSucc(long tabletId, Replica replica, boolean alterReplicaLoadedTxn,
-            long version, Set<Long> errorReplicaIds, List<Replica> tabletSuccReplicas,
-            List<Replica> tabletWriteFailedReplicas, List<Replica> tabletVersionFailedReplicas) {
         // Schema change and rollup has a sched watermark,
         // it's ensure that alter replicas will load those txns whose txn id > sched watermark.
         // But for txns before the sched watermark, the alter replicas maynot load the txns,
@@ -1478,8 +1471,8 @@ public class DatabaseTransactionMgr {
     }
 
     private void checkReplicaContinuousVersionSucc(long tabletId, Replica replica, boolean alterReplicaLoadedTxn,
-            long version, List<PublishVersionTask> replicaPublishTasks, Set<Long> errorReplicaIds,
-            List<Replica> tabletSuccReplicas, List<Replica> tabletWriteFailedReplicas,
+            long minReplicaVersion, long maxReplicaVersion, List<PublishVersionTask> replicaPublishTasks,
+            Set<Long> errorReplicaIds, List<Replica> tabletSuccReplicas, List<Replica> tabletWriteFailedReplicas,
             List<Replica> tabletVersionFailedReplicas) {
         boolean failed = false;
         for (PublishVersionTask task : replicaPublishTasks) {
@@ -1513,8 +1506,29 @@ public class DatabaseTransactionMgr {
             }
         }
 
-        checkReplicaContinuousVersionSucc(tabletId, replica, alterReplicaLoadedTxn, version, errorReplicaIds,
-                tabletSuccReplicas, tabletWriteFailedReplicas, tabletVersionFailedReplicas);
+        // Schema change and rollup has a sched watermark,
+        // it's ensure that alter replicas will load those txns whose txn id > sched watermark.
+        // But for txns before the sched watermark, the alter replicas maynot load the txns,
+        // publish will ignore checking them and treat them as success in advance.
+        // Later be will fill the alter replicas's history data which before sched watermark.
+        // If failed to fill, fe will set the alter replica bad.
+        if (replica.getState() == Replica.ReplicaState.ALTER
+                && (!alterReplicaLoadedTxn || !Config.publish_version_check_alter_replica)) {
+            errorReplicaIds.remove(replica.getId());
+        }
+
+        if (!errorReplicaIds.contains(replica.getId())) {
+            if (replica.checkVersionCatchUp(minReplicaVersion - 1, true)) {
+                tabletSuccReplicas.add(replica);
+            } else {
+                tabletVersionFailedReplicas.add(replica);
+            }
+        } else if (replica.getVersion() >= maxReplicaVersion) {
+            tabletSuccReplicas.add(replica);
+            errorReplicaIds.remove(replica.getId());
+        } else {
+            tabletWriteFailedReplicas.add(replica);
+        }
     }
 
     protected void unprotectedPreCommitTransaction2PC(TransactionState transactionState, Set<Long> errorReplicaIds,
@@ -2720,11 +2734,14 @@ public class DatabaseTransactionMgr {
                     }
                 }
             }
-            long lastSubTxnId = subTxns.get(subTxns.size() - 1).getSubTransactionId();
-            long newVersion = transactionState.getTableCommitInfoBySubTxnId(lastSubTxnId)
-                    .getIdToPartitionCommitInfo().get(partitionId).getVersion();
-            LOG.debug("txn_id={}, partition={}, new_version={}", transactionState.getTransactionId(), partitionId,
-                    newVersion);
+            long minSubTxnId = subTxns.get(0).getSubTransactionId();
+            long minVersion = transactionState.getTableCommitInfoBySubTxnId(minSubTxnId).getIdToPartitionCommitInfo()
+                    .get(partitionId).getVersion();
+            long maxSubTxnId = subTxns.get(subTxns.size() - 1).getSubTransactionId();
+            long maxVersion = transactionState.getTableCommitInfoBySubTxnId(maxSubTxnId).getIdToPartitionCommitInfo()
+                    .get(partitionId).getVersion();
+            LOG.debug("txn_id={}, partition={}, min_version={}, max_version={}", transactionState.getTransactionId(),
+                    partitionId, minVersion, maxVersion);
             boolean alterReplicaLoadedTxn = isAlterReplicaLoadedTxn(transactionState.getTransactionId(), table);
             // check success replica number for each tablet.
             // a success replica means:
@@ -2758,19 +2775,19 @@ public class DatabaseTransactionMgr {
                             }
                         }
                         checkReplicaContinuousVersionSucc(tablet.getId(), replica, alterReplicaLoadedTxn,
-                                newVersion, replicaTasks, errorReplicaIds, tabletSuccReplicas,
+                                minVersion, maxVersion, replicaTasks, errorReplicaIds, tabletSuccReplicas,
                                 tabletWriteFailedReplicas, tabletVersionFailedReplicas);
                         LOG.debug("after checkReplicaContinuousVersion for txn_id={}, partition={}, tablet_id={}, "
-                                        + "replica={}, new_version={}, success_replicas={}, "
+                                        + "replica={}, min_version={}, max_version={}, success_replicas={}, "
                                         + "error_replicas={}, write_failed_replicas={}, "
                                         + "version_failed_replicas={}", transactionState.getTransactionId(),
-                                partition.getId(), tablet.getId(), replica.getId(), newVersion,
+                                partition.getId(), tablet.getId(), replica.getId(), minVersion, maxVersion,
                                 tabletSuccReplicas, errorReplicaIds, tabletWriteFailedReplicas,
                                 tabletVersionFailedReplicas);
                     }
 
                     publishResult = checkQuorumReplicas(transactionState, tableId, partition, tablet,
-                            loadRequiredReplicaNum, allowPublishOneSucc, newVersion, tabletSuccReplicas,
+                            loadRequiredReplicaNum, allowPublishOneSucc, maxVersion, tabletSuccReplicas,
                             tabletWriteFailedReplicas, tabletVersionFailedReplicas, publishResult, logs);
                 }
             }
