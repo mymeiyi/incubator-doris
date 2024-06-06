@@ -61,6 +61,7 @@ suite("txn_insert_restart_fe_with_schema_change") {
     options.feConfigs.add('sys_log_verbose_modules=org.apache.doris')
     options.beConfigs.add('sys_log_verbose_modules=*')
     options.beConfigs.add('enable_java_support=false')
+    options.beConfigs.add('report_tablet_interval_seconds=1')
     docker(options) {
         // ---------- test restart fe ----------
         def result = sql 'SELECT DATABASE()'

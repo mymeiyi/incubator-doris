@@ -40,6 +40,10 @@ suite("txn_insert_restart_fe") {
     options.setFeNum(2)
     options.enableDebugPoints()
     options.feConfigs.add('publish_wait_time_second=-1')
+    options.feConfigs.add('sys_log_verbose_modules=org.apache.doris')
+    options.beConfigs.add('sys_log_verbose_modules=*')
+    options.beConfigs.add('enable_java_support=false')
+    options.beConfigs.add('report_tablet_interval_seconds=1')
     docker(options) {
         // ---------- test restart fe ----------
         def result = sql 'SELECT DATABASE()'
