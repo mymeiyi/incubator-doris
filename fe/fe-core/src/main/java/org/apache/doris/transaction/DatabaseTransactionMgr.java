@@ -1087,7 +1087,7 @@ public class DatabaseTransactionMgr {
         if (transactionState.getSubTxnIds() == null) {
             tableIdList = transactionState.getTableIdList();
         } else {
-            tableIdList = transactionState.getSubTransactionStates().stream().map(s -> s.getTable().getId()).distinct()
+            tableIdList = transactionState.getSubTxnTableCommitInfos().stream().map(s -> s.getTableId()).distinct()
                     .collect(Collectors.toList());
         }
         if (LOG.isDebugEnabled()) {
@@ -1259,12 +1259,11 @@ public class DatabaseTransactionMgr {
 
     private boolean finishCheckPartitionVersionWithSubTxns(TransactionState transactionState, Database db) {
         List<Pair<OlapTable, Partition>> relatedTblPartitions = new ArrayList<>();
-        Iterator<SubTransactionState> iterator = transactionState.getSubTransactionStates().iterator();
         Map<Long, Long> partitionToVisibleVersion = new HashMap<>();
+        Iterator<Long> iterator = transactionState.getSubTxnIds().iterator();
         while (iterator.hasNext()) {
-            SubTransactionState subTransactionState = iterator.next();
-            TableCommitInfo tableCommitInfo = transactionState.getTableCommitInfoBySubTxnId(
-                    subTransactionState.getSubTransactionId());
+            long subTxnId = iterator.next();
+            TableCommitInfo tableCommitInfo = transactionState.getTableCommitInfoBySubTxnId(subTxnId);
             if (tableCommitInfo == null) {
                 continue;
             }
@@ -1299,15 +1298,14 @@ public class DatabaseTransactionMgr {
                         LOG.debug("for table {} partition {}, transactionId {}, subTransactionId {},"
                                         + " partition commitInfo version {} is not"
                                         + " equal with partition expected version {}, visible version {}, need wait",
-                                table.getId(), partition.getId(), transactionState.getTransactionId(),
-                                subTransactionState.getSubTransactionId(), partitionCommitInfo.getVersion(),
-                                curPartitionVersion + 1, partition.getVisibleVersion());
+                                table.getId(), partition.getId(), transactionState.getTransactionId(), subTxnId,
+                                partitionCommitInfo.getVersion(), curPartitionVersion + 1,
+                                partition.getVisibleVersion());
                     }
                     String errMsg = String.format("wait for publishing partition %d version %d, visible version %d."
                                     + " self version: %d. table %d, transactionId %d, subTransactionId %d", partitionId,
-                            curPartitionVersion + 1,
-                            partition.getVisibleVersion(), partitionCommitInfo.getVersion(), tableId,
-                            transactionState.getTransactionId(), subTransactionState.getSubTransactionId());
+                            curPartitionVersion + 1, partition.getVisibleVersion(), partitionCommitInfo.getVersion(),
+                            tableId, transactionState.getTransactionId(), subTxnId);
                     transactionState.setErrorMsg(errMsg);
                     return false;
                 }
@@ -1898,10 +1896,9 @@ public class DatabaseTransactionMgr {
                 clearTransactionTasks.add(task);
             }
             if (transactionState.getSubTxnIds() != null) {
-                for (SubTransactionState subTransactionState : transactionState.getSubTransactionStates()) {
+                for (long subTxnId : transactionState.getSubTxnIds()) {
                     for (Long beId : allBeIds) {
-                        ClearTransactionTask task = new ClearTransactionTask(
-                                beId, subTransactionState.getSubTransactionId(), Lists.newArrayList());
+                        ClearTransactionTask task = new ClearTransactionTask(beId, subTxnId, Lists.newArrayList());
                         clearTransactionTasks.add(task);
                     }
                 }
@@ -2683,14 +2680,17 @@ public class DatabaseTransactionMgr {
 
         Map<Long, List<PublishVersionTask>> publishTasks = transactionState.getPublishVersionTasks();
         PublishResult publishResult = PublishResult.QUORUM_SUCC;
-        Map<Long, List<SubTransactionState>> partitionToSubTxns = new HashMap<>();
-        for (SubTransactionState subTransactionState : transactionState.getSubTransactionStates()) {
-            long subTxnId = subTransactionState.getSubTransactionId();
+        Map<Long, List<Long>> partitionToSubTxns = new HashMap<>();
+        for (Long subTxnId : transactionState.getSubTxnIds()) {
             TableCommitInfo tableCommitInfo = transactionState.getTableCommitInfoBySubTxnId(subTxnId);
             if (tableCommitInfo == null) {
                 continue;
             }
-            OlapTable table = (OlapTable) subTransactionState.getTable();
+            OlapTable table = (OlapTable) Env.getCurrentInternalCatalog()
+                    .getTableByTableId(tableCommitInfo.getTableId());
+            if (table == null) {
+                continue;
+            }
             for (Entry<Long, PartitionCommitInfo> entry : tableCommitInfo.getIdToPartitionCommitInfo()
                     .entrySet()) {
                 long partitionId = entry.getKey();
@@ -2702,19 +2702,24 @@ public class DatabaseTransactionMgr {
                     if (v == null) {
                         v = Lists.newArrayList();
                     }
-                    v.add(subTransactionState);
+                    v.add(subTxnId);
                     return v;
                 });
             }
         }
-        for (Entry<Long, List<SubTransactionState>> entry : partitionToSubTxns.entrySet()) {
+        for (Entry<Long, List<Long>> entry : partitionToSubTxns.entrySet()) {
             long partitionId = entry.getKey();
-            List<SubTransactionState> subTxns = entry.getValue();
-            if (subTxns.isEmpty()) {
+            List<Long> subTxnIds = entry.getValue();
+            if (subTxnIds.isEmpty()) {
                 continue;
             }
-            OlapTable table = (OlapTable) subTxns.get(0).getTable();
-            long tableId = table.getId();
+            TableCommitInfo tableCommitInfo = transactionState.getTableCommitInfoBySubTxnId(subTxnIds.get(0));
+            long tableId = tableCommitInfo.getTableId();
+            OlapTable table = (OlapTable) Env.getCurrentInternalCatalog()
+                    .getTableByTableId(tableCommitInfo.getTableId());
+            if (table == null) {
+                continue;
+            }
             Partition partition = table.getPartition(partitionId);
             if (partition == null) {
                 continue;
@@ -2734,10 +2739,10 @@ public class DatabaseTransactionMgr {
                     }
                 }
             }
-            long minSubTxnId = subTxns.get(0).getSubTransactionId();
+            long minSubTxnId = subTxnIds.get(0);
             long minVersion = transactionState.getTableCommitInfoBySubTxnId(minSubTxnId).getIdToPartitionCommitInfo()
                     .get(partitionId).getVersion();
-            long maxSubTxnId = subTxns.get(subTxns.size() - 1).getSubTransactionId();
+            long maxSubTxnId = subTxnIds.get(subTxnIds.size() - 1);
             long maxVersion = transactionState.getTableCommitInfoBySubTxnId(maxSubTxnId).getIdToPartitionCommitInfo()
                     .get(partitionId).getVersion();
             LOG.debug("txn_id={}, partition={}, min_version={}, max_version={}", transactionState.getTransactionId(),
@@ -2758,8 +2763,7 @@ public class DatabaseTransactionMgr {
                         List<PublishVersionTask> publishVersionTasks = publishTasks.get(replica.getBackendId());
                         List<PublishVersionTask> replicaTasks = new ArrayList<>();
                         if (publishVersionTasks != null) {
-                            for (SubTransactionState subTxn : subTxns) {
-                                long subTransactionId = subTxn.getSubTransactionId();
+                            for (Long subTransactionId : subTxnIds) {
                                 PublishVersionTask publishVersionTask = null;
                                 List<PublishVersionTask> matchedTasks = publishVersionTasks.stream()
                                         .filter(t -> t.getTransactionId() == subTransactionId
