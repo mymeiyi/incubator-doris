@@ -119,9 +119,9 @@ suite("txn_insert_with_schema_change") {
     for (int i = 0; i < sqls.size(); i++) {
         def insert_sqls = sqls[i]
         // TODO skip because it will cause ms core
-        if (isCloudMode() && insert_sqls[1].startsWith("delete")) {
+        /*if (isCloudMode() && insert_sqls[1].startsWith("delete")) {
             continue
-        }
+        }*/
 
         logger.info("insert sqls: ${insert_sqls}")
         // 1. do light weight schema change: add column

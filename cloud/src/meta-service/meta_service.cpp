@@ -466,6 +466,9 @@ void internal_create_tablet(MetaServiceCode& code, std::string& msg,
                 fix_column_type(tablet_meta.mutable_schema());
                 auto schema_key =
                         meta_schema_key({instance_id, index_id, tablet_meta.schema_version()});
+                LOG(INFO) << "sout: put schema key, index_id=" << index_id
+                          << ", version=" << tablet_meta.schema_version()
+                          << ", key=" << hex(schema_key);
                 put_schema_kv(code, msg, txn.get(), schema_key, tablet_meta.schema());
                 if (code != MetaServiceCode::OK) return;
             }
@@ -1120,6 +1123,8 @@ void MetaServiceImpl::commit_rowset(::google::protobuf::RpcController* controlle
             write_schema_dict(code, msg, instance_id, txn.get(), &rowset_meta);
             if (code != MetaServiceCode::OK) return;
         }
+        LOG(INFO) << "sout: put schema key, index_id=" << rowset_meta.index_id()
+                  << ", version=" << rowset_meta.schema_version() << ", key=" << hex(schema_key);
         put_schema_kv(code, msg, txn.get(), schema_key, rowset_meta.tablet_schema());
         if (code != MetaServiceCode::OK) return;
         rowset_meta.set_allocated_tablet_schema(nullptr);
