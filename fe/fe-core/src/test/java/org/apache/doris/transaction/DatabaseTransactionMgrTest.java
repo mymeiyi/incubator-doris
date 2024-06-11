@@ -71,7 +71,7 @@ public class DatabaseTransactionMgrTest {
             new TransactionState.TxnCoordinator(TransactionState.TxnSourceType.FE, "localfe");
 
     public static void setTransactionFinishPublish(TransactionState transactionState, List<Long> backendIds) {
-        if (transactionState.getSubTransactionStates() != null) {
+        if (transactionState.getSubTxnIds() != null) {
             LOG.info("txnId={}, subTxnIdToTableCommitInfo={}", transactionState.getTransactionId(),
                     transactionState.getSubTxnIdToTableCommitInfo());
             /** the same with {@link PublishVersionDaemon#publishVersion} */

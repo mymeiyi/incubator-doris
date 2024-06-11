@@ -1084,7 +1084,7 @@ public class DatabaseTransactionMgr {
         // a blocking function, the returned result would be the existed table list which hold write lock
         Database db = env.getInternalCatalog().getDbOrMetaException(transactionState.getDbId());
         List<Long> tableIdList;
-        if (transactionState.getSubTransactionStates() == null) {
+        if (transactionState.getSubTxnIds() == null) {
             tableIdList = transactionState.getTableIdList();
         } else {
             tableIdList = transactionState.getSubTransactionStates().stream().map(s -> s.getTable().getId()).distinct()
@@ -1099,7 +1099,7 @@ public class DatabaseTransactionMgr {
         try {
             // add all commit errors and publish errors to a single set
             Set<Long> errorReplicaIds = transactionState.getErrorReplicas();
-            if (transactionState.getSubTransactionStates() == null) {
+            if (transactionState.getSubTxnIds() == null) {
                 List<Pair<OlapTable, Partition>> relatedTblPartitions = Lists.newArrayList();
                 if (!finishCheckPartitionVersion(transactionState, db, relatedTblPartitions)) {
                     return;
@@ -1897,7 +1897,7 @@ public class DatabaseTransactionMgr {
                         beId, transactionState.getTransactionId(), Lists.newArrayList());
                 clearTransactionTasks.add(task);
             }
-            if (transactionState.getSubTransactionStates() != null) {
+            if (transactionState.getSubTxnIds() != null) {
                 for (SubTransactionState subTransactionState : transactionState.getSubTransactionStates()) {
                     for (Long beId : allBeIds) {
                         ClearTransactionTask task = new ClearTransactionTask(
@@ -1933,7 +1933,7 @@ public class DatabaseTransactionMgr {
             }
 
             Iterator<TableCommitInfo> idToTableCommitInfos;
-            if (transactionState.getSubTransactionStates() != null) {
+            if (transactionState.getSubTxnIds() != null) {
                 idToTableCommitInfos = transactionState.getSubTxnTableCommitInfos().iterator();
             } else {
                 idToTableCommitInfos = transactionState.getIdToTableCommitInfos().values().iterator();
@@ -1962,7 +1962,7 @@ public class DatabaseTransactionMgr {
             }
 
             List<PartitionCommitInfo> partitionCommitInfos = new ArrayList<>();
-            if (transactionState.getSubTransactionStates() != null) {
+            if (transactionState.getSubTxnIds() != null) {
                 for (TableCommitInfo tableCommitInfo : transactionState.getSubTxnTableCommitInfos()) {
                     if (tableCommitInfo.getTableId() == tableId) {
                         partitionCommitInfos.addAll(tableCommitInfo.getIdToPartitionCommitInfo().values());
