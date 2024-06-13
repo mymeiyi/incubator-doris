@@ -125,6 +125,8 @@ Status LoadBlockQueue::get_block(RuntimeState* runtime_state, vectorized::Block*
     }
     while (!runtime_state->is_cancelled() && status.ok() && _block_queue.empty() &&
            (!_need_commit || (_need_commit && !_load_ids.empty()))) {
+        LOG(INFO) << "sout: is_cancel=" << runtime_state->is_cancelled()
+                  << ", status=" << status.to_string();
         auto left_milliseconds = _group_commit_interval_ms;
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
                                 std::chrono::steady_clock::now() - _start_time)
