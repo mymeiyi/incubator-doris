@@ -130,7 +130,11 @@ PipelineFragmentContext::~PipelineFragmentContext() {
     SCOPED_SWITCH_THREAD_MEM_TRACKER_LIMITER(_query_thread_context.query_mem_tracker);
     auto st = _query_ctx->exec_status();
     _query_ctx.reset();
+    LOG(INFO) << "sout: id=" << print_id(_runtime_state->query_id()) << ", task size={}",
+            _tasks.size();
     for (size_t i = 0; i < _tasks.size(); i++) {
+        LOG(INFO) << "sout: id=" << print_id(_runtime_state->query_id()) << ", i=" << i
+                  << ", empty=" << _tasks[i].empty();
         if (!_tasks[i].empty()) {
             _call_back(_tasks[i].front()->runtime_state(), &st);
         }
