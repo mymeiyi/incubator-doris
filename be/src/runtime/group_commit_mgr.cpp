@@ -125,7 +125,7 @@ Status LoadBlockQueue::get_block(RuntimeState* runtime_state, vectorized::Block*
     }
     while (!runtime_state->is_cancelled() && status.ok() && _block_queue.empty() &&
            (!_need_commit || (_need_commit && !_load_ids.empty()))) {
-        LOG(INFO) << "sout: is_cancel=" << runtime_state->is_cancelled()
+        LOG(INFO) << "sout: label=" << label << ", is_cancel=" << runtime_state->is_cancelled()
                   << ", status=" << status.to_string();
         auto left_milliseconds = _group_commit_interval_ms;
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -151,7 +151,7 @@ Status LoadBlockQueue::get_block(RuntimeState* runtime_state, vectorized::Block*
                           << ", runtime_state=" << runtime_state;
             }
         }
-        _get_cond.wait_for(l, std::chrono::milliseconds(std::max(left_milliseconds, 10000L)));
+        _get_cond.wait_for(l, std::chrono::milliseconds(std::min(left_milliseconds, 10000L)));
     }
     if (runtime_state->is_cancelled()) {
         auto st = runtime_state->cancel_reason();
