@@ -153,14 +153,9 @@ public class DatabaseTransactionMgrTest {
 
         // txn 2, 3, 4
         TransactionState.TxnCoordinator beTransactionSource = new TransactionState.TxnCoordinator(
-<<<<<<< HEAD
                 TransactionState.TxnSourceType.BE, 0, "be1", System.currentTimeMillis());
-        long transactionId2 = masterTransMgr.beginTransaction(CatalogTestUtil.testDbId1, Lists.newArrayList(CatalogTestUtil.testTableId1),
-=======
-                TransactionState.TxnSourceType.BE, "be1");
         long transactionId2 = masterTransMgr.beginTransaction(CatalogTestUtil.testDbId1,
                 Lists.newArrayList(CatalogTestUtil.testTableId1),
->>>>>>> 7218755487 (fix ut)
                 CatalogTestUtil.testTxnLabel2,
                 beTransactionSource,
                 TransactionState.LoadJobSourceType.ROUTINE_LOAD_TASK, Config.stream_load_default_timeout_second);
