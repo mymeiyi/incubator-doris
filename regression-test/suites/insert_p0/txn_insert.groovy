@@ -118,6 +118,90 @@ suite("txn_insert") {
             order_qt_select6 """select c1 from $tableMV"""
         } while (0);
 
+        // insert with different column order
+        if (use_nereids_planner) {
+            def tableName = table + "_col_ord"
+            sql """ DROP TABLE IF EXISTS $tableName """
+            sql """
+                CREATE TABLE $tableName (
+                  `c1` int(11) NOT NULL,
+                  `c2` int(11) NULL default "0",
+                  `c3` int(11) NULL
+                ) ENGINE=OLAP
+                duplicate KEY(`c1`)
+                DISTRIBUTED BY HASH(`c1`) BUCKETS 1
+                PROPERTIES (
+                    "replication_num" = "1"
+                );
+            """
+            sql """ begin;"""
+            sql """ insert into $tableName (c1, c3, c2) values(10, 30, 20) """
+            sql """ insert into $tableName (c3, c1) values(31, 11) """
+            sql """ insert into $tableName (c2, c1) values(22, 12) """
+            sql """ insert into $tableName (c2, c3, c1) values(23, 33, 13) """
+            sql """ insert into $tableName (c1) values(14) """
+            test {
+                sql """ insert into $tableName (c3, c2, c1) values(35, 25, 15) """
+                exception "Column count doesn't match value count"
+            }
+            // sql """ insert into $tableName select 16, 26, 36 """
+            sql """ commit; """
+            sql """ sync """
+            order_qt_select_random_column_order_1 """select * from ${tableName}"""
+
+            sql """ begin;"""
+            sql """ insert into $tableName (c1) values(17) """
+            sql """ insert into $tableName (c2, c1) values(28, 18) """
+            sql """ commit; """
+            sql """ sync """
+            order_qt_select_random_column_order_2 """select * from ${tableName}"""
+        }
+
+        // insert with different column order for unique table(sequence col and delete sign col)
+        /*if (use_nereids_planner) {
+            def tableName = table + "_col_ord_uni"
+            sql """ DROP TABLE IF EXISTS $tableName """
+            sql """
+                CREATE TABLE $tableName (
+                  `c1` int(11) NOT NULL,
+                  `c2` int(11) NULL default "0",
+                  `c3` int(11) NULL
+                ) ENGINE=OLAP
+                unique KEY(`c1`)
+                DISTRIBUTED BY HASH(`c1`) BUCKETS 1
+                PROPERTIES (
+                    "replication_num" = "1"
+                );
+            """
+            sql """ begin;"""
+            sql """ insert into $tableName (c1, c3, c2) values(10, 30, 20) """
+            sql """ insert into $tableName (c3, c1) values(31, 11) """
+            sql """ insert into $tableName (c2, c1) values(22, 12) """
+            sql """ insert into $tableName (c2, c3, c1) values(23, 33, 13) """
+            sql """ insert into $tableName (c1) values(14) """
+            test {
+                sql """ insert into $tableName (c3, c2, c1) values(35, 25, 15) """
+                exception "Column count doesn't match value count"
+            }
+            sql """ insert into $tableName select 16, 26, 36 """
+            sql """ commit; """
+            sql """ sync """
+            order_qt_select_random_column_order_unique_1 """select * from ${tableName}"""
+
+            sql """ begin;"""
+            sql """ insert into $tableName (c1) values(17) """
+            sql """ insert into $tableName (c2, c1) values(28, 18) """
+            sql """ commit; """
+            sql """ sync """
+            order_qt_select_random_column_order_unique_2 """select * from ${tableName}"""
+        }*/
+
+        // insert with different column order for tables with schema change
+        // schema change before txn insert
+
+        // schema change in the middle of txn insert
+
+
         // ------------------- insert into select -------------------
         for (int j = 0; j < 3; j++) {
             def tableName = table + "_" + j
