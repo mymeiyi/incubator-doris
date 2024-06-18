@@ -271,7 +271,7 @@ Status GroupCommitTable::get_first_block_load_queue(
             }
             if (!_is_creating_plan_fragment) {
                 _is_creating_plan_fragment = true;
-                RETURN_IF_ERROR(_thread_pool->submit_func([=] {
+                RETURN_IF_ERROR(_thread_pool->submit_func([this, be_exe_version] {
                     sleep(20);
                     auto st = _create_group_commit_load(be_exe_version);
                     if (!st.ok()) {
