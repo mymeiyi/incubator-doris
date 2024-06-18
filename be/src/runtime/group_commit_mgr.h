@@ -136,14 +136,12 @@ public:
     Status get_first_block_load_queue(int64_t table_id, int64_t base_schema_version,
                                       const UniqueId& load_id,
                                       std::shared_ptr<LoadBlockQueue>& load_block_queue,
-                                      int be_exe_version,
-                                      std::shared_ptr<MemTrackerLimiter> mem_tracker);
+                                      int be_exe_version);
     Status get_load_block_queue(const TUniqueId& instance_id,
                                 std::shared_ptr<LoadBlockQueue>& load_block_queue);
 
 private:
-    Status _create_group_commit_load(int be_exe_version,
-                                     std::shared_ptr<MemTrackerLimiter> mem_tracker);
+    Status _create_group_commit_load(int be_exe_version);
     Status _exec_plan_fragment(int64_t db_id, int64_t table_id, const std::string& label,
                                int64_t txn_id, bool is_pipeline,
                                const TExecPlanFragmentParams& params,
@@ -180,8 +178,7 @@ public:
     Status get_first_block_load_queue(int64_t db_id, int64_t table_id, int64_t base_schema_version,
                                       const UniqueId& load_id,
                                       std::shared_ptr<LoadBlockQueue>& load_block_queue,
-                                      int be_exe_version,
-                                      std::shared_ptr<MemTrackerLimiter> mem_tracker);
+                                      int be_exe_version);
     std::promise<Status> debug_promise;
     std::future<Status> debug_future = debug_promise.get_future();
 
