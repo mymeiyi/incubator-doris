@@ -291,8 +291,8 @@ Status GroupCommitTable::get_first_block_load_queue(
 }
 
 Status GroupCommitTable::_create_group_commit_load(int be_exe_version) {
-    std::shared_ptr<MemTrackerLimiter> mem_tracker = MemTrackerLimiter::create_shared(
-            MemTrackerLimiter::Type::LOAD, fmt::format("CreateGroupCommitLoad"), -1);
+    auto mem_tracker = MemTrackerLimiter::create_shared(MemTrackerLimiter::Type::LOAD,
+                                                        fmt::format("CreateGroupCommitLoad"));
     Status st = Status::OK();
     TStreamLoadPutRequest request;
     UniqueId load_id = UniqueId::gen_uid();
