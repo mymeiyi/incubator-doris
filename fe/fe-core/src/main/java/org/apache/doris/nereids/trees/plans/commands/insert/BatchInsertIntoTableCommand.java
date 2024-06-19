@@ -179,7 +179,7 @@ public class BatchInsertIntoTableCommand extends Command implements NoForward, E
                 InsertUtils.executeBatchInsertTransaction(ctx, targetTable.getQualifiedDbName(),
                         targetTable.getName(), targetSchema, ImmutableList.of(oneRowRelation.get().getProjects()));
                 List<List<NamedExpression>> valueExprs = reorderValueExprs(targetSchema, sink.getCols(),
-                        union.get().getConstantExprsList());
+                        ImmutableList.of(oneRowRelation.get().getProjects()));
                 LOG.info("sout: after sort 3: {}", valueExprs);
                 return;
             }
