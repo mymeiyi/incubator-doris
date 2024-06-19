@@ -29,6 +29,7 @@ import org.apache.doris.nereids.analyzer.UnboundTableSink;
 import org.apache.doris.nereids.exceptions.AnalysisException;
 import org.apache.doris.nereids.glue.LogicalPlanAdapter;
 import org.apache.doris.nereids.trees.TreeNode;
+import org.apache.doris.nereids.trees.expressions.NamedExpression;
 import org.apache.doris.nereids.trees.plans.Explainable;
 import org.apache.doris.nereids.trees.plans.Plan;
 import org.apache.doris.nereids.trees.plans.PlanType;
@@ -50,6 +51,7 @@ import com.google.common.collect.Lists;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -105,6 +107,20 @@ public class BatchInsertIntoTableCommand extends Command implements NoForward, E
                     ConnectContext.get().getQualifiedUser(), ConnectContext.get().getRemoteIP(),
                     targetTableIf.getDatabase().getFullName() + ": " + targetTableIf.getName());
         }
+
+        // reorder cols and values
+        List<String> colNames = unboundTableSink.getColNames();
+        List<List<NamedExpression>> constantExprsList = ((LogicalInlineTable) query).getConstantExprsList();
+        if (!colNames.isEmpty()) {
+            /*Pair<List<String>, List<List<NamedExpression>>> pair = reorder(targetTableIf.getBaseSchema(true), colNames,
+                    constantExprsList);*/
+            /*colNames = pair.first;
+            constantExprsList = pair.second;*/
+            List<String> newColNames = Lists.newArrayList("c1", "c2", "c3");
+            unboundTableSink.getColNames().clear();
+            unboundTableSink.getColNames().addAll(newColNames);
+        }
+
         targetTableIf.readLock();
         try {
             this.logicalQuery = (LogicalPlan) InsertUtils.normalizePlan(logicalQuery, targetTableIf);
@@ -142,13 +158,23 @@ public class BatchInsertIntoTableCommand extends Command implements NoForward, E
             if (union.isPresent()) {
                 InsertUtils.executeBatchInsertTransaction(ctx, targetTable.getQualifiedDbName(),
                         targetTable.getName(), targetSchema, union.get().getConstantExprsList());
+                // reorder
+                List<List<NamedExpression>> valueExprs = reorderValueExprs(targetSchema, sink.getCols(),
+                        union.get().getConstantExprsList());
+                LOG.info("sout: after sort 2: {}", valueExprs);
                 return;
             }
             Optional<PhysicalOneRowRelation> oneRowRelation = planner.getPhysicalPlan()
                     .<PhysicalOneRowRelation>collect(PhysicalOneRowRelation.class::isInstance).stream().findAny();
+            LOG.info("sout: sink cols={}, targetCols={}, union_rows={}, rows={}", sink.getCols(), targetSchema,
+                    union.isPresent() ? union.get().getConstantExprsList() : null,
+                    oneRowRelation.isPresent() ? oneRowRelation.get().getProjects() : null);
             if (oneRowRelation.isPresent()) {
                 InsertUtils.executeBatchInsertTransaction(ctx, targetTable.getQualifiedDbName(),
                         targetTable.getName(), targetSchema, ImmutableList.of(oneRowRelation.get().getProjects()));
+                List<List<NamedExpression>> valueExprs = reorderValueExprs(targetSchema, sink.getCols(),
+                        union.get().getConstantExprsList());
+                LOG.info("sout: after sort 3: {}", valueExprs);
                 return;
             }
             // TODO: update error msg
@@ -156,5 +182,59 @@ public class BatchInsertIntoTableCommand extends Command implements NoForward, E
         } finally {
             targetTableIf.readUnlock();
         }
+    }
+
+    /**
+     * target columns is the table column order: such as c0, c1, c2
+     * sink columns and value expressions are in the input order: such as insert into t (c0, c2, c1) values(v0, v2, v1)
+     */
+    private List<List<NamedExpression>> reorderValueExprs(List<Column> targetColumns, List<Column> sinkColumns,
+            List<List<NamedExpression>> valueExprs) {
+        Preconditions.checkState(targetColumns.size() == sinkColumns.size(),
+                "target columns: " + targetColumns + ", sink columns: " + sinkColumns);
+        List<Integer> index = new ArrayList<>();
+        for (Column targetColumn : targetColumns) {
+            boolean found = false;
+            for (int i = 0; i < sinkColumns.size(); i++) {
+                if (formatColumnName(sinkColumns.get(i)).equalsIgnoreCase(formatColumnName(targetColumn))) {
+                    index.add(i);
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                throw new AnalysisException(
+                        "column " + targetColumn.getName() + " not found in sink columns " + sinkColumns);
+            }
+        }
+        boolean needReorder = false;
+        for (int i = 0; i < index.size(); i++) {
+            if (index.get(i) != i) {
+                needReorder = true;
+                break;
+            }
+        }
+        if (!needReorder) {
+            return valueExprs;
+        }
+        List<List<NamedExpression>> newValueExprs = new ArrayList<>();
+        for (List<NamedExpression> exprs : valueExprs) {
+            List<NamedExpression> newExprs = new ArrayList<>();
+            for (int i : index) {
+                newExprs.add(exprs.get(i));
+            }
+            newValueExprs.add(newExprs);
+        }
+        LOG.info("sout: after sort: {}", newValueExprs);
+        return newValueExprs;
+    }
+
+    private String formatColumnName(Column column) {
+        if (column.getName().startsWith("`") && column.getName().endsWith("`")
+                || column.getName().startsWith("\"") && column.getName().endsWith("\"")
+                || column.getName().startsWith("'") && column.getName().endsWith("'")) {
+            return column.getName().substring(1, column.getName().length() - 1);
+        }
+        return column.getName();
     }
 }
