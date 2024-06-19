@@ -96,8 +96,15 @@ public class BatchInsertIntoTableCommand extends Command implements NoForward, E
             throw new AnalysisException("Insert into ** select is not supported in a transaction");
         }
 
-        PhysicalOlapTableSink<?> sink;
         TableIf targetTableIf = InsertUtils.getTargetTable(logicalQuery, ctx);
+        // check auth
+        if (!Env.getCurrentEnv().getAccessManager()
+                .checkTblPriv(ConnectContext.get(), targetTableIf.getDatabase().getCatalog().getName(),
+                        targetTableIf.getDatabase().getFullName(), targetTableIf.getName(), PrivPredicate.LOAD)) {
+            ErrorReport.reportAnalysisException(ErrorCode.ERR_TABLEACCESS_DENIED_ERROR, "LOAD",
+                    ConnectContext.get().getQualifiedUser(), ConnectContext.get().getRemoteIP(),
+                    targetTableIf.getDatabase().getFullName() + ": " + targetTableIf.getName());
+        }
         targetTableIf.readLock();
         try {
             this.logicalQuery = (LogicalPlan) InsertUtils.normalizePlan(logicalQuery, targetTableIf);
@@ -112,7 +119,7 @@ public class BatchInsertIntoTableCommand extends Command implements NoForward, E
             Optional<TreeNode<?>> plan = planner.getPhysicalPlan()
                     .<TreeNode<?>>collect(PhysicalOlapTableSink.class::isInstance).stream().findAny();
             Preconditions.checkArgument(plan.isPresent(), "insert into command must contain OlapTableSinkNode");
-            sink = ((PhysicalOlapTableSink<?>) plan.get());
+            PhysicalOlapTableSink<?> sink = ((PhysicalOlapTableSink<?>) plan.get());
             Table targetTable = sink.getTargetTable();
             // should set columns of sink since we maybe generate some invisible columns
             List<Column> fullSchema = sink.getTargetTable().getFullSchema();
@@ -128,15 +135,6 @@ public class BatchInsertIntoTableCommand extends Command implements NoForward, E
                 }
             } else {
                 targetSchema = fullSchema;
-            }
-            // check auth
-            if (!Env.getCurrentEnv().getAccessManager()
-                    .checkTblPriv(ConnectContext.get(), targetTable.getDatabase().getCatalog().getName(),
-                            targetTable.getQualifiedDbName(), targetTable.getName(),
-                            PrivPredicate.LOAD)) {
-                ErrorReport.reportAnalysisException(ErrorCode.ERR_TABLEACCESS_DENIED_ERROR, "LOAD",
-                        ConnectContext.get().getQualifiedUser(), ConnectContext.get().getRemoteIP(),
-                        targetTable.getQualifiedDbName() + ": " + targetTable.getName());
             }
 
             Optional<PhysicalUnion> union = planner.getPhysicalPlan()

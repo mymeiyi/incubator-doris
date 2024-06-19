@@ -74,6 +74,8 @@ import org.apache.doris.transaction.TransactionStatus;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import org.apache.commons.collections.CollectionUtils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.util.List;
 import java.util.Optional;
@@ -83,6 +85,7 @@ import java.util.stream.Collectors;
  * The helper class for insert operation.
  */
 public class InsertUtils {
+    public static final Logger LOG = LogManager.getLogger(InsertUtils.class);
 
     /**
      * execute insert values in transaction.
@@ -297,6 +300,8 @@ public class InsertUtils {
         LogicalInlineTable logicalInlineTable = (LogicalInlineTable) query;
         ImmutableList.Builder<LogicalPlan> oneRowRelationBuilder = ImmutableList.builder();
         List<Column> columns = table.getBaseSchema(false);
+        LOG.info("sout: values: {}, columns: {}, target: {}", logicalInlineTable.getConstantExprsList(), columns,
+                unboundLogicalSink.getColNames());
 
         for (List<NamedExpression> values : logicalInlineTable.getConstantExprsList()) {
             ImmutableList.Builder<NamedExpression> constantExprs = ImmutableList.builder();
@@ -347,6 +352,7 @@ public class InsertUtils {
             }
             oneRowRelationBuilder.add(new UnboundOneRowRelation(
                     StatementScopeIdGenerator.newRelationId(), constantExprs.build()));
+            LOG.info("sout: rows: {}", constantExprs.build());
         }
         List<LogicalPlan> oneRowRelations = oneRowRelationBuilder.build();
         if (oneRowRelations.size() == 1) {
