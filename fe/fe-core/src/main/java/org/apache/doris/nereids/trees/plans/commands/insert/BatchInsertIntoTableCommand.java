@@ -125,6 +125,13 @@ public class BatchInsertIntoTableCommand extends Command implements NoForward, E
 
         targetTableIf.readLock();
         try {
+            // 不考虑unique table,
+            // insert into t(c1) values() 报错
+            // insert into t values() 生成全列
+            // insert into t(c1, c2) values(v1, v2) 生成的列与column name对齐, column name不足全列的话, 也是部分列
+            // insert into t values(v1, v2, v3) 全列
+            // 结果写在了logicalQuery的plan.withChildren(oneRowRelations)
+            // values是表达式是怎样的效果
             this.logicalQuery = (LogicalPlan) InsertUtils.normalizePlan(logicalQuery, targetTableIf);
             LogicalPlanAdapter logicalPlanAdapter = new LogicalPlanAdapter(logicalQuery, ctx.getStatementContext());
             NereidsPlanner planner = new NereidsPlanner(ctx.getStatementContext());
@@ -142,6 +149,7 @@ public class BatchInsertIntoTableCommand extends Command implements NoForward, E
             // should set columns of sink since we maybe generate some invisible columns
             List<Column> fullSchema = sink.getTargetTable().getFullSchema();
             List<Column> targetSchema = Lists.newArrayList();
+            // TODO: does txn insert support partial update?
             if (sink.isPartialUpdate()) {
                 List<String> partialUpdateColumns = sink.getCols().stream()
                         .map(Column::getName)
