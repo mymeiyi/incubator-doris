@@ -29,6 +29,7 @@ import org.apache.doris.nereids.analyzer.UnboundTableSink;
 import org.apache.doris.nereids.exceptions.AnalysisException;
 import org.apache.doris.nereids.glue.LogicalPlanAdapter;
 import org.apache.doris.nereids.trees.TreeNode;
+import org.apache.doris.nereids.trees.expressions.ExprId;
 import org.apache.doris.nereids.trees.expressions.NamedExpression;
 import org.apache.doris.nereids.trees.plans.Explainable;
 import org.apache.doris.nereids.trees.plans.Plan;
@@ -145,6 +146,7 @@ public class BatchInsertIntoTableCommand extends Command implements NoForward, E
                     .<TreeNode<?>>collect(PhysicalOlapTableSink.class::isInstance).stream().findAny();
             Preconditions.checkArgument(plan.isPresent(), "insert into command must contain OlapTableSinkNode");
             PhysicalOlapTableSink<?> sink = ((PhysicalOlapTableSink<?>) plan.get());
+            List<ExprId> outputExprIds = sink.getOutputExprIds();
             Table targetTable = sink.getTargetTable();
             // should set columns of sink since we maybe generate some invisible columns
             List<Column> fullSchema = sink.getTargetTable().getFullSchema();
@@ -166,10 +168,10 @@ public class BatchInsertIntoTableCommand extends Command implements NoForward, E
             Optional<PhysicalUnion> union = planner.getPhysicalPlan()
                     .<PhysicalUnion>collect(PhysicalUnion.class::isInstance).stream().findAny();
             if (union.isPresent()) {
-                LOG.info("sout: sink_cols={}, target_cols={}, rows={}",
+                LOG.info("sout: sink_cols={}, target_cols={}, ids={}, rows={}",
                         sink.getCols().stream().map(Column::getName).collect(Collectors.toList()),
                         targetSchema.stream().map(Column::getName).collect(Collectors.toList()),
-                        union.get().getConstantExprsList());
+                        outputExprIds, union.get().getConstantExprsList());
                 InsertUtils.executeBatchInsertTransaction(ctx, targetTable.getQualifiedDbName(),
                         targetTable.getName(), targetSchema, union.get().getConstantExprsList());
                 // reorder
@@ -181,10 +183,10 @@ public class BatchInsertIntoTableCommand extends Command implements NoForward, E
             Optional<PhysicalOneRowRelation> oneRowRelation = planner.getPhysicalPlan()
                     .<PhysicalOneRowRelation>collect(PhysicalOneRowRelation.class::isInstance).stream().findAny();
             if (oneRowRelation.isPresent()) {
-                LOG.info("sout: sink_cols={}, target_cols={}, rows={}",
+                LOG.info("sout: sink_cols={}, target_cols={}, ids={}, rows={}",
                         sink.getCols().stream().map(Column::getName).collect(Collectors.toList()),
                         targetSchema.stream().map(Column::getName).collect(Collectors.toList()),
-                        oneRowRelation.get().getProjects());
+                        outputExprIds, oneRowRelation.get().getProjects());
                 InsertUtils.executeBatchInsertTransaction(ctx, targetTable.getQualifiedDbName(),
                         targetTable.getName(), targetSchema, ImmutableList.of(oneRowRelation.get().getProjects()));
                 List<List<NamedExpression>> valueExprs = reorderValueExprs(targetSchema, sink.getCols(),
