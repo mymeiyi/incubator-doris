@@ -140,11 +140,11 @@ suite("txn_insert") {
             sql """ insert into $tableName (c2, c1) values(22, 12) """
             sql """ insert into $tableName (c2, c3, c1) values(23, 33, 13) """
             sql """ insert into $tableName (c1) values(14) """
-            test {
-                sql """ insert into $tableName (c3, c2, c1) values(35, 25, 15) """
+            sql """ insert into $tableName (c3, c2, c1) values(35, 25, 15) """
+            /*test {
+                sql """ insert into $tableName select 16, 26, 36 """
                 exception "Column count doesn't match value count"
-            }
-            // sql """ insert into $tableName select 16, 26, 36 """
+            }*/
             sql """ commit; """
             sql """ sync """
             order_qt_select_random_column_order_1 """select * from ${tableName}"""

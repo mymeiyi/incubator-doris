@@ -19,6 +19,7 @@ package org.apache.doris.nereids.trees.plans.commands.insert;
 
 import org.apache.doris.catalog.OlapTable;
 import org.apache.doris.catalog.Table;
+import org.apache.doris.common.ErrorCode;
 import org.apache.doris.common.util.DebugUtil;
 import org.apache.doris.nereids.NereidsPlanner;
 import org.apache.doris.nereids.exceptions.AnalysisException;
@@ -28,6 +29,7 @@ import org.apache.doris.transaction.SubTransactionState.SubTransactionType;
 import org.apache.doris.transaction.TransactionEntry;
 import org.apache.doris.transaction.TransactionState;
 
+import com.google.common.base.Strings;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -89,6 +91,11 @@ public class OlapTxnInsertExecutor extends OlapInsertExecutor {
         // if any throwable being thrown during insert operation, first we should abort this txn
         LOG.warn("insert [{}] with query id {} failed, url={}", labelName, queryId, coordinator.getTrackingUrl(), t);
         cleanTransaction();
+        StringBuilder sb = new StringBuilder(t.getMessage());
+        if (!Strings.isNullOrEmpty(coordinator.getTrackingUrl())) {
+            sb.append(". url: ").append(coordinator.getTrackingUrl());
+        }
+        ctx.getState().setError(ErrorCode.ERR_UNKNOWN_ERROR, sb.toString());
     }
 
     @Override
