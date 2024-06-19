@@ -300,8 +300,8 @@ public class InsertUtils {
         LogicalInlineTable logicalInlineTable = (LogicalInlineTable) query;
         ImmutableList.Builder<LogicalPlan> oneRowRelationBuilder = ImmutableList.builder();
         List<Column> columns = table.getBaseSchema(false);
-        LOG.info("sout: values: {}, columns: {}, target: {}", logicalInlineTable.getConstantExprsList(), columns,
-                unboundLogicalSink.getColNames());
+        LOG.info("sout: values: {}, target: {}, columns: {}", logicalInlineTable.getConstantExprsList(),
+                unboundLogicalSink.getColNames(), columns.stream().map(Column::getName).collect(Collectors.toList()));
 
         for (List<NamedExpression> values : logicalInlineTable.getConstantExprsList()) {
             ImmutableList.Builder<NamedExpression> constantExprs = ImmutableList.builder();

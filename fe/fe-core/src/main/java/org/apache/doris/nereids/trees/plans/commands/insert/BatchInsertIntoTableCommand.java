@@ -157,6 +157,10 @@ public class BatchInsertIntoTableCommand extends Command implements NoForward, E
             Optional<PhysicalUnion> union = planner.getPhysicalPlan()
                     .<PhysicalUnion>collect(PhysicalUnion.class::isInstance).stream().findAny();
             if (union.isPresent()) {
+                LOG.info("sout: sink_cols={}, target_cols={}, rows={}",
+                        sink.getCols().stream().map(Column::getName).collect(Collectors.toList()),
+                        targetSchema.stream().map(Column::getName).collect(Collectors.toList()),
+                        union.get().getConstantExprsList());
                 InsertUtils.executeBatchInsertTransaction(ctx, targetTable.getQualifiedDbName(),
                         targetTable.getName(), targetSchema, union.get().getConstantExprsList());
                 // reorder
@@ -167,10 +171,11 @@ public class BatchInsertIntoTableCommand extends Command implements NoForward, E
             }
             Optional<PhysicalOneRowRelation> oneRowRelation = planner.getPhysicalPlan()
                     .<PhysicalOneRowRelation>collect(PhysicalOneRowRelation.class::isInstance).stream().findAny();
-            LOG.info("sout: sink cols={}, targetCols={}, union_rows={}, rows={}", sink.getCols(), targetSchema,
-                    union.isPresent() ? union.get().getConstantExprsList() : null,
-                    oneRowRelation.isPresent() ? oneRowRelation.get().getProjects() : null);
             if (oneRowRelation.isPresent()) {
+                LOG.info("sout: sink_cols={}, target_cols={}, rows={}",
+                        sink.getCols().stream().map(Column::getName).collect(Collectors.toList()),
+                        targetSchema.stream().map(Column::getName).collect(Collectors.toList()),
+                        oneRowRelation.get().getProjects());
                 InsertUtils.executeBatchInsertTransaction(ctx, targetTable.getQualifiedDbName(),
                         targetTable.getName(), targetSchema, ImmutableList.of(oneRowRelation.get().getProjects()));
                 List<List<NamedExpression>> valueExprs = reorderValueExprs(targetSchema, sink.getCols(),
@@ -226,7 +231,7 @@ public class BatchInsertIntoTableCommand extends Command implements NoForward, E
             }
             newValueExprs.add(newExprs);
         }
-        LOG.info("sout: after sort: {}", newValueExprs);
+        LOG.info("sout: after sort 1: {}", newValueExprs);
         return newValueExprs;
     }
 
