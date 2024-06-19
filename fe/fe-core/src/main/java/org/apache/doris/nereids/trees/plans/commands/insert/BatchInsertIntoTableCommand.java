@@ -111,14 +111,15 @@ public class BatchInsertIntoTableCommand extends Command implements NoForward, E
         // reorder cols and values
         List<String> colNames = unboundTableSink.getColNames();
         List<List<NamedExpression>> constantExprsList = ((LogicalInlineTable) query).getConstantExprsList();
+        LOG.info("sout: cols: {}, vals: {}", colNames, constantExprsList);
         if (!colNames.isEmpty()) {
             /*Pair<List<String>, List<List<NamedExpression>>> pair = reorder(targetTableIf.getBaseSchema(true), colNames,
-                    constantExprsList);*/
-            /*colNames = pair.first;
-            constantExprsList = pair.second;*/
+                    constantExprsList);
+            colNames = pair.first;
+            constantExprsList = pair.second;
             List<String> newColNames = Lists.newArrayList("c1", "c2", "c3");
             unboundTableSink.getColNames().clear();
-            unboundTableSink.getColNames().addAll(newColNames);
+            unboundTableSink.getColNames().addAll(newColNames);*/
         }
 
         targetTableIf.readLock();
