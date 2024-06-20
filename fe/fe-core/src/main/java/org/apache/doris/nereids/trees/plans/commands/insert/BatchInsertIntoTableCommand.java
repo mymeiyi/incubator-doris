@@ -129,6 +129,7 @@ public class BatchInsertIntoTableCommand extends Command implements NoForward, E
             unboundTableSink.getColNames().clear();
             unboundTableSink.getColNames().addAll(newColNames);*/
         }
+        new UnboundTableSink<>();
 
         targetTableIf.readLock();
         try {
