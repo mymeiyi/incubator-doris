@@ -337,13 +337,7 @@ public class TransactionEntry {
 
     private void beforeFinishTransaction() throws DdlException {
         if (isTransactionBegan) {
-            if (Config.isCloudMode()) {
-                // null if this is observer
-                if (transactionState == null) {
-                    database = Env.getCurrentInternalCatalog().getDbOrDdlException(dbId);
-                    transactionState = Env.getCurrentGlobalTransactionMgr().getTransactionState(dbId, transactionId);
-                }
-            } else {
+            if (!Config.isCloudMode()) {
                 List<Long> tableIds = transactionState.getTableIdList().stream().distinct()
                         .collect(Collectors.toList());
                 transactionState.setTableIdList(tableIds);
