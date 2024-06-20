@@ -18,6 +18,8 @@
 package org.apache.doris.nereids.trees.plans.commands.insert;
 
 import org.apache.doris.analysis.Expr;
+import org.apache.doris.analysis.SlotDescriptor;
+import org.apache.doris.analysis.SlotRef;
 import org.apache.doris.catalog.Column;
 import org.apache.doris.catalog.Env;
 import org.apache.doris.catalog.Table;
@@ -149,6 +151,16 @@ public class BatchInsertIntoTableCommand extends Command implements NoForward, E
             PlanFragment planFragment = planner.getFragments().get(0);
             DataSink dataSink = planFragment.getSink();
             ArrayList<Expr> outputExprs = planFragment.getOutputExprs();
+            for (Expr outputExpr : outputExprs) {
+                if (outputExpr instanceof SlotRef) {
+                    SlotRef slotRef = (SlotRef) outputExpr;
+                    SlotDescriptor desc = slotRef.getDesc();
+                    List<Expr> sourceExprs = desc.getSourceExprs();
+                    LOG.info("sout: source expr: {}", sourceExprs);
+                } else {
+                    LOG.info("sout: output expr is not slot ref: {}", outputExpr);
+                }
+            }
 
             Optional<TreeNode<?>> plan = planner.getPhysicalPlan()
                     .<TreeNode<?>>collect(PhysicalOlapTableSink.class::isInstance).stream().findAny();
