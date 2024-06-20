@@ -466,25 +466,6 @@ public class TransactionEntry {
         return txnLoadInfo;
     }
 
-    private TTxnLoadInfo getTxnLoadInfo() {
-        TTxnLoadInfo txnLoadInfo = new TTxnLoadInfo();
-        txnLoadInfo.setLabel(label);
-        if (this.isTransactionBegan) {
-            txnLoadInfo.setTxnId(transactionId);
-            txnLoadInfo.setDbId(dbId);
-            txnLoadInfo.setTimeoutTimestamp(timeoutTimestamp);
-            txnLoadInfo.setAllSubTxnNum(allSubTxnNum);
-            for (SubTransactionState subTxnState : subTransactionStates) {
-                txnLoadInfo.addToSubTxnInfos(new TSubTxnInfo()
-                        .setSubTxnId(subTxnState.getSubTransactionId())
-                        .setTableId(subTxnState.getTable().getId())
-                        .setTabletCommitInfos(subTxnState.getTabletCommitInfos())
-                        .setSubTxnType(SubTransactionState.getSubTransactionType(subTxnState.getSubTransactionType())));
-            }
-        }
-        return txnLoadInfo;
-    }
-
     public void setTxnLoadInfoInObserver(TTxnLoadInfo txnLoadInfo) throws DdlException {
         Preconditions.checkState(txnLoadInfo.getLabel().equals(this.label),
                 "expected label=" + this.label + ", real label=" + txnLoadInfo.getLabel());
@@ -508,6 +489,25 @@ public class TransactionEntry {
         }
         LOG.info("set txn load info, label={}, txnId={}, dbId={}, timeoutTimestamp={}, allSubTxnNum={}, "
                 + "subTxnStates={}", label, transactionId, dbId, timeoutTimestamp, allSubTxnNum, subTransactionStates);
+    }
+
+    private TTxnLoadInfo getTxnLoadInfo() {
+        TTxnLoadInfo txnLoadInfo = new TTxnLoadInfo();
+        txnLoadInfo.setLabel(label);
+        if (this.isTransactionBegan) {
+            txnLoadInfo.setTxnId(transactionId);
+            txnLoadInfo.setDbId(dbId);
+            txnLoadInfo.setTimeoutTimestamp(timeoutTimestamp);
+            txnLoadInfo.setAllSubTxnNum(allSubTxnNum);
+            for (SubTransactionState subTxnState : subTransactionStates) {
+                txnLoadInfo.addToSubTxnInfos(new TSubTxnInfo()
+                        .setSubTxnId(subTxnState.getSubTransactionId())
+                        .setTableId(subTxnState.getTable().getId())
+                        .setTabletCommitInfos(subTxnState.getTabletCommitInfos())
+                        .setSubTxnType(SubTransactionState.getSubTransactionType(subTxnState.getSubTransactionType())));
+            }
+        }
+        return txnLoadInfo;
     }
 
     private Set<Long> getTableIds() {
