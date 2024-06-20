@@ -76,6 +76,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.util.List;
 import java.util.Map;
@@ -86,6 +88,7 @@ import java.util.stream.Collectors;
  * bind an unbound logicalTableSink represent the target table of an insert command
  */
 public class BindSink implements AnalysisRuleFactory {
+    public static final Logger LOG = LogManager.getLogger(BindSink.class);
 
     @Override
     public List<Rule> buildRules() {
@@ -202,9 +205,12 @@ public class BindSink implements AnalysisRuleFactory {
         } catch (Exception e) {
             throw new AnalysisException(e.getMessage(), e.getCause());
         }
-
+        // boundSink.getCols().get(i), child.getOutput().get(i) 此时是对应的
+        LOG.info("sout: before get column to output, cols: {}, output: {}",
+                boundSink.getCols().stream().map(Column::getName).collect(Collectors.toList()), child.getOutput());
         Map<String, NamedExpression> columnToOutput = getColumnToOutput(ctx, table, isPartialUpdate,
                 boundSink, child);
+        LOG.info("sout: after get column to output: {}", columnToOutput);
         LogicalProject<?> fullOutputProject = getOutputProjectByCoercion(table.getFullSchema(), child, columnToOutput);
         return boundSink.withChildAndUpdateOutput(fullOutputProject);
     }

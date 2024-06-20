@@ -33,16 +33,20 @@ import org.apache.doris.nereids.util.Utils;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * logical olap table sink for insert command
  */
 public class LogicalOlapTableSink<CHILD_TYPE extends Plan> extends LogicalTableSink<CHILD_TYPE>
         implements Sink, PropagateFuncDeps {
+    public static final Logger LOG = LogManager.getLogger(LogicalOlapTableSink.class);
     // bound data sink
     private final Database database;
     private final OlapTable targetTable;
@@ -76,6 +80,8 @@ public class LogicalOlapTableSink<CHILD_TYPE extends Plan> extends LogicalTableS
         List<NamedExpression> output = child.getOutput().stream()
                 .map(NamedExpression.class::cast)
                 .collect(ImmutableList.toImmutableList());
+        LOG.info("sout: new LogicalOlapTableSink cols: {}, output: {}", cols.stream().map(Column::getName).collect(
+                Collectors.toList()), output);
         return new LogicalOlapTableSink<>(database, targetTable, cols, partitionIds, output, isPartialUpdate,
                 dmlCommandType, Optional.empty(), Optional.empty(), child);
     }
