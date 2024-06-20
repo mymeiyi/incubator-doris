@@ -310,8 +310,6 @@ public class TransactionState implements Writable {
     private Map<Long, SchemaInfo> txnSchemas = new HashMap<>();
 
     @Getter
-    private List<SubTransactionState> subTransactionStates;
-    @Getter
     @SerializedName(value = "sti")
     private List<Long> subTxnIds;
     @Getter
@@ -712,9 +710,6 @@ public class TransactionState implements Writable {
         if (idToTableCommitInfos != null && !idToTableCommitInfos.isEmpty()) {
             sb.append(", table commit info: ").append(idToTableCommitInfos);
         }
-        if (subTransactionStates != null) {
-            sb.append(", sub txn states: ").append(subTransactionStates);
-        }
         if (subTxnIds != null) {
             sb.append(", sub txn ids: ").append(subTxnIds);
         }
@@ -873,17 +868,8 @@ public class TransactionState implements Writable {
         return true;
     }
 
-    public void resetSubTransactionStates() {
-        this.subTransactionStates = new ArrayList<>();
-    }
-
-    public void setSubTransactionStates(List<SubTransactionState> subTransactionStates) {
-        this.subTransactionStates = subTransactionStates;
-    }
-
-    public void resetSubTxnIds() {
-        this.subTxnIds = subTransactionStates.stream().map(SubTransactionState::getSubTransactionId)
-                .collect(Collectors.toList());
+    public void setSubTxnIds(List<Long> subTxnIds) {
+        this.subTxnIds = subTxnIds;
     }
 
     public TableCommitInfo getTableCommitInfoBySubTxnId(long subTxnId) {

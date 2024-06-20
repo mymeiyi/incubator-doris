@@ -51,6 +51,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 public class DatabaseTransactionMgrTest {
     private static final Logger LOG = LogManager.getLogger(DatabaseTransactionMgrTest.class);
@@ -354,7 +355,7 @@ public class DatabaseTransactionMgrTest {
         TransactionState transactionState6 = masterDbTransMgr.getTransactionState(
                 LabelToTxnId.get(CatalogTestUtil.testTxnLabel6));
         long transactionId6 = transactionState6.getTransactionId();
-        long subTransactionId3 = transactionState6.getSubTransactionStates().get(2).getSubTransactionId();
+        long subTransactionId3 = transactionState6.getSubTxnIds().get(2);
         TransactionState subTransactionState = masterTransMgr.getTransactionState(CatalogTestUtil.testDbId1,
                 subTransactionId3);
         Assert.assertEquals(transactionState6, subTransactionState);
@@ -541,10 +542,12 @@ public class DatabaseTransactionMgrTest {
             setSuccessTablet(keyToSuccessTablets, allBackends, transactionId, CatalogTestUtil.testTabletId1, 14);
             setSuccessTablet(keyToSuccessTablets, allBackends, subTxnId2, CatalogTestUtil.testTabletId2, 13);
             setSuccessTablet(keyToSuccessTablets, allBackends, subTxnId4, CatalogTestUtil.testTabletId1, 15);
+            List<SubTransactionState> subTransactionStates = GlobalTransactionMgrTest.generateSubTransactionStates(
+                    masterTransMgr, transactionState6, subTransactionInfos);
+            transactionState6.setSubTxnIds(subTransactionStates.stream().map(SubTransactionState::getSubTransactionId)
+                    .collect(Collectors.toList()));
             masterTransMgr.commitTransaction(CatalogTestUtil.testDbId1, Lists.newArrayList(table1, table2, table1),
-                    transactionState6.getTransactionId(),
-                    GlobalTransactionMgrTest.generateSubTransactionStates(masterTransMgr, transactionState6,
-                            subTransactionInfos), 300000);
+                    transactionState6.getTransactionId(), subTransactionStates, 300000);
             Assert.assertEquals(TransactionStatus.COMMITTED, transactionState6.getTransactionStatus());
 
             // finish transaction
