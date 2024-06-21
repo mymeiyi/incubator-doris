@@ -311,6 +311,10 @@ void StreamLoadExecutor::get_commit_request(StreamLoadContext* ctx,
 }
 
 Status StreamLoadExecutor::commit_txn(StreamLoadContext* ctx) {
+    LOG(INFO) << "sout: id=" << ctx->txn_id << ", is_mow=" << ctx->is_mow_table()
+              << ", set_pip=" << ctx->put_result.__isset.pipeline_params
+              << ", set mow=" << ctx->put_result.pipeline_params.__isset.is_mow_table
+              << ", is_mow=" << ctx->put_result.pipeline_params.is_mow_table;
     DBUG_EXECUTE_IF("StreamLoadExecutor.commit_txn.block", DBUG_BLOCK);
 
     DorisMetrics::instance()->stream_load_txn_commit_request_total->increment(1);
