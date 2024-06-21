@@ -259,6 +259,8 @@ Status GroupCommitTable::get_first_block_load_queue(
                 if (base_schema_version == inner_block_queue->schema_version) {
                     if (inner_block_queue->add_load_id(load_id).ok()) {
                         load_block_queue = inner_block_queue;
+                        LOG(INFO) << "sout: get load block queue for table=" << table_id
+                                  << ", load_id=" << load_id.to_string();
                         return Status::OK();
                     }
                 } else {
@@ -269,8 +271,9 @@ Status GroupCommitTable::get_first_block_load_queue(
                 }
             }
         }
-        return Status::InternalError<false>("can not get a block queue for table_id: " +
-                                            std::to_string(_table_id));
+        return Status::InternalError<false>(
+                "can not get a block queue for table_id: " + std::to_string(_table_id) +
+                ", load_id: " + load_id.to_string());
     };
 
     if (try_to_get_matched_queue().ok()) {
