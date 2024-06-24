@@ -150,7 +150,7 @@ public class StringLiteral extends LiteralExpr {
 
     @Override
     public String getStringValueForArray() {
-        return "\"" + getStringValue() + "\"";
+        return String.format("\"%s\"", value);
     }
 
     @Override
