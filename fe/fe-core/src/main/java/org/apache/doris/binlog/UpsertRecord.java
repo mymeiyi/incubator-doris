@@ -123,8 +123,8 @@ public class UpsertRecord {
         if (state.getSubTxnIds() != null) {
             state.getSubTxnIdToTableCommitInfo().forEach((subTxnId, tableCommitInfo) -> {
                 Set<Long> indexIds = loadedTableIndexIds.get(tableCommitInfo.getTableId());
-                TableRecord tableRecord = new TableRecord(indexIds);
-                tableRecords.put(tableCommitInfo.getTableId(), tableRecord);
+                TableRecord tableRecord =
+                        tableRecords.getOrDefault(tableCommitInfo.getTableId(), new TableRecord(indexIds));
 
                 for (PartitionCommitInfo partitionCommitInfo : tableCommitInfo.getIdToPartitionCommitInfo().values()) {
                     tableRecord.addPartitionRecord(partitionCommitInfo);
