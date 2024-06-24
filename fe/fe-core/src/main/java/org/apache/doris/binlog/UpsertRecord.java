@@ -98,13 +98,25 @@ public class UpsertRecord {
         tableRecords = Maps.newHashMap();
 
         Map<Long, Set<Long>> loadedTableIndexIds = state.getLoadedTblIndexes();
-        for (TableCommitInfo info : state.getIdToTableCommitInfos().values()) {
-            Set<Long> indexIds = loadedTableIndexIds.get(info.getTableId());
-            TableRecord tableRecord = new TableRecord(indexIds);
-            tableRecords.put(info.getTableId(), tableRecord);
+        if (state.getSubTxnIds() != null) {
+            state.getSubTxnIdToTableCommitInfo().forEach((subTxnId, tableCommitInfo) -> {
+                Set<Long> indexIds = loadedTableIndexIds.get(tableCommitInfo.getTableId());
+                TableRecord tableRecord = new TableRecord(indexIds);
+                tableRecords.put(tableCommitInfo.getTableId(), tableRecord);
 
-            for (PartitionCommitInfo partitionCommitInfo : info.getIdToPartitionCommitInfo().values()) {
-                tableRecord.addPartitionRecord(partitionCommitInfo);
+                for (PartitionCommitInfo partitionCommitInfo : tableCommitInfo.getIdToPartitionCommitInfo().values()) {
+                    tableRecord.addPartitionRecord(partitionCommitInfo);
+                }
+            });
+        } else {
+            for (TableCommitInfo info : state.getIdToTableCommitInfos().values()) {
+                Set<Long> indexIds = loadedTableIndexIds.get(info.getTableId());
+                TableRecord tableRecord = new TableRecord(indexIds);
+                tableRecords.put(info.getTableId(), tableRecord);
+
+                for (PartitionCommitInfo partitionCommitInfo : info.getIdToPartitionCommitInfo().values()) {
+                    tableRecord.addPartitionRecord(partitionCommitInfo);
+                }
             }
         }
     }
