@@ -49,6 +49,16 @@ public class UpsertRecord {
 
             @SerializedName(value = "isTempPartition")
             public boolean isTemp;
+
+            @Override
+            public String toString() {
+                return "PartitionRecord{" +
+                        "partitionId=" + partitionId +
+                        ", range='" + range + '\'' +
+                        ", version=" + version +
+                        ", isTemp=" + isTemp +
+                        '}';
+            }
         }
 
         @SerializedName(value = "partitionRecords")
@@ -73,6 +83,14 @@ public class UpsertRecord {
 
         public List<PartitionRecord> getPartitionRecords() {
             return partitionRecords;
+        }
+
+        @Override
+        public String toString() {
+            return "TableRecord{" +
+                    "partitionRecords=" + partitionRecords +
+                    ", indexIds=" + indexIds +
+                    '}';
         }
     }
 
