@@ -25,6 +25,8 @@ import org.apache.doris.transaction.TransactionState;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.gson.annotations.SerializedName;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,6 +34,8 @@ import java.util.Map;
 import java.util.Set;
 
 public class UpsertRecord {
+    private static final Logger LOG = LogManager.getLogger(UpsertRecord.class);
+
     public static class TableRecord {
         public static class PartitionRecord {
             @SerializedName(value = "partitionId")
@@ -108,6 +112,8 @@ public class UpsertRecord {
                     tableRecord.addPartitionRecord(partitionCommitInfo);
                 }
             });
+            LOG.info("txnId: {}, subTxnIdToTableCommitInfo: {}, records: {}", txnId,
+                    state.getSubTxnIdToTableCommitInfo(), tableRecords);
         } else {
             for (TableCommitInfo info : state.getIdToTableCommitInfos().values()) {
                 Set<Long> indexIds = loadedTableIndexIds.get(info.getTableId());
