@@ -118,6 +118,8 @@ Status MasterServerClient::finish_task(const TFinishTaskRequest& request, TMaste
 
 Status MasterServerClient::report(const TReportRequest& request, TMasterResult* result) {
     Status client_status;
+    LOG(WARNING) << "debug report, host=" << _master_info.network_address.hostname
+                 << ", port=" << _master_info.network_address.port;
     FrontendServiceConnection client(&s_client_cache, _master_info.network_address,
                                      config::thrift_rpc_timeout_ms, &client_status);
 
