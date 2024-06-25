@@ -653,7 +653,7 @@ struct TBeginTxnRequest {
     11: optional string token
     12: optional i64 backend_id
     // used for ccr
-    13: optional i64 get_sub_txn_id_num = 0
+    13: optional i64 sub_txn_num = 0
 }
 
 struct TBeginTxnResult {
