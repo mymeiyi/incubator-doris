@@ -1774,8 +1774,7 @@ public class FrontendServiceImpl implements FrontendService.Iface {
                 }
                 subTransactionStates.add(
                         new SubTransactionState(subTxnInfo.getSubTxnId(), (Table) table,
-                                subTxnInfo.getTabletCommitInfos(),
-                                SubTransactionState.getSubTransactionType(subTxnInfo.getSubTxnType())));
+                                subTxnInfo.getTabletCommitInfos(), null));
             }
             return Env.getCurrentGlobalTransactionMgr().commitAndPublishTransaction(db, request.getTxnId(),
                     subTransactionStates, timeoutMs);

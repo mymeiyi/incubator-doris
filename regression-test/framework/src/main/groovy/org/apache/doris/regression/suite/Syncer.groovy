@@ -848,6 +848,7 @@ class Syncer {
                         }
                     }
                     if (context.txnInsert) {
+                        // TODO set type
                         TSubTxnInfo subTxnInfo = new TSubTxnInfo().setSubTxnId(txnId).setTableId(tarTableMeta.id).setTabletCommitInfos(tabletCommitInfos)
                         // .setSubTxnType(TSubTxnType.INSERT)
                         context.subTxnInfos.put(txnId, subTxnInfo)
