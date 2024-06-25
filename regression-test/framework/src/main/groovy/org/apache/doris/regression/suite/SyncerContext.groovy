@@ -185,6 +185,7 @@ class SyncerContext {
     }
 
     Boolean metaIsValid() {
+        logger.info("source table map: ${sourceTableMap}, target table map: ${targetTableMap}")
         if (sourceTableMap.isEmpty() && targetTableMap.isEmpty()) {
             return false
         } else if (sourceTableMap.size() != targetTableMap.size()) {

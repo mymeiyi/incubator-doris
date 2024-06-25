@@ -694,10 +694,10 @@ class Syncer {
 
     Boolean checkTargetVersion() {
         logger.info("Check target tablets version")
-        context.targetTableMap.values().forEach {
+        return context.targetTableMap.values().every {
             String baseSQL = "SHOW PROC '/dbs/" + context.targetDbId.toString() + "/" +
                     it.id.toString() + "/partitions/"
-            it.partitionMap.forEach((id, meta) -> {
+            return it.partitionMap.every((id, meta) -> {
                 String versionSQL = baseSQL + id.toString() + "/" + meta.indexId.toString()
                 List<List<Object>> sqlInfo = suite.target_sql(versionSQL + "'")
                 for (List<Object> row : sqlInfo) {
@@ -709,10 +709,9 @@ class Syncer {
                         return false
                     }
                 }
+                return true
             })
         }
-
-        return true
     }
 
     Boolean getBinlog(String table = "", Boolean update = true) {
@@ -723,6 +722,7 @@ class Syncer {
             tableId = context.sourceTableMap.get(table).id
         }
         TGetBinlogResult result = SyncerUtils.getBinLog(clientImpl, context, table, tableId)
+        logger.info("Get binlog result: ${result}")
         return checkGetBinlog(table, result, update)
     }
 
