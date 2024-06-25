@@ -120,8 +120,12 @@ class Syncer {
                 context.sourceSubTxnIds = subTxnIds as List
                 context.sourceSubTxnIds.sort()
                 logger.info("source subTxnIds: ${context.sourceSubTxnIds}")
+                if (context.sourceSubTxnIds.size() > 0) {
+                    context.txnInsert = true
+                }
                 context.targetSubTxnIds.clear()
                 context.sourceToTargetSubTxnId.clear()
+                context.subTxnInfos.clear()
                 return getSourceMeta(table)
             }
         } else {
@@ -795,14 +799,13 @@ class Syncer {
                 }
 
                 logger.info("Partition records: ${binlogRecords}")
-
-                Iterator srcTabletIter = srcPartition.value.tabletMeta.iterator()
-                Iterator tarTabletIter = tarPartition.value.tabletMeta.iterator()
-
                 for (PartitionData partitionRecord : binlogRecords.partitionRecords) {
                     long txnId = partitionRecord.stid == -1 ? context.txnId : context.sourceToTargetSubTxnId.get(partitionRecord.stid)
                     logger.info("stid: ${partitionRecord.stid}, txnId: ${context.txnId}, finalTxnId: ${txnId}")
                     // step 2.3: ingest each tablet in the partition
+                    Iterator srcTabletIter = srcPartition.value.tabletMeta.iterator()
+                    Iterator tarTabletIter = tarPartition.value.tabletMeta.iterator()
+                    List<TTabletCommitInfo> tabletCommitInfos = new ArrayList<TTabletCommitInfo>()
                     while (srcTabletIter.hasNext()) {
                         Entry srcTabletMap = srcTabletIter.next()
                         Entry tarTabletMap = tarTabletIter.next()
@@ -820,7 +823,7 @@ class Syncer {
 
                         tarPartition.value.version = srcPartition.value.version
                         long partitionId = fakePartitionId == -1 ? tarPartition.key : fakePartitionId
-                        long version = fakeVersion == -1 ? srcPartition.value.version : fakeVersion
+                        long version = fakeVersion == -1 ? partitionRecord.version : fakeVersion
 
                         TIngestBinlogRequest request = new TIngestBinlogRequest()
                         TUniqueId uid = new TUniqueId(-1, -1)
@@ -839,8 +842,18 @@ class Syncer {
                             return false
                         }
 
-                        addCommitInfo(tarTabletMap.key, tarTabletMap.value)
+                        if (context.txnInsert) {
+                            tabletCommitInfos.add(new TTabletCommitInfo(tarTabletMap.key, tarTabletMap.value))
+                        } else {
+                            addCommitInfo(tarTabletMap.key, tarTabletMap.value)
+                        }
                     }
+                    TSubTxnInfo subTxnInfo = new TSubTxnInfo()
+                            .setSubTxnId(txnId)
+                            .setTableId(tarTableMeta.id)
+                            .setTabletCommitInfos(tabletCommitInfos)
+                            .setSubTxnType(TSubTxnType.INSERT) // TODO
+                    context.subTxnInfos.put(txnId, subTxnInfo)
                 }
             }
         }
