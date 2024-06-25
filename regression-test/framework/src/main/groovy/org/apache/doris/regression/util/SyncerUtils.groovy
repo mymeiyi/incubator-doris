@@ -66,6 +66,10 @@ class SyncerUtils {
     }
 
     static TBeginTxnResult beginTxn(FrontendClientImpl clientImpl, SyncerContext context, Long tableId) throws TException {
+        return beginTxn(clientImpl, context, tableId, 0)
+    }
+
+    static TBeginTxnResult beginTxn(FrontendClientImpl clientImpl, SyncerContext context, Long tableId, Long subTxnNum) throws TException {
         TBeginTxnRequest request = new TBeginTxnRequest()
         setAuthorInformation(request, context)
         request.setDb("TEST_" + context.db)
@@ -73,6 +77,9 @@ class SyncerUtils {
             request.addToTableIds(tableId)
         }
         request.setLabel(newLabel(context, tableId))
+        if (subTxnNum > 0) {
+            request.setGetSubTxnIdNum(subTxnNum)
+        }
         logger.info("begin txn: ${request}")
         return clientImpl.client.beginTxn(request)
     }

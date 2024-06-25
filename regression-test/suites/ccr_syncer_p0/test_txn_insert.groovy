@@ -23,7 +23,7 @@ suite("test_txn_insert") {
     }
     def txnTableName = "test_txn_insert"
     for (int i = 0; i < 3; i++) {
-        sql "DROP TABLE IF EXISTS ${txnTableName}_${i}"
+        sql "DROP TABLE IF EXISTS ${txnTableName}_${i} force"
         sql """
            CREATE TABLE if NOT EXISTS ${txnTableName}_${i} 
            (
@@ -40,7 +40,7 @@ suite("test_txn_insert") {
         sql """ALTER TABLE ${txnTableName}_${i} set ("binlog.enable" = "true")"""
         assertTrue(syncer.getSourceMeta("${txnTableName}_${i}"))
 
-        target_sql "DROP TABLE IF EXISTS ${txnTableName}_${i}"
+        target_sql "DROP TABLE IF EXISTS ${txnTableName}_${i} force"
         target_sql """
                   CREATE TABLE if NOT EXISTS ${txnTableName}_${i} 
                   (
