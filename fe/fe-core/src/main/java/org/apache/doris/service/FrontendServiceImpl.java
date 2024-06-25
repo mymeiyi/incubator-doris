@@ -1766,16 +1766,19 @@ public class FrontendServiceImpl implements FrontendService.Iface {
 
         // Step 5: commit and publish
         if (request.isSetTxnInsert() && request.isTxnInsert()) {
+            List<Long> subTxnIds = new ArrayList<>();
             List<SubTransactionState> subTransactionStates = new ArrayList<>();
             for (TSubTxnInfo subTxnInfo : request.getSubTxnInfos()) {
                 TableIf table = db.getTableNullable(subTxnInfo.getTableId());
                 if (table == null) {
                     continue;
                 }
+                subTxnIds.add(subTxnInfo.getSubTxnId());
                 subTransactionStates.add(
                         new SubTransactionState(subTxnInfo.getSubTxnId(), (Table) table,
                                 subTxnInfo.getTabletCommitInfos(), null));
             }
+            transactionState.setSubTxnIds(subTxnIds);
             return Env.getCurrentGlobalTransactionMgr().commitAndPublishTransaction(db, request.getTxnId(),
                     subTransactionStates, timeoutMs);
         } else {
