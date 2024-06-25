@@ -23,7 +23,8 @@ import org.apache.doris.regression.suite.client.BackendClientImpl
 import org.apache.doris.regression.suite.client.FrontendClientImpl
 import org.apache.doris.thrift.TTabletCommitInfo
 import org.apache.doris.thrift.TGetSnapshotResult
-import org.apache.doris.thrift.TNetworkAddress;
+import org.apache.doris.thrift.TNetworkAddress
+import org.apache.doris.thrift.TSubTxnInfo
 import com.google.gson.annotations.SerializedName
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory

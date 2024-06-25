@@ -39,6 +39,7 @@ import org.apache.doris.thrift.TNetworkAddress
 import org.apache.doris.thrift.TRestoreSnapshotResult
 import org.apache.doris.thrift.TStatus
 import org.apache.doris.thrift.TStatusCode
+import org.apache.doris.thrift.TSubTxnInfo
 import org.apache.doris.thrift.TTabletCommitInfo
 import org.apache.doris.thrift.TUniqueId
 import org.apache.thrift.transport.TTransportException
@@ -120,9 +121,7 @@ class Syncer {
                 context.sourceSubTxnIds = subTxnIds as List
                 context.sourceSubTxnIds.sort()
                 logger.info("source subTxnIds: ${context.sourceSubTxnIds}")
-                if (context.sourceSubTxnIds.size() > 0) {
-                    context.txnInsert = true
-                }
+                context.txnInsert = context.sourceSubTxnIds.size() > 0
                 context.targetSubTxnIds.clear()
                 context.sourceToTargetSubTxnId.clear()
                 context.subTxnInfos.clear()
@@ -848,12 +847,11 @@ class Syncer {
                             addCommitInfo(tarTabletMap.key, tarTabletMap.value)
                         }
                     }
-                    TSubTxnInfo subTxnInfo = new TSubTxnInfo()
-                            .setSubTxnId(txnId)
-                            .setTableId(tarTableMeta.id)
-                            .setTabletCommitInfos(tabletCommitInfos)
-                            .setSubTxnType(TSubTxnType.INSERT) // TODO
-                    context.subTxnInfos.put(txnId, subTxnInfo)
+                    if (context.txnInsert) {
+                        TSubTxnInfo subTxnInfo = new TSubTxnInfo().setSubTxnId(txnId).setTableId(tarTableMeta.id).setTabletCommitInfos(tabletCommitInfos)
+                        // .setSubTxnType(TSubTxnType.INSERT)
+                        context.subTxnInfos.put(txnId, subTxnInfo)
+                    }
                 }
             }
         }
