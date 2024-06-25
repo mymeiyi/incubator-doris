@@ -31,7 +31,7 @@ suite("test_txn_insert") {
                `id` INT
            )
            ENGINE=OLAP
-           UNIQUE KEY(`test`, `id`)
+           DUPLICATE KEY(`test`, `id`)
            DISTRIBUTED BY HASH(id) BUCKETS 1 
            PROPERTIES ( 
                "replication_allocation" = "tag.location.default: 1"
@@ -48,7 +48,7 @@ suite("test_txn_insert") {
                       `id` INT
                   )
                   ENGINE=OLAP
-                  UNIQUE KEY(`test`, `id`)
+                  DUPLICATE KEY(`test`, `id`)
                   DISTRIBUTED BY HASH(id) BUCKETS 1 
                   PROPERTIES ( 
                       "replication_allocation" = "tag.location.default: 1"
