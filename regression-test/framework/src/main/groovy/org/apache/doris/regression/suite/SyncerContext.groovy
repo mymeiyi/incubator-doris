@@ -127,8 +127,9 @@ class SyncerContext {
     public String db
     public long txnId
     public long seq
-    public Set<Long> sourceSubTxnIds
-    public List<Long> targetSubTxnIds
+    public List<Long> sourceSubTxnIds = new ArrayList<Long>()
+    public List<Long> targetSubTxnIds = new ArrayList<Long>()
+    public Map<Long, Long> sourceToTargetSubTxnId = new HashMap<Long, Long>()
 
     SyncerContext(Suite suite, String dbName, Config config) {
         this.suite = suite
