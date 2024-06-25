@@ -78,7 +78,7 @@ class SyncerUtils {
         }
         request.setLabel(newLabel(context, tableId))
         if (subTxnNum > 0) {
-            request.setGetSubTxnIdNum(subTxnNum)
+            request.setSubTxnNum(subTxnNum)
         }
         logger.info("begin txn: ${request}")
         return clientImpl.client.beginTxn(request)

@@ -1265,9 +1265,9 @@ public class FrontendServiceImpl implements FrontendService.Iface {
         try {
             TBeginTxnResult tmpRes = beginTxnImpl(request, clientAddr);
             result.setTxnId(tmpRes.getTxnId()).setDbId(tmpRes.getDbId());
-            if (request.isSetGetSubTxnIdNum() && request.getGetSubTxnIdNum() > 0) {
+            if (request.isSeSubTxnNum() && request.getSubTxnNum() > 0) {
                 result.addToSubTxnIds(result.getTxnId());
-                for (int i = 1; i < request.getGetSubTxnIdNum() - 1; i++) {
+                for (int i = 1; i < request.getSubTxnNum() - 1; i++) {
                     result.addToSubTxnIds(Env.getCurrentGlobalTransactionMgr().getNextTransactionId());
                 }
             }
