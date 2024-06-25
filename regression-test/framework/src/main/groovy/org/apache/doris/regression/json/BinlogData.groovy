@@ -20,9 +20,10 @@ package org.apache.doris.regression.json
 class PartitionData {
     public Long partitionId
     public Long version
+    public Long stid // sub txn id
 
     String toString() {
-        return "(" + partitionId.toString() + ", " + version.toString() + ")"
+        return "(" + partitionId.toString() + ", " + version.toString() + ", " + stid.toString() + ")"
     }
 }
 

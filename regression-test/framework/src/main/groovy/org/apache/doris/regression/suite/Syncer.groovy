@@ -20,6 +20,7 @@ package org.apache.doris.regression.suite
 import com.google.common.collect.Maps
 import com.google.gson.Gson
 import org.apache.doris.regression.Config
+import org.apache.doris.regression.json.PartitionData
 import org.apache.doris.regression.json.PartitionRecords
 import org.apache.doris.regression.suite.client.BackendClientImpl
 import org.apache.doris.regression.suite.client.FrontendClientImpl
@@ -772,47 +773,53 @@ class Syncer {
                     continue
                 }
 
+                logger.info("Partition records: ${binlogRecords}")
+
                 Iterator srcTabletIter = srcPartition.value.tabletMeta.iterator()
                 Iterator tarTabletIter = tarPartition.value.tabletMeta.iterator()
 
-                // step 2.3: ingest each tablet in the partition
-                while (srcTabletIter.hasNext()) {
-                    Entry srcTabletMap = srcTabletIter.next()
-                    Entry tarTabletMap = tarTabletIter.next()
+                for (PartitionData partitionRecord : binlogRecords.partitionRecords) {
+                    long txnId = partitionRecord.stid == -1 ? context.txnId : partitionRecord.stid
+                    logger.info("stid: ${partitionRecord.stid}, txnId: ${context.txnId}, finalTxnId: ${txnId}")
+                    // step 2.3: ingest each tablet in the partition
+                    while (srcTabletIter.hasNext()) {
+                        Entry srcTabletMap = srcTabletIter.next()
+                        Entry tarTabletMap = tarTabletIter.next()
 
-                    BackendClientImpl srcClient = context.sourceBackendClients.get(srcTabletMap.value)
-                    if (srcClient == null) {
-                        logger.error("Can't find src tabletId-${srcTabletMap.key} -> beId-${srcTabletMap.value}")
-                        return false
+                        BackendClientImpl srcClient = context.sourceBackendClients.get(srcTabletMap.value)
+                        if (srcClient == null) {
+                            logger.error("Can't find src tabletId-${srcTabletMap.key} -> beId-${srcTabletMap.value}")
+                            return false
+                        }
+                        BackendClientImpl tarClient = context.targetBackendClients.get(tarTabletMap.value)
+                        if (tarClient == null) {
+                            logger.error("Can't find target tabletId-${tarTabletMap.key} -> beId-${tarTabletMap.value}")
+                            return false
+                        }
+
+                        tarPartition.value.version = srcPartition.value.version
+                        long partitionId = fakePartitionId == -1 ? tarPartition.key : fakePartitionId
+                        long version = fakeVersion == -1 ? srcPartition.value.version : fakeVersion
+
+                        TIngestBinlogRequest request = new TIngestBinlogRequest()
+                        TUniqueId uid = new TUniqueId(-1, -1)
+                        request.setTxnId(txnId)
+                        request.setRemoteTabletId(srcTabletMap.key)
+                        request.setBinlogVersion(version)
+                        request.setRemoteHost(srcClient.address.hostname)
+                        request.setRemotePort(srcClient.httpPort.toString())
+                        request.setPartitionId(partitionId)
+                        request.setLocalTabletId(tarTabletMap.key)
+                        request.setLoadId(uid)
+                        logger.info("request -> ${request}")
+                        TIngestBinlogResult result = tarClient.client.ingestBinlog(request)
+                        if (!checkIngestBinlog(result)) {
+                            logger.error("Ingest binlog error! result: ${result}")
+                            return false
+                        }
+
+                        addCommitInfo(tarTabletMap.key, tarTabletMap.value)
                     }
-                    BackendClientImpl tarClient = context.targetBackendClients.get(tarTabletMap.value)
-                    if (tarClient == null) {
-                        logger.error("Can't find target tabletId-${tarTabletMap.key} -> beId-${tarTabletMap.value}")
-                        return false
-                    }
-
-                    tarPartition.value.version = srcPartition.value.version
-                    long partitionId = fakePartitionId == -1 ? tarPartition.key : fakePartitionId
-                    long version = fakeVersion == -1 ? srcPartition.value.version : fakeVersion
-
-                    TIngestBinlogRequest request = new TIngestBinlogRequest()
-                    TUniqueId uid = new TUniqueId(-1, -1)
-                    request.setTxnId(context.txnId)
-                    request.setRemoteTabletId(srcTabletMap.key)
-                    request.setBinlogVersion(version)
-                    request.setRemoteHost(srcClient.address.hostname)
-                    request.setRemotePort(srcClient.httpPort.toString())
-                    request.setPartitionId(partitionId)
-                    request.setLocalTabletId(tarTabletMap.key)
-                    request.setLoadId(uid)
-                    logger.info("request -> ${request}")
-                    TIngestBinlogResult result = tarClient.client.ingestBinlog(request)
-                    if (!checkIngestBinlog(result)) {
-                        logger.error("Ingest binlog error! result: ${result}")
-                        return false
-                    }
-
-                    addCommitInfo(tarTabletMap.key, tarTabletMap.value)
                 }
             }
         }
