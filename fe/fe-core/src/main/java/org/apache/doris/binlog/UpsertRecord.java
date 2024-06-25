@@ -50,6 +50,9 @@ public class UpsertRecord {
             @SerializedName(value = "isTempPartition")
             public boolean isTemp;
 
+            @SerializedName(value = "stid")
+            public int subTxnId;
+
             @Override
             public String toString() {
                 return "PartitionRecord{" +
@@ -57,6 +60,7 @@ public class UpsertRecord {
                         ", range='" + range + '\'' +
                         ", version=" + version +
                         ", isTemp=" + isTemp +
+                        ", subTxnId=" + subTxnId +
                         '}';
             }
         }
@@ -123,14 +127,8 @@ public class UpsertRecord {
         if (state.getSubTxnIds() != null) {
             state.getSubTxnIdToTableCommitInfo().forEach((subTxnId, tableCommitInfo) -> {
                 Set<Long> indexIds = loadedTableIndexIds.get(tableCommitInfo.getTableId());
-                TableRecord tableRecord;
-                if (tableRecords.containsKey(tableCommitInfo.getTableId())) {
-                    tableRecord = tableRecords.get(tableCommitInfo.getTableId());
-                } else {
-                    tableRecord = new TableRecord(indexIds);
-                    tableRecords.put(tableCommitInfo.getTableId(), tableRecord);
-                }
-
+                TableRecord tableRecord = tableRecords.compute(tableCommitInfo.getTableId(),
+                        (k, v) -> v == null ? new TableRecord(indexIds) : v);
                 for (PartitionCommitInfo partitionCommitInfo : tableCommitInfo.getIdToPartitionCommitInfo().values()) {
                     tableRecord.addPartitionRecord(partitionCommitInfo);
                 }
