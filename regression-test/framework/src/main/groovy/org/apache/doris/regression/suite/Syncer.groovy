@@ -116,10 +116,12 @@ class Syncer {
                 context.lastBinlog = gson.fromJson(data, BinlogData.class)
                 logger.info("Source lastBinlog: ${context.lastBinlog}")
                 Set<Long> subTxnIds = context.lastBinlog.tableRecords.values().partitionRecords.collect { it.stid }.flatten() as Set
-                subTxnIds.remove(-1)
-                // subTxnIds.remove(context.lastBinlog.txnId)
-                context.sourceSubTxnIds = subTxnIds
+                subTxnIds.remove(-1L)
+                context.sourceSubTxnIds = subTxnIds as List
+                context.sourceSubTxnIds.sort()
                 logger.info("source subTxnIds: ${context.sourceSubTxnIds}")
+                context.targetSubTxnIds.clear()
+                context.sourceToTargetSubTxnId.clear()
                 return getSourceMeta(table)
             }
         } else {
@@ -212,9 +214,20 @@ class Syncer {
         if (isCheckedOK && result.isSetTxnId()) {
             logger.info("Begin transaction id is ${result.getTxnId()}")
             context.txnId = result.getTxnId()
-            if (result.getSubTxnIds().size() > 0) {
-                context.targetSubTxnIds = result.getSubTxnIds()
+            if (result.getSubTxnIds() != null) {
+                context.targetSubTxnIds.addAll(result.getSubTxnIds())
             }
+            if (context.targetSubTxnIds.size() != context.sourceSubTxnIds.size()) {
+                logger.error("source subTxnIds size is not equal to target subTxnIds size, " +
+                        "source: ${context.sourceSubTxnIds}, target: ${context.targetSubTxnIds}")
+                isCheckedOK = false
+            }
+            if (isCheckedOK) {
+                for (int i = 0; i < context.sourceSubTxnIds.size(); ++i) {
+                    context.sourceToTargetSubTxnId.put(context.sourceSubTxnIds[i], context.targetSubTxnIds[i])
+                }
+            }
+            logger.info("sourceToTargetSubTxnId: ${context.sourceToTargetSubTxnId}")
         } else {
             logger.error("Begin transaction txnId is unset!")
             isCheckedOK = false
@@ -787,7 +800,7 @@ class Syncer {
                 Iterator tarTabletIter = tarPartition.value.tabletMeta.iterator()
 
                 for (PartitionData partitionRecord : binlogRecords.partitionRecords) {
-                    long txnId = partitionRecord.stid == -1 ? context.txnId : partitionRecord.stid
+                    long txnId = partitionRecord.stid == -1 ? context.txnId : context.sourceToTargetSubTxnId.get(partitionRecord.stid)
                     logger.info("stid: ${partitionRecord.stid}, txnId: ${context.txnId}, finalTxnId: ${txnId}")
                     // step 2.3: ingest each tablet in the partition
                     while (srcTabletIter.hasNext()) {
