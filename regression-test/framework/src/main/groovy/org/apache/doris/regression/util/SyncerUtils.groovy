@@ -33,6 +33,7 @@ import org.apache.doris.thrift.TIngestBinlogResult
 import org.apache.doris.thrift.TRestoreSnapshotRequest
 import org.apache.doris.thrift.TRestoreSnapshotResult
 import org.apache.doris.thrift.TSnapshotType
+import org.apache.doris.thrift.TSubTxnInfo
 import org.apache.thrift.TException
 import org.apache.doris.thrift.TGetBinlogRequest
 import org.apache.doris.thrift.TGetBinlogResult
@@ -95,7 +96,7 @@ class SyncerUtils {
         request.setTxnId(context.txnId)
         if (context.txnInsert) {
             request.setTxnInsert(true)
-            request.setSubTxnInfos(context.subTxnInfos.values())
+            request.setSubTxnInfos(context.subTxnInfos.values() as List)
         } else {
             request.setCommitInfos(context.commitInfos)
         }
