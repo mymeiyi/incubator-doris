@@ -115,9 +115,9 @@ class Syncer {
                 Gson gson = new Gson()
                 context.lastBinlog = gson.fromJson(data, BinlogData.class)
                 logger.info("Source lastBinlog: ${context.lastBinlog}")
-                Set<Long> subTxnIds = context.lastBinlog.tableRecords.values().partitionRecords.collect { it.stid }.toSet().flatten() as Set
+                Set<Long> subTxnIds = context.lastBinlog.tableRecords.values().partitionRecords.collect { it.stid }.flatten() as Set
                 subTxnIds.remove(-1)
-                subTxnIds.remove(context.lastBinlog.txnId)
+                // subTxnIds.remove(context.lastBinlog.txnId)
                 context.sourceSubTxnIds = subTxnIds
                 logger.info("source subTxnIds: ${context.sourceSubTxnIds}")
                 return getSourceMeta(table)
@@ -176,6 +176,7 @@ class Syncer {
     }
 
     private Boolean checkBeginTxn(TBeginTxnResult result) {
+        logger.info("Check begin transaction: ${result}")
         Boolean isCheckedOK = false
 
         // step 1: check status
@@ -211,6 +212,9 @@ class Syncer {
         if (isCheckedOK && result.isSetTxnId()) {
             logger.info("Begin transaction id is ${result.getTxnId()}")
             context.txnId = result.getTxnId()
+            if (result.getSubTxnIds().size() > 0) {
+                context.targetSubTxnIds = result.getSubTxnIds()
+            }
         } else {
             logger.error("Begin transaction txnId is unset!")
             isCheckedOK = false
