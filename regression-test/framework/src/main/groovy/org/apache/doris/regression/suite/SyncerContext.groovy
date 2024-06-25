@@ -127,6 +127,8 @@ class SyncerContext {
     public String db
     public long txnId
     public long seq
+    public Set<Long> sourceSubTxnIds
+    public List<Long> targetSubTxnIds
 
     SyncerContext(Suite suite, String dbName, Config config) {
         this.suite = suite

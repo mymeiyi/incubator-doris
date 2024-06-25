@@ -115,7 +115,11 @@ class Syncer {
                 Gson gson = new Gson()
                 context.lastBinlog = gson.fromJson(data, BinlogData.class)
                 logger.info("Source lastBinlog: ${context.lastBinlog}")
-
+                Set<Long> subTxnIds = context.lastBinlog.tableRecords.values().partitionRecords.collect { it.stid }.toSet().flatten() as Set
+                subTxnIds.remove(-1)
+                subTxnIds.remove(context.lastBinlog.txnId)
+                context.sourceSubTxnIds = subTxnIds
+                logger.info("source subTxnIds: ${context.sourceSubTxnIds}")
                 return getSourceMeta(table)
             }
         } else {
@@ -734,7 +738,7 @@ class Syncer {
         if (context.sourceTableMap.containsKey(table)) {
             tableId = context.targetTableMap.get(table).id
         }
-        TBeginTxnResult result = SyncerUtils.beginTxn(clientImpl, context, tableId)
+        TBeginTxnResult result = SyncerUtils.beginTxn(clientImpl, context, tableId, context.sourceSubTxnIds.size())
         return checkBeginTxn(result)
     }
 
