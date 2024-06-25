@@ -51,7 +51,7 @@ public class UpsertRecord {
             public boolean isTemp;
 
             @SerializedName(value = "stid")
-            public int subTxnId;
+            public long subTxnId;
 
             @Override
             public String toString() {
@@ -77,7 +77,12 @@ public class UpsertRecord {
         }
 
         public void addPartitionRecord(PartitionCommitInfo partitionCommitInfo) {
+            addPartitionRecord(-1, partitionCommitInfo);
+        }
+
+        public void addPartitionRecord(long subTxnId, PartitionCommitInfo partitionCommitInfo) {
             PartitionRecord partitionRecord = new PartitionRecord();
+            partitionRecord.subTxnId = subTxnId;
             partitionRecord.partitionId = partitionCommitInfo.getPartitionId();
             partitionRecord.range = partitionCommitInfo.getPartitionRange();
             partitionRecord.version = partitionCommitInfo.getVersion();
@@ -130,7 +135,7 @@ public class UpsertRecord {
                 TableRecord tableRecord = tableRecords.compute(tableCommitInfo.getTableId(),
                         (k, v) -> v == null ? new TableRecord(indexIds) : v);
                 for (PartitionCommitInfo partitionCommitInfo : tableCommitInfo.getIdToPartitionCommitInfo().values()) {
-                    tableRecord.addPartitionRecord(partitionCommitInfo);
+                    tableRecord.addPartitionRecord(subTxnId, partitionCommitInfo);
                 }
             });
             LOG.info("txnId: {}, subTxnIdToTableCommitInfo: {}, records: {}", txnId,
