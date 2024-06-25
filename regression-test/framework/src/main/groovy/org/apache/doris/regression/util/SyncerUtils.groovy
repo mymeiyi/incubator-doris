@@ -92,8 +92,14 @@ class SyncerUtils {
         TCommitTxnRequest request = new TCommitTxnRequest()
         setAuthorInformation(request, context)
         request.setDb("TEST_" + context.db)
-        request.setCommitInfos(context.commitInfos)
         request.setTxnId(context.txnId)
+        if (context.txnInsert) {
+            request.setTxnInsert(true)
+            request.setSubTxnInfos(context.subTxnInfos.values())
+        } else {
+            request.setCommitInfos(context.commitInfos)
+        }
+        logger.info("commit txn: ${request}")
         return clientImpl.client.commitTxn(request)
     }
 

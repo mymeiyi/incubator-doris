@@ -231,6 +231,7 @@ import org.apache.doris.thrift.TStatusCode;
 import org.apache.doris.thrift.TStreamLoadMultiTablePutResult;
 import org.apache.doris.thrift.TStreamLoadPutRequest;
 import org.apache.doris.thrift.TStreamLoadPutResult;
+import org.apache.doris.thrift.TSubTxnInfo;
 import org.apache.doris.thrift.TSyncQueryColumns;
 import org.apache.doris.thrift.TTableIndexQueryStats;
 import org.apache.doris.thrift.TTableMetadataNameIds;
@@ -245,6 +246,7 @@ import org.apache.doris.thrift.TUpdateFollowerPartitionStatsCacheRequest;
 import org.apache.doris.thrift.TUpdateFollowerStatsCacheRequest;
 import org.apache.doris.thrift.TWaitingTxnStatusRequest;
 import org.apache.doris.thrift.TWaitingTxnStatusResult;
+import org.apache.doris.transaction.SubTransactionState;
 import org.apache.doris.transaction.TabletCommitInfo;
 import org.apache.doris.transaction.TransactionState;
 import org.apache.doris.transaction.TransactionState.TxnCoordinator;
@@ -1757,11 +1759,27 @@ public class FrontendServiceImpl implements FrontendService.Iface {
         long timeoutMs = request.isSetThriftRpcTimeoutMs() ? request.getThriftRpcTimeoutMs() / 2 : 5000;
 
         // Step 5: commit and publish
-        return Env.getCurrentGlobalTransactionMgr()
-                .commitAndPublishTransaction(db, tableList,
-                        request.getTxnId(),
-                        TabletCommitInfo.fromThrift(request.getCommitInfos()), timeoutMs,
-                        TxnCommitAttachment.fromThrift(request.getTxnCommitAttachment()));
+        if (request.isSetTxnInsert() && request.isTxnInsert()) {
+            List<SubTransactionState> subTransactionStates = new ArrayList<>();
+            for (TSubTxnInfo subTxnInfo : request.getSubTxnInfos()) {
+                TableIf table = db.getTableNullable(subTxnInfo.getTableId());
+                if (table == null) {
+                    continue;
+                }
+                subTransactionStates.add(
+                        new SubTransactionState(subTxnInfo.getSubTxnId(), (Table) table,
+                                subTxnInfo.getTabletCommitInfos(),
+                                SubTransactionState.getSubTransactionType(subTxnInfo.getSubTxnType())));
+            }
+            return Env.getCurrentGlobalTransactionMgr().commitAndPublishTransaction(db, request.getTxnId(),
+                    subTransactionStates, timeoutMs);
+        } else {
+            return Env.getCurrentGlobalTransactionMgr()
+                    .commitAndPublishTransaction(db, tableList,
+                            request.getTxnId(),
+                            TabletCommitInfo.fromThrift(request.getCommitInfos()), timeoutMs,
+                            TxnCommitAttachment.fromThrift(request.getTxnCommitAttachment()));
+        }
     }
 
     @Override

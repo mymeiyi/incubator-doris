@@ -130,6 +130,8 @@ class SyncerContext {
     public List<Long> sourceSubTxnIds = new ArrayList<Long>()
     public List<Long> targetSubTxnIds = new ArrayList<Long>()
     public Map<Long, Long> sourceToTargetSubTxnId = new HashMap<Long, Long>()
+    public boolean txnInsert = false
+    public Map<Long, TSubTxnInfo> subTxnInfos = new HashMap<Long, TSubTxnInfo>()
 
     SyncerContext(Suite suite, String dbName, Config config) {
         this.suite = suite
