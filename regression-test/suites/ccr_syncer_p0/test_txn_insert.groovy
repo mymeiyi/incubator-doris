@@ -67,6 +67,12 @@ suite("test_txn_insert") {
         target_sql " sync "
     }
 
+    def check_row_count = { String tableName, int count ->
+        def res = target_sql """SELECT count() FROM ${tableName}"""
+        logger.info("target row count: ${res}")
+        assertEquals(count, res[0][0])
+    }
+
     logger.info("=== Test 1: insert values ===")
     sql """ INSERT INTO ${txnTableName}_0 VALUES (1, 0) """
     sync("${txnTableName}_0")
@@ -79,18 +85,14 @@ suite("test_txn_insert") {
     sql """ INSERT INTO ${txnTableName}_0 VALUES (4, 0) """
     sql """ commit """
     sync("${txnTableName}_0")
-    res = target_sql """SELECT count() FROM ${txnTableName}_0"""
-    logger.info("target row count: ${res}")
-    assertEquals(4, res[0][0])
+    check_row_count("${txnTableName}_0", 4)
 
     logger.info("=== Test 3: txn insert select into 1 table ===")
     sql """ begin """
     sql """ INSERT INTO ${txnTableName}_1 select * from ${txnTableName}_0 """
     sql """ commit """
     sync("${txnTableName}_1")
-    res = target_sql """SELECT count() FROM ${txnTableName}_1"""
-    logger.info("target row count: ${res}")
-    assertEquals(4, res[0][0])
+    check_row_count("${txnTableName}_1", 4)
 
     logger.info("=== Test 4: txn insert select into 1 table twice ===")
     sql """ begin """
@@ -98,38 +100,27 @@ suite("test_txn_insert") {
     sql """ INSERT INTO ${txnTableName}_1 select * from ${txnTableName}_0 """
     sql """ commit """
     sync("${txnTableName}_1")
-    res = target_sql """SELECT count() FROM ${txnTableName}_1"""
-    logger.info("target row count: ${res}")
-    assertEquals(4 + 8, res[0][0])
+    check_row_count("${txnTableName}_1", 12)
 
     logger.info("=== Test 5: txn insert select into 2 tables ===")
     sql """ begin """
     sql """ INSERT INTO ${txnTableName}_1 select * from ${txnTableName}_0 """
     sql """ INSERT INTO ${txnTableName}_2 select * from ${txnTableName}_0 """
+    sql """ INSERT INTO ${txnTableName}_1 select * from ${txnTableName}_0 """
     sql """ commit """
     // should in one sync
     sync("${txnTableName}_1")
-    sync("${txnTableName}_2")
-    /*assertTrue(syncer.getBinlog("${txnTableName}_1"))
-    assertTrue(syncer.getBackendClients())
-    assertTrue(syncer.beginTxn("${txnTableName}_1"))
-    assertTrue(syncer.ingestBinlog())
-    assertTrue(syncer.commitTxn())
-    assertTrue(syncer.checkTargetVersion())
+    check_row_count("${txnTableName}_1", 20)
+    check_row_count("${txnTableName}_2", 4)
 
-    assertTrue(syncer.getBinlog("${txnTableName}_2"))
-    assertTrue(syncer.getBackendClients())
-    assertTrue(syncer.beginTxn("${txnTableName}_2"))
-    assertTrue(syncer.ingestBinlog())
-    assertTrue(syncer.commitTxn())
-    assertTrue(syncer.checkTargetVersion())
-    target_sql " sync "*/
-    res = target_sql """SELECT count() FROM ${txnTableName}_1"""
-    logger.info("target row count: ${res}")
-    assertEquals(12 + 4, res[0][0])
-    res = target_sql """SELECT count() FROM ${txnTableName}_2"""
-    logger.info("target row count: ${res}")
-    assertEquals(4, res[0][0])
+    // partitions
+
+    // delete and insert
+
+    // insert and delete
+
+    // mow tables(15, 16, 17, 18)
+
 
     // End Test
     syncer.closeBackendClients()
