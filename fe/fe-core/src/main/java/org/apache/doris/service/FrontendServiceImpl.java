@@ -1265,6 +1265,9 @@ public class FrontendServiceImpl implements FrontendService.Iface {
         try {
             TBeginTxnResult tmpRes = beginTxnImpl(request, clientAddr);
             result.setTxnId(tmpRes.getTxnId()).setDbId(tmpRes.getDbId());
+            if (request.getGetSubTxnIdNum() > 0) {
+                result.addToSubTxnIds(Env.getCurrentGlobalTransactionMgr().getNextTransactionId());
+            }
         } catch (DuplicatedRequestException e) {
             // this is a duplicate request, just return previous txn id
             LOG.warn("duplicate request for stream load. request id: {}, txn: {}", e.getDuplicatedRequestId(),

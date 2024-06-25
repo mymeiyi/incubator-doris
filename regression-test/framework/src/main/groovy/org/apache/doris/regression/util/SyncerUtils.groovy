@@ -17,7 +17,6 @@
 
 package org.apache.doris.regression.util
 
-
 import org.apache.doris.regression.suite.SyncerContext
 import org.apache.doris.regression.suite.client.BackendClientImpl
 import org.apache.doris.regression.suite.client.FrontendClientImpl
@@ -37,8 +36,12 @@ import org.apache.doris.thrift.TSnapshotType
 import org.apache.thrift.TException
 import org.apache.doris.thrift.TGetBinlogRequest
 import org.apache.doris.thrift.TGetBinlogResult
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 
 class SyncerUtils {
+    private static final Logger logger = LoggerFactory.getLogger(SyncerUtils.class)
+
     private static <T> void setAuthorInformation(T request, SyncerContext context) {
         request.setUser(context.user)
         request.setPasswd(context.passwd)
@@ -70,8 +73,8 @@ class SyncerUtils {
             request.addToTableIds(tableId)
         }
         request.setLabel(newLabel(context, tableId))
+        logger.info("begin txn: ${request}")
         return clientImpl.client.beginTxn(request)
-
     }
 
     static TIngestBinlogResult ingestBinlog(BackendClientImpl clientImpl, TIngestBinlogRequest request) throws TException {
