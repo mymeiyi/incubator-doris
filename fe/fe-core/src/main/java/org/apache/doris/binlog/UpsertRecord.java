@@ -48,17 +48,6 @@ public class UpsertRecord {
 
             @SerializedName(value = "stid")
             public long subTxnId;
-
-            @Override
-            public String toString() {
-                return "PartitionRecord{" +
-                        "partitionId=" + partitionId +
-                        ", range='" + range + '\'' +
-                        ", version=" + version +
-                        ", isTemp=" + isTemp +
-                        ", subTxnId=" + subTxnId +
-                        '}';
-            }
         }
 
         @SerializedName(value = "partitionRecords")
