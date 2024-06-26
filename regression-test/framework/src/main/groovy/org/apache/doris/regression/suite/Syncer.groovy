@@ -20,6 +20,7 @@ package org.apache.doris.regression.suite
 import com.google.common.collect.Maps
 import com.google.gson.Gson
 import org.apache.doris.regression.Config
+import org.apache.doris.regression.json.PartitionData
 import org.apache.doris.regression.json.PartitionRecords
 import org.apache.doris.regression.suite.client.BackendClientImpl
 import org.apache.doris.regression.suite.client.FrontendClientImpl
@@ -38,6 +39,7 @@ import org.apache.doris.thrift.TNetworkAddress
 import org.apache.doris.thrift.TRestoreSnapshotResult
 import org.apache.doris.thrift.TStatus
 import org.apache.doris.thrift.TStatusCode
+import org.apache.doris.thrift.TSubTxnInfo
 import org.apache.doris.thrift.TTabletCommitInfo
 import org.apache.doris.thrift.TUniqueId
 import org.apache.thrift.transport.TTransportException
@@ -114,7 +116,18 @@ class Syncer {
                 Gson gson = new Gson()
                 context.lastBinlog = gson.fromJson(data, BinlogData.class)
                 logger.info("Source lastBinlog: ${context.lastBinlog}")
-
+                Set<Long> subTxnIds = context.lastBinlog.tableRecords.values().partitionRecords.collect { it.stid }.flatten() as Set
+                subTxnIds.remove(-1L)
+                context.sourceSubTxnIds = subTxnIds as List
+                context.sourceSubTxnIds.sort()
+                context.txnInsert = context.sourceSubTxnIds.size() > 0
+                if (context.txnInsert) {
+                    context.subTxnIds = context.lastBinlog.stids as List
+                }
+                logger.info("source subTxnIds: ${context.sourceSubTxnIds}, subTxnIds: ${context.subTxnIds}")
+                context.targetSubTxnIds.clear()
+                context.sourceToTargetSubTxnId.clear()
+                context.subTxnInfos.clear()
                 return getSourceMeta(table)
             }
         } else {
@@ -171,6 +184,7 @@ class Syncer {
     }
 
     private Boolean checkBeginTxn(TBeginTxnResult result) {
+        logger.info("Check begin transaction: ${result}")
         Boolean isCheckedOK = false
 
         // step 1: check status
@@ -206,6 +220,20 @@ class Syncer {
         if (isCheckedOK && result.isSetTxnId()) {
             logger.info("Begin transaction id is ${result.getTxnId()}")
             context.txnId = result.getTxnId()
+            if (result.getSubTxnIds() != null) {
+                context.targetSubTxnIds.addAll(result.getSubTxnIds())
+            }
+            if (context.targetSubTxnIds.size() != context.sourceSubTxnIds.size()) {
+                logger.error("source subTxnIds size is not equal to target subTxnIds size, " +
+                        "source: ${context.sourceSubTxnIds}, target: ${context.targetSubTxnIds}")
+                isCheckedOK = false
+            }
+            if (isCheckedOK) {
+                for (int i = 0; i < context.sourceSubTxnIds.size(); ++i) {
+                    context.sourceToTargetSubTxnId.put(context.sourceSubTxnIds[i], context.targetSubTxnIds[i])
+                }
+            }
+            logger.info("sourceToTargetSubTxnId: ${context.sourceToTargetSubTxnId}")
         } else {
             logger.error("Begin transaction txnId is unset!")
             isCheckedOK = false
@@ -694,10 +722,10 @@ class Syncer {
 
     Boolean checkTargetVersion() {
         logger.info("Check target tablets version")
-        context.targetTableMap.values().forEach {
+        return context.targetTableMap.values().every {
             String baseSQL = "SHOW PROC '/dbs/" + context.targetDbId.toString() + "/" +
                     it.id.toString() + "/partitions/"
-            it.partitionMap.forEach((id, meta) -> {
+            return it.partitionMap.every((id, meta) -> {
                 String versionSQL = baseSQL + id.toString() + "/" + meta.indexId.toString()
                 List<List<Object>> sqlInfo = suite.target_sql(versionSQL + "'")
                 for (List<Object> row : sqlInfo) {
@@ -709,10 +737,9 @@ class Syncer {
                         return false
                     }
                 }
+                return true
             })
         }
-
-        return true
     }
 
     Boolean getBinlog(String table = "", Boolean update = true) {
@@ -723,6 +750,7 @@ class Syncer {
             tableId = context.sourceTableMap.get(table).id
         }
         TGetBinlogResult result = SyncerUtils.getBinLog(clientImpl, context, table, tableId)
+        logger.info("Get binlog result: ${result}")
         return checkGetBinlog(table, result, update)
     }
 
@@ -733,7 +761,7 @@ class Syncer {
         if (context.sourceTableMap.containsKey(table)) {
             tableId = context.targetTableMap.get(table).id
         }
-        TBeginTxnResult result = SyncerUtils.beginTxn(clientImpl, context, tableId)
+        TBeginTxnResult result = SyncerUtils.beginTxn(clientImpl, context, tableId, context.sourceSubTxnIds.size())
         return checkBeginTxn(result)
     }
 
@@ -750,6 +778,12 @@ class Syncer {
 
         // step 2: Begin ingest binlog
         // step 2.1: ingest each table in meta
+
+        // sub txn id to tablet commit info
+        Map<Long, List<TTabletCommitInfo>> subTxnIdToTabletCommitInfos = new HashMap<Long, List<TTabletCommitInfo>>()
+        // sub txn id to table id
+        Map<Long, Long> subTxnIdToTableId = new HashMap<Long, Long>()
+
         for (Entry<String, TableMeta> tableInfo : context.sourceTableMap) {
             String tableName = tableInfo.key
             TableMeta srcTableMeta = tableInfo.value
@@ -772,51 +806,78 @@ class Syncer {
                     continue
                 }
 
-                Iterator srcTabletIter = srcPartition.value.tabletMeta.iterator()
-                Iterator tarTabletIter = tarPartition.value.tabletMeta.iterator()
-
-                // step 2.3: ingest each tablet in the partition
-                while (srcTabletIter.hasNext()) {
-                    Entry srcTabletMap = srcTabletIter.next()
-                    Entry tarTabletMap = tarTabletIter.next()
-
-                    BackendClientImpl srcClient = context.sourceBackendClients.get(srcTabletMap.value)
-                    if (srcClient == null) {
-                        logger.error("Can't find src tabletId-${srcTabletMap.key} -> beId-${srcTabletMap.value}")
-                        return false
+                logger.info("Partition records: ${binlogRecords}")
+                for (PartitionData partitionRecord : binlogRecords.partitionRecords) {
+                    if (partitionRecord.partitionId != srcPartition.key) {
+                        continue
                     }
-                    BackendClientImpl tarClient = context.targetBackendClients.get(tarTabletMap.value)
-                    if (tarClient == null) {
-                        logger.error("Can't find target tabletId-${tarTabletMap.key} -> beId-${tarTabletMap.value}")
-                        return false
+                    logger.info("Partition record: ${partitionRecord}")
+                    long txnId = partitionRecord.stid == -1 ? context.txnId : context.sourceToTargetSubTxnId.get(partitionRecord.stid)
+                    logger.info("stid: ${partitionRecord.stid}, txnId: ${context.txnId}, finalTxnId: ${txnId}, " +
+                            "binlogPartitionId: ${partitionRecord.partitionId}, srcPartitionId: ${srcPartition.key}")
+                    // step 2.3: ingest each tablet in the partition
+                    Iterator srcTabletIter = srcPartition.value.tabletMeta.iterator()
+                    Iterator tarTabletIter = tarPartition.value.tabletMeta.iterator()
+                    while (srcTabletIter.hasNext()) {
+                        Entry srcTabletMap = srcTabletIter.next()
+                        Entry tarTabletMap = tarTabletIter.next()
+
+                        BackendClientImpl srcClient = context.sourceBackendClients.get(srcTabletMap.value)
+                        if (srcClient == null) {
+                            logger.error("Can't find src tabletId-${srcTabletMap.key} -> beId-${srcTabletMap.value}")
+                            return false
+                        }
+                        BackendClientImpl tarClient = context.targetBackendClients.get(tarTabletMap.value)
+                        if (tarClient == null) {
+                            logger.error("Can't find target tabletId-${tarTabletMap.key} -> beId-${tarTabletMap.value}")
+                            return false
+                        }
+
+                        tarPartition.value.version = srcPartition.value.version
+                        long partitionId = fakePartitionId == -1 ? tarPartition.key : fakePartitionId
+                        long version = fakeVersion == -1 ? partitionRecord.version : fakeVersion
+
+                        TIngestBinlogRequest request = new TIngestBinlogRequest()
+                        TUniqueId uid = new TUniqueId(-1, -1)
+                        request.setTxnId(txnId)
+                        request.setRemoteTabletId(srcTabletMap.key)
+                        request.setBinlogVersion(version)
+                        request.setRemoteHost(srcClient.address.hostname)
+                        request.setRemotePort(srcClient.httpPort.toString())
+                        request.setPartitionId(partitionId)
+                        request.setLocalTabletId(tarTabletMap.key)
+                        request.setLoadId(uid)
+                        logger.info("request -> ${request}")
+                        TIngestBinlogResult result = tarClient.client.ingestBinlog(request)
+                        if (!checkIngestBinlog(result)) {
+                            logger.error("Ingest binlog error! result: ${result}")
+                            return false
+                        }
+
+                        if (context.txnInsert) {
+                            List<TTabletCommitInfo> tabletCommitInfos = subTxnIdToTabletCommitInfos.get(txnId)
+                            if (tabletCommitInfos == null) {
+                                tabletCommitInfos = new ArrayList<TTabletCommitInfo>()
+                                subTxnIdToTabletCommitInfos.put(txnId, tabletCommitInfos)
+                                subTxnIdToTableId.put(txnId, tarTableMeta.id)
+                            }
+                            tabletCommitInfos.add(new TTabletCommitInfo(tarTabletMap.key, tarTabletMap.value))
+                        } else {
+                            addCommitInfo(tarTabletMap.key, tarTabletMap.value)
+                        }
                     }
-
-                    tarPartition.value.version = srcPartition.value.version
-                    long partitionId = fakePartitionId == -1 ? tarPartition.key : fakePartitionId
-                    long version = fakeVersion == -1 ? srcPartition.value.version : fakeVersion
-
-                    TIngestBinlogRequest request = new TIngestBinlogRequest()
-                    TUniqueId uid = new TUniqueId(-1, -1)
-                    request.setTxnId(context.txnId)
-                    request.setRemoteTabletId(srcTabletMap.key)
-                    request.setBinlogVersion(version)
-                    request.setRemoteHost(srcClient.address.hostname)
-                    request.setRemotePort(srcClient.httpPort.toString())
-                    request.setPartitionId(partitionId)
-                    request.setLocalTabletId(tarTabletMap.key)
-                    request.setLoadId(uid)
-                    logger.info("request -> ${request}")
-                    TIngestBinlogResult result = tarClient.client.ingestBinlog(request)
-                    if (!checkIngestBinlog(result)) {
-                        logger.error("Ingest binlog error! result: ${result}")
-                        return false
-                    }
-
-                    addCommitInfo(tarTabletMap.key, tarTabletMap.value)
                 }
             }
         }
 
+        if (context.txnInsert) {
+            for (long sourceSubTxnId : context.subTxnIds) {
+                long subTxnId = context.sourceToTargetSubTxnId.get(sourceSubTxnId)
+                List<TTabletCommitInfo> tabletCommitInfos = subTxnIdToTabletCommitInfos.get(subTxnId)
+                TSubTxnInfo subTxnInfo = new TSubTxnInfo().setSubTxnId(subTxnId).setTableId(subTxnIdToTableId.get(subTxnId)).setTabletCommitInfos(tabletCommitInfos)
+                context.subTxnInfos.add(subTxnInfo)
+            }
+        }
         return true
     }
 

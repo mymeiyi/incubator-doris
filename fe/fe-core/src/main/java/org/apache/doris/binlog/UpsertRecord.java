@@ -25,6 +25,8 @@ import org.apache.doris.transaction.TransactionState;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.gson.annotations.SerializedName;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,6 +34,8 @@ import java.util.Map;
 import java.util.Set;
 
 public class UpsertRecord {
+    private static final Logger LOG = LogManager.getLogger(UpsertRecord.class);
+
     public static class TableRecord {
         public static class PartitionRecord {
             @SerializedName(value = "partitionId")
@@ -45,6 +49,20 @@ public class UpsertRecord {
 
             @SerializedName(value = "isTempPartition")
             public boolean isTemp;
+
+            @SerializedName(value = "stid")
+            public long subTxnId;
+
+            @Override
+            public String toString() {
+                return "PartitionRecord{" +
+                        "partitionId=" + partitionId +
+                        ", range='" + range + '\'' +
+                        ", version=" + version +
+                        ", isTemp=" + isTemp +
+                        ", subTxnId=" + subTxnId +
+                        '}';
+            }
         }
 
         @SerializedName(value = "partitionRecords")
@@ -59,7 +77,12 @@ public class UpsertRecord {
         }
 
         public void addPartitionRecord(PartitionCommitInfo partitionCommitInfo) {
+            addPartitionRecord(-1, partitionCommitInfo);
+        }
+
+        public void addPartitionRecord(long subTxnId, PartitionCommitInfo partitionCommitInfo) {
             PartitionRecord partitionRecord = new PartitionRecord();
+            partitionRecord.subTxnId = subTxnId;
             partitionRecord.partitionId = partitionCommitInfo.getPartitionId();
             partitionRecord.range = partitionCommitInfo.getPartitionRange();
             partitionRecord.version = partitionCommitInfo.getVersion();
@@ -69,6 +92,14 @@ public class UpsertRecord {
 
         public List<PartitionRecord> getPartitionRecords() {
             return partitionRecords;
+        }
+
+        @Override
+        public String toString() {
+            return "TableRecord{" +
+                    "partitionRecords=" + partitionRecords +
+                    ", indexIds=" + indexIds +
+                    '}';
         }
     }
 
@@ -87,6 +118,8 @@ public class UpsertRecord {
     // pair is (tableId, tableRecord)
     @SerializedName(value = "tableRecords")
     private Map<Long, TableRecord> tableRecords;
+    @SerializedName(value = "stids")
+    private List<Long> subTxnIds;
 
     // construct from TransactionState
     public UpsertRecord(long commitSeq, TransactionState state) {
@@ -98,13 +131,27 @@ public class UpsertRecord {
         tableRecords = Maps.newHashMap();
 
         Map<Long, Set<Long>> loadedTableIndexIds = state.getLoadedTblIndexes();
-        for (TableCommitInfo info : state.getIdToTableCommitInfos().values()) {
-            Set<Long> indexIds = loadedTableIndexIds.get(info.getTableId());
-            TableRecord tableRecord = new TableRecord(indexIds);
-            tableRecords.put(info.getTableId(), tableRecord);
+        if (state.getSubTxnIds() != null) {
+            state.getSubTxnIdToTableCommitInfo().forEach((subTxnId, tableCommitInfo) -> {
+                Set<Long> indexIds = loadedTableIndexIds.get(tableCommitInfo.getTableId());
+                TableRecord tableRecord = tableRecords.compute(tableCommitInfo.getTableId(),
+                        (k, v) -> v == null ? new TableRecord(indexIds) : v);
+                for (PartitionCommitInfo partitionCommitInfo : tableCommitInfo.getIdToPartitionCommitInfo().values()) {
+                    tableRecord.addPartitionRecord(subTxnId, partitionCommitInfo);
+                }
+            });
+            LOG.info("txnId: {}, subTxnIdToTableCommitInfo: {}, records: {}", txnId,
+                    state.getSubTxnIdToTableCommitInfo(), tableRecords);
+            subTxnIds = state.getSubTxnIds();
+        } else {
+            for (TableCommitInfo info : state.getIdToTableCommitInfos().values()) {
+                Set<Long> indexIds = loadedTableIndexIds.get(info.getTableId());
+                TableRecord tableRecord = new TableRecord(indexIds);
+                tableRecords.put(info.getTableId(), tableRecord);
 
-            for (PartitionCommitInfo partitionCommitInfo : info.getIdToPartitionCommitInfo().values()) {
-                tableRecord.addPartitionRecord(partitionCommitInfo);
+                for (PartitionCommitInfo partitionCommitInfo : info.getIdToPartitionCommitInfo().values()) {
+                    tableRecord.addPartitionRecord(partitionCommitInfo);
+                }
             }
         }
     }
