@@ -775,6 +775,12 @@ class Syncer {
 
         // step 2: Begin ingest binlog
         // step 2.1: ingest each table in meta
+
+        // sub txn id to tablet commit info
+        Map<Long, List<TTabletCommitInfo>> subTxnIdToTabletCommitInfos = new HashMap<Long, List<TTabletCommitInfo>>()
+        // sub txn id to table id
+        Map<Long, Long> subTxnIdToTableId = new HashMap<Long, Long>()
+
         for (Entry<String, TableMeta> tableInfo : context.sourceTableMap) {
             String tableName = tableInfo.key
             TableMeta srcTableMeta = tableInfo.value
@@ -799,12 +805,16 @@ class Syncer {
 
                 logger.info("Partition records: ${binlogRecords}")
                 for (PartitionData partitionRecord : binlogRecords.partitionRecords) {
+                    if (partitionRecord.partitionId != srcPartition.key) {
+                        continue
+                    }
+                    logger.info("Partition record: ${partitionRecord}")
                     long txnId = partitionRecord.stid == -1 ? context.txnId : context.sourceToTargetSubTxnId.get(partitionRecord.stid)
-                    logger.info("stid: ${partitionRecord.stid}, txnId: ${context.txnId}, finalTxnId: ${txnId}")
+                    logger.info("stid: ${partitionRecord.stid}, txnId: ${context.txnId}, finalTxnId: ${txnId}, " +
+                            "binlogPartitionId: ${partitionRecord.partitionId}, srcPartitionId: ${srcPartition.key}")
                     // step 2.3: ingest each tablet in the partition
                     Iterator srcTabletIter = srcPartition.value.tabletMeta.iterator()
                     Iterator tarTabletIter = tarPartition.value.tabletMeta.iterator()
-                    List<TTabletCommitInfo> tabletCommitInfos = new ArrayList<TTabletCommitInfo>()
                     while (srcTabletIter.hasNext()) {
                         Entry srcTabletMap = srcTabletIter.next()
                         Entry tarTabletMap = tarTabletIter.next()
@@ -842,21 +852,29 @@ class Syncer {
                         }
 
                         if (context.txnInsert) {
+                            List<TTabletCommitInfo> tabletCommitInfos = subTxnIdToTabletCommitInfos.get(txnId)
+                            if (tabletCommitInfos == null) {
+                                tabletCommitInfos = new ArrayList<TTabletCommitInfo>()
+                                subTxnIdToTabletCommitInfos.put(txnId, tabletCommitInfos)
+                                subTxnIdToTableId.put(txnId, tarTableMeta.id)
+                            }
                             tabletCommitInfos.add(new TTabletCommitInfo(tarTabletMap.key, tarTabletMap.value))
                         } else {
                             addCommitInfo(tarTabletMap.key, tarTabletMap.value)
                         }
                     }
-                    if (context.txnInsert) {
-                        // TODO set type
-                        TSubTxnInfo subTxnInfo = new TSubTxnInfo().setSubTxnId(txnId).setTableId(tarTableMeta.id).setTabletCommitInfos(tabletCommitInfos)
-                        // .setSubTxnType(TSubTxnType.INSERT)
-                        context.subTxnInfos.put(txnId, subTxnInfo)
-                    }
                 }
             }
         }
 
+        if (context.txnInsert) {
+            subTxnIdToTabletCommitInfos.each((subTxnId, tabletCommitInfos) -> {
+                TSubTxnInfo subTxnInfo = new TSubTxnInfo().setSubTxnId(subTxnId).setTableId(subTxnIdToTableId.get(subTxnId)).setTabletCommitInfos(tabletCommitInfos)
+                // TODO set type
+                // .setSubTxnType(TSubTxnType.INSERT)
+                context.subTxnInfos.put(subTxnId, subTxnInfo)
+            })
+        }
         return true
     }
 

@@ -73,6 +73,7 @@ suite("test_txn_insert") {
         assertEquals(count, res[0][0])
     }
 
+    // test duplicate table
     logger.info("=== Test 1: insert values ===")
     sql """ INSERT INTO ${txnTableName}_0 VALUES (1, 0) """
     sync("${txnTableName}_0")
@@ -81,8 +82,8 @@ suite("test_txn_insert") {
 
     logger.info("=== Test 2: txn insert values ===")
     sql """ begin """
-    sql """ INSERT INTO ${txnTableName}_0 VALUES (2, 0), (3, 0) """
-    sql """ INSERT INTO ${txnTableName}_0 VALUES (4, 0) """
+    sql """ INSERT INTO ${txnTableName}_0 VALUES (20, 0), (30, 0) """
+    sql """ INSERT INTO ${txnTableName}_0 VALUES (40, 0) """
     sql """ commit """
     sync("${txnTableName}_0")
     check_row_count("${txnTableName}_0", 4)
@@ -108,12 +109,39 @@ suite("test_txn_insert") {
     sql """ INSERT INTO ${txnTableName}_2 select * from ${txnTableName}_0 """
     sql """ INSERT INTO ${txnTableName}_1 select * from ${txnTableName}_0 """
     sql """ commit """
-    // should in one sync
     sync("${txnTableName}_1")
     check_row_count("${txnTableName}_1", 20)
     check_row_count("${txnTableName}_2", 4)
 
-    // partitions
+    // test multi partitions
+    logger.info("=== Test 6: table with multi partitions ===")
+    sql """ DROP TABLE IF EXISTS ${txnTableName}_3 force """
+    sql """
+        CREATE TABLE if NOT EXISTS ${txnTableName}_3 (`test` INT, `id` INT)
+        DUPLICATE KEY(`test`)
+        PARTITION BY RANGE(test) ( FROM (1) TO (50) INTERVAL 10 )
+        DISTRIBUTED BY HASH(id) BUCKETS 2 
+        PROPERTIES ( "replication_num" = "1" )
+    """
+    assertTrue(syncer.getSourceMeta("${txnTableName}_3"))
+    target_sql "DROP TABLE IF EXISTS ${txnTableName}_3 force"
+    target_sql """
+        CREATE TABLE if NOT EXISTS ${txnTableName}_3 (`test` INT, `id` INT)
+        DUPLICATE KEY(`test`)
+        PARTITION BY RANGE(test) ( FROM (1) TO (50) INTERVAL 10 )
+        DISTRIBUTED BY HASH(id) BUCKETS 2 
+        PROPERTIES ( "replication_num" = "1" )
+    """
+    assertTrue(syncer.getTargetMeta("${txnTableName}_3"))
+    sql """ set enable_insert_strict = false """
+    sql """ begin """
+    sql """ INSERT INTO ${txnTableName}_3 select * from ${txnTableName}_0 """
+    sql """ INSERT INTO ${txnTableName}_3 PARTITION (p_1_11, p_11_21) select * from ${txnTableName}_0 """
+    sql """ INSERT INTO ${txnTableName}_3 PARTITION (p_31_41) select * from ${txnTableName}_0 """
+    sql """ commit """
+    sync("${txnTableName}_3")
+    check_row_count("${txnTableName}_3", 7)
+    sql """ set enable_insert_strict = true """
 
     // delete and insert
 
@@ -121,6 +149,13 @@ suite("test_txn_insert") {
 
     // mow tables(15, 16, 17, 18)
 
+    // test only enable one table binlog
+
+    // test table with multi indexes
+
+    // test schema change
+
+    // test one sub txn is error: 6
 
     // End Test
     syncer.closeBackendClients()
