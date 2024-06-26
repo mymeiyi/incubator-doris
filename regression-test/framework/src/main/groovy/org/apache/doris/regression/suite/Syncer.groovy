@@ -180,7 +180,6 @@ class Syncer {
     }
 
     private Boolean checkBeginTxn(TBeginTxnResult result) {
-        logger.info("Check begin transaction: ${result}")
         Boolean isCheckedOK = false
 
         // step 1: check status
@@ -746,7 +745,6 @@ class Syncer {
             tableId = context.sourceTableMap.get(table).id
         }
         TGetBinlogResult result = SyncerUtils.getBinLog(clientImpl, context, table, tableId)
-        logger.info("Get binlog result: ${result}")
         return checkGetBinlog(table, result, update)
     }
 
@@ -758,6 +756,7 @@ class Syncer {
             tableId = context.targetTableMap.get(table).id
         }
         TBeginTxnResult result = SyncerUtils.beginTxn(clientImpl, context, tableId, context.sourceSubTxnIds.size())
+        logger.info("begin txn result: ${result}")
         return checkBeginTxn(result)
     }
 
@@ -809,8 +808,6 @@ class Syncer {
                     }
                     logger.info("Partition record: ${partitionRecord}")
                     long txnId = partitionRecord.stid == -1 ? context.txnId : context.sourceToTargetSubTxnId.get(partitionRecord.stid)
-                    logger.info("stid: ${partitionRecord.stid}, txnId: ${context.txnId}, finalTxnId: ${txnId}, " +
-                            "binlogPartitionId: ${partitionRecord.partitionId}, srcPartitionId: ${srcPartition.key}")
                     // step 2.3: ingest each tablet in the partition
                     Iterator srcTabletIter = srcPartition.value.tabletMeta.iterator()
                     Iterator tarTabletIter = tarPartition.value.tabletMeta.iterator()

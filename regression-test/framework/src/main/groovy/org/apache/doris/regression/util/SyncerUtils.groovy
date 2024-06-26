@@ -66,10 +66,6 @@ class SyncerUtils {
         return clientImpl.client.getBinlog(request)
     }
 
-    static TBeginTxnResult beginTxn(FrontendClientImpl clientImpl, SyncerContext context, Long tableId) throws TException {
-        return beginTxn(clientImpl, context, tableId, 0)
-    }
-
     static TBeginTxnResult beginTxn(FrontendClientImpl clientImpl, SyncerContext context, Long tableId, Long subTxnNum) throws TException {
         TBeginTxnRequest request = new TBeginTxnRequest()
         setAuthorInformation(request, context)
