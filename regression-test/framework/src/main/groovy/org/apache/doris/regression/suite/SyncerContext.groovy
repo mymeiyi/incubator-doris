@@ -128,6 +128,7 @@ class SyncerContext {
     public String db
     public long txnId
     public long seq
+    public List<Long> subTxnIds = new ArrayList<Long>()
     public List<Long> sourceSubTxnIds = new ArrayList<Long>()
     public List<Long> targetSubTxnIds = new ArrayList<Long>()
     public Map<Long, Long> sourceToTargetSubTxnId = new HashMap<Long, Long>()
