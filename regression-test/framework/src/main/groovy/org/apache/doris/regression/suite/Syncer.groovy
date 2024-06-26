@@ -116,15 +116,11 @@ class Syncer {
                 Gson gson = new Gson()
                 context.lastBinlog = gson.fromJson(data, BinlogData.class)
                 logger.info("Source lastBinlog: ${context.lastBinlog}")
-                Set<Long> subTxnIds = context.lastBinlog.tableRecords.values().partitionRecords.collect { it.stid }.flatten() as Set
-                subTxnIds.remove(-1L)
-                context.sourceSubTxnIds = subTxnIds as List
-                context.sourceSubTxnIds.sort()
-                context.txnInsert = context.sourceSubTxnIds.size() > 0
-                if (context.txnInsert) {
-                    context.subTxnIds = context.lastBinlog.stids as List
+                if (context.lastBinlog.stids != null) {
+                    context.sourceSubTxnIds = context.lastBinlog.stids as List
                 }
-                logger.info("source subTxnIds: ${context.sourceSubTxnIds}, subTxnIds: ${context.subTxnIds}")
+                logger.info("source subTxnIds: ${context.sourceSubTxnIds}")
+                context.txnInsert = context.sourceSubTxnIds.size() > 0
                 context.targetSubTxnIds.clear()
                 context.sourceToTargetSubTxnId.clear()
                 context.subTxnInfos.clear()
@@ -871,7 +867,7 @@ class Syncer {
         }
 
         if (context.txnInsert) {
-            for (long sourceSubTxnId : context.subTxnIds) {
+            for (long sourceSubTxnId : context.sourceSubTxnIds) {
                 long subTxnId = context.sourceToTargetSubTxnId.get(sourceSubTxnId)
                 List<TTabletCommitInfo> tabletCommitInfos = subTxnIdToTabletCommitInfos.get(subTxnId)
                 TSubTxnInfo subTxnInfo = new TSubTxnInfo().setSubTxnId(subTxnId).setTableId(subTxnIdToTableId.get(subTxnId)).setTabletCommitInfos(tabletCommitInfos)
