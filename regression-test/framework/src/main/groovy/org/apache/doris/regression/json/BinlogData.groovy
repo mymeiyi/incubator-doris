@@ -52,13 +52,17 @@ class BinlogData {
     public String label
     public Long dbId
     public Map<Long, PartitionRecords> tableRecords
+    public List<Long> stids
 
     String toString() {
-        return "(" + commitSeq.toString() + ", " +
-                     txnId.toString() + ", " +
-                     timeStamp + label + ", " +
-                     dbId.toString() + ", " +
-                     tableRecords.toString()
+        return "(commitSeq: " + commitSeq
+                    + ", txnId: " + txnId
+                    + ", timestamp: " + timeStamp
+                    + ", label: " + label
+                    + ", dbId: " + dbId
+                    +", subTxnIds: " + stids
+                    + ", tableRecords: " + tableRecords
+                    +")"
     }
 }
 

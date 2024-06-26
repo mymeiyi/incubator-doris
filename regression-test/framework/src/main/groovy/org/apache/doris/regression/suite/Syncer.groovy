@@ -120,8 +120,11 @@ class Syncer {
                 subTxnIds.remove(-1L)
                 context.sourceSubTxnIds = subTxnIds as List
                 context.sourceSubTxnIds.sort()
-                logger.info("source subTxnIds: ${context.sourceSubTxnIds}")
                 context.txnInsert = context.sourceSubTxnIds.size() > 0
+                if (context.txnInsert) {
+                    context.subTxnIds = context.lastBinlog.stids as List
+                }
+                logger.info("source subTxnIds: ${context.sourceSubTxnIds}, subTxnIds: ${context.subTxnIds}")
                 context.targetSubTxnIds.clear()
                 context.sourceToTargetSubTxnId.clear()
                 context.subTxnInfos.clear()
@@ -868,12 +871,15 @@ class Syncer {
         }
 
         if (context.txnInsert) {
-            subTxnIdToTabletCommitInfos.each((subTxnId, tabletCommitInfos) -> {
+            logger.info("subTxnIds: ${context.subTxnIds}")
+            for (long sourceSubTxnId : context.subTxnIds) {
+                long subTxnId = context.sourceToTargetSubTxnId.get(sourceSubTxnId)
+                List<TTabletCommitInfo> tabletCommitInfos = subTxnIdToTabletCommitInfos.get(subTxnId)
                 TSubTxnInfo subTxnInfo = new TSubTxnInfo().setSubTxnId(subTxnId).setTableId(subTxnIdToTableId.get(subTxnId)).setTabletCommitInfos(tabletCommitInfos)
                 // TODO set type
                 // .setSubTxnType(TSubTxnType.INSERT)
                 context.subTxnInfos.put(subTxnId, subTxnInfo)
-            })
+            }
         }
         return true
     }
