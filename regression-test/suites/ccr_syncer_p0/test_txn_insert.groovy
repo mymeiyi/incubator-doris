@@ -161,15 +161,73 @@ suite("test_txn_insert") {
     sync("${txnTableName}_2")
     check_row_count("${txnTableName}_2", 4)
 
-    // mow tables(15, 16, 17, 18)
+    // mow table
+    logger.info("=== Test 9: mow table insert ===")
+    sql """ DROP TABLE IF EXISTS ${txnTableName}_u0 force """
+    sql """
+        CREATE TABLE if NOT EXISTS ${txnTableName}_u0 (`test` INT, `id` INT)
+        UNIQUE KEY(`test`)
+        DISTRIBUTED BY HASH(test) BUCKETS 2 
+        PROPERTIES ( "replication_num" = "1" )
+    """
+    assertTrue(syncer.getSourceMeta("${txnTableName}_u0"))
+    target_sql "DROP TABLE IF EXISTS ${txnTableName}_u0 force"
+    target_sql """
+        CREATE TABLE if NOT EXISTS ${txnTableName}_u0 (`test` INT, `id` INT)
+        UNIQUE KEY(`test`)
+        DISTRIBUTED BY HASH(test) BUCKETS 2 
+        PROPERTIES ( "replication_num" = "1" )
+    """
+    assertTrue(syncer.getTargetMeta("${txnTableName}_u0"))
+    sql """ insert into ${txnTableName}_0 values (1, 1) """
+    // target_sql """ insert into ${txnTableName}_0 values (1, 1) """
+    sql """ begin """
+    sql """ insert into ${txnTableName}_u0 select * from ${txnTableName}_1 """
+    sql """ insert into ${txnTableName}_u0 select * from ${txnTableName}_0 """
+    sql """ commit """
+    sync("${txnTableName}_u0")
+    check_row_count("${txnTableName}_u0", 4)
+    res = target_sql """SELECT * FROM ${txnTableName}_u0 WHERE test=1 """
+    assertEquals(res.size(), 1)
+    assertEquals(res[0][1], 1)
 
-    // test only enable one table binlog
+    logger.info("=== Test 10: mow table update ===")
+    sql """ begin """
+    sql """ insert into ${txnTableName}_u0 select * from ${txnTableName}_0 """
+    sql """ update ${txnTableName}_u0 set id = id + 10 where test = 1 """
+    sql """ commit """
+    sync("${txnTableName}_u0")
+    check_row_count("${txnTableName}_u0", 4)
+    res = target_sql """SELECT * FROM ${txnTableName}_u0 WHERE test=1 """
+    assertEquals(res.size(), 1)
+    assertEquals(res[0][1], 11)
+
+    logger.info("=== Test 11: mow table delete from using ===")
 
     // test table with multi indexes
+    logger.info("=== Test 12: table with multi indexes ===")
+    target_sql """ create materialized view mv_${txnTableName}_3 as select id from ${txnTableName}_3; """
+    createMV """ create materialized view mv_${txnTableName}_3 as select id from ${txnTableName}_3; """
+    res = sql """ select id from ${txnTableName}_3 """
+    assertEquals(res.size(), 7)
+    res = target_sql """ select id from ${txnTableName}_3 """
+    assertEquals(res.size(), 7)
+    /*sql """ begin """
+    sql """ insert into ${txnTableName}_3 select * from ${txnTableName}_0 """
+    sql """ insert into ${txnTableName}_3 select * from ${txnTableName}_0 """
+    sql """ commit """
+    sync("${txnTableName}_3")
+    check_row_count("${txnTableName}_3", 12)
+    res = sql """ select id from ${txnTableName}_3 """
+    assertEquals(res.size(), 12)
+    res = target_sql """ select id from ${txnTableName}_3 """
+    assertEquals(res.size(), 12)*/
 
     // test schema change
 
     // test one sub txn is error: 6
+
+    // test only enable one table binlog
 
     // End Test
     syncer.closeBackendClients()

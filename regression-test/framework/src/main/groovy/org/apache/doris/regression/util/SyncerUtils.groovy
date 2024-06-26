@@ -96,7 +96,7 @@ class SyncerUtils {
         request.setTxnId(context.txnId)
         if (context.txnInsert) {
             request.setTxnInsert(true)
-            request.setSubTxnInfos(context.subTxnInfos.values() as List)
+            request.setSubTxnInfos(context.subTxnInfos)
         } else {
             request.setCommitInfos(context.commitInfos)
         }
