@@ -25,8 +25,6 @@ import org.apache.doris.transaction.TransactionState;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.gson.annotations.SerializedName;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -34,8 +32,6 @@ import java.util.Map;
 import java.util.Set;
 
 public class UpsertRecord {
-    private static final Logger LOG = LogManager.getLogger(UpsertRecord.class);
-
     public static class TableRecord {
         public static class PartitionRecord {
             @SerializedName(value = "partitionId")
@@ -76,11 +72,11 @@ public class UpsertRecord {
             this.indexIds = indexIds;
         }
 
-        public void addPartitionRecord(PartitionCommitInfo partitionCommitInfo) {
+        private void addPartitionRecord(PartitionCommitInfo partitionCommitInfo) {
             addPartitionRecord(-1, partitionCommitInfo);
         }
 
-        public void addPartitionRecord(long subTxnId, PartitionCommitInfo partitionCommitInfo) {
+        private void addPartitionRecord(long subTxnId, PartitionCommitInfo partitionCommitInfo) {
             PartitionRecord partitionRecord = new PartitionRecord();
             partitionRecord.subTxnId = subTxnId;
             partitionRecord.partitionId = partitionCommitInfo.getPartitionId();
@@ -92,14 +88,6 @@ public class UpsertRecord {
 
         public List<PartitionRecord> getPartitionRecords() {
             return partitionRecords;
-        }
-
-        @Override
-        public String toString() {
-            return "TableRecord{" +
-                    "partitionRecords=" + partitionRecords +
-                    ", indexIds=" + indexIds +
-                    '}';
         }
     }
 
@@ -140,8 +128,6 @@ public class UpsertRecord {
                     tableRecord.addPartitionRecord(subTxnId, partitionCommitInfo);
                 }
             });
-            LOG.info("txnId: {}, subTxnIdToTableCommitInfo: {}, records: {}", txnId,
-                    state.getSubTxnIdToTableCommitInfo(), tableRecords);
             subTxnIds = state.getSubTxnIds();
         } else {
             for (TableCommitInfo info : state.getIdToTableCommitInfos().values()) {
