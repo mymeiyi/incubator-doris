@@ -878,7 +878,7 @@ class Syncer {
                 TSubTxnInfo subTxnInfo = new TSubTxnInfo().setSubTxnId(subTxnId).setTableId(subTxnIdToTableId.get(subTxnId)).setTabletCommitInfos(tabletCommitInfos)
                 // TODO set type
                 // .setSubTxnType(TSubTxnType.INSERT)
-                context.subTxnInfos.put(subTxnId, subTxnInfo)
+                context.subTxnInfos.add(subTxnInfo)
             }
         }
         return true
