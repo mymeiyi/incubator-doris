@@ -118,6 +118,8 @@ public class UpsertRecord {
     // pair is (tableId, tableRecord)
     @SerializedName(value = "tableRecords")
     private Map<Long, TableRecord> tableRecords;
+    @SerializedName(value = "stids")
+    private List<Long> subTxnIds;
 
     // construct from TransactionState
     public UpsertRecord(long commitSeq, TransactionState state) {
@@ -140,6 +142,7 @@ public class UpsertRecord {
             });
             LOG.info("txnId: {}, subTxnIdToTableCommitInfo: {}, records: {}", txnId,
                     state.getSubTxnIdToTableCommitInfo(), tableRecords);
+            subTxnIds = state.getSubTxnIds();
         } else {
             for (TableCommitInfo info : state.getIdToTableCommitInfos().values()) {
                 Set<Long> indexIds = loadedTableIndexIds.get(info.getTableId());
