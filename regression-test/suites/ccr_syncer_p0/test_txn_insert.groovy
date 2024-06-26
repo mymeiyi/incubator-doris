@@ -144,8 +144,22 @@ suite("test_txn_insert") {
     sql """ set enable_insert_strict = true """
 
     // delete and insert
+    logger.info("=== Test 7: delete and insert ===")
+    sql """ begin """
+    sql """ delete from ${txnTableName}_2 where test < 30 """
+    sql """ insert into ${txnTableName}_2 select * from ${txnTableName}_0 where test < 30 """
+    sql """ commit """
+    sync("${txnTableName}_2")
+    check_row_count("${txnTableName}_2", 4)
 
     // insert and delete
+    logger.info("=== Test 8: insert and delete ===")
+    sql """ begin """
+    sql """ insert into ${txnTableName}_2 select * from ${txnTableName}_0 where test < 30 """
+    sql """ delete from ${txnTableName}_2 where test < 30 """
+    sql """ commit """
+    sync("${txnTableName}_2")
+    check_row_count("${txnTableName}_2", 4)
 
     // mow tables(15, 16, 17, 18)
 
