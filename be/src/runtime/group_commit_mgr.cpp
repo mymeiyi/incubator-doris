@@ -602,7 +602,7 @@ Status GroupCommitMgr::get_first_block_load_queue(
     }
     RETURN_IF_ERROR(group_commit_table->get_first_block_load_queue(
             table_id, base_schema_version, load_id, load_block_queue, be_exe_version, mem_tracker,
-            create_plan_dep, put_block_dep));
+            create_plan_dep, put_block_dep, label, txn_id);
     return Status::OK();
 }
 
