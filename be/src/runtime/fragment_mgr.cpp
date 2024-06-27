@@ -354,6 +354,10 @@ void FragmentMgr::coordinator_callback(const ReportStatusRequest& req) {
                 }
             }
         }
+        if (req.runtime_state->wal_id() > 0) {
+            LOG(INFO) << "sout: label=" << req.runtime_state->label()
+                      << ", wal_id=" << req.runtime_state->wal_id();
+        }
         if (!req.runtime_state->export_output_files().empty()) {
             params.__isset.export_files = true;
             params.export_files = req.runtime_state->export_output_files();
