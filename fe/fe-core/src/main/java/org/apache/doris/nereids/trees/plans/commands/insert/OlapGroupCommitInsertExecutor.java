@@ -19,11 +19,15 @@ package org.apache.doris.nereids.trees.plans.commands.insert;
 
 import org.apache.doris.catalog.OlapTable;
 import org.apache.doris.catalog.Table;
+import org.apache.doris.catalog.TableIf;
 import org.apache.doris.catalog.TableIf.TableType;
 import org.apache.doris.common.ErrorCode;
+import org.apache.doris.common.FeConstants;
 import org.apache.doris.common.util.DebugUtil;
 import org.apache.doris.nereids.NereidsPlanner;
+import org.apache.doris.nereids.analyzer.UnboundTableSink;
 import org.apache.doris.nereids.exceptions.AnalysisException;
+import org.apache.doris.nereids.trees.plans.logical.LogicalInlineTable;
 import org.apache.doris.qe.ConnectContext;
 import org.apache.doris.qe.QueryState.MysqlStateType;
 import org.apache.doris.qe.StmtExecutor;
@@ -48,6 +52,19 @@ public class OlapGroupCommitInsertExecutor extends OlapInsertExecutor {
             String labelName, NereidsPlanner planner, Optional<InsertCommandContext> insertCtx,
             boolean emptyInsert) {
         super(ctx, table, labelName, planner, insertCtx, emptyInsert);
+    }
+
+    public static void analyzeGroupCommit(ConnectContext ctx, TableIf table, UnboundTableSink<?> tableSink) {
+        // The flag is set to false before execute sql, if it is true, this is a http stream
+        if (ctx.isGroupCommit()) {
+            return;
+        }
+        boolean check = ctx.getSessionVariable().isEnableInsertGroupCommit() && !ctx.isTxnModel()
+                && !ctx.getSessionVariable().isEnableUniqueKeyPartialUpdate() && table instanceof OlapTable
+                && ((OlapTable) table).getTableProperty().getUseSchemaLightChange()
+                && !((OlapTable) table).getQualifiedDbName().equalsIgnoreCase(FeConstants.INTERNAL_DB_NAME)
+                && tableSink.getPartitions().isEmpty() && tableSink.child() instanceof LogicalInlineTable;
+        ctx.setGroupCommit(check);
     }
 
     public long getTxnId() {

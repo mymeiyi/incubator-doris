@@ -150,7 +150,8 @@ public class InsertIntoTableCommand extends Command implements ForwardWithSync, 
                 this.logicalQuery = ((LogicalPlan) cte.get().withChildren(logicalQuery));
             }
             if (this.logicalQuery instanceof UnboundTableSink) {
-                GroupCommitInsertExecutor.analyzeGroupCommit(ctx, targetTableIf, (UnboundTableSink<?>) this.logicalQuery);
+                OlapGroupCommitInsertExecutor.analyzeGroupCommit(ctx, targetTableIf,
+                        (UnboundTableSink<?>) this.logicalQuery);
             }
             LogicalPlanAdapter logicalPlanAdapter = new LogicalPlanAdapter(logicalQuery, ctx.getStatementContext());
             NereidsPlanner planner = new NereidsPlanner(ctx.getStatementContext());
