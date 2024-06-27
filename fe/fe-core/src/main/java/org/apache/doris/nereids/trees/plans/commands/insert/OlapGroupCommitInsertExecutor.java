@@ -28,7 +28,10 @@ import org.apache.doris.nereids.NereidsPlanner;
 import org.apache.doris.nereids.analyzer.UnboundOneRowRelation;
 import org.apache.doris.nereids.analyzer.UnboundTableSink;
 import org.apache.doris.nereids.exceptions.AnalysisException;
+import org.apache.doris.nereids.trees.plans.algebra.OneRowRelation;
 import org.apache.doris.nereids.trees.plans.logical.LogicalInlineTable;
+import org.apache.doris.nereids.trees.plans.logical.LogicalUnion;
+import org.apache.doris.nereids.trees.plans.physical.PhysicalUnion;
 import org.apache.doris.qe.ConnectContext;
 import org.apache.doris.qe.QueryState.MysqlStateType;
 import org.apache.doris.qe.StmtExecutor;
@@ -64,7 +67,8 @@ public class OlapGroupCommitInsertExecutor extends OlapInsertExecutor {
                 && !ctx.getSessionVariable().isEnableUniqueKeyPartialUpdate() && table instanceof OlapTable
                 && ((OlapTable) table).getTableProperty().getUseSchemaLightChange()
                 && !((OlapTable) table).getQualifiedDbName().equalsIgnoreCase(FeConstants.INTERNAL_DB_NAME)
-                && tableSink.getPartitions().isEmpty() && tableSink.child() instanceof UnboundOneRowRelation;
+                && tableSink.getPartitions().isEmpty()
+                && (tableSink.child() instanceof OneRowRelation || tableSink.child() instanceof LogicalUnion);
         ctx.setGroupCommit(check);
     }
 
