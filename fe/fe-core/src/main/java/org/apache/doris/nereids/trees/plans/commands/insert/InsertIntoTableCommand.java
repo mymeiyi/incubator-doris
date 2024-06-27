@@ -117,7 +117,8 @@ public class InsertIntoTableCommand extends Command implements ForwardWithSync, 
      * Therefore, this section will be presented separately.
      */
     public AbstractInsertExecutor initPlan(ConnectContext ctx, StmtExecutor executor) throws Exception {
-        ctx.setGroupCommit(true);
+        ctx.setGroupCommit(ctx.getSessionVariable().getGroupCommit().equalsIgnoreCase("async_mode")
+                || ctx.getSessionVariable().getGroupCommit().equalsIgnoreCase("sync_mode"));
         if (!ctx.getSessionVariable().isEnableNereidsDML()) {
             try {
                 ctx.getSessionVariable().enableFallbackToOriginalPlannerOnce();
