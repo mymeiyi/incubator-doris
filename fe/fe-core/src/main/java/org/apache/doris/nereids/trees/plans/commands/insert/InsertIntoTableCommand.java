@@ -144,11 +144,13 @@ public class InsertIntoTableCommand extends Command implements ForwardWithSync, 
         // should lock target table until we begin transaction.
         targetTableIf.readLock();
         try {
+            LOG.info("sout: is inline table 0: {}", logicalQuery instanceof LogicalInlineTable);
             // 1. process inline table (default values, empty values)
             this.logicalQuery = (LogicalPlan) InsertUtils.normalizePlan(logicalQuery, targetTableIf, insertCtx);
             if (cte.isPresent()) {
                 this.logicalQuery = ((LogicalPlan) cte.get().withChildren(logicalQuery));
             }
+            LOG.info("sout: is inline table 1: {}", logicalQuery instanceof LogicalInlineTable);
             if (this.logicalQuery instanceof UnboundTableSink) {
                 OlapGroupCommitInsertExecutor.analyzeGroupCommit(ctx, targetTableIf,
                         (UnboundTableSink<?>) this.logicalQuery);

@@ -25,6 +25,7 @@ import org.apache.doris.common.ErrorCode;
 import org.apache.doris.common.FeConstants;
 import org.apache.doris.common.util.DebugUtil;
 import org.apache.doris.nereids.NereidsPlanner;
+import org.apache.doris.nereids.analyzer.UnboundOneRowRelation;
 import org.apache.doris.nereids.analyzer.UnboundTableSink;
 import org.apache.doris.nereids.exceptions.AnalysisException;
 import org.apache.doris.nereids.trees.plans.logical.LogicalInlineTable;
@@ -63,7 +64,7 @@ public class OlapGroupCommitInsertExecutor extends OlapInsertExecutor {
                 && !ctx.getSessionVariable().isEnableUniqueKeyPartialUpdate() && table instanceof OlapTable
                 && ((OlapTable) table).getTableProperty().getUseSchemaLightChange()
                 && !((OlapTable) table).getQualifiedDbName().equalsIgnoreCase(FeConstants.INTERNAL_DB_NAME)
-                && tableSink.getPartitions().isEmpty() && tableSink.child() instanceof LogicalInlineTable;
+                && tableSink.getPartitions().isEmpty() && tableSink.child() instanceof UnboundOneRowRelation;
         ctx.setGroupCommit(check);
     }
 
