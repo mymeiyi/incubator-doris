@@ -27,6 +27,7 @@ import org.apache.doris.common.FeConstants;
 import org.apache.doris.common.UserException;
 import org.apache.doris.common.util.DebugUtil;
 import org.apache.doris.nereids.NereidsPlanner;
+import org.apache.doris.nereids.analyzer.UnboundTableSink;
 import org.apache.doris.nereids.trees.expressions.Alias;
 import org.apache.doris.nereids.trees.expressions.Cast;
 import org.apache.doris.nereids.trees.expressions.Expression;
@@ -34,6 +35,7 @@ import org.apache.doris.nereids.trees.expressions.NamedExpression;
 import org.apache.doris.nereids.trees.expressions.literal.Literal;
 import org.apache.doris.nereids.trees.plans.Plan;
 import org.apache.doris.nereids.trees.plans.algebra.OneRowRelation;
+import org.apache.doris.nereids.trees.plans.logical.LogicalInlineTable;
 import org.apache.doris.nereids.trees.plans.physical.PhysicalDistribute;
 import org.apache.doris.nereids.trees.plans.physical.PhysicalOlapTableSink;
 import org.apache.doris.nereids.trees.plans.physical.PhysicalOneRowRelation;
@@ -79,34 +81,28 @@ public class GroupCommitInsertExecutor extends AbstractInsertExecutor {
     /**
      * Handle group commit
      */
-    public static boolean canGroupCommit(ConnectContext ctx, DataSink sink,
-                                         PhysicalSink physicalSink, NereidsPlanner planner) {
+    public static void analyzeGroupCommit(ConnectContext ctx, TableIf table, UnboundTableSink<?> tableSink) {
         // The flag is set to false before execute sql, if it is true, this is a http stream
         if (ctx.isGroupCommit()) {
-            return false;
+            return;
         }
-        PhysicalOlapTableSink<?> olapSink = (PhysicalOlapTableSink<?>) physicalSink;
-        boolean can = analyzeGroupCommit(ctx, sink, olapSink, planner);
-        ctx.setGroupCommit(can);
-        return can;
+        boolean check = ctx.getSessionVariable().isEnableInsertGroupCommit() && !ctx.isTxnModel()
+                && !ctx.getSessionVariable().isEnableUniqueKeyPartialUpdate() && table instanceof OlapTable
+                && ((OlapTable) table).getTableProperty().getUseSchemaLightChange()
+                && !((OlapTable) table).getQualifiedDbName().equalsIgnoreCase(FeConstants.INTERNAL_DB_NAME)
+                && tableSink.getPartitions().isEmpty() && tableSink.child() instanceof LogicalInlineTable;
+        ctx.setGroupCommit(check);
     }
 
-    private static boolean analyzeGroupCommit(ConnectContext ctx, DataSink sink,
-                    PhysicalOlapTableSink<?> physicalOlapTableSink, NereidsPlanner planner) {
-        if (!(sink instanceof OlapTableSink) || !ctx.getSessionVariable().isEnableInsertGroupCommit()
-                || ctx.getSessionVariable().isEnableUniqueKeyPartialUpdate()) {
-            return false;
-        }
-        OlapTable targetTable = physicalOlapTableSink.getTargetTable();
-        return ctx.getSessionVariable().getSqlMode() != SqlModeHelper.MODE_NO_BACKSLASH_ESCAPES
-                && !ctx.isTxnModel()
-                && physicalOlapTableSink.getPartitionIds().isEmpty()
-                && targetTable.getTableProperty().getUseSchemaLightChange()
-                && !targetTable.getQualifiedDbName().equalsIgnoreCase(FeConstants.INTERNAL_DB_NAME)
-                && isGroupCommitAvailablePlan(physicalOlapTableSink, planner);
-    }
+    /*private static boolean analyzeGroupCommit0(ConnectContext ctx, TableIf table, UnboundTableSink<?> tableSink) {
+        boolean check = ctx.getSessionVariable().isEnableInsertGroupCommit() && !ctx.isTxnModel()
+                && !ctx.getSessionVariable().isEnableUniqueKeyPartialUpdate() && table instanceof OlapTable
+                && ((OlapTable) table).getTableProperty().getUseSchemaLightChange()
+                && !((OlapTable) table).getQualifiedDbName().equalsIgnoreCase(FeConstants.INTERNAL_DB_NAME)
+                && tableSink.getPartitions().isEmpty() && tableSink.child() instanceof LogicalInlineTable;
+    }*/
 
-    private static boolean literalExpr(NereidsPlanner planner) {
+    /*private static boolean literalExpr(NereidsPlanner planner) {
         Optional<PhysicalUnion> union = planner.getPhysicalPlan()
                 .<PhysicalUnion>collect(PhysicalUnion.class::isInstance).stream().findAny();
         List<List<NamedExpression>> constantExprsList = null;
@@ -129,9 +125,9 @@ public class GroupCommitInsertExecutor extends AbstractInsertExecutor {
             }
         }
         return true;
-    }
+    }*/
 
-    private static boolean isGroupCommitAvailablePlan(PhysicalOlapTableSink<? extends Plan> sink,
+    /*private static boolean isGroupCommitAvailablePlan(PhysicalOlapTableSink<? extends Plan> sink,
                                                       NereidsPlanner planner) {
         Plan child = sink.child();
         if (child instanceof PhysicalDistribute) {
@@ -139,7 +135,7 @@ public class GroupCommitInsertExecutor extends AbstractInsertExecutor {
         }
         return (child instanceof OneRowRelation || (child instanceof PhysicalUnion && child.arity() == 0))
                 && literalExpr(planner);
-    }
+    }*/
 
     private void handleGroupCommit(ConnectContext ctx, DataSink sink,
             PhysicalOlapTableSink<?> physicalOlapTableSink, NereidsPlanner planner) throws Exception {

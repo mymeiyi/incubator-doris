@@ -36,6 +36,7 @@ import org.apache.doris.nereids.trees.plans.Plan;
 import org.apache.doris.nereids.trees.plans.PlanType;
 import org.apache.doris.nereids.trees.plans.commands.Command;
 import org.apache.doris.nereids.trees.plans.commands.ForwardWithSync;
+import org.apache.doris.nereids.trees.plans.logical.LogicalInlineTable;
 import org.apache.doris.nereids.trees.plans.logical.LogicalPlan;
 import org.apache.doris.nereids.trees.plans.physical.PhysicalEmptyRelation;
 import org.apache.doris.nereids.trees.plans.physical.PhysicalHiveTableSink;
@@ -117,8 +118,8 @@ public class InsertIntoTableCommand extends Command implements ForwardWithSync, 
      * Therefore, this section will be presented separately.
      */
     public AbstractInsertExecutor initPlan(ConnectContext ctx, StmtExecutor executor) throws Exception {
-        ctx.setGroupCommit(ctx.getSessionVariable().getGroupCommit().equalsIgnoreCase("async_mode")
-                || ctx.getSessionVariable().getGroupCommit().equalsIgnoreCase("sync_mode"));
+        /*ctx.setGroupCommit(ctx.getSessionVariable().getGroupCommit().equalsIgnoreCase("async_mode")
+                || ctx.getSessionVariable().getGroupCommit().equalsIgnoreCase("sync_mode"));*/
         if (!ctx.getSessionVariable().isEnableNereidsDML()) {
             try {
                 ctx.getSessionVariable().enableFallbackToOriginalPlannerOnce();
@@ -148,7 +149,9 @@ public class InsertIntoTableCommand extends Command implements ForwardWithSync, 
             if (cte.isPresent()) {
                 this.logicalQuery = ((LogicalPlan) cte.get().withChildren(logicalQuery));
             }
-
+            if (this.logicalQuery instanceof UnboundTableSink) {
+                GroupCommitInsertExecutor.analyzeGroupCommit(ctx, targetTableIf, (UnboundTableSink<?>) this.logicalQuery);
+            }
             LogicalPlanAdapter logicalPlanAdapter = new LogicalPlanAdapter(logicalQuery, ctx.getStatementContext());
             NereidsPlanner planner = new NereidsPlanner(ctx.getStatementContext());
             planner.plan(logicalPlanAdapter, ctx.getSessionVariable().toThrift());
