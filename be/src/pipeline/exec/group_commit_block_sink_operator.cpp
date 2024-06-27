@@ -71,6 +71,7 @@ Status GroupCommitBlockSinkLocalState::_initialize_load_queue() {
                 _put_block_dependency, label, wal_id));
         _state->set_import_label(label);
         _state->set_wal_id(wal_id);
+        LOG(INFO) << "sout: set label=" << label << ", txn_id=" << wal_id;
         return Status::OK();
     } else {
         return Status::InternalError("be is stopping");
