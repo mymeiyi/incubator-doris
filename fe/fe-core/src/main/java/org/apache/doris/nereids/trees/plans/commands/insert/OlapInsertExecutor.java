@@ -74,7 +74,7 @@ public class OlapInsertExecutor extends AbstractInsertExecutor {
     protected static final long INVALID_TXN_ID = -1L;
     private static final Logger LOG = LogManager.getLogger(OlapInsertExecutor.class);
     protected long txnId = INVALID_TXN_ID;
-    private TransactionStatus txnStatus = TransactionStatus.ABORTED;
+    protected TransactionStatus txnStatus = TransactionStatus.ABORTED;
 
     /**
      * constructor
@@ -178,27 +178,23 @@ public class OlapInsertExecutor extends AbstractInsertExecutor {
 
     @Override
     protected void onComplete() throws UserException {
-        if (ctx.isGroupCommit()) {
-            txnStatus = TransactionStatus.PREPARE;
-        } else {
-            if (ctx.getState().getStateType() == MysqlStateType.ERR) {
-                try {
-                    String errMsg = Strings.emptyToNull(ctx.getState().getErrorMessage());
-                    Env.getCurrentGlobalTransactionMgr().abortTransaction(
-                            database.getId(), txnId,
-                            (errMsg == null ? "unknown reason" : errMsg));
-                } catch (Exception abortTxnException) {
-                    LOG.warn("errors when abort txn. {}", ctx.getQueryIdentifier(), abortTxnException);
-                }
-            } else if (Env.getCurrentGlobalTransactionMgr().commitAndPublishTransaction(
-                    database, Lists.newArrayList((Table) table),
-                    txnId,
-                    TabletCommitInfo.fromThrift(coordinator.getCommitInfos()),
-                    ctx.getSessionVariable().getInsertVisibleTimeoutMs())) {
-                txnStatus = TransactionStatus.VISIBLE;
-            } else {
-                txnStatus = TransactionStatus.COMMITTED;
+        if (ctx.getState().getStateType() == MysqlStateType.ERR) {
+            try {
+                String errMsg = Strings.emptyToNull(ctx.getState().getErrorMessage());
+                Env.getCurrentGlobalTransactionMgr().abortTransaction(
+                        database.getId(), txnId,
+                        (errMsg == null ? "unknown reason" : errMsg));
+            } catch (Exception abortTxnException) {
+                LOG.warn("errors when abort txn. {}", ctx.getQueryIdentifier(), abortTxnException);
             }
+        } else if (Env.getCurrentGlobalTransactionMgr().commitAndPublishTransaction(
+                database, Lists.newArrayList((Table) table),
+                txnId,
+                TabletCommitInfo.fromThrift(coordinator.getCommitInfos()),
+                ctx.getSessionVariable().getInsertVisibleTimeoutMs())) {
+            txnStatus = TransactionStatus.VISIBLE;
+        } else {
+            txnStatus = TransactionStatus.COMMITTED;
         }
         if (Config.isCloudMode()) {
             String clusterName = ctx.getCloudCluster();
