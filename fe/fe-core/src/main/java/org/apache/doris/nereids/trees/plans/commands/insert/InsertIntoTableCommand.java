@@ -177,9 +177,14 @@ public class InsertIntoTableCommand extends Command implements ForwardWithSync, 
                 }*/
                 OlapTable olapTable = (OlapTable) targetTableIf;
                 // the insertCtx contains some variables to adjust SinkNode
-                insertExecutor = ctx.isTxnModel()
-                        ? new OlapTxnInsertExecutor(ctx, olapTable, label, planner, insertCtx, emptyInsert)
-                        : new OlapInsertExecutor(ctx, olapTable, label, planner, insertCtx, emptyInsert);
+                if (ctx.isTxnModel()) {
+                    insertExecutor = new OlapTxnInsertExecutor(ctx, olapTable, label, planner, insertCtx, emptyInsert);
+                } else if (ctx.isGroupCommit()) {
+                    insertExecutor = new OlapGroupCommitInsertExecutor(ctx, olapTable, label, planner, insertCtx,
+                            emptyInsert);
+                } else {
+                    insertExecutor = new OlapInsertExecutor(ctx, olapTable, label, planner, insertCtx, emptyInsert);
+                }
 
                 boolean isEnableMemtableOnSinkNode =
                         olapTable.getTableProperty().getUseSchemaLightChange()
