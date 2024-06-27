@@ -117,6 +117,7 @@ public class InsertIntoTableCommand extends Command implements ForwardWithSync, 
      * Therefore, this section will be presented separately.
      */
     public AbstractInsertExecutor initPlan(ConnectContext ctx, StmtExecutor executor) throws Exception {
+        ctx.setGroupCommit(true);
         if (!ctx.getSessionVariable().isEnableNereidsDML()) {
             try {
                 ctx.getSessionVariable().enableFallbackToOriginalPlannerOnce();
@@ -167,12 +168,12 @@ public class InsertIntoTableCommand extends Command implements ForwardWithSync, 
 
             if (physicalSink instanceof PhysicalOlapTableSink) {
                 boolean emptyInsert = childIsEmptyRelation(physicalSink);
-                if (GroupCommitInsertExecutor.canGroupCommit(ctx, sink, physicalSink, planner)) {
+                /*if (GroupCommitInsertExecutor.canGroupCommit(ctx, sink, physicalSink, planner)) {
                     insertExecutor = new GroupCommitInsertExecutor(ctx, targetTableIf, label, planner, insertCtx,
                             emptyInsert);
                     targetTableIf.readUnlock();
                     return insertExecutor;
-                }
+                }*/
                 OlapTable olapTable = (OlapTable) targetTableIf;
                 // the insertCtx contains some variables to adjust SinkNode
                 insertExecutor = ctx.isTxnModel()
