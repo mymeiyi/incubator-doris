@@ -274,7 +274,7 @@ Status GroupCommitBlockSinkOperatorX::prepare(RuntimeState* state) {
 }
 
 Status GroupCommitBlockSinkOperatorX::open(RuntimeState* state) {
-    LOG(INFO) << "sout: open state=" << state;
+    LOG(INFO) << "sout: open state=" << state << ", query_id=" << state->query_id();
     // Prepare the exprs to run.
     return vectorized::VExpr::open(_output_vexpr_ctxs, state);
 }

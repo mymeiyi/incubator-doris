@@ -454,6 +454,8 @@ Status PipelineFragmentContext::_build_pipeline_tasks(
                 auto cur_task_id = _total_tasks++;
                 task_runtime_state->set_task_id(cur_task_id);
                 task_runtime_state->set_task_num(pipeline->num_tasks());
+                LOG(INFO) << "sout: create a runtime state=" << task_runtime_state
+                          << ", query=" << print_id(_query_id);
                 auto task = std::make_unique<PipelineTask>(pipeline, cur_task_id,
                                                            task_runtime_state.get(), this,
                                                            pipeline_id_to_profile[pip_idx].get(),
