@@ -38,6 +38,8 @@ public:
         _finish_dependency =
                 std::make_shared<Dependency>(parent->operator_id(), parent->node_id(),
                                              parent->get_name() + "_FINISH_DEPENDENCY", true);
+        LOG(INFO) << "sout: create GroupCommitBlockSinkLocalState, state=" << state
+                  << ", query_id=" << print_id(state->query_id());
     }
 
     ~GroupCommitBlockSinkLocalState() override;
