@@ -259,6 +259,7 @@ Status PipelineFragmentContext::prepare(const doris::TPipelineFragmentParams& re
         _runtime_state = RuntimeState::create_unique(
                 request.query_id, request.fragment_id, request.query_options,
                 _query_ctx->query_globals, _exec_env, _query_ctx.get());
+        LOG(INFO) << "sout: runtime_state=" << _runtime_state << ", query=" << print_id(_query_id);
 
         SCOPED_SWITCH_THREAD_MEM_TRACKER_LIMITER(_runtime_state->query_mem_tracker());
         if (request.__isset.backend_id) {
@@ -310,6 +311,8 @@ Status PipelineFragmentContext::prepare(const doris::TPipelineFragmentParams& re
         if (!request.fragment.__isset.output_sink) {
             return Status::InternalError("No output sink in this fragment!");
         }
+        LOG(INFO) << "sout: create sink, runtime=" << _runtime_state
+                  << ", id=" << print_id(_query_id);
         RETURN_IF_ERROR(_create_data_sink(_runtime_state->obj_pool(), request.fragment.output_sink,
                                           request.fragment.output_exprs, request,
                                           root_pipeline->output_row_desc(), _runtime_state.get(),
