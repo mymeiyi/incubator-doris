@@ -354,6 +354,9 @@ void FragmentMgr::coordinator_callback(const ReportStatusRequest& req) {
                 }
             }
         }
+        LOG(INFO) << "sout: callback: wal_id=" << req.runtime_state->wal_id()
+                  << ", runtime_state=" << req.runtime_state
+                  << ", query_id=" << print_id(req.query_id);
         if (req.runtime_state->wal_id() > 0) {
             LOG(INFO) << "sout: label=" << req.runtime_state->import_label()
                       << ", wal_id=" << req.runtime_state->wal_id();
