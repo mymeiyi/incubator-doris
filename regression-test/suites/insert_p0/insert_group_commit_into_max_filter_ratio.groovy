@@ -201,9 +201,9 @@ suite("insert_group_commit_into_max_filter_ratio") {
 
             if (item == "nereids") {
                 sql """ set group_commit = async_mode; """
-                normal_insert """ insert into ${dbTableName} values (4, 'abc', 10); """, 0
+                group_commit_insert """ insert into ${dbTableName} values (4, 'abc', 10); """, 0
                 sql """ set enable_insert_strict = false; """
-                normal_insert """ insert into ${dbTableName} values (5, 'abc', 10); """, 0
+                group_commit_insert """ insert into ${dbTableName} values (5, 'abc', 10); """, 0
             } else {
                 sql """ set group_commit = async_mode; """
                 fail_group_commit_insert """ insert into ${dbTableName} values (4, 'abc', 10); """, 0
