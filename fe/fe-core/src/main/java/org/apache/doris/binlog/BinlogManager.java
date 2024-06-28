@@ -152,6 +152,7 @@ public class BinlogManager {
         }
 
         if (anyEnable) {
+            LOG.info("sout: addBinLog: {}", binlog);
             addBinlog(binlog);
         }
 
