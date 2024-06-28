@@ -352,18 +352,13 @@ void FragmentMgr::coordinator_callback(const ReportStatusRequest& req) {
                     params.__set_tracking_url(
                             to_load_error_http_path(rs->get_error_log_file_path()));
                 }
+                if (rs->wal_id() > 0) {
+                    params.__set_txn_id(rs->wal_id());
+                    params.__set_label(rs->import_label());
+                    LOG(INFO) << "sout: label=" << req.runtime_state->import_label()
+                              << ", wal_id=" << req.runtime_state->wal_id();
+                }
             }
-        }
-        for (auto* rs : req.runtime_states) {
-            LOG(INFO) << "sout: label=" << rs->import_label() << ", wal_id=" << rs->wal_id()
-                      << ", rs=" << rs;
-        }
-        LOG(INFO) << "sout: callback: wal_id=" << req.runtime_state->wal_id()
-                  << ", runtime_state=" << req.runtime_state
-                  << ", query_id=" << print_id(req.query_id);
-        if (req.runtime_state->wal_id() > 0) {
-            LOG(INFO) << "sout: label=" << req.runtime_state->import_label()
-                      << ", wal_id=" << req.runtime_state->wal_id();
         }
         if (!req.runtime_state->export_output_files().empty()) {
             params.__isset.export_files = true;
