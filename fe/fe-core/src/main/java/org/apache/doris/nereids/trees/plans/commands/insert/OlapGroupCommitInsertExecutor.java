@@ -108,8 +108,8 @@ public class OlapGroupCommitInsertExecutor extends OlapInsertExecutor {
         // {'label':'my_label1', 'status':'aborted', 'txnId':'123' 'err':'error messages'}
         // TODO update label and txn_id
         StringBuilder sb = new StringBuilder();
-        sb.append("{'label':'").append("group_commit_e8d42423fb764011_94bafd3e44b2cd10").append("', 'status':'").append(txnStatus.name());
-        sb.append("', 'txnId':'").append(txnId).append("'");
+        sb.append("{'label':'").append(coordinator.getLabel()).append("', 'status':'").append(txnStatus.name());
+        sb.append("', 'txnId':'").append(coordinator.getTxnId()).append("'");
         if (table.getType() == TableType.MATERIALIZED_VIEW) {
             sb.append("', 'rows':'").append(loadedRows).append("'");
         }
