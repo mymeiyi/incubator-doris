@@ -32,6 +32,7 @@ GroupCommitBlockSinkLocalState::~GroupCommitBlockSinkLocalState() {
 }
 
 Status GroupCommitBlockSinkLocalState::open(RuntimeState* state) {
+    LOG(INFO) << "sout: open state=" << state;
     RETURN_IF_ERROR(Base::open(state));
     SCOPED_TIMER(exec_time_counter());
     SCOPED_TIMER(_open_timer);
@@ -79,6 +80,7 @@ Status GroupCommitBlockSinkLocalState::_initialize_load_queue() {
 }
 
 Status GroupCommitBlockSinkLocalState::close(RuntimeState* state, Status close_status) {
+    LOG(INFO) << "sout: close state=" << state;
     if (_closed) {
         return Status::OK();
     }
@@ -110,6 +112,7 @@ std::string GroupCommitBlockSinkLocalState::debug_string(int indentation_level) 
 
 Status GroupCommitBlockSinkLocalState::_add_block(RuntimeState* state,
                                                   std::shared_ptr<vectorized::Block> block) {
+    LOG(INFO) << "sout: add block state=" << state;
     if (block->rows() == 0) {
         return Status::OK();
     }
@@ -184,6 +187,7 @@ void GroupCommitBlockSinkLocalState::_remove_estimated_wal_bytes() {
 
 Status GroupCommitBlockSinkLocalState::_add_blocks(RuntimeState* state,
                                                    bool is_blocks_contain_all_load_data) {
+    LOG(INFO) << "sout: add blocks state=" << state;
     DCHECK(_is_block_appended == false);
     auto& p = _parent->cast<GroupCommitBlockSinkOperatorX>();
     if (_state->exec_env()->wal_mgr()->is_running()) {
@@ -258,6 +262,7 @@ Status GroupCommitBlockSinkOperatorX::init(const TDataSink& t_sink) {
 }
 
 Status GroupCommitBlockSinkOperatorX::prepare(RuntimeState* state) {
+    LOG(INFO) << "sout: prepare state=" << state;
     RETURN_IF_ERROR(Base::prepare(state));
     // get table's tuple descriptor
     _output_tuple_desc = state->desc_tbl().get_tuple_descriptor(_tuple_desc_id);
@@ -269,12 +274,14 @@ Status GroupCommitBlockSinkOperatorX::prepare(RuntimeState* state) {
 }
 
 Status GroupCommitBlockSinkOperatorX::open(RuntimeState* state) {
+    LOG(INFO) << "sout: open state=" << state;
     // Prepare the exprs to run.
     return vectorized::VExpr::open(_output_vexpr_ctxs, state);
 }
 
 Status GroupCommitBlockSinkOperatorX::sink(RuntimeState* state, vectorized::Block* input_block,
                                            bool eos) {
+    LOG(INFO) << "sout: sink state=" << state;
     auto& local_state = get_local_state(state);
     SCOPED_TIMER(local_state.exec_time_counter());
     COUNTER_UPDATE(local_state.rows_input_counter(), (int64_t)input_block->rows());
