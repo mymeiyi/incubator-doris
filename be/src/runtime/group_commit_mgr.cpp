@@ -309,7 +309,11 @@ Status GroupCommitTable::get_first_block_load_queue(
                         for (auto it : _create_plan_deps) {
                             std::get<0>(it.second)->set_ready();
                         }
-                        _create_plan_deps.clear();
+                        std::unordered_map<
+                                UniqueId,
+                                std::tuple<std::shared_ptr<pipeline::Dependency>,
+                                           std::shared_ptr<pipeline::Dependency>, int64_t>> {}
+                                .swap(_create_plan_deps);
                         _is_creating_plan_fragment = false;
                     }};
                     auto st = _create_group_commit_load(be_exe_version, mem_tracker);
