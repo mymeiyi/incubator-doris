@@ -1586,8 +1586,6 @@ public class EditLog {
         long logEditEnd = System.currentTimeMillis();
         long end = logEditEnd;
         if (transactionState.getTransactionStatus() == TransactionStatus.VISIBLE) {
-            LOG.info("sout: addUpsertRecord for txnId={}, table={}, config={}", transactionState.getTransactionId(),
-                    transactionState.getTableIdList(), Config.enable_feature_binlog);
             UpsertRecord record = new UpsertRecord(logId, transactionState);
             Env.getCurrentEnv().getBinlogManager().addUpsertRecord(record);
             end = System.currentTimeMillis();

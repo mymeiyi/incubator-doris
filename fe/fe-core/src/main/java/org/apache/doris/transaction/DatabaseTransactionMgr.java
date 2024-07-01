@@ -90,7 +90,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -1646,13 +1645,6 @@ public class DatabaseTransactionMgr {
     // for add/update/delete TransactionState
     protected void unprotectUpsertTransactionState(TransactionState transactionState, boolean isReplay) {
         // if this is a replay operation, we should not log it
-        Optional<Database> dbOpt = Env.getCurrentEnv().getInternalCatalog().getDb(transactionState.getDbId());
-        if (dbOpt.isPresent()) {
-            Database db = dbOpt.get();
-            if (db.getName().equalsIgnoreCase("regression_test_ccr_syncer_p0")) {
-                LOG.info("sout: upsert transaction state: {}", transactionState);
-            }
-        }
         if (!isReplay) {
             if (transactionState.getTransactionStatus() != TransactionStatus.PREPARE
                     || transactionState.getSourceType() == TransactionState.LoadJobSourceType.FRONTEND) {

@@ -146,7 +146,6 @@ public class DBBinlog {
         lock.writeLock().lock();
         try {
             allBinlogs.add(binlog);
-            LOG.info("sout: add table binLog: {}", binlog);
             binlogSize += BinlogUtils.getApproximateMemoryUsage(binlog);
 
             if (binlog.getTimestamp() > 0 && dbBinlogEnable) {
