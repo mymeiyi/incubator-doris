@@ -147,7 +147,7 @@ public class MysqlConnectProcessor extends ConnectProcessor {
             ctx.getState().setError(ErrorCode.ERR_UNKNOWN_ERROR,
                     e.getClass().getSimpleName() + ", msg: " + e.getMessage());
         }
-        auditAfterExec(stmtStr, executor.getParsedStmt(), executor.getQueryStatisticsForAuditLog(), true);
+        // auditAfterExec(stmtStr, executor.getParsedStmt(), executor.getQueryStatisticsForAuditLog(), true);
     }
 
     private void handleExecute(PrepareCommand prepareCommand, long stmtId, PreparedStatementContext prepCtx) {
@@ -207,7 +207,7 @@ public class MysqlConnectProcessor extends ConnectProcessor {
             ctx.getState().setError(ErrorCode.ERR_UNKNOWN_ERROR,
                     e.getClass().getSimpleName() + ", msg: " + e.getMessage());
         }
-        auditAfterExec(stmtStr, executor.getParsedStmt(), executor.getQueryStatisticsForAuditLog(), true);
+        // auditAfterExec(stmtStr, executor.getParsedStmt(), executor.getQueryStatisticsForAuditLog(), true);
     }
 
     // process COM_EXECUTE, parse binary row data
