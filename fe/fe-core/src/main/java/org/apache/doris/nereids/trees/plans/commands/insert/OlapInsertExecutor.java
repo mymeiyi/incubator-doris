@@ -172,8 +172,10 @@ public class OlapInsertExecutor extends AbstractInsertExecutor {
 
     @Override
     protected void beforeExec() {
-        String queryId = DebugUtil.printId(ctx.queryId());
-        LOG.info("start insert [{}] with query id {} and txn id {}", labelName, queryId, txnId);
+        if (!ctx.isGroupCommit()) {
+            String queryId = DebugUtil.printId(ctx.queryId());
+            LOG.info("start insert [{}] with query id {} and txn id {}", labelName, queryId, txnId);
+        }
     }
 
     @Override
