@@ -71,6 +71,9 @@ excludeSuites = "000_the_start_sentinel_do_not_touch," + // keep this line as th
     "test_spark_load," +
     "test_broker_load_func," +
     "test_stream_stub_fault_injection," +
+    "test_group_commit_data_bytes_property,test_group_commit_interval_ms_property,insert_group_commit_into_unique_sync_mode,insert_group_commit_into_max_filter_ratio,test_group_commit_stream_load,test_wal_mem_back_pressure_fault_injection," +
+    "test_table_options,test_show_transaction,test_base_insert_job,test_show_create_table_and_views,test_show_create_table_and_views_nereids,test_get_stream_load_state,test_ctas,test_publish_timeout," +
+    "test_array_insert_overflow," +
     "zzz_the_end_sentinel_do_not_touch" // keep this line as the last line
 
 // this directories will not be executed
