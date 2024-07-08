@@ -301,6 +301,11 @@ Status GroupCommitBlockSinkOperatorX::sink(RuntimeState* state, vectorized::Bloc
                                            state->num_rows_load_filtered());
             state->update_num_rows_load_filtered(local_state._block_convertor->num_filtered_rows() +
                                                  total_rows - loaded_rows);
+            LOG(INFO) << "sout: id=" << print_id(state->query_id()) << ", total=" << total_rows
+                      << ", loaded=" << loaded_rows
+                      << ", unselected=" << state->num_rows_load_unselected()
+                      << ", filtered=" << state->num_rows_load_filtered()
+                      << ", total=" << state->num_rows_load_total();
             if (!local_state._is_block_appended) {
                 // if not meet the max_filter_ratio, we should return error status directly
                 int64_t num_selected_rows =
