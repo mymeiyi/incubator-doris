@@ -58,7 +58,7 @@ Status GroupCommitBlockSinkLocalState::open(RuntimeState* state) {
     _block_convertor->init_autoinc_info(p._schema->db_id(), p._schema->table_id(),
                                         _state->batch_size());
     _add_partition_request_timer =
-            ADD_CHILD_TIMER(profile, "AddPartitionRequestTime", "SendDataTime");
+            ADD_CHILD_TIMER(_profile, "AddPartitionRequestTime", "SendDataTime");
     _output_row_desc = std::make_unique<RowDescriptor>(p._output_tuple_desc, false);
 
     _row_distribution.init({.state = _state,
