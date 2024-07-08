@@ -361,7 +361,7 @@ Status GroupCommitBlockSinkOperatorX::sink(RuntimeState* state, vectorized::Bloc
     _number_input_rows += rows;
     // _row_distribution_watch.start();
     RETURN_IF_ERROR(local_state._row_distribution.generate_rows_distribution(
-            input_block, block, filtered_rows, has_filtered_rows, _row_part_tablet_ids,
+            *input_block, block, filtered_rows, has_filtered_rows, _row_part_tablet_ids,
             _number_input_rows));
     // _row_distribution_watch.stop();
 
