@@ -131,7 +131,7 @@ private:
     std::unique_ptr<OlapTableLocationParam> _location = nullptr;
     TGroupCommitMode::type _group_commit_mode;
     int64_t _number_input_rows = 0;
-    std::vector<RowPartTabletIds> _row_part_tablet_ids;
+    std::vector<vectorized::RowPartTabletIds> _row_part_tablet_ids;
 };
 
 } // namespace doris::pipeline
