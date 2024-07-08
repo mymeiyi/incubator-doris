@@ -355,8 +355,9 @@ Status GroupCommitBlockSinkOperatorX::sink(RuntimeState* state, vectorized::Bloc
                 local_state._filter_bitmap.Set(row_index, true);
                 LOG(WARNING) << "no partition for this tuple. tuple="
                              << block->dump_data(row_index, 1);
+                local_state._has_filtered_rows = true;
+                state->update_num_rows_load_filtered(1);
             }
-            local_state._has_filtered_rows = true;
         }
     }
 
