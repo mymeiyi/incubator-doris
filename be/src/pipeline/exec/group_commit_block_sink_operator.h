@@ -75,7 +75,7 @@ private:
     // used for find_partition
     std::unique_ptr<VOlapTablePartitionParam> _vpartition = nullptr;
     std::unique_ptr<vectorized::OlapTabletFinder> _tablet_finder = nullptr;
-    RuntimeProfile* _profile = nullptr;
+    // RuntimeProfile* _profile = nullptr;
     RuntimeProfile::Counter* _add_partition_request_timer = nullptr;
     std::unique_ptr<RowDescriptor> _output_row_desc = nullptr;
     // reuse for find_tablet.
