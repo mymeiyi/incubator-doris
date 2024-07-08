@@ -45,7 +45,8 @@ Status GroupCommitBlockSinkLocalState::open(RuntimeState* state) {
     _group_commit_mode = p._group_commit_mode;
 
     _vpartition = std::make_unique<doris::VOlapTablePartitionParam>(p._schema, p._partition);
-    _tablet_finder = std::make_unique<vectorized::OlapTabletFinder>(_vpartition, p._find_tablet_mode);
+    _tablet_finder =
+            std::make_unique<vectorized::OlapTabletFinder>(_vpartition.get(), p._find_tablet_mode);
     RETURN_IF_ERROR(_vpartition->init());
     _state = state;
     // profile must add to state's object pool
