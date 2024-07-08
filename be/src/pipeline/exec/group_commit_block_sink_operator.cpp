@@ -279,8 +279,8 @@ Status GroupCommitBlockSinkOperatorX::open(RuntimeState* state) {
 
 Status GroupCommitBlockSinkOperatorX::sink(RuntimeState* state, vectorized::Block* input_block,
                                            bool eos) {
-    LOG(INFO) << "sout: id=" << print_id(state->query_id())
-              << ", block=" << input_block->dump_data();
+    /*LOG(INFO) << "sout: id=" << print_id(state->query_id())
+              << ", block=" << input_block->dump_data();*/
     auto& local_state = get_local_state(state);
     SCOPED_TIMER(local_state.exec_time_counter());
     COUNTER_UPDATE(local_state.rows_input_counter(), (int64_t)input_block->rows());
@@ -331,6 +331,8 @@ Status GroupCommitBlockSinkOperatorX::sink(RuntimeState* state, vectorized::Bloc
     bool has_filtered_rows = false;
     RETURN_IF_ERROR(local_state._block_convertor->validate_and_convert_block(
             state, input_block, block, local_state._output_vexpr_ctxs, rows, has_filtered_rows));
+    LOG(INFO) << "sout: has_filtered_rows=" << has_filtered_rows << ", rows=" << rows
+              << ", block=" << block->dump_data();
     local_state._has_filtered_rows = false;
     if (!local_state._vpartition->is_auto_partition()) {
         //reuse vars for find_partition

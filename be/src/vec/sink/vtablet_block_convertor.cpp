@@ -59,8 +59,8 @@ Status OlapTableBlockConvertor::validate_and_convert_block(
         RuntimeState* state, vectorized::Block* input_block,
         std::shared_ptr<vectorized::Block>& block, vectorized::VExprContextSPtrs output_vexpr_ctxs,
         size_t rows, bool& has_filtered_rows) {
-    LOG(INFO) << "sout: OlapTableBlockConvertor::validate_and_convert_block, id="
-              << print_id(state->query_id()) << ", block=" << input_block->dump_data();
+    /*LOG(INFO) << "sout: OlapTableBlockConvertor::validate_and_convert_block, id="
+              << print_id(state->query_id()) << ", block=" << input_block->dump_data();*/
     DCHECK(input_block->rows() > 0);
 
     block = vectorized::Block::create_shared(input_block->get_columns_with_type_and_name());
@@ -275,7 +275,7 @@ Status OlapTableBlockConvertor::_validate_column(RuntimeState* state, const Type
                 }
                 auto str_val = column_string->get_data_at(j);
                 bool invalid = str_val.size == 0;
-                LOG(INFO) << "sout: invalid jsonb, id=" << print_id(state->query_id());
+                // LOG(INFO) << "sout: invalid jsonb, id=" << print_id(state->query_id());
                 if (invalid) {
                     error_msg.clear();
                     fmt::format_to(error_msg, "{}", "jsonb with size 0 is invalid");
@@ -457,8 +457,8 @@ Status OlapTableBlockConvertor::_validate_column(RuntimeState* state, const Type
 Status OlapTableBlockConvertor::_validate_data(RuntimeState* state, vectorized::Block* block,
                                                const uint32_t rows, int& filtered_rows,
                                                bool* stop_processing) {
-    LOG(INFO) << "sout: OlapTableBlockConvertor::_validate_data, id="
-              << print_id(state->query_id()) << ", block=" << block->dump_data();
+    /*LOG(INFO) << "sout: OlapTableBlockConvertor::_validate_data, id="
+              << print_id(state->query_id()) << ", block=" << block->dump_data();*/
     for (int i = 0; i < _output_tuple_desc->slots().size(); ++i) {
         SlotDescriptor* desc = _output_tuple_desc->slots()[i];
         block->get_by_position(i).column =

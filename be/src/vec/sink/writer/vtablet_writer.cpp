@@ -1729,6 +1729,8 @@ Status VTabletWriter::write(RuntimeState* state, doris::vectorized::Block& input
     RETURN_IF_ERROR(_row_distribution.generate_rows_distribution(
             input_block, block, filtered_rows, has_filtered_rows, _row_part_tablet_ids,
             _number_input_rows));
+    LOG(INFO) << "sout: filter_rows=" << filtered_rows << ", has_filter=" << has_filtered_rows
+              << ", input_rows=" << _number_input_rows << ", id=" << print_id(state->query_id());
 
     ChannelDistributionPayloadVec channel_to_payload;
 
