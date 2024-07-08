@@ -114,6 +114,8 @@ std::string GroupCommitBlockSinkLocalState::debug_string(int indentation_level) 
 
 Status GroupCommitBlockSinkLocalState::_add_block(RuntimeState* state,
                                                   std::shared_ptr<vectorized::Block> block) {
+    LOG(INFO) << "sout: add block, id=" << print_id(state->query_id())
+              << ", block=" << block->dump_data(0);
     if (block->rows() == 0) {
         return Status::OK();
     }
