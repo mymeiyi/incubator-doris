@@ -118,6 +118,7 @@ Status UnionSourceOperatorX::get_block(RuntimeState* state, vectorized::Block* b
     if (local_state._need_read_for_const_expr) {
         if (has_more_const(state)) {
             RETURN_IF_ERROR(get_next_const(state, block));
+            LOG(INFO) << "sout: get_next_const, id=" << print_id(state->query_id());
         }
         local_state._need_read_for_const_expr = has_more_const(state);
     } else if (_child_size != 0) {
@@ -131,8 +132,11 @@ Status UnionSourceOperatorX::get_block(RuntimeState* state, vectorized::Block* b
         block->swap(*output_block);
         output_block->clear_column_data(_row_descriptor.num_materialized_slots());
         local_state._shared_state->data_queue.push_free_block(std::move(output_block), child_idx);
+        LOG(INFO) << "sout: get_block_from_queue, id=" << print_id(state->query_id());
     }
     local_state.reached_limit(block, eos);
+    LOG(INFO) << "sout: union node, id=" << print_id(state->query_id())
+              << ", block=" << block->dump_data(0);
     return Status::OK();
 }
 
