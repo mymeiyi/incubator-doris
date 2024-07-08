@@ -279,6 +279,8 @@ Status GroupCommitBlockSinkOperatorX::open(RuntimeState* state) {
 
 Status GroupCommitBlockSinkOperatorX::sink(RuntimeState* state, vectorized::Block* input_block,
                                            bool eos) {
+    LOG(INFO) << "sout: id=" << print_id(state->query_id())
+              << ", block=" << input_block->dump_data();
     auto& local_state = get_local_state(state);
     SCOPED_TIMER(local_state.exec_time_counter());
     COUNTER_UPDATE(local_state.rows_input_counter(), (int64_t)input_block->rows());
