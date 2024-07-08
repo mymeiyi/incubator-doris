@@ -48,7 +48,9 @@ Status GroupCommitBlockSinkLocalState::open(RuntimeState* state) {
     _tablet_finder =
             std::make_unique<vectorized::OlapTabletFinder>(_vpartition.get(), p._find_tablet_mode);
     RETURN_IF_ERROR(_vpartition->init());
-    _state = state;
+    _profile = state->obj_pool()->add(new RuntimeProfile(_parent->get_name() + name_suffix()));
+    _profile->set_metadata(_parent->node_id());
+    _profile->set_is_sink(true);
     // profile must add to state's object pool
     SCOPED_CONSUME_MEM_TRACKER(_mem_tracker.get());
 
