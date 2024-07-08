@@ -388,6 +388,8 @@ Status VTabletWriterV2::write(RuntimeState* state, Block& input_block) {
 
     auto input_rows = input_block.rows();
     auto input_bytes = input_block.bytes();
+    LOG(INFO) << "sout: id=" << print_id(state->query_id())
+              << ", block=" << input_block.dump_data(0);
     if (UNLIKELY(input_rows == 0)) {
         return status;
     }

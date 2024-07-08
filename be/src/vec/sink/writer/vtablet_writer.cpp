@@ -1708,6 +1708,8 @@ Status VTabletWriter::write(RuntimeState* state, doris::vectorized::Block& input
 
     auto rows = input_block.rows();
     auto bytes = input_block.bytes();
+    LOG(INFO) << "sout: id=" << print_id(state->query_id())
+              << ", block=" << input_block.dump_data(0);
     if (UNLIKELY(rows == 0)) {
         return status;
     }
