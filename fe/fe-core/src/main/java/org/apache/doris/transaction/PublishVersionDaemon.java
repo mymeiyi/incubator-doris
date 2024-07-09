@@ -93,6 +93,10 @@ public class PublishVersionDaemon extends MasterDaemon {
             return;
         }
         traverseReadyTxnAndDispatchPublishVersionTask(readyTransactionStates, allBackends);
+        if (readyTransactionStates.size() < 2) {
+            LOG.info("sout: ready txn size < 2");
+            return;
+        }
         tryFinishTxn(readyTransactionStates, infoService, globalTransactionMgr,
                 partitionVisibleVersions, backendPartitions);
     }
