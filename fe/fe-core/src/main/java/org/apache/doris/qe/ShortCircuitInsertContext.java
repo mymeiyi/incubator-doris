@@ -67,7 +67,7 @@ public class ShortCircuitInsertContext {
         this.serializedQueryOptions = ByteString.copyFrom(
                 new TSerializer().serialize(options));
         List<TExpr> exprs = new ArrayList<>();
-        OlapScanNode olapScanNode = (OlapScanNode) planner.getFragments().get(1).getPlanRoot();
+        OlapScanNode olapScanNode = (OlapScanNode) planner.getFragments().get(0).getPlanRoot();
         if (olapScanNode.getProjectList() != null) {
             // project on scan node
             exprs.addAll(olapScanNode.getProjectList().stream()
