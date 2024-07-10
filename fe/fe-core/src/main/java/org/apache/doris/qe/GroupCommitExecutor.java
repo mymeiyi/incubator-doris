@@ -134,11 +134,10 @@ public class GroupCommitExecutor implements CoordInterface {
     }
 
     // execute query without analyze & plan
-    public static void execute(StmtExecutor executor,
-            PreparedStatementContext preparedStmtCtx,
+    public static void execute(StmtExecutor executor, PreparedStatementContext preparedStmtCtx,
             StatementContext statementContext) throws Exception {
-        Preconditions.checkNotNull(preparedStmtCtx.shortCircuitQueryContext);
-        ShortCircuitQueryContext shortCircuitQueryContext = preparedStmtCtx.shortCircuitQueryContext.get();
+        Preconditions.checkNotNull(preparedStmtCtx.shortCircuitInsertContext);
+        ShortCircuitInsertContext shortCircuitQueryContext = preparedStmtCtx.shortCircuitInsertContext.get();
         // update conjuncts
         List<Expr> conjunctVals = statementContext.getIdToPlaceholderRealExpr().values().stream().map(
                         expression -> (
@@ -152,9 +151,9 @@ public class GroupCommitExecutor implements CoordInterface {
         }
         updateScanNodeConjuncts(shortCircuitQueryContext.scanNode, conjunctVals);
         // short circuit plan and execution
-        executor.executeAndSendResult(false, false,
+        /*executor.executeAndSendResult(false, false,
                 shortCircuitQueryContext.analzyedQuery, executor.getContext()
-                        .getMysqlChannel(), null, null);
+                        .getMysqlChannel(), null, null);*/
     }
 
     private static void updateScanNodeConjuncts(OlapScanNode scanNode, List<Expr> conjunctVals) {

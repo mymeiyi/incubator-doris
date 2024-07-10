@@ -22,6 +22,7 @@ import org.apache.doris.analysis.Queriable;
 import org.apache.doris.catalog.OlapTable;
 import org.apache.doris.planner.OlapScanNode;
 import org.apache.doris.planner.Planner;
+import org.apache.doris.planner.UnionNode;
 import org.apache.doris.thrift.TExpr;
 import org.apache.doris.thrift.TExprList;
 import org.apache.doris.thrift.TQueryOptions;
@@ -42,7 +43,7 @@ public class ShortCircuitInsertContext {
     // Cached for better CPU performance, since serialize DescriptorTable and
     // outputExprs are heavy work
     public final ByteString serializedDescTable;
-    public final ByteString serializedOutputExpr;
+    public final ByteString serializedOutputExpr = null;
     public final ByteString serializedQueryOptions;
 
     // For prepared statement cached structure,
@@ -66,20 +67,11 @@ public class ShortCircuitInsertContext {
         TQueryOptions options = planner.getQueryOptions() != null ? planner.getQueryOptions() : new TQueryOptions();
         this.serializedQueryOptions = ByteString.copyFrom(
                 new TSerializer().serialize(options));
-        List<TExpr> exprs = new ArrayList<>();
-        OlapScanNode olapScanNode = (OlapScanNode) planner.getFragments().get(0).getPlanRoot();
-        if (olapScanNode.getProjectList() != null) {
-            // project on scan node
-            exprs.addAll(olapScanNode.getProjectList().stream()
-                    .map(Expr::treeToThrift).collect(Collectors.toList()));
-        } else {
-            // add output slots
-            exprs.addAll(planner.getFragments().get(0).getOutputExprs().stream()
-                    .map(Expr::treeToThrift).collect(Collectors.toList()));
-        }
-        TExprList exprList = new TExprList(exprs);
-        serializedOutputExpr = ByteString.copyFrom(
-                new TSerializer().serialize(exprList));
+        UnionNode unionNode = (UnionNode) planner.getFragments().get(0).getPlanRoot();
+        List<List<TExpr>> exprs = new ArrayList<>();
+        unionNode.getMaterializedResultExprLists().forEach(
+                exprList -> exprs.add(exprList.stream().map(Expr::treeToThrift).collect(Collectors.toList())));
+        // serializedOutputExpr = ByteString.copyFrom(new TSerializer().serialize(exprs));
         this.cacheID = UUID.randomUUID();
         this.scanNode = ((OlapScanNode) planner.getScanNodes().get(0));
         this.tbl = this.scanNode.getOlapTable();
