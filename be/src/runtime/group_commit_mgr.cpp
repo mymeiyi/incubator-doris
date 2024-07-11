@@ -138,7 +138,7 @@ Status LoadBlockQueue::get_block(RuntimeState* runtime_state, vectorized::Block*
             auto last_print_duration = std::chrono::duration_cast<std::chrono::milliseconds>(
                                                std::chrono::steady_clock::now() - _last_print_time)
                                                .count();
-            if (last_print_duration >= 10000) {
+            if (last_print_duration >= 30000) {
                 _last_print_time = std::chrono::steady_clock::now();
                 LOG(INFO) << "find one group_commit need to commit, txn_id=" << txn_id
                           << ", label=" << label << ", instance_id=" << load_instance_id

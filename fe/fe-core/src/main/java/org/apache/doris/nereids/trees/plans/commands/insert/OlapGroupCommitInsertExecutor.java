@@ -71,6 +71,10 @@ public class OlapGroupCommitInsertExecutor extends OlapInsertExecutor {
     }
 
     @Override
+    protected void beforeExec() {
+    }
+
+    @Override
     protected void onComplete() {
         if (ctx.getState().getStateType() == MysqlStateType.ERR) {
             txnStatus = TransactionStatus.ABORTED;
