@@ -40,10 +40,6 @@ Status LoadBlockQueue::add_block(RuntimeState* runtime_state,
                                  UniqueId& load_id) {
     std::unique_lock l(mutex);
     RETURN_IF_ERROR(status);
-    auto start = std::chrono::steady_clock::now();
-    DBUG_EXECUTE_IF("LoadBlockQueue.add_block.back_pressure_time_out", {
-        start = std::chrono::steady_clock::now() - std::chrono::milliseconds(120000);
-    });
     if (UNLIKELY(runtime_state->is_cancelled())) {
         return runtime_state->cancel_reason();
     }
@@ -118,9 +114,9 @@ Status LoadBlockQueue::get_block(RuntimeState* runtime_state, vectorized::Block*
         _cancel_without_lock(st);
         return status;
     }
-    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
-                            std::chrono::steady_clock::now() - _start_time)
-                            .count();
+    std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
+    auto duration =
+            std::chrono::duration_cast<std::chrono::milliseconds>(now - _start_time).count();
     if (!_need_commit && duration >= _group_commit_interval_ms) {
         _need_commit = true;
     }
@@ -135,11 +131,11 @@ Status LoadBlockQueue::get_block(RuntimeState* runtime_state, vectorized::Block*
     };
     if (_block_queue.empty()) {
         if (_need_commit && duration >= 10 * _group_commit_interval_ms) {
-            auto last_print_duration = std::chrono::duration_cast<std::chrono::milliseconds>(
-                                               std::chrono::steady_clock::now() - _last_print_time)
-                                               .count();
+            auto last_print_duration =
+                    std::chrono::duration_cast<std::chrono::milliseconds>(now - _last_print_time)
+                            .count();
             if (last_print_duration >= 10000) {
-                _last_print_time = std::chrono::steady_clock::now();
+                _last_print_time = now;
                 LOG(INFO) << "find one group_commit need to commit, txn_id=" << txn_id
                           << ", label=" << label << ", instance_id=" << load_instance_id
                           << ", duration=" << duration << ", load_ids=" << get_load_ids();
