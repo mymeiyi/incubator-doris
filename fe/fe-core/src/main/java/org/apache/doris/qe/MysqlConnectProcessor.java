@@ -137,7 +137,7 @@ public class MysqlConnectProcessor extends ConnectProcessor {
             ctx.setExecutor(executor);
             executor.execute();
             PrepareStmtContext preparedStmtContext = ConnectContext.get().getPreparedStmt(String.valueOf(stmtId));
-            if (preparedStmtContext != null) {
+            if (preparedStmtContext != null && !ctx.isGroupCommit()) {
                 stmtStr = executeStmt.toSql();
             }
         } catch (Throwable e)  {
@@ -147,7 +147,9 @@ public class MysqlConnectProcessor extends ConnectProcessor {
             ctx.getState().setError(ErrorCode.ERR_UNKNOWN_ERROR,
                     e.getClass().getSimpleName() + ", msg: " + e.getMessage());
         }
-        auditAfterExec(stmtStr, executor.getParsedStmt(), executor.getQueryStatisticsForAuditLog(), true);
+        if (!ctx.isGroupCommit()) {
+            auditAfterExec(stmtStr, executor.getParsedStmt(), executor.getQueryStatisticsForAuditLog(), true);
+        }
     }
 
     private void handleExecute(PrepareCommand prepareCommand, long stmtId, PreparedStatementContext prepCtx) {
@@ -199,7 +201,9 @@ public class MysqlConnectProcessor extends ConnectProcessor {
             executor = new StmtExecutor(ctx, stmt);
             ctx.setExecutor(executor);
             executor.execute();
-            stmtStr = executeStmt.toSql();
+            if (!ctx.isGroupCommit()) {
+                stmtStr = executeStmt.toSql();
+            }
         } catch (Throwable e)  {
             // Catch all throwable.
             // If reach here, maybe doris bug.
@@ -207,7 +211,9 @@ public class MysqlConnectProcessor extends ConnectProcessor {
             ctx.getState().setError(ErrorCode.ERR_UNKNOWN_ERROR,
                     e.getClass().getSimpleName() + ", msg: " + e.getMessage());
         }
-        auditAfterExec(stmtStr, executor.getParsedStmt(), executor.getQueryStatisticsForAuditLog(), true);
+        if (!ctx.isGroupCommit()) {
+            auditAfterExec(stmtStr, executor.getParsedStmt(), executor.getQueryStatisticsForAuditLog(), true);
+        }
     }
 
     // process COM_EXECUTE, parse binary row data
