@@ -37,6 +37,7 @@ import org.apache.doris.task.UpdateVisibleVersionTask;
 import org.apache.doris.thrift.TPartitionVersionInfo;
 import org.apache.doris.thrift.TTaskType;
 
+import com.google.common.base.Strings;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import org.apache.commons.collections.CollectionUtils;
@@ -109,7 +110,12 @@ public class PublishVersionDaemon extends MasterDaemon {
             if (transactionState.hasSendTask()) {
                 continue;
             }
-            genPublishTask(allBackends, transactionState, createPublishVersionTaskTime, beIdToBaseTabletIds, batchTask);
+            try {
+                genPublishTask(allBackends, transactionState, createPublishVersionTaskTime, beIdToBaseTabletIds,
+                        batchTask);
+            } catch (Throwable t) {
+                LOG.error("errors while generate publish task for transaction: {}", transactionState, t);
+            }
         }
         if (!batchTask.getAllTasks().isEmpty()) {
             AgentTaskExecutor.submit(batchTask);
@@ -126,6 +132,10 @@ public class PublishVersionDaemon extends MasterDaemon {
             // could not just add to it, should new a new object, or the back map will destroyed
             publishBackends = Sets.newHashSet();
             publishBackends.addAll(allBackends);
+        }
+        if (transactionState.getTransactionId() == DebugPointUtil.getDebugParamOrDefault(
+                "PublishVersionDaemon.genPublishTask.failed", "txnId", -1L)) {
+            throw new NullPointerException("genPublishTask failed for txnId: " + transactionState.getTransactionId());
         }
 
         if (transactionState.getSubTxnIds() != null) {
