@@ -27,6 +27,7 @@ import org.apache.doris.common.MetaNotFoundException;
 import org.apache.doris.common.Pair;
 import org.apache.doris.common.io.Text;
 import org.apache.doris.common.io.Writable;
+import org.apache.doris.common.util.DebugPointUtil;
 import org.apache.doris.common.util.QueryableReentrantReadWriteLock;
 import org.apache.doris.common.util.SqlUtils;
 import org.apache.doris.common.util.Util;
@@ -237,7 +238,7 @@ public abstract class Table extends MetaObject implements Writable, TableIf, Gso
                             name, timeout, unit.name(), rwLock.getOwner());
                 } else {
                     LOG.warn("Failed to try table {}'s write lock. timeout {} {}. Current owner: {}, "
-                            + "current reader: {}",
+                                    + "current reader: {}",
                             name, timeout, unit.name(), rwLock.getOwner(), readLockThreads);
                 }
             }
@@ -266,22 +267,22 @@ public abstract class Table extends MetaObject implements Writable, TableIf, Gso
 
     public void writeLockOrDdlException() throws DdlException {
         writeLockOrException(new DdlException("unknown table, tableName=" + name,
-                                            ErrorCode.ERR_BAD_TABLE_ERROR));
+                ErrorCode.ERR_BAD_TABLE_ERROR));
     }
 
     public void writeLockOrMetaException() throws MetaNotFoundException {
         writeLockOrException(new MetaNotFoundException("unknown table, tableName=" + name,
-                                            ErrorCode.ERR_BAD_TABLE_ERROR));
+                ErrorCode.ERR_BAD_TABLE_ERROR));
     }
 
     public void writeLockOrAlterCancelException() throws AlterCancelException {
         writeLockOrException(new AlterCancelException("unknown table, tableName=" + name,
-                                            ErrorCode.ERR_BAD_TABLE_ERROR));
+                ErrorCode.ERR_BAD_TABLE_ERROR));
     }
 
     public boolean tryWriteLockOrMetaException(long timeout, TimeUnit unit) throws MetaNotFoundException {
         return tryWriteLockOrException(timeout, unit, new MetaNotFoundException("unknown table, tableName=" + name,
-                                                                ErrorCode.ERR_BAD_TABLE_ERROR));
+                ErrorCode.ERR_BAD_TABLE_ERROR));
     }
 
     public <E extends Exception> boolean tryWriteLockOrException(long timeout, TimeUnit unit, E e) throws E {
@@ -296,6 +297,12 @@ public abstract class Table extends MetaObject implements Writable, TableIf, Gso
     }
 
     public boolean tryWriteLockIfExist(long timeout, TimeUnit unit) {
+        if (Thread.currentThread().getName().contains("PUBLISH_VERSION") &&
+                id == DebugPointUtil.getDebugParamOrDefault("Table.tryWriteLockIfExist.failed", "tableId", -1L)) {
+            LOG.info("debug point hit. table[{}] tryWriteLockIfExist failed", id);
+            DebugPointUtil.removeDebugPoint("Table.tryWriteLockIfExist.failed");
+            return false;
+        }
         if (tryWriteLock(timeout, unit)) {
             if (isDropped) {
                 writeUnlock();
@@ -613,7 +620,8 @@ public abstract class Table extends MetaObject implements Writable, TableIf, Gso
         return Optional.empty();
     }
 
-    public void analyze(String dbName) {}
+    public void analyze(String dbName) {
+    }
 
     @Override
     public List<Long> getChunkSizes() {

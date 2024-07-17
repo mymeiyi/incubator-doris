@@ -1097,8 +1097,17 @@ public class DatabaseTransactionMgr {
         LOG.info("finish transaction {} with tables {}, get txn cost: {}ms", transactionId, tableIdList,
                 stopwatch.elapsed(TimeUnit.MILLISECONDS));
         List<? extends TableIf> tableList = db.getTablesOnIdOrderIfExist(tableIdList);
+        /*long tableId = DebugPointUtil.getDebugParamOrDefault(
+                "DatabaseTransactionMgr.finishTransaction.waitTableDropped", "tableId", -1);
+        while (tableId != -1 && ) {
+            LOG.warn("finish transaction {} failed, debug point", transactionId);
+            return;
+        }*/
         stopwatch.reset().start();
-        tableList = MetaLockUtils.writeLockTablesIfExist(tableList);
+        if (!MetaLockUtils.tryWriteLockTablesIfExist(tableList, 10, TimeUnit.SECONDS)) {
+            LOG.warn("finish transaction {} failed, get table lock timeout", transactionId);
+            return;
+        }
         PublishResult publishResult;
         try {
             LOG.info("finish transaction {}, get table lock cost: {}ms", transactionId,
