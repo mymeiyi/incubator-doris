@@ -68,6 +68,7 @@ import org.apache.doris.thrift.TUniqueId;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Stopwatch;
 import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -91,6 +92,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 
@@ -1066,13 +1068,14 @@ public class DatabaseTransactionMgr {
         if (DebugPointUtil.isEnable("DatabaseTransactionMgr.stop_finish_transaction")) {
             return;
         }
-
         TransactionState transactionState = null;
+        Stopwatch stopwatch = Stopwatch.createStarted();
         readLock();
         try {
             transactionState = unprotectedGetTransactionState(transactionId);
         } finally {
             readUnlock();
+            stopwatch.stop();
         }
 
         // case 1 If database is dropped, then we just throw MetaNotFoundException, because all related tables are
@@ -1091,13 +1094,16 @@ public class DatabaseTransactionMgr {
             tableIdList = transactionState.getSubTxnTableCommitInfos().stream().map(s -> s.getTableId()).distinct()
                     .collect(Collectors.toList());
         }
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("finish transaction {} with tables {}", transactionId, tableIdList);
-        }
+        LOG.info("finish transaction {} with tables {}, get txn cost: {}ms", transactionId, tableIdList,
+                stopwatch.elapsed(TimeUnit.MILLISECONDS));
         List<? extends TableIf> tableList = db.getTablesOnIdOrderIfExist(tableIdList);
+        stopwatch.reset().start();
         tableList = MetaLockUtils.writeLockTablesIfExist(tableList);
         PublishResult publishResult;
         try {
+            LOG.info("finish transaction {}, get table lock cost: {}ms", transactionId,
+                    stopwatch.stop().elapsed(TimeUnit.MILLISECONDS));
+            stopwatch.reset().start();
             // add all commit errors and publish errors to a single set
             Set<Long> errorReplicaIds = transactionState.getErrorReplicas();
             if (transactionState.getSubTxnIds() == null) {
@@ -1118,9 +1124,14 @@ public class DatabaseTransactionMgr {
                     return;
                 }
             }
+            LOG.info("finish transaction {}, check quorum replicas cost: {}ms", transactionId,
+                    stopwatch.stop().elapsed(TimeUnit.MILLISECONDS));
             boolean txnOperated = false;
+            stopwatch.reset().start();
             writeLock();
             try {
+                LOG.info("finish transaction {}, get write lock cost: {}ms", transactionId,
+                        stopwatch.stop().elapsed(TimeUnit.MILLISECONDS));
                 transactionState.setErrorReplicas(errorReplicaIds);
                 transactionState.setFinishTime(System.currentTimeMillis());
                 transactionState.clearErrorMsg();
