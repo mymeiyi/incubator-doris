@@ -50,11 +50,11 @@ Status WalReader::get_next_block(Block* block, size_t* read_rows, bool* eof) {
     LOG(INFO) << "sout: _verison=" << _version << ", p has_version=" << pblock.has_be_exec_version()
               << ", p version=" << pblock.be_exec_version() << ", old_wal_serde=" << OLD_WAL_SERDE
               << ", use new serde=" << USE_NEW_SERDE;
-    if (_version == 0 && pblock.has_be_exec_version() &&
+    /*if (_version == 0 && pblock.has_be_exec_version() &&
         pblock.be_exec_version() == OLD_WAL_SERDE) {
         VLOG_DEBUG << "need to set be_exec_version to 4 to solve compatibility issues";
         pblock.set_be_exec_version(USE_NEW_SERDE);
-    }
+    }*/
     if (st.is<ErrorCode::END_OF_FILE>()) {
         LOG(INFO) << "read eof on wal:" << _wal_path;
         *read_rows = 0;
