@@ -74,7 +74,7 @@ public class MysqlConnectProcessor extends ConnectProcessor {
         handleStmtClose(stmtId);
     }
 
-    private void debugPacket() {
+    private String getPacketString() {
         byte[] bytes = packetBuf.array();
         StringBuilder printB = new StringBuilder();
         for (byte b : bytes) {
@@ -86,8 +86,12 @@ public class MysqlConnectProcessor extends ConnectProcessor {
             }
             printB.append(" ");
         }
+        return printB.toString();
+    }
+
+    private void debugPacket() {
         if (LOG.isDebugEnabled()) {
-            LOG.debug("debug packet {}", printB.toString().substring(0, 200));
+            LOG.debug("debug packet {}", getPacketString().substring(0, 200));
         }
     }
 
@@ -315,6 +319,8 @@ public class MysqlConnectProcessor extends ConnectProcessor {
             case COM_STMT_CLOSE:
                 handleStmtClose();
                 break;
+            case COM_SLEEP:
+                LOG.warn("Unsupported command(" + command + "), packet: {}", getPacketString().substring(0, 200));
             default:
                 ctx.getState().setError(ErrorCode.ERR_UNKNOWN_COM_ERROR, "Unsupported command(" + command + ")");
                 LOG.warn("Unsupported command(" + command + ")");
