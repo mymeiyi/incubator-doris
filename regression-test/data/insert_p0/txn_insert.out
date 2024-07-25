@@ -39,6 +39,24 @@
 6
 8
 
+-- !select_random_column_order_1 --
+10	30	20
+11	0	31
+12	22	\N
+14	0	\N
+23	33	13
+35	25	15
+
+-- !select_random_column_order_2 --
+10	30	20
+11	0	31
+12	22	\N
+14	0	\N
+17	0	\N
+18	28	\N
+23	33	13
+35	25	15
+
 -- !select7 --
 \N	\N	\N	[null]	[null, 0]
 1	2.2	abc	[]	[]
