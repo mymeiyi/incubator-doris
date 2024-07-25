@@ -186,7 +186,16 @@ suite("insert_group_commit_into") {
                 // 7. insert into and add rollup
                 group_commit_insert """ insert into ${table}(name, id) values('c', 3);  """, 1
                 group_commit_insert """ insert into ${table}(id) values(4);  """, 1
+                sql "set enable_insert_strict=false"
                 group_commit_insert """ insert into ${table} values (1, 'a', 10),(5, 'q', 50),(101, 'a', 100);  """, 2
+                sql "set enable_insert_strict=true"
+                try {
+                    sql """ insert into ${table} values (102, 'a', 100);  """
+                    assertTrue(false, "insert should fail")
+                } catch (Exception e) {
+                    logger.info("error: " + e.getMessage())
+                    assertTrue(e.getMessage().contains("url:"))
+                }
                 // sql """ alter table ${table} ADD ROLLUP r1(name, score); """
                 group_commit_insert """ insert into ${table}(id, name) values(2, 'b');  """, 1
                 group_commit_insert """ insert into ${table}(id) select 6; """, 1
