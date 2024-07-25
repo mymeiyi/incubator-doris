@@ -69,6 +69,24 @@ suite("insert_group_commit_into") {
         return serverInfo
     }
 
+    def group_commit_insert_with_retry = { sql, expected_row_count ->
+        def retry = 0
+        while (true){
+            try {
+                return group_commit_insert(sql, expected_row_count)
+            } catch (Exception e) {
+                logger.warn("group_commit_insert failed, retry: " + retry + ", error: " + e.getMessage())
+                retry++
+                if (e.getMessage().contains("is blocked on schema change") && retry < 20) {
+                    sleep(1500)
+                    continue
+                } else {
+                    throw e
+                }
+            }
+        }
+    }
+
     def none_group_commit_insert = { sql, expected_row_count ->
         def stmt = prepareStatement """ ${sql}  """
         def result = stmt.executeUpdate()
@@ -196,9 +214,9 @@ suite("insert_group_commit_into") {
                     logger.info("error: " + e.getMessage())
                     assertTrue(e.getMessage().contains("url:"))
                 }
-                // sql """ alter table ${table} ADD ROLLUP r1(name, score); """
-                group_commit_insert """ insert into ${table}(id, name) values(2, 'b');  """, 1
-                group_commit_insert """ insert into ${table}(id) select 6; """, 1
+                sql """ alter table ${table} ADD ROLLUP r1(name, score); """
+                group_commit_insert_with_retry """ insert into ${table}(id, name) values(2, 'b');  """, 1
+                group_commit_insert_with_retry """ insert into ${table}(id) select 6; """, 1
 
                 getRowCount(20)
                 qt_sql """ select name, score from ${table} order by name asc; """
