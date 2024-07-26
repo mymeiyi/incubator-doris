@@ -899,12 +899,10 @@ Status VerticalSegmentWriter::write_batch() {
                 return status;
             }
 
-            if (_tablet_schema->cluster_key_idxes().empty()) {
-                if (cid < _num_key_columns) {
-                    LOG(INFO) << "sout: key column id=" << cid;
-                    key_columns.push_back(column);
-                }
-            } else {
+            if (cid < _num_key_columns) {
+                key_columns.push_back(column);
+            }
+            if (!_tablet_schema->cluster_key_idxes().empty()) {
                 for (auto id : _tablet_schema->cluster_key_idxes()) {
                     if (cid == id) {
                         column_map[cid] = column;
