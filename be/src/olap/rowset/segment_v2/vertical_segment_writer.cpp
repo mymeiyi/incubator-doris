@@ -881,11 +881,12 @@ Status VerticalSegmentWriter::write_batch() {
     // for mow with cluster keys, this is cluster key
     std::vector<vectorized::IOlapColumnDataAccessor*> key_columns;
     // only used fir mow with cluster keys
-    std::vector<vectorized::IOlapColumnDataAccessor*> primary_key_columns;
+    // std::vector<vectorized::IOlapColumnDataAccessor*> primary_key_columns;
     vectorized::IOlapColumnDataAccessor* seq_column = nullptr;
     bool is_mow_with_cluster_key = _tablet_schema->keys_type() == UNIQUE_KEYS &&
                                    _opts.enable_unique_key_merge_on_write &&
                                    !_tablet_schema->cluster_key_idxes().empty();
+    std::map<uint32_t, vectorized::IOlapColumnDataAccessor*> column_map;
     for (uint32_t cid = 0; cid < _tablet_schema->num_columns(); ++cid) {
         RETURN_IF_ERROR(_create_column_writer(cid, _tablet_schema->column(cid), _tablet_schema));
         for (auto& data : _batched_blocks) {
@@ -897,11 +898,19 @@ Status VerticalSegmentWriter::write_batch() {
             if (!status.ok()) {
                 return status;
             }
-            if (_is_key_column(cid)) {
-                key_columns.push_back(column);
-            }
-            if (is_mow_with_cluster_key && cid < _tablet_schema->num_key_columns()) {
-                primary_key_columns.push_back(column);
+
+            if (_tablet_schema->cluster_key_idxes().empty()) {
+                if (cid < _num_key_columns) {
+                    LOG(INFO) << "sout: key column id=" << cid;
+                    key_columns.push_back(column);
+                }
+            } else {
+                for (auto id : _tablet_schema->cluster_key_idxes()) {
+                    if (cid == id) {
+                        column_map[cid] = column;
+                        break;
+                    }
+                }
             }
             if (_tablet_schema->has_sequence_col() && cid == _tablet_schema->sequence_col_idx()) {
                 seq_column = column;
@@ -945,9 +954,13 @@ Status VerticalSegmentWriter::write_batch() {
             RETURN_IF_ERROR(_generate_short_key_index(key_columns, data.num_rows, short_key_pos));
         } else if (need_primary_key_indexes && need_short_key_indexes) { // mow with cluster keys
             // 1. generate primary key index
-            RETURN_IF_ERROR(_generate_primary_key_index(_primary_key_coders, primary_key_columns,
+            RETURN_IF_ERROR(_generate_primary_key_index(_primary_key_coders, key_columns,
                                                         seq_column, data.num_rows, true));
             // 2. generate short key index (use cluster key)
+            key_columns.clear();
+            for (const auto& cid : _tablet_schema->cluster_key_idxes()) {
+                key_columns.push_back(column_map[cid]);
+            }
             LOG(INFO) << "sout: key columns size=" << key_columns.size();
             RETURN_IF_ERROR(_generate_short_key_index(key_columns, data.num_rows, short_key_pos));
         } else {
