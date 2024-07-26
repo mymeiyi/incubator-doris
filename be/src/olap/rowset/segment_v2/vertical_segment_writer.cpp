@@ -901,11 +901,13 @@ Status VerticalSegmentWriter::write_batch() {
 
             if (cid < _num_key_columns) {
                 key_columns.push_back(column);
+                LOG(INFO) << "sout: add a key column, cid=" << cid;
             }
             if (!_tablet_schema->cluster_key_idxes().empty()) {
                 for (auto id : _tablet_schema->cluster_key_idxes()) {
                     if (cid == id) {
                         column_map[cid] = column;
+                        LOG(INFO) << "sout: add a cluster key column, cid=" << cid;
                         break;
                     }
                 }
@@ -952,14 +954,16 @@ Status VerticalSegmentWriter::write_batch() {
             RETURN_IF_ERROR(_generate_short_key_index(key_columns, data.num_rows, short_key_pos));
         } else if (need_primary_key_indexes && need_short_key_indexes) { // mow with cluster keys
             // 1. generate primary key index
+            LOG(INFO) << "sout: primary key columns size=" << key_columns.size();
             RETURN_IF_ERROR(_generate_primary_key_index(_primary_key_coders, key_columns,
                                                         seq_column, data.num_rows, true));
             // 2. generate short key index (use cluster key)
             key_columns.clear();
             for (const auto& cid : _tablet_schema->cluster_key_idxes()) {
                 key_columns.push_back(column_map[cid]);
+                LOG(INFO) << "sout: add a cluster key column 2, cid=" << cid;
             }
-            LOG(INFO) << "sout: key columns size=" << key_columns.size();
+            LOG(INFO) << "sout: cluster key columns size=" << key_columns.size();
             RETURN_IF_ERROR(_generate_short_key_index(key_columns, data.num_rows, short_key_pos));
         } else {
             LOG(WARNING) << "The segment does not need primary or short key index"
