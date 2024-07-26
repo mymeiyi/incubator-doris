@@ -883,9 +883,9 @@ Status VerticalSegmentWriter::write_batch() {
     // only used fir mow with cluster keys
     // std::vector<vectorized::IOlapColumnDataAccessor*> primary_key_columns;
     vectorized::IOlapColumnDataAccessor* seq_column = nullptr;
-    bool is_mow_with_cluster_key = _tablet_schema->keys_type() == UNIQUE_KEYS &&
+    /*bool is_mow_with_cluster_key = _tablet_schema->keys_type() == UNIQUE_KEYS &&
                                    _opts.enable_unique_key_merge_on_write &&
-                                   !_tablet_schema->cluster_key_idxes().empty();
+                                   !_tablet_schema->cluster_key_idxes().empty();*/
     std::map<uint32_t, vectorized::IOlapColumnDataAccessor*> column_map;
     for (uint32_t cid = 0; cid < _tablet_schema->num_columns(); ++cid) {
         RETURN_IF_ERROR(_create_column_writer(cid, _tablet_schema->column(cid), _tablet_schema));
