@@ -854,6 +854,7 @@ Status SegmentWriter::fill_missing_columns(vectorized::MutableColumns& mutable_f
 
 Status SegmentWriter::append_block(const vectorized::Block* block, size_t row_pos,
                                    size_t num_rows) {
+    LOG(INFO) << "sout: block=\n" << block->dump_data();
     if (_opts.rowset_ctx->partial_update_info &&
         _opts.rowset_ctx->partial_update_info->is_partial_update &&
         _opts.write_type == DataWriteType::TYPE_DIRECT &&
@@ -941,6 +942,12 @@ Status SegmentWriter::append_block(const vectorized::Block* block, size_t row_po
                 }
             }
             RETURN_IF_ERROR(_generate_short_key_index(key_columns, num_rows, short_key_pos));
+        } else {
+            LOG(WARNING) << "The segment does not need primary or short key index"
+                         << ", table_id=" << _tablet_schema->table_id()
+                         << ", keys_type=" << _tablet_schema->keys_type()
+                         << ", cluster_key num=" << _tablet_schema->cluster_key_idxes().size();
+            return Status::InternalError("The segment does not need primary or short key index");
         }
     }
 
