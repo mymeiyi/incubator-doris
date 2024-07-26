@@ -899,17 +899,24 @@ Status VerticalSegmentWriter::write_batch() {
                 return status;
             }
 
-            if (cid < _num_key_columns) {
-                key_columns.push_back(column);
-                LOG(INFO) << "sout: add a key column, cid=" << cid;
-            }
-            if (!_tablet_schema->cluster_key_idxes().empty()) {
-                for (auto id : _tablet_schema->cluster_key_idxes()) {
-                    if (cid == id) {
-                        column_map[cid] = column;
-                        LOG(INFO) << "sout: add a cluster key column, cid=" << cid;
-                        break;
+            if (_tablet_schema->keys_type() == UNIQUE_KEYS && _opts.enable_unique_key_merge_on_write) {
+                if (cid < _tablet_schema->num_key_columns()) {
+                    key_columns.push_back(column);
+                    LOG(INFO) << "sout: add a key column, cid=" << cid;
+                }
+                if (!_tablet_schema->cluster_key_idxes().empty()) {
+                    for (auto id : _tablet_schema->cluster_key_idxes()) {
+                        if (cid == id) {
+                            column_map[cid] = column;
+                            LOG(INFO) << "sout: add a cluster key column, cid=" << cid;
+                            break;
+                        }
                     }
+                }
+            } else {
+                if (cid < _num_key_columns) {
+                    key_columns.push_back(column);
+                    LOG(INFO) << "sout: add a key column, cid=" << cid;
                 }
             }
             if (_tablet_schema->has_sequence_col() && cid == _tablet_schema->sequence_col_idx()) {
