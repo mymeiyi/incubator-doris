@@ -421,7 +421,7 @@ public class ProfileManager extends MasterDaemon {
     }
 
     public String getLastQueryId() {
-        return queryIdDeque.getLast();
+        return "";
     }
 
     public String getProfileBrief(String queryID) {
