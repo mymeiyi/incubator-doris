@@ -948,6 +948,7 @@ Status VerticalSegmentWriter::write_batch() {
             RETURN_IF_ERROR(_generate_primary_key_index(_primary_key_coders, primary_key_columns,
                                                         seq_column, data.num_rows, true));
             // 2. generate short key index (use cluster key)
+            LOG(INFO) << "sout: key columns size=" << key_columns.size();
             RETURN_IF_ERROR(_generate_short_key_index(key_columns, data.num_rows, short_key_pos));
         } else {
             LOG(WARNING) << "The segment does not need primary or short key index"
