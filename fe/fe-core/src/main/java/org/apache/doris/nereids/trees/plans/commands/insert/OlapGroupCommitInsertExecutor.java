@@ -32,6 +32,7 @@ import org.apache.doris.nereids.NereidsPlanner;
 import org.apache.doris.nereids.analyzer.UnboundTableSink;
 import org.apache.doris.nereids.exceptions.AnalysisException;
 import org.apache.doris.nereids.trees.plans.algebra.OneRowRelation;
+import org.apache.doris.nereids.trees.plans.logical.LogicalPlan;
 import org.apache.doris.nereids.trees.plans.logical.LogicalUnion;
 import org.apache.doris.planner.GroupCommitPlanner;
 import org.apache.doris.qe.ConnectContext;
@@ -57,18 +58,24 @@ public class OlapGroupCommitInsertExecutor extends OlapInsertExecutor {
         super(ctx, table, labelName, planner, insertCtx, emptyInsert);
     }
 
-    protected static void analyzeGroupCommit(ConnectContext ctx, TableIf table, UnboundTableSink<?> tableSink) {
+    protected static void analyzeGroupCommit(ConnectContext ctx, TableIf table, LogicalPlan logicalQuery,
+            Optional<InsertCommandContext> insertCtx) {
         // The flag is set to false before execute sql, if it is true, this is a http stream
         if (ctx.isGroupCommit()) {
             return;
         }
-        ctx.setGroupCommit(ctx.getSessionVariable().isEnableInsertGroupCommit() && !ctx.isTxnModel()
-                && !ctx.getSessionVariable().isEnableUniqueKeyPartialUpdate() && table instanceof OlapTable
-                && ((OlapTable) table).getTableProperty().getUseSchemaLightChange()
-                && !((OlapTable) table).getQualifiedDbName().equalsIgnoreCase(FeConstants.INTERNAL_DB_NAME)
-                && tableSink.getPartitions().isEmpty()
-                && (!(table instanceof MTMV) || MTMVUtil.allowModifyMTMVData(ctx))
-                && (tableSink.child() instanceof OneRowRelation || tableSink.child() instanceof LogicalUnion));
+        if (logicalQuery instanceof UnboundTableSink) {
+            UnboundTableSink<?> tableSink = (UnboundTableSink<?>) logicalQuery;
+            ctx.setGroupCommit(ctx.getSessionVariable().isEnableInsertGroupCommit() && !ctx.isTxnModel()
+                    && !ctx.getSessionVariable().isEnableUniqueKeyPartialUpdate() && table instanceof OlapTable
+                    && ((OlapTable) table).getTableProperty().getUseSchemaLightChange()
+                    && !((OlapTable) table).getQualifiedDbName().equalsIgnoreCase(FeConstants.INTERNAL_DB_NAME)
+                    && tableSink.getPartitions().isEmpty()
+                    && (!(table instanceof MTMV) || MTMVUtil.allowModifyMTMVData(ctx))
+                    && !(insertCtx.isPresent() && insertCtx.get() instanceof OlapInsertCommandContext
+                    && ((OlapInsertCommandContext) insertCtx.get()).isOverwrite())
+                    && (tableSink.child() instanceof OneRowRelation || tableSink.child() instanceof LogicalUnion));
+        }
     }
 
     @Override
