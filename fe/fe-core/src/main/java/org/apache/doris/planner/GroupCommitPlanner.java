@@ -144,7 +144,6 @@ public class GroupCommitPlanner {
         LOG.info("sout: start group commit insert, queryId: {}", DebugUtil.printId(loadId));
         Future<PGroupCommitInsertResponse> future = BackendServiceProxy.getInstance()
                 .groupCommitInsert(new TNetworkAddress(backend.getHost(), backend.getBrpcPort()), request);
-        LOG.info("sout: finish group commit insert, queryId: {}", DebugUtil.printId(loadId));
         return future.get();
     }
 
@@ -194,5 +193,9 @@ public class GroupCommitPlanner {
             rows.add(data);
         }
         return rows;
+    }
+
+    public TUniqueId getLoadId() {
+        return loadId;
     }
 }
