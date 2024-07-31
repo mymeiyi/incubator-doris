@@ -1198,6 +1198,24 @@ public class NativeInsertStmt extends InsertStmt {
             return;
         }
         boolean partialUpdate = ConnectContext.get().getSessionVariable().isEnableUniqueKeyPartialUpdate();
+        if (LOG.isDebugEnabled()) {
+            StringBuilder sb = new StringBuilder();
+            sb.append("!isExplain: ").append(!isExplain())
+                    .append(", !partialUpdate: ").append(!partialUpdate)
+                    .append(", enableInsertGroupCommit: ").append(ConnectContext.get().getSessionVariable().isEnableInsertGroupCommit())
+                    .append(", sqlMode: ").append(ConnectContext.get().getSessionVariable().getSqlMode())
+                    .append(", lightSchemaChange: ").append(((OlapTable) targetTable).getTableProperty().getUseSchemaLightChange())
+                    .append(", dbName: ").append(targetTable.getQualifiedDbName())
+                    .append(", !isTxnModel: ").append(!ConnectContext.get().isTxnModel())
+                    .append(", isSelectStmt: ").append(getQueryStmt() instanceof SelectStmt)
+                    .append(", tableRefs: ").append(getQueryStmt() instanceof SelectStmt ? ((SelectStmt) getQueryStmt()).getTableRefs()
+                            .isEmpty() : "not select stmt")
+                    .append(", targetPartitionNames: ").append(targetPartitionNames)
+                    .append(", label: ").append(label == null ? "\\N" : label.getLabelName())
+                    .append(", analyzerIsNull: ").append(analyzer == null)
+                    .append(", analyzer: ").append((analyzer == null || analyzer != null && !analyzer.isReAnalyze()));
+            LOG.debug("analyze group commit, {}", sb.toString());
+        }
         if (!isExplain() && !partialUpdate && ConnectContext.get().getSessionVariable().isEnableInsertGroupCommit()
                 && ConnectContext.get().getSessionVariable().getSqlMode() != SqlModeHelper.MODE_NO_BACKSLASH_ESCAPES
                 && targetTable instanceof OlapTable
@@ -1213,12 +1231,19 @@ public class NativeInsertStmt extends InsertStmt {
                 for (List<Expr> row : selectStmt.getValueList().getRows()) {
                     for (Expr expr : row) {
                         if (!(expr instanceof LiteralExpr)) {
+                            if (LOG.isDebugEnabled()) {
+                                LOG.debug("analyze group commit to false, expr: {}, row: {}", expr, row);
+                            }
                             return;
                         }
                     }
                 }
                 // Does not support: insert into tbl values();
                 if (selectStmt.getValueList().getFirstRow().isEmpty() && CollectionUtils.isEmpty(targetColumnNames)) {
+                    if (LOG.isDebugEnabled()) {
+                        LOG.debug("analyze group commit to false, first row: {}, target columns: {}",
+                                selectStmt.getValueList().getFirstRow(), targetColumnNames);
+                    }
                     return;
                 }
             } else {
@@ -1228,6 +1253,10 @@ public class NativeInsertStmt extends InsertStmt {
                     if (items != null) {
                         for (SelectListItem item : items) {
                             if (item.getExpr() != null && !(item.getExpr() instanceof LiteralExpr)) {
+                                if (LOG.isDebugEnabled()) {
+                                    LOG.debug("analyze group commit to false, expr: {}, row: {}", item.getExpr(),
+                                            item);
+                                }
                                 return;
                             }
                         }
