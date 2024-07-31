@@ -1201,7 +1201,7 @@ public class NativeInsertStmt extends InsertStmt {
         if (LOG.isDebugEnabled()) {
             StringBuilder sb = new StringBuilder();
             sb.append("queryId: ").append(DebugUtil.printId(ConnectContext.get().queryId()))
-                    .append("!isExplain: ").append(!isExplain())
+                    .append(", !isExplain: ").append(!isExplain())
                     .append(", !partialUpdate: ").append(!partialUpdate)
                     .append(", enableInsertGroupCommit: ").append(ConnectContext.get().getSessionVariable().isEnableInsertGroupCommit())
                     .append(", sqlMode: ").append(ConnectContext.get().getSessionVariable().getSqlMode())
