@@ -59,6 +59,7 @@ import org.apache.doris.qe.ConnectContext;
 import org.apache.doris.qe.SqlModeHelper;
 import org.apache.doris.rewrite.ExprRewriter;
 import org.apache.doris.service.FrontendOptions;
+import org.apache.doris.thrift.TExprNode;
 import org.apache.doris.thrift.TQueryOptions;
 import org.apache.doris.thrift.TUniqueId;
 import org.apache.doris.transaction.TransactionState;
@@ -68,6 +69,7 @@ import org.apache.doris.transaction.TransactionState.TxnSourceType;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.google.common.base.Supplier;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -1234,7 +1236,8 @@ public class NativeInsertStmt extends InsertStmt {
                     for (Expr expr : row) {
                         if (!(expr instanceof LiteralExpr)) {
                             if (LOG.isDebugEnabled()) {
-                                LOG.debug("analyze group commit to false, expr: {}, row: {}", expr, row);
+                                LOG.debug("analyze group commit to false, expr: {}, class: {}, row: {}", expr,
+                                        expr.getClass().getSimpleName(), row);
                             }
                             return;
                         }
@@ -1256,8 +1259,8 @@ public class NativeInsertStmt extends InsertStmt {
                         for (SelectListItem item : items) {
                             if (item.getExpr() != null && !(item.getExpr() instanceof LiteralExpr)) {
                                 if (LOG.isDebugEnabled()) {
-                                    LOG.debug("analyze group commit to false, expr: {}, row: {}", item.getExpr(),
-                                            item);
+                                    LOG.debug("analyze group commit to false, expr: {}, class: {}, row: {}",
+                                            item.getExpr(), item.getExpr().getClass().getSimpleName(), item);
                                 }
                                 return;
                             }
