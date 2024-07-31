@@ -1200,12 +1200,14 @@ public class NativeInsertStmt extends InsertStmt {
         boolean partialUpdate = ConnectContext.get().getSessionVariable().isEnableUniqueKeyPartialUpdate();
         if (LOG.isDebugEnabled()) {
             StringBuilder sb = new StringBuilder();
-            sb.append("!isExplain: ").append(!isExplain())
+            sb.append("queryId: ").append(DebugUtil.printId(ConnectContext.get().queryId()))
+                    .append("!isExplain: ").append(!isExplain())
                     .append(", !partialUpdate: ").append(!partialUpdate)
                     .append(", enableInsertGroupCommit: ").append(ConnectContext.get().getSessionVariable().isEnableInsertGroupCommit())
                     .append(", sqlMode: ").append(ConnectContext.get().getSessionVariable().getSqlMode())
                     .append(", lightSchemaChange: ").append(((OlapTable) targetTable).getTableProperty().getUseSchemaLightChange())
                     .append(", dbName: ").append(targetTable.getQualifiedDbName())
+                    .append(", table: ").append(targetTable.getName())
                     .append(", !isTxnModel: ").append(!ConnectContext.get().isTxnModel())
                     .append(", isSelectStmt: ").append(getQueryStmt() instanceof SelectStmt)
                     .append(", tableRefs: ").append(getQueryStmt() instanceof SelectStmt ? ((SelectStmt) getQueryStmt()).getTableRefs()
