@@ -1186,6 +1186,9 @@ public class NativeInsertStmt extends InsertStmt {
                 throw new AnalysisException(
                         "table light_schema_change is false, can't do http_stream with group commit mode");
             }
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("analyze group commit for http stream");
+            }
             return;
         }
         // check if 'insert into' meets group commit requirements. If meets, set isGroupCommit to true
