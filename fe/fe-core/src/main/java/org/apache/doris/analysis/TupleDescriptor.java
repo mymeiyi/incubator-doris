@@ -301,7 +301,12 @@ public class TupleDescriptor {
         // populate slotsBySize; also compute avgSerializedSize
         for (SlotDescriptor d : slots) {
             if (d.isMaterialized()) {
-                slotsBySize.get(d.getType().getSlotSize()).add(d);
+                try {
+                    slotsBySize.get(d.getType().getSlotSize()).add(d);
+                } catch (Throwable e) {
+                    LOG.warn("error", e);
+                    throw e;
+                }
             }
         }
         // we shouldn't have anything of size 0
