@@ -427,7 +427,6 @@ Status GroupCommitTable::_create_group_commit_load(int be_exe_version,
     return st;
 }
 
-typedef<unknown> auto;
 Status GroupCommitTable::_finish_group_commit_load(int64_t db_id, int64_t table_id,
                                                    const std::string& label, int64_t txn_id,
                                                    const TUniqueId& instance_id, Status& status,
