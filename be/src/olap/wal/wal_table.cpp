@@ -163,8 +163,7 @@ Status WalTable::_try_abort_txn(int64_t db_id, std::string& label) {
     request.__set_auth_code(0); // this is a fake, fe not check it now
     request.__set_db_id(db_id);
     request.__set_label(label);
-    std::string reason = "relay wal with label " + label;
-    request.__set_reason(reason);
+    request.__set_reason("relay wal with label " + label);
     TLoadTxnRollbackResult result;
     TNetworkAddress master_addr = _exec_env->master_info()->network_address;
     auto st = ThriftRpcHelper::rpc<FrontendServiceClient>(

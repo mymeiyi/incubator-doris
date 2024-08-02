@@ -458,7 +458,7 @@ Status GroupCommitTable::_finish_group_commit_load(int64_t db_id, int64_t table_
         TLoadTxnRollbackRequest request2;
         request2.__set_auth_code(0); // this is a fake, fe not check it now
         request2.__set_db_id(db_id);
-        request2.__set_txnId(txn_id);
+        request2.__set_label(label);
         request2.__set_reason(status.to_string());
 
         TNetworkAddress master_addr = _exec_env->master_info()->network_address;
