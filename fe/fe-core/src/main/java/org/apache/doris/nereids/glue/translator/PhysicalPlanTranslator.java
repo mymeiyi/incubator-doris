@@ -2437,13 +2437,20 @@ public class PhysicalPlanTranslator extends DefaultPlanVisitor<PlanFragment, Pla
                     .collect(Collectors.toMap(SlotDescriptor::getId, s -> s));
             scanNode.getTupleDesc().getSlots().clear();
             for (SlotId slotId : slotIdsByOrder) {
-                scanNode.getTupleDesc().getSlots().add(idToSlotDescMap.get(slotId));
+                SlotDescriptor desc = idToSlotDescMap.get(slotId);
+                scanNode.getTupleDesc().getSlots().add(desc);
+                if (desc.getType() != null && desc.getType().isUnsupported()) {
+                    LOG.warn("add a unsupported slot: " + desc);
+                }
             }
         } else {
             scanNode.getTupleDesc().getSlots().removeIf(s -> !requiredSlotIdSet.contains(s.getId()));
         }
         if (scanNode.getTupleDesc().getSlots().isEmpty()) {
             scanNode.getTupleDesc().getSlots().add(smallest);
+            if (smallest.getType() != null && smallest.getType().isUnsupported()) {
+                LOG.warn("add a unsupported slot: " + smallest);
+            }
         }
         if (context.getSessionVariable() != null
                 && context.getSessionVariable().forbidUnknownColStats
