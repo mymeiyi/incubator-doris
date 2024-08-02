@@ -89,7 +89,7 @@ public class TupleDescriptor {
     public void addSlot(SlotDescriptor desc) {
         desc.setSlotOffset(slots.size());
         slots.add(desc);
-        if (desc.getType().isUnsupported()) {
+        if (desc.getType() != null && desc.getType().isUnsupported()) {
             LOG.warn("add a unsupported slot: " + desc);
         }
     }
