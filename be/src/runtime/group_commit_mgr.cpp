@@ -427,6 +427,7 @@ Status GroupCommitTable::_create_group_commit_load(int be_exe_version,
     return st;
 }
 
+typedef<unknown> auto;
 Status GroupCommitTable::_finish_group_commit_load(int64_t db_id, int64_t table_id,
                                                    const std::string& label, int64_t txn_id,
                                                    const TUniqueId& instance_id, Status& status,
@@ -454,9 +455,51 @@ Status GroupCommitTable::_finish_group_commit_load(int64_t db_id, int64_t table_
         if (state) {
             request.__set_commitInfos(state->tablet_commit_infos());
         }
-        TLoadTxnCommitResult result;
+
+        TLoadTxnRollbackRequest request2;
+        request2.__set_auth_code(0); // this is a fake, fe not check it now
+        request2.__set_db_id(db_id);
+        request2.__set_txnId(txn_id);
+        request2.__set_reason(status.to_string());
+
         TNetworkAddress master_addr = _exec_env->master_info()->network_address;
-        int retry_times = 0;
+
+        auto commit_st = _thread_pool->submit_func([label, txn_id, instance_id, master_addr,
+                                                    request] {
+            TLoadTxnCommitResult result;
+            auto st2 = ThriftRpcHelper::rpc<FrontendServiceClient>(
+                    master_addr.hostname, master_addr.port,
+                    [&request, &result](FrontendServiceConnection& client) {
+                        client->loadTxnCommit(result, request);
+                    },
+                    10000L);
+            auto result_status = Status::create(result.status);
+            std::stringstream ss;
+            ss << "finish group commit, label=" << label << ", txn_id=" << txn_id
+               << ", instance_id=" << print_id(instance_id)
+               << ", commit txn rpc status=" << st2.to_string()
+               << ", commit status=" << result_status.to_string();
+            LOG(INFO) << ss.str();
+        });
+        auto abort_st = _thread_pool->submit_func([label, txn_id, instance_id, master_addr,
+                                                   request2] {
+            TLoadTxnRollbackResult result2;
+            auto st2 = ThriftRpcHelper::rpc<FrontendServiceClient>(
+                    master_addr.hostname, master_addr.port,
+                    [&request2, &result2](FrontendServiceConnection& client) {
+                        client->loadTxnRollback(result2, request2);
+                    },
+                    10000L);
+            auto result_status = Status::create(result2.status);
+            std::stringstream ss;
+            ss << "finish group commit, label=" << label << ", txn_id=" << txn_id
+               << ", instance_id=" << print_id(instance_id)
+               << ", rollback txn rpc status=" << st2.to_string()
+               << ", rollback status=" << result_status.to_string();
+            LOG(INFO) << ss.str();
+        });
+
+        /*int retry_times = 0;
         while (retry_times < config::mow_stream_load_commit_retry_times) {
             st = ThriftRpcHelper::rpc<FrontendServiceClient>(
                     master_addr.hostname, master_addr.port,
@@ -475,7 +518,7 @@ Status GroupCommitTable::_finish_group_commit_load(int64_t db_id, int64_t table_
                     .tag("retry_times", retry_times)
                     .error(result_status);
             retry_times++;
-        }
+        }*/
     } else {
         // abort txn
         TLoadTxnRollbackRequest request;
