@@ -598,7 +598,7 @@ Status GroupCommitTable::_finish_group_commit_load(int64_t db_id, int64_t table_
         }
         ss << ", rows=" << state->num_rows_load_success();
     }
-    LOG(INFO) << ss.str();
+    // LOG(INFO) << ss.str();
     DBUG_EXECUTE_IF("LoadBlockQueue._finish_group_commit_load.get_wal_back_pressure_msg", {
         if (dp->param<int64_t>("table_id", -1) == table_id) {
             std ::string msg = _exec_env->wal_mgr()->get_wal_dirs_info_string();
