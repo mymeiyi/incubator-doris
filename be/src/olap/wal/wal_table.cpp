@@ -239,9 +239,11 @@ Status WalTable::_handle_stream_load(int64_t wal_id, const std::string& wal,
     ctx->load_type = TLoadType::MANUL_LOAD;
     ctx->load_src_type = TLoadSourceType::RAW;
     auto st = _http_stream_action->process_put(nullptr, ctx);
+    LOG(INFO) << "sout: replay label=" << label << ", st=" << st.to_string();
     if (st.ok()) {
         // wait stream load finish
         RETURN_IF_ERROR(ctx->future.get());
+        LOG(INFO) << "sout: replay label=" << label << ", ctx->st=" << ctx->status.to_string();
         if (ctx->status.ok()) {
             ctx->auth.auth_code = wal_id;
             st = _exec_env->stream_load_executor()->commit_txn(ctx.get());
