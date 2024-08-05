@@ -435,6 +435,7 @@ Status GroupCommitTable::_finish_group_commit_load(int64_t db_id, int64_t table_
     Status result_status;
     DBUG_EXECUTE_IF("LoadBlockQueue._finish_group_commit_load.err_status",
                     { status = Status::InternalError(""); });
+    status = Status::InternalError("test gc load error");
     if (status.ok()) {
         DBUG_EXECUTE_IF("LoadBlockQueue._finish_group_commit_load.commit_error",
                         { status = Status::InternalError(""); });

@@ -1834,7 +1834,7 @@ public class FrontendServiceImpl implements FrontendService.Iface {
         TLoadTxnRollbackResult result = new TLoadTxnRollbackResult();
         TStatus status = new TStatus(TStatusCode.OK);
         result.setStatus(status);
-        if (!Env.getCurrentEnv().isMaster()) {
+        if (!Env.getCurrentEnv().isMaster() || DebugPointUtil.isEnable("FrontendServiceImpl.loadTxnRollback.error")) {
             status.setStatusCode(TStatusCode.NOT_MASTER);
             status.addToErrorMsgs(NOT_MASTER_ERR_MSG);
             LOG.error("failed to loadTxnRollback:{}, request:{}, backend:{}",
