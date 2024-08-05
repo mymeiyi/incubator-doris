@@ -29,6 +29,7 @@ import org.apache.doris.common.DdlException;
 import org.apache.doris.common.FormatOptions;
 import org.apache.doris.common.LoadException;
 import org.apache.doris.common.UserException;
+import org.apache.doris.common.util.DebugUtil;
 import org.apache.doris.proto.InternalService;
 import org.apache.doris.proto.InternalService.PGroupCommitInsertRequest;
 import org.apache.doris.proto.InternalService.PGroupCommitInsertResponse;
@@ -140,6 +141,7 @@ public class GroupCommitPlanner {
                 .setLoadId(Types.PUniqueId.newBuilder().setHi(loadId.hi).setLo(loadId.lo)
                 .build()).addAllData(rows)
                 .build();
+        LOG.info("sout: start group commit insert, queryId: {}", DebugUtil.printId(loadId));
         Future<PGroupCommitInsertResponse> future = BackendServiceProxy.getInstance()
                 .groupCommitInsert(new TNetworkAddress(backend.getHost(), backend.getBrpcPort()), request);
         return future.get();
@@ -191,5 +193,9 @@ public class GroupCommitPlanner {
             rows.add(data);
         }
         return rows;
+    }
+
+    public TUniqueId getLoadId() {
+        return loadId;
     }
 }
