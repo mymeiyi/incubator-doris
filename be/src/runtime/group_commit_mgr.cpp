@@ -477,6 +477,7 @@ Status GroupCommitTable::_finish_group_commit_load(int64_t db_id, int64_t table_
                     .error(result_status);
             retry_times++;
         }
+        result_status = Status::InternalError("commit rpc error");
     } else {
         // abort txn
         TLoadTxnRollbackRequest request;
