@@ -119,10 +119,6 @@ Status WalTable::_relay_wal_one_by_one() {
 }
 
 Status WalTable::replay_wals() {
-    DBUG_EXECUTE_IF("WalTable.replay_wals.stop", {
-        LOG(INFO) << "WalTable.replay_wals.stop";
-        return Status::OK();
-    });
     {
         std::lock_guard<std::mutex> lock(_replay_wal_lock);
         if (_replay_wal_map.empty()) {
@@ -196,6 +192,10 @@ Status WalTable::_replay_wal_internal(const std::string& wal) {
         [[maybe_unused]] auto st = _try_abort_txn(_db_id, label);
     }
 #endif
+    DBUG_EXECUTE_IF("WalTable.replay_wals.stop", {
+        // LOG(INFO) << "WalTable.replay_wals.stop";
+        return Status::InternalError("WalTable.replay_wals.stop");
+    });
     return _replay_one_wal_with_streamload(wal_id, wal, label);
 }
 
