@@ -119,6 +119,10 @@ Status WalTable::_relay_wal_one_by_one() {
 }
 
 Status WalTable::replay_wals() {
+    DBUG_EXECUTE_IF("WalTable.replay_wals.stop", {
+        LOG(INFO) << "WalTable.replay_wals.stop";
+        return Status::OK();
+    });
     {
         std::lock_guard<std::mutex> lock(_replay_wal_lock);
         if (_replay_wal_map.empty()) {
