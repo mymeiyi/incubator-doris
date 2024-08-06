@@ -25,14 +25,38 @@ import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.UUID;
 import java.time.format.DateTimeFormatter;
+import org.awaitility.Awaitility;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 suite("test_pk_uk_case") {
     def tableNamePk = "primary_key_pk_uk"
     def tableNameUk = "unique_key_pk_uk"
 
     onFinish {
-        try_sql("DROP TABLE IF EXISTS ${tableNamePk}")
-        try_sql("DROP TABLE IF EXISTS ${tableNameUk}")
+        // try_sql("DROP TABLE IF EXISTS ${tableNamePk}")
+        // try_sql("DROP TABLE IF EXISTS ${tableNameUk}")
+    }
+
+    def waitForCompaction = { be_host, be_http_port, tablet_id ->
+        // wait for all compactions done
+        Awaitility.await().atMost(30, SECONDS).pollInterval(1, SECONDS).until {
+            StringBuilder sb = new StringBuilder();
+            sb.append("curl -X GET http://${be_host}:${be_http_port}")
+            sb.append("/api/compaction/run_status?tablet_id=")
+            sb.append(tablet_id)
+
+            String command = sb.toString()
+            logger.info(command)
+            process = command.execute()
+            code = process.waitFor()
+            out = process.getText()
+            logger.info("Get compaction status: code=" + code + ", out=" + out)
+            assertEquals(code, 0)
+            def compactionStatus = parseJson(out.trim())
+            assertEquals("success", compactionStatus.status.toLowerCase())
+
+            !compactionStatus.run_status
+        }
     }
 
     sql """ DROP TABLE IF EXISTS ${tableNamePk} """
@@ -60,7 +84,6 @@ suite("test_pk_uk_case") {
         DISTRIBUTED BY HASH(L_ORDERKEY) BUCKETS 1
         PROPERTIES (
         "replication_num" = "1",
-        "disable_auto_compaction" = "true",
         "enable_unique_key_merge_on_write" = "true"
         )
     """
@@ -89,10 +112,16 @@ suite("test_pk_uk_case") {
         DISTRIBUTED BY HASH(L_ORDERKEY) BUCKETS 1
         PROPERTIES (
         "replication_num" = "1",
-        "disable_auto_compaction" = "true",
         "enable_unique_key_merge_on_write" = "false"
         )
     """
+
+    def backendId_to_backendIP = [:]
+    def backendId_to_backendHttpPort = [:]
+    getBackendIpHttpPort(backendId_to_backendIP, backendId_to_backendHttpPort)
+    //TabletId,ReplicaId,BackendId,SchemaHash,Version,LstSuccessVersion,LstFailedVersion,LstFailedTime,LocalDataSize,RemoteDataSize,RowCount,State,LstConsistencyCheckTime,CheckVersion,VersionCount,PathHash,MetaUrl,CompactionStatus
+    def tablet = (sql """ show tablets from ${tableNamePk}; """)[0]
+    String backend_id = tablet[2]
 
     Random rd = new Random()
     def order_key = rd.nextInt(1000)
@@ -103,7 +132,7 @@ suite("test_pk_uk_case") {
     def city = RandomStringUtils.randomAlphabetic(10)
     def name = UUID.randomUUID().toString()
     def date = DateTimeFormatter.ofPattern("yyyy-MM-dd").format(LocalDateTime.now())
-    for (int idx = 0; idx < 10; idx++) {
+    for (int idx = 0; idx < 100; idx++) {
         order_key = rd.nextInt(10)
         part_key = rd.nextInt(10)
         city = RandomStringUtils.randomAlphabetic(10)
@@ -247,14 +276,25 @@ suite("test_pk_uk_case") {
         }       
 
         // delete
-        if (idx % 10 == 0) {
+        if (idx % 3 == 0) {
             order_key = rd.nextInt(10)
             part_key = rd.nextInt(10)
+
             result0 = sql """ SELECT count(*) FROM ${tableNamePk} where L_ORDERKEY < $order_key and L_PARTKEY < $part_key; """
             result1 = sql """ SELECT count(*) FROM ${tableNameUk} where L_ORDERKEY < $order_key and L_PARTKEY < $part_key"""
             logger.info("result:" + result0[0][0] + "|" + result1[0][0])
+            assertEquals(result0[0][0], result1[0][0])
+
             sql "DELETE FROM ${tableNamePk} where L_ORDERKEY < $order_key and L_PARTKEY < $part_key"
             sql "DELETE FROM ${tableNameUk} where L_ORDERKEY < $order_key and L_PARTKEY < $part_key"
+
+            be_run_cumulative_compaction(backendId_to_backendIP[backend_id], backendId_to_backendHttpPort[backend_id], tablet[0])
+            waitForCompaction(backendId_to_backendIP[backend_id], backendId_to_backendHttpPort[backend_id], tablet[0])
+
+            result0 = sql """ SELECT count(*) FROM ${tableNamePk} where L_ORDERKEY < $order_key and L_PARTKEY < $part_key; """
+            result1 = sql """ SELECT count(*) FROM ${tableNameUk} where L_ORDERKEY < $order_key and L_PARTKEY < $part_key"""
+            logger.info("result:" + result0[0][0] + "|" + result1[0][0])
+            assertEquals(result0[0][0], result1[0][0])
         }
     }
 }

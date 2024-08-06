@@ -587,7 +587,9 @@ Status BaseTablet::calc_delete_bitmap(const BaseTabletSPtr& tablet, RowsetShared
     auto rowset_id = rowset->rowset_id();
     if (specified_rowsets.empty() || segments.empty()) {
         LOG(INFO) << "skip to construct delete bitmap tablet: " << tablet->tablet_id()
-                  << " rowset: " << rowset_id;
+                  << " rowset: " << rowset_id
+                  << " specified rowset size: " << specified_rowsets.size()
+                  << ", segment size=" << segments.size();
         return Status::OK();
     }
 
@@ -1041,7 +1043,7 @@ Status BaseTablet::commit_phase_update_delete_bitmap(
     for (const auto& to_del : rowset_ids_to_del) {
         delete_bitmap->remove({to_del, 0, 0}, {to_del, UINT32_MAX, INT64_MAX});
     }
-
+    LOG(INFO) << "sout: call calc_delete_bitmap 3";
     RETURN_IF_ERROR(calc_delete_bitmap(tablet, rowset, segments, specified_rowsets, delete_bitmap,
                                        cur_version, token, rowset_writer));
     size_t total_rows = std::accumulate(
@@ -1270,6 +1272,7 @@ Status BaseTablet::update_delete_bitmap(const BaseTabletSPtr& self, TabletTxnInf
     if (!rowsets_skip_alignment.empty()) {
         auto token = self->calc_delete_bitmap_executor()->create_token();
         // set rowset_writer to nullptr to skip the alignment process
+        LOG(INFO) << "sout: call calc_delete_bitmap 0";
         RETURN_IF_ERROR(calc_delete_bitmap(self, rowset, segments, rowsets_skip_alignment,
                                            delete_bitmap, cur_version - 1, token.get(), nullptr));
         RETURN_IF_ERROR(token->wait());
@@ -1278,11 +1281,13 @@ Status BaseTablet::update_delete_bitmap(const BaseTabletSPtr& self, TabletTxnInf
     // When there is only one segment, it will be calculated in the current thread.
     // Otherwise, it will be submitted to the thread pool for calculation.
     if (segments.size() <= 1) {
+        LOG(INFO) << "sout: call calc_delete_bitmap 1";
         RETURN_IF_ERROR(calc_delete_bitmap(self, rowset, segments, specified_rowsets, delete_bitmap,
                                            cur_version - 1, nullptr, transient_rs_writer.get()));
 
     } else {
         auto token = self->calc_delete_bitmap_executor()->create_token();
+        LOG(INFO) << "sout: call calc_delete_bitmap 2";
         RETURN_IF_ERROR(calc_delete_bitmap(self, rowset, segments, specified_rowsets, delete_bitmap,
                                            cur_version - 1, token.get(),
                                            transient_rs_writer.get()));
@@ -1498,6 +1503,7 @@ Status BaseTablet::update_delete_bitmap_without_lock(
 
     OlapStopWatch watch;
     auto token = self->calc_delete_bitmap_executor()->create_token();
+    LOG(INFO) << "sout: call calc_delete_bitmap 4";
     RETURN_IF_ERROR(calc_delete_bitmap(self, rowset, segments, specified_rowsets, delete_bitmap,
                                        cur_version - 1, token.get()));
     RETURN_IF_ERROR(token->wait());
