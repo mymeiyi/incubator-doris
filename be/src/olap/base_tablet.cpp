@@ -426,6 +426,9 @@ std::vector<RowsetSharedPtr> BaseTablet::get_rowset_by_ids(
         if (!specified_rowset_ids ||
             specified_rowset_ids->find(rs.second->rowset_id()) != specified_rowset_ids->end()) {
             rowsets.push_back(rs.second);
+            LOG(INFO) << "sout: add one rowset: " << rs.second->rowset_id();
+        } else {
+            LOG(INFO) << "sout: skip add rowset: " << rs.second->rowset_id();
         }
     }
 
@@ -1241,6 +1244,9 @@ Status BaseTablet::update_delete_bitmap(const BaseTabletSPtr& self, TabletTxnInf
 
     std::vector<RowsetSharedPtr> specified_rowsets;
     {
+        LOG(INFO) << "sout: rowset ids to add size: " << rowset_ids_to_add.size()
+                  << ", txn rowset id size: " << txn_info->rowset_ids.size()
+                  << ", cur rowset ids: " << cur_rowset_ids.size();
         std::shared_lock meta_rlock(self->_meta_lock);
         specified_rowsets = self->get_rowset_by_ids(&rowset_ids_to_add);
     }
