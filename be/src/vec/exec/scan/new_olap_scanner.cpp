@@ -274,7 +274,8 @@ Status NewOlapScanner::_init_tablet_reader_params(
     RETURN_IF_ERROR(_init_variant_columns());
     RETURN_IF_ERROR(_init_return_columns());
 
-    _tablet_reader_params.reader_type = ReaderType::READER_QUERY;
+    _tablet_reader_params.reader_type =
+            ReaderType::READER_FULL_COMPACTION; // ReaderType::READER_QUERY;
     _tablet_reader_params.push_down_agg_type_opt = _local_state->get_push_down_agg_type();
 
     // TODO: If a new runtime filter arrives after `_conjuncts` move to `_common_expr_ctxs_push_down`,
