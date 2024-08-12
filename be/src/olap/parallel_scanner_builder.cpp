@@ -190,7 +190,7 @@ Status ParallelScannerBuilder::_load() {
                 LOG(INFO) << "sout: sub_txn_id=" << sub_txn_id << ", tablet=" << tablet_id
                           << ", partition_id=" << tablet->partition_id()
                           << ", tablet_uid=" << local_tablet->tablet_uid()
-                          << ", rowset=" << (rowset == nullptr);
+                          << ", rowset is null=" << (rowset == nullptr);
                 if (rowset != nullptr) {
                     rowsets.emplace_back(rowset);
                 }

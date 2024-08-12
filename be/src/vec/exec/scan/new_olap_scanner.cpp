@@ -276,6 +276,7 @@ Status NewOlapScanner::_init_tablet_reader_params(
 
     _tablet_reader_params.reader_type =
             ReaderType::READER_FULL_COMPACTION; // ReaderType::READER_QUERY;
+    LOG(INFO) << "sout: set reader type to= full compaction";
     _tablet_reader_params.push_down_agg_type_opt = _local_state->get_push_down_agg_type();
 
     // TODO: If a new runtime filter arrives after `_conjuncts` move to `_common_expr_ctxs_push_down`,
