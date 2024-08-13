@@ -26,70 +26,9 @@ import java.util.Map;
 import java.util.UUID;
 import java.time.format.DateTimeFormatter;
 
-suite("test_pk_uk_case") {
-    def tableNamePk = "primary_key_pk_uk"
-    def tableNameUk = "unique_key_pk_uk"
-
-    onFinish {
-        try_sql("DROP TABLE IF EXISTS ${tableNamePk}")
-        try_sql("DROP TABLE IF EXISTS ${tableNameUk}")
-    }
-
-    sql """ DROP TABLE IF EXISTS ${tableNamePk} """
-    sql """
-        CREATE TABLE IF NOT EXISTS ${tableNamePk} (
-        L_ORDERKEY    INTEGER NOT NULL,
-        L_PARTKEY     INTEGER NOT NULL,
-        L_SUPPKEY     INTEGER NOT NULL,
-        L_LINENUMBER  INTEGER NOT NULL,
-        L_QUANTITY    DECIMAL(15,2) NOT NULL,
-        L_EXTENDEDPRICE  DECIMAL(15,2) NOT NULL,
-        L_DISCOUNT    DECIMAL(15,2) NOT NULL,
-        L_TAX         DECIMAL(15,2) NOT NULL,
-        L_RETURNFLAG  CHAR(1) NOT NULL,
-        L_LINESTATUS  CHAR(1) NOT NULL,
-        L_SHIPDATE    DATE NOT NULL,
-        L_COMMITDATE  DATE NOT NULL,
-        L_RECEIPTDATE DATE NOT NULL,
-        L_SHIPINSTRUCT CHAR(60) NOT NULL,
-        L_SHIPMODE     CHAR(60) NOT NULL,
-        L_COMMENT      VARCHAR(60) NOT NULL
-        )
-        UNIQUE KEY(L_ORDERKEY, L_PARTKEY, L_SUPPKEY, L_LINENUMBER)
-        DISTRIBUTED BY HASH(L_ORDERKEY) BUCKETS 1
-        PROPERTIES (
-        "replication_num" = "1",
-        "enable_unique_key_merge_on_write" = "true"
-        )
-    """
-
-    sql """ DROP TABLE IF EXISTS ${tableNameUk} """
-    sql """
-        CREATE TABLE IF NOT EXISTS ${tableNameUk} (
-        L_ORDERKEY    INTEGER NOT NULL,
-        L_PARTKEY     INTEGER NOT NULL,
-        L_SUPPKEY     INTEGER NOT NULL,
-        L_LINENUMBER  INTEGER NOT NULL,
-        L_QUANTITY    DECIMAL(15,2) NOT NULL,
-        L_EXTENDEDPRICE  DECIMAL(15,2) NOT NULL,
-        L_DISCOUNT    DECIMAL(15,2) NOT NULL,
-        L_TAX         DECIMAL(15,2) NOT NULL,
-        L_RETURNFLAG  CHAR(1) NOT NULL,
-        L_LINESTATUS  CHAR(1) NOT NULL,
-        L_SHIPDATE    DATE NOT NULL,
-        L_COMMITDATE  DATE NOT NULL,
-        L_RECEIPTDATE DATE NOT NULL,
-        L_SHIPINSTRUCT CHAR(60) NOT NULL,
-        L_SHIPMODE     CHAR(60) NOT NULL,
-        L_COMMENT      VARCHAR(60) NOT NULL
-        )
-        UNIQUE KEY(L_ORDERKEY, L_PARTKEY, L_SUPPKEY, L_LINENUMBER)
-        DISTRIBUTED BY HASH(L_ORDERKEY) BUCKETS 1
-        PROPERTIES (
-        "replication_num" = "1",
-        "enable_unique_key_merge_on_write" = "false"
-        )
-    """
+suite("txn_insert_pk") {
+    def tableNameNormal = "txn_insert_pk_normal"
+    def tableNameTxn = "txn_insert_pk_txn"
 
     Random rd = new Random()
     def order_key = rd.nextInt(1000)
@@ -100,84 +39,70 @@ suite("test_pk_uk_case") {
     def city = RandomStringUtils.randomAlphabetic(10)
     def name = UUID.randomUUID().toString()
     def date = DateTimeFormatter.ofPattern("yyyy-MM-dd").format(LocalDateTime.now())
+
+    for (String tName: [tableNameNormal, tableNameTxn]) {
+        sql """ DROP TABLE IF EXISTS ${tName} """
+        sql """
+            CREATE TABLE IF NOT EXISTS ${tName} (
+            L_ORDERKEY    INTEGER NOT NULL,
+            L_PARTKEY     INTEGER NOT NULL,
+            L_SUPPKEY     INTEGER NOT NULL,
+            L_LINENUMBER  INTEGER NOT NULL,
+            L_QUANTITY    DECIMAL(15,2) NOT NULL,
+            L_EXTENDEDPRICE  DECIMAL(15,2) NOT NULL,
+            L_DISCOUNT    DECIMAL(15,2) NOT NULL,
+            L_TAX         DECIMAL(15,2) NOT NULL,
+            L_RETURNFLAG  CHAR(1) NOT NULL,
+            L_LINESTATUS  CHAR(1) NOT NULL,
+            L_SHIPDATE    DATE NOT NULL,
+            L_COMMITDATE  DATE NOT NULL,
+            L_RECEIPTDATE DATE NOT NULL,
+            L_SHIPINSTRUCT CHAR(60) NOT NULL,
+            L_SHIPMODE     CHAR(60) NOT NULL,
+            L_COMMENT      VARCHAR(60) NOT NULL
+            )
+            UNIQUE KEY(L_ORDERKEY, L_PARTKEY, L_SUPPKEY, L_LINENUMBER)
+            DISTRIBUTED BY HASH(L_ORDERKEY) BUCKETS 1
+            PROPERTIES (
+            "replication_num" = "1",
+            "enable_mow_light_delete" = "true"
+            )
+        """
+
+        sql """ INSERT INTO ${tName} VALUES
+            ($order_key, $part_key, $sub_key, $line_num, 
+            $decimal, $decimal, $decimal, $decimal, '1', '1', '$date', '$date', '$date', '$name', '$name', '$city')
+        """
+    }
+
     for (int idx = 0; idx < 10; idx++) {
-        order_key = rd.nextInt(10)
-        part_key = rd.nextInt(10)
-        city = RandomStringUtils.randomAlphabetic(10)
-        name = UUID.randomUUID().toString()
-        sql """ INSERT INTO ${tableNamePk} VALUES
-            ($order_key, $part_key, $sub_key, $line_num, 
-            $decimal, $decimal, $decimal, $decimal, '1', '1', '$date', '$date', '$date', '$name', '$name', '$city')
-            """
-        sql """ INSERT INTO ${tableNameUk} VALUES
-            ($order_key, $part_key, $sub_key, $line_num,
-            $decimal, $decimal, $decimal, $decimal, '1', '1', '$date', '$date', '$date', '$name', '$name', '$city')
-            """
-
-        order_key = rd.nextInt(10)
-        part_key = rd.nextInt(10)
-        city = RandomStringUtils.randomAlphabetic(10)
-        name = UUID.randomUUID().toString()
-        sql """ INSERT INTO ${tableNamePk} VALUES
-            ($order_key, $part_key, $sub_key, $line_num, 
-            $decimal, $decimal, $decimal, $decimal, '1', '1', '$date', '$date', '$date', '$name', '$name', '$city')
-            """
-        sql """ INSERT INTO ${tableNameUk} VALUES
-            ($order_key, $part_key, $sub_key, $line_num,
-            $decimal, $decimal, $decimal, $decimal, '1', '1', '$date', '$date', '$date', '$name', '$name', '$city')
-            """
-
-        order_key = rd.nextInt(10)
-        part_key = rd.nextInt(10)
-        city = RandomStringUtils.randomAlphabetic(10)
-        name = UUID.randomUUID().toString()
-        sql """ INSERT INTO ${tableNamePk} VALUES
-            ($order_key, $part_key, $sub_key, $line_num, 
-            $decimal, $decimal, $decimal, $decimal, '1', '1', '$date', '$date', '$date', '$name', '$name', '$city')
-            """
-        sql """ INSERT INTO ${tableNameUk} VALUES
-            ($order_key, $part_key, $sub_key, $line_num,
-            $decimal, $decimal, $decimal, $decimal, '1', '1', '$date', '$date', '$date', '$name', '$name', '$city')
-            """
-
-        order_key = rd.nextInt(10)
-        part_key = rd.nextInt(10)
-        city = RandomStringUtils.randomAlphabetic(10)
-        name = UUID.randomUUID().toString()
-        sql """ INSERT INTO ${tableNamePk} VALUES
-            ($order_key, $part_key, $sub_key, $line_num, 
-            $decimal, $decimal, $decimal, $decimal, '1', '1', '$date', '$date', '$date', '$name', '$name', '$city')
-            """
-        sql """ INSERT INTO ${tableNameUk} VALUES
-            ($order_key, $part_key, $sub_key, $line_num,
-            $decimal, $decimal, $decimal, $decimal, '1', '1', '$date', '$date', '$date', '$name', '$name', '$city')
-            """
-        
-        order_key = rd.nextInt(10)
-        part_key = rd.nextInt(10)
-        city = RandomStringUtils.randomAlphabetic(10)
-        name = UUID.randomUUID().toString()
-        sql """ INSERT INTO ${tableNamePk} VALUES
-            ($order_key, $part_key, $sub_key, $line_num, 
-            $decimal, $decimal, $decimal, $decimal, '1', '1', '$date', '$date', '$date', '$name', '$name', '$city')
-            """
-        sql """ INSERT INTO ${tableNameUk} VALUES
-            ($order_key, $part_key, $sub_key, $line_num,
-            $decimal, $decimal, $decimal, $decimal, '1', '1', '$date', '$date', '$date', '$name', '$name', '$city')
-            """
+        for (int i = 0; i < 5; i++) {
+            order_key = rd.nextInt(10)
+            part_key = rd.nextInt(10)
+            city = RandomStringUtils.randomAlphabetic(10)
+            name = UUID.randomUUID().toString()
+            sql """ INSERT INTO ${tableNameNormal} VALUES
+                ($order_key, $part_key, $sub_key, $line_num, 
+                $decimal, $decimal, $decimal, $decimal, '1', '1', '$date', '$date', '$date', '$name', '$name', '$city')
+                """
+            sql """ INSERT INTO ${tableNameTxn} VALUES
+                ($order_key, $part_key, $sub_key, $line_num,
+                $decimal, $decimal, $decimal, $decimal, '1', '1', '$date', '$date', '$date', '$name', '$name', '$city')
+                """
+        }
 
         // insert batch key 
         order_key = rd.nextInt(10)
         part_key = rd.nextInt(10)
         city = RandomStringUtils.randomAlphabetic(10)
         name = UUID.randomUUID().toString()
-        sql """ INSERT INTO ${tableNamePk} VALUES
+        sql """ INSERT INTO ${tableNameNormal} VALUES
             ($order_key, $part_key, $sub_key, $line_num, $decimal, $decimal, $decimal, $decimal, '1', '1', '$date', '$date', '$date', '$name', '$name', '$city'),
             ($order_key, $part_key, $sub_key, $line_num, $decimal, $decimal, $decimal, $decimal, '1', '1', '$date', '$date', '$date', '$name', '$name', '$city'),
             ($order_key, $part_key, $sub_key, $line_num, $decimal, $decimal, $decimal, $decimal, '1', '1', '$date', '$date', '$date', '$name', '$name', '$city'),
             ($order_key, $part_key, $sub_key, $line_num, $decimal, $decimal, $decimal, $decimal, '1', '1', '$date', '$date', '$date', '$name', '$name', '$city')
         """
-        sql """ INSERT INTO ${tableNameUk} VALUES
+        sql """ INSERT INTO ${tableNameTxn} VALUES
             ($order_key, $part_key, $sub_key, $line_num, $decimal, $decimal, $decimal, $decimal, '1', '1', '$date', '$date', '$date', '$name', '$name', '$city'),
             ($order_key, $part_key, $sub_key, $line_num, $decimal, $decimal, $decimal, $decimal, '1', '1', '$date', '$date', '$date', '$name', '$name', '$city'),
             ($order_key, $part_key, $sub_key, $line_num, $decimal, $decimal, $decimal, $decimal, '1', '1', '$date', '$date', '$date', '$name', '$name', '$city'),
@@ -187,10 +112,13 @@ suite("test_pk_uk_case") {
         sql "sync"
 
         // count(*)
-        def result0 = sql """ SELECT count(*) FROM ${tableNamePk}; """
-        def result1 = sql """ SELECT count(*) FROM ${tableNameUk}; """
+        def result0 = sql """ SELECT count(*) FROM ${tableNameNormal}; """
+        def result1 = sql """ SELECT count(*) FROM ${tableNameTxn}; """
         logger.info("result:" + result0[0][0] + "|" + result1[0][0])
         assertEquals(result0[0], result1[0])
+        if (result0[0][0]!=result1[0][0]) {
+            logger.info("result:" + result0[0][0] + "|" + result1[0][0])
+        }
 
         result0 = sql """ SELECT
                             l_returnflag,
@@ -204,7 +132,7 @@ suite("test_pk_uk_case") {
                             avg(l_discount)                                       AS avg_disc,
                             count(*)                                              AS count_order
                             FROM
-                            ${tableNamePk}
+                            ${tableNameNormal}
                             GROUP BY
                             l_returnflag,
                             l_linestatus
@@ -224,14 +152,14 @@ suite("test_pk_uk_case") {
                             avg(l_discount)                                       AS avg_disc,
                             count(*)                                              AS count_order
                             FROM
-                            ${tableNameUk}
+                            ${tableNameTxn}
                             GROUP BY
                             l_returnflag,
                             l_linestatus
                             ORDER BY
                             l_returnflag,
                             l_linestatus
-                        """
+                        """  
         assertEquals(result0.size(), result1.size())
         for (int i = 0; i < result0.size(); ++i) {
             for (int j = 0; j < result0[0].size(); j++) {
@@ -244,11 +172,11 @@ suite("test_pk_uk_case") {
         if (idx % 10 == 0) {
             order_key = rd.nextInt(10)
             part_key = rd.nextInt(10)
-            result0 = sql """ SELECT count(*) FROM ${tableNamePk} where L_ORDERKEY < $order_key and L_PARTKEY < $part_key; """
-            result1 = sql """ SELECT count(*) FROM ${tableNameUk} where L_ORDERKEY < $order_key and L_PARTKEY < $part_key"""
+            result0 = sql """ SELECT count(*) FROM ${tableNameNormal} where L_ORDERKEY < $order_key and L_PARTKEY < $part_key; """
+            result1 = sql """ SELECT count(*) FROM ${tableNameTxn} where L_ORDERKEY < $order_key and L_PARTKEY < $part_key"""
             logger.info("result:" + result0[0][0] + "|" + result1[0][0])
-            sql "DELETE FROM ${tableNamePk} where L_ORDERKEY < $order_key and L_PARTKEY < $part_key"
-            sql "DELETE FROM ${tableNameUk} where L_ORDERKEY < $order_key and L_PARTKEY < $part_key"
+            sql "DELETE FROM ${tableNameNormal} where L_ORDERKEY < $order_key and L_PARTKEY < $part_key"
+            sql "DELETE FROM ${tableNameTxn} where L_ORDERKEY < $order_key and L_PARTKEY < $part_key"
         }
     }
 }
