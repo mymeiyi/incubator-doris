@@ -76,6 +76,7 @@ NewOlapScanner::NewOlapScanner(pipeline::ScanLocalStateBase* parent,
           _tablet_reader_params({
                   .tablet = std::move(params.tablet),
                   .tablet_schema {},
+                  .direct_mode = false,
                   .aggregation = params.aggregation,
                   .version = {0, params.version},
                   .start_key {},
