@@ -799,6 +799,10 @@ public class OlapScanNode extends ScanNode {
             paloRange.setVersion(visibleVersionStr);
             paloRange.setVersionHash("");
             paloRange.setTabletId(tabletId);
+            if (ConnectContext.get().isTxnModel()) {
+                paloRange.setSubTxnIds(ConnectContext.get().getTxnEntry().getSubTxnIds());
+                LOG.info("sout: add subTxnIds: {}", paloRange.getSubTxnIds());
+            }
 
             // random shuffle List && only collect one copy
             //
