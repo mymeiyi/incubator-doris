@@ -85,7 +85,6 @@ import org.apache.doris.thrift.TScanRange;
 import org.apache.doris.thrift.TScanRangeLocation;
 import org.apache.doris.thrift.TScanRangeLocations;
 import org.apache.doris.thrift.TSortInfo;
-import org.apache.doris.transaction.TransactionEntry;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
