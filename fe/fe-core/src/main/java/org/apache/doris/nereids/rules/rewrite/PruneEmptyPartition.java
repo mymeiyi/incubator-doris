@@ -37,6 +37,12 @@ public class PruneEmptyPartition extends OneRewriteRuleFactory {
             LogicalOlapScan scan = ctx.root;
             OlapTable table = scan.getTable();
             List<Long> ids = table.selectNonEmptyPartitionIds(scan.getSelectedPartitionIds());
+            if (ConnectContext.get().isTxnModel()) {
+                List<Long> subTxnIds = ConnectContext.get().getTxnEntry().getSubTxnIds();
+                if (!subTxnIds.isEmpty()) {
+                    ids.addAll(scan.getSelectedPartitionIds());
+                }
+            }
             if (ids.isEmpty()) {
                 return new LogicalEmptyRelation(ConnectContext.get().getStatementContext().getNextRelationId(),
                         scan.getOutput());
