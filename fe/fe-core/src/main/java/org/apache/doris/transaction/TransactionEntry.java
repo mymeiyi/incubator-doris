@@ -23,8 +23,10 @@ import org.apache.doris.catalog.DatabaseIf;
 import org.apache.doris.catalog.Env;
 import org.apache.doris.catalog.KeysType;
 import org.apache.doris.catalog.OlapTable;
+import org.apache.doris.catalog.Partition;
 import org.apache.doris.catalog.Table;
 import org.apache.doris.catalog.TableIf;
+import org.apache.doris.catalog.Tablet;
 import org.apache.doris.cloud.transaction.CloudGlobalTransactionMgr;
 import org.apache.doris.common.AnalysisException;
 import org.apache.doris.common.Config;
@@ -519,5 +521,44 @@ public class TransactionEntry {
 
     public List<Long> getSubTxnIds() {
         return subTransactionStates.stream().map(SubTransactionState::getSubTransactionId).collect(Collectors.toList());
+    }
+
+    public List<Long> getPartitionSubTxnIds(long tableId, Partition partition) {
+        List<Long> subTxnIds = new ArrayList<>();
+        for (SubTransactionState subTransactionState : subTransactionStates) {
+            if (subTransactionState.getTable().getId() != tableId) {
+                continue;
+            }
+            for (TTabletCommitInfo tabletCommitInfo : subTransactionState.getTabletCommitInfos()) {
+                // TODO base index
+                if (partition.getBaseIndex().getTablet(tabletCommitInfo.getTabletId()) != null) {
+                    subTxnIds.add(subTransactionState.getSubTransactionId());
+                    break;
+                }
+            }
+        }
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("table_id={}, partition_id={}, sub_txn_ids={}", tableId, partition.getId(), subTxnIds);
+        }
+        return subTxnIds;
+    }
+
+    public List<Long> getTabletSubTxnIds(long tableId, Tablet tablet) {
+        List<Long> subTxnIds = new ArrayList<>();
+        for (SubTransactionState subTransactionState : subTransactionStates) {
+            if (subTransactionState.getTable().getId() != tableId) {
+                continue;
+            }
+            for (TTabletCommitInfo tabletCommitInfo : subTransactionState.getTabletCommitInfos()) {
+                if (tablet.getId() == tabletCommitInfo.getTabletId()) {
+                    subTxnIds.add(subTransactionState.getSubTransactionId());
+                    break;
+                }
+            }
+        }
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("table_id={}, tablet_id={}, sub_txn_ids={}", tableId, tablet.getId(), subTxnIds);
+        }
+        return subTxnIds;
     }
 }

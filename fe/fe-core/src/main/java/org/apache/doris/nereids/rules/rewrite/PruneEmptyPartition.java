@@ -18,6 +18,7 @@
 package org.apache.doris.nereids.rules.rewrite;
 
 import org.apache.doris.catalog.OlapTable;
+import org.apache.doris.catalog.Partition;
 import org.apache.doris.nereids.rules.Rule;
 import org.apache.doris.nereids.rules.RuleType;
 import org.apache.doris.nereids.trees.plans.logical.LogicalEmptyRelation;
@@ -38,9 +39,17 @@ public class PruneEmptyPartition extends OneRewriteRuleFactory {
             OlapTable table = scan.getTable();
             List<Long> ids = table.selectNonEmptyPartitionIds(scan.getSelectedPartitionIds());
             if (ConnectContext.get().isTxnModel()) {
-                List<Long> subTxnIds = ConnectContext.get().getTxnEntry().getSubTxnIds();
-                if (!subTxnIds.isEmpty()) {
-                    ids.addAll(scan.getSelectedPartitionIds());
+                for (Long selectedPartitionId : scan.getSelectedPartitionIds()) {
+                    if (ids.contains(selectedPartitionId)) {
+                        continue;
+                    }
+                    Partition partition = table.getPartition(selectedPartitionId);
+                    if (partition == null) {
+                        continue;
+                    }
+                    if (!ConnectContext.get().getTxnEntry().getPartitionSubTxnIds(table.getId(), partition).isEmpty()) {
+                        ids.add(selectedPartitionId);
+                    }
                 }
             }
             if (ids.isEmpty()) {
