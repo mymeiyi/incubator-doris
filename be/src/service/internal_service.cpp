@@ -2066,6 +2066,7 @@ void PInternalService::group_commit_insert(google::protobuf::RpcController* cont
                                    "_exec_plan_fragment_impl meet unknown error");
             }
             if (!st.ok()) {
+                closure_guard.release();
                 LOG(WARNING) << "exec plan fragment failed, errmsg=" << st;
             } else {
                 closure_guard.release();
