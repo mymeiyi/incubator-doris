@@ -24,6 +24,7 @@ import org.apache.doris.catalog.Env;
 import org.apache.doris.catalog.KeysType;
 import org.apache.doris.catalog.OlapTable;
 import org.apache.doris.catalog.Partition;
+import org.apache.doris.catalog.Replica;
 import org.apache.doris.catalog.Table;
 import org.apache.doris.catalog.TableIf;
 import org.apache.doris.catalog.Tablet;
@@ -560,5 +561,35 @@ public class TransactionEntry {
             LOG.debug("table_id={}, tablet_id={}, sub_txn_ids={}", tableId, tablet.getId(), subTxnIds);
         }
         return subTxnIds;
+    }
+
+    public List<Replica> getQueryableReplicas(long tabletId, List<Replica> replicas, List<Long> subTxnIds) {
+        List<Replica> queryableReplicas = new ArrayList<>();
+        for (Long subTxnId : subTxnIds) {
+
+        }
+        return queryableReplicas;
+    }
+
+    private List<Replica> getQueryableReplicas(long tabletId, List<Replica> replicas, long subTxnId) {
+        List<Replica> queryableReplicas = new ArrayList<>();
+        for (SubTransactionState subTransactionState : subTransactionStates) {
+            if (subTxnId != subTransactionState.getSubTransactionId()) {
+                continue;
+            }
+            List<TTabletCommitInfo> tabletCommitInfos = subTransactionState.getTabletCommitInfos();
+            for (TTabletCommitInfo tabletCommitInfo : tabletCommitInfos) {
+                if (tabletCommitInfo.getTabletId() == tabletId) {
+                    for (Replica replica : replicas) {
+                        if (replica.getBackendId() == tabletCommitInfo.getBackendId()) {
+                            queryableReplicas.add(replica);
+                            break;
+                        }
+                    }
+                }
+            }
+            break;
+        }
+        return queryableReplicas;
     }
 }

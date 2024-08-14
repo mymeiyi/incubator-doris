@@ -824,6 +824,10 @@ public class OlapScanNode extends ScanNode {
                 }
                 throw new UserException(sb.toString());
             }
+            if (paloRange.isSetSubTxnIds() && !paloRange.getSubTxnIds().isEmpty()) {
+                List<Long> subTxnIds = paloRange.getSubTxnIds();
+
+            }
 
             if (useFixReplica <= -1) {
                 if (skipMissingVersion) {
