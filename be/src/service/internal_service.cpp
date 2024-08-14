@@ -2081,6 +2081,8 @@ void PInternalService::group_commit_insert(google::protobuf::RpcController* cont
                 }
             }
         }
+        sleep(4);
+        LOG(INFO) << "sout: return";
     });
     if (!ret) {
         _exec_env->new_load_stream_mgr()->remove(load_id);
