@@ -2083,7 +2083,7 @@ void PInternalService::group_commit_insert(google::protobuf::RpcController* cont
                 }
             }
         }
-        sleep(4);
+        // sleep(4);
         LOG(INFO) << "sout: return";
     });
     if (!ret) {
