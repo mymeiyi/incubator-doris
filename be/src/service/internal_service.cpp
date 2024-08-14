@@ -2057,6 +2057,7 @@ void PInternalService::group_commit_insert(google::protobuf::RpcController* cont
                                         to_load_error_http_path(state->get_error_log_file_path()));
                             }
                             _exec_env->new_load_stream_mgr()->remove(load_id);
+                            LOG(INFO) << "sout: finish execute callback";
                         });
             } catch (const Exception& e) {
                 st = e.to_status();
