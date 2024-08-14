@@ -2050,6 +2050,8 @@ void PInternalService::group_commit_insert(google::protobuf::RpcController* cont
                             response->set_txn_id(state->wal_id());
                             response->set_loaded_rows(state->num_rows_load_success());
                             response->set_filtered_rows(state->num_rows_load_filtered());
+                            LOG(INFO) << "sout: st=" << st << ", status=" << status
+                                      << ", response st=" << response->status().status_code();
                             status->to_protobuf(response->mutable_status());
                             if (!state->get_error_log_file_path().empty()) {
                                 response->set_error_url(
@@ -2067,6 +2069,7 @@ void PInternalService::group_commit_insert(google::protobuf::RpcController* cont
             if (!st.ok()) {
                 LOG(WARNING) << "exec plan fragment failed, load_id=" << print_id(load_id)
                              << ", errmsg=" << st;
+                st.to_protobuf(response->mutable_status());
             } else {
                 for (int i = 0; i < request->data().size(); ++i) {
                     std::unique_ptr<PDataRow> row(new PDataRow());
