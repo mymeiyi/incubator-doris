@@ -2045,6 +2045,7 @@ void PInternalService::group_commit_insert(google::protobuf::RpcController* cont
                         request->exec_plan_fragment_request().version(),
                         request->exec_plan_fragment_request().compact(),
                         [&, response, done, load_id](RuntimeState* state, Status* status) {
+                            LOG(INFO) << "sout: start execute callback";
                             brpc::ClosureGuard cb_closure_guard(done);
                             response->set_label(state->import_label());
                             response->set_txn_id(state->wal_id());
