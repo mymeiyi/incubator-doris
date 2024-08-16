@@ -35,6 +35,7 @@ import org.apache.http.client.methods.CloseableHttpResponse
 import org.apache.http.util.EntityUtils
 import org.apache.doris.regression.suite.ClusterOptions
 
+// TODO add cluster key
 suite("test_partial_update_conflict_be_restart") {
     def dbName = context.config.getDbNameByFile(context.file)
 

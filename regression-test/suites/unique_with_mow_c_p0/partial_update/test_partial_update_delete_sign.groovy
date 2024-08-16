@@ -35,6 +35,7 @@ suite('test_partial_update_delete_sign') {
                     `c3` int,
                     `c4` int
                     )UNIQUE KEY(k1)
+                CLUSTER BY(c1)    
                 DISTRIBUTED BY HASH(k1) BUCKETS 1
                 PROPERTIES (
                     "enable_unique_key_merge_on_write" = "true",
@@ -54,6 +55,17 @@ suite('test_partial_update_delete_sign') {
 
                 file 'delete_sign.csv'
                 time 10000 // limit inflight 10s
+
+                check { result, exception, startTime, endTime ->
+                    if (exception != null) {
+                        throw exception
+                    }
+                    log.info("Stream load result: ${result}".toString())
+                    def json = parseJson(result)
+                    txnId = json.TxnId
+                    assertEquals("fail", json.Status.toLowerCase())
+                    assertTrue(json.Message.contains("Only unique key merge on write without cluster keys support partial update"))
+                }
             }
             sql "sync"
             qt_after_delete "select * from ${tableName1} order by k1,c1,c2,c3,c4;"
@@ -85,6 +97,7 @@ suite('test_partial_update_delete_sign') {
                     `c3` int,
                     `c4` int
                     )UNIQUE KEY(k1)
+                CLUSTER BY(c3, c2)
                 DISTRIBUTED BY HASH(k1) BUCKETS 1
                 PROPERTIES (
                     "enable_unique_key_merge_on_write" = "true",
@@ -105,6 +118,17 @@ suite('test_partial_update_delete_sign') {
 
                 file 'delete_sign.csv'
                 time 10000 // limit inflight 10s
+
+                check { result, exception, startTime, endTime ->
+                    if (exception != null) {
+                        throw exception
+                    }
+                    log.info("Stream load result: ${result}".toString())
+                    def json = parseJson(result)
+                    txnId = json.TxnId
+                    assertEquals("fail", json.Status.toLowerCase())
+                    assertTrue(json.Message.contains("Only unique key merge on write without cluster keys support partial update"))
+                }
             }
             sql "sync"
             qt_after_delete "select * from ${tableName2} order by k1,c1,c2,c3,c4;"
@@ -136,6 +160,7 @@ suite('test_partial_update_delete_sign') {
                 v1 int,
                 v2 int
             ) ENGINE=OLAP unique key (k)
+            CLUSTER BY(v2, k)
             distributed by hash(k) buckets 1
             properties("replication_num" = "1",
             "enable_unique_key_merge_on_write" = "true",
@@ -154,6 +179,17 @@ suite('test_partial_update_delete_sign') {
 
                 file 'test_partial_update_delete_sign_data.csv'
                 time 10000 // limit inflight 10s
+
+                check { result, exception, startTime, endTime ->
+                    if (exception != null) {
+                        throw exception
+                    }
+                    log.info("Stream load result: ${result}".toString())
+                    def json = parseJson(result)
+                    txnId = json.TxnId
+                    assertEquals("fail", json.Status.toLowerCase())
+                    assertTrue(json.Message.contains("Only unique key merge on write without cluster keys support partial update"))
+                }
             }
             sql "sync"
             qt_3 "select * from ${tableName3} order by k;"
@@ -169,6 +205,7 @@ suite('test_partial_update_delete_sign') {
                 v2 int,
                 c int
             ) ENGINE=OLAP unique key (k)
+            CLUSTER BY(c, v1)
             distributed by hash(k) buckets 1
             properties("replication_num" = "1",
             "enable_unique_key_merge_on_write" = "true",
@@ -188,6 +225,17 @@ suite('test_partial_update_delete_sign') {
 
                 file 'test_partial_update_delete_sign_data.csv'
                 time 10000 // limit inflight 10s
+
+                check { result, exception, startTime, endTime ->
+                    if (exception != null) {
+                        throw exception
+                    }
+                    log.info("Stream load result: ${result}".toString())
+                    def json = parseJson(result)
+                    txnId = json.TxnId
+                    assertEquals("fail", json.Status.toLowerCase())
+                    assertTrue(json.Message.contains("Only unique key merge on write without cluster keys support partial update"))
+                }
             }
             sql "sync"
             qt_3 "select * from ${tableName4} order by k;"

@@ -35,6 +35,7 @@ suite('test_partial_update_delete') {
                     `c3` int NOT NULL,
                     `c4` int
                     )UNIQUE KEY(k1)
+                CLUSTER BY(c2, c1, c3)
                 DISTRIBUTED BY HASH(k1) BUCKETS 1
                 PROPERTIES (
                     "enable_unique_key_merge_on_write" = "true",
@@ -82,6 +83,7 @@ suite('test_partial_update_delete') {
                     `c3` int,
                     `c4` int
                     )UNIQUE KEY(k1)
+                CLUSTER BY(c3, c4)    
                 DISTRIBUTED BY HASH(k1) BUCKETS 1
                 PROPERTIES (
                     "enable_unique_key_merge_on_write" = "true",
@@ -102,6 +104,17 @@ suite('test_partial_update_delete') {
 
                 file 'partial_update_delete.csv'
                 time 10000
+
+                check { result, exception, startTime, endTime ->
+                    if (exception != null) {
+                        throw exception
+                    }
+                    log.info("Stream load result: ${result}".toString())
+                    def json = parseJson(result)
+                    txnId = json.TxnId
+                    assertEquals("fail", json.Status.toLowerCase())
+                    assertTrue(json.Message.contains("Only unique key merge on write without cluster keys support partial update"))
+                }
             }
             sql "sync"
             qt_sql "select k1,c1,c2,c3,c4 from ${tableName3} order by k1,c1,c2,c3,c4;"

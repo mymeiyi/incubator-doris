@@ -46,6 +46,7 @@ suite("test_partial_update_delete_sign_with_conflict") {
             `c3` int,
             `c4` varchar(100) default 'foo'
             )UNIQUE KEY(k1)
+        CLUSTER BY(c3)    
         DISTRIBUTED BY HASH(k1) BUCKETS 1
         PROPERTIES (
             "enable_unique_key_merge_on_write" = "true",
@@ -129,7 +130,8 @@ suite("test_partial_update_delete_sign_with_conflict") {
             log.info("Stream load result: ${result}".toString())
             def json = parseJson(result)
             txnId2 = json.TxnId
-            assertEquals("success", json.Status.toLowerCase())
+            assertEquals("fail", json.Status.toLowerCase())
+            assertTrue(json.Message.contains("Only unique key merge on write without cluster keys support partial update"))
         }
     }
     sql "sync;"
@@ -143,8 +145,8 @@ suite("test_partial_update_delete_sign_with_conflict") {
 
     // publish will retry until success
     // FE retry may take logger time, wait for 20 secs
-    do_streamload_2pc_commit(txnId2)
-    wait_for_publish(txnId2, 20)
+    // do_streamload_2pc_commit(txnId2)
+    // wait_for_publish(txnId2, 20)
 
     sql "sync;"
     qt_sql "select * from ${tableName} order by k1,c1,c2,c3,c4;"

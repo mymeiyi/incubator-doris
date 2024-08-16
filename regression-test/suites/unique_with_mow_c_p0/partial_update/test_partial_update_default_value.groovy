@@ -37,7 +37,9 @@ suite("test_primary_key_partial_update_default_value", "p0") {
                         `score` int(11) NOT NULL COMMENT "用户得分",
                         `test` int(11) NULL DEFAULT "4321" COMMENT  "test",
                         `dft` int(11) DEFAULT "4321")
-                        UNIQUE KEY(`id`) DISTRIBUTED BY HASH(`id`) BUCKETS 1
+                        UNIQUE KEY(`id`)
+                        CLUSTER BY(`name`, `score`) 
+                        DISTRIBUTED BY HASH(`id`) BUCKETS 1
                         PROPERTIES("replication_num" = "1", "enable_unique_key_merge_on_write" = "true",
                         "store_row_column" = "${use_row_store}"); """
             // insert 2 lines
@@ -60,6 +62,17 @@ suite("test_primary_key_partial_update_default_value", "p0") {
 
                 file 'default.csv'
                 time 10000 // limit inflight 10s
+
+                check { result, exception, startTime, endTime ->
+                    if (exception != null) {
+                        throw exception
+                    }
+                    log.info("Stream load result: ${result}".toString())
+                    def json = parseJson(result)
+                    txnId = json.TxnId
+                    assertEquals("fail", json.Status.toLowerCase())
+                    assertTrue(json.Message.contains("Only unique key merge on write without cluster keys support partial update"))
+                }
             }
 
             sql "sync"
