@@ -194,6 +194,7 @@ public class DeleteStmt extends DdlStmt implements NotFallbackInParser {
         );
         boolean isPartialUpdate = false;
         if (((OlapTable) targetTable).getEnableUniqueKeyMergeOnWrite()
+                && !((OlapTable) targetTable).isUniqKeyMergeOnWriteWithClusterKeys()
                 && cols.size() < targetTable.getColumns().size()) {
             isPartialUpdate = true;
         }
