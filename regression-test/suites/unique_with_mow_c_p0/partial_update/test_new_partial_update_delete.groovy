@@ -39,6 +39,7 @@ suite('test_new_partial_update_delete') {
                         `c3` int,
                         `c4` int
                         )UNIQUE KEY(k1)
+                    CLUSTER BY(c1, c2)    
                     DISTRIBUTED BY HASH(k1) BUCKETS 1
                     PROPERTIES (
                         "disable_auto_compaction" = "true",
@@ -61,6 +62,7 @@ suite('test_new_partial_update_delete') {
                         `c3` int,
                         `c4` int
                         )UNIQUE KEY(k1)
+                    CLUSTER BY(c4)    
                     DISTRIBUTED BY HASH(k1) BUCKETS 1
                     PROPERTIES (
                         "disable_auto_compaction" = "true",
@@ -82,6 +84,7 @@ suite('test_new_partial_update_delete') {
                     `c3` int,
                     `c4` int
                     )UNIQUE KEY(k1)
+                CLUSTER BY(c4, c2)    
                 DISTRIBUTED BY HASH(k1) BUCKETS 1
                 PROPERTIES (
                     "disable_auto_compaction" = "true",
@@ -152,6 +155,7 @@ suite('test_new_partial_update_delete') {
                         `c3` int,
                         `c4` int
                         )UNIQUE KEY(k1)
+                    CLUSTER BY(c3, k1)    
                     DISTRIBUTED BY HASH(k1) BUCKETS 1
                     PROPERTIES (
                         "disable_auto_compaction" = "true",
@@ -174,6 +178,7 @@ suite('test_new_partial_update_delete') {
                         `c3` int,
                         `c4` int
                         )UNIQUE KEY(k1)
+                    CLUSTER BY(c3)    
                     DISTRIBUTED BY HASH(k1) BUCKETS 1
                     PROPERTIES (
                         "disable_auto_compaction" = "true",
@@ -195,6 +200,7 @@ suite('test_new_partial_update_delete') {
                     `c3` int,
                     `c4` int
                     )UNIQUE KEY(k1)
+                CLUSTER BY(c3, c2, c4)    
                 DISTRIBUTED BY HASH(k1) BUCKETS 1
                 PROPERTIES (
                     "disable_auto_compaction" = "true",
@@ -265,7 +271,7 @@ suite('test_new_partial_update_delete') {
                     `c2` int replace,
                     `c3` int replace,
                     `c4` int replace
-                    )AGGREGATE KEY(k1)
+                    )AGGREGATE KEY(k1)    
                 DISTRIBUTED BY HASH(k1) BUCKETS 1
                 PROPERTIES (
                     "disable_auto_compaction" = "true",

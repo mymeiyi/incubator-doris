@@ -35,7 +35,9 @@ suite("test_primary_key_partial_update", "p0") {
                         `score` int(11) NOT NULL COMMENT "用户得分",
                         `test` int(11) NULL COMMENT "null test",
                         `dft` int(11) DEFAULT "4321")
-                        UNIQUE KEY(`id`) DISTRIBUTED BY HASH(`id`) BUCKETS 1
+                        UNIQUE KEY(`id`)
+                        CLUSTER BY(`score`, `name`) 
+                        DISTRIBUTED BY HASH(`id`) BUCKETS 1
                         PROPERTIES("replication_num" = "1", "enable_unique_key_merge_on_write" = "true",
                         "store_row_column" = "${use_row_store}"); """
 
@@ -195,7 +197,9 @@ suite("test_primary_key_partial_update", "p0") {
                         `ctime` DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3),
                         `rtime` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
                         `corp_name` VARCHAR(600) NOT NULL
-                        ) ENGINE = OLAP UNIQUE KEY(`name`, `userid`) COMMENT 'OLAP' DISTRIBUTED BY HASH(`name`) BUCKETS 10 
+                        ) ENGINE = OLAP UNIQUE KEY(`name`, `userid`) COMMENT 'OLAP'
+                        CLUSTER BY(`userid`) 
+                        DISTRIBUTED BY HASH(`name`) BUCKETS 10 
                         PROPERTIES ("replication_num" = "1",
                                     "enable_unique_key_merge_on_write" = "true",
                                     "store_row_column" = "${use_row_store}"); """
@@ -225,7 +229,9 @@ suite("test_primary_key_partial_update", "p0") {
                         `seq` BIGINT NOT NULL AUTO_INCREMENT(1),
                         `ctime` DATE DEFAULT CURRENT_DATE,
                         `corp_name` VARCHAR(600) NOT NULL
-                        ) ENGINE = OLAP UNIQUE KEY(`name`, `userid`) COMMENT 'OLAP' DISTRIBUTED BY HASH(`name`) BUCKETS 10 
+                        ) ENGINE = OLAP UNIQUE KEY(`name`, `userid`) COMMENT 'OLAP'
+                        CLUSTER BY(`seq`, `name`) 
+                        DISTRIBUTED BY HASH(`name`) BUCKETS 10 
                         PROPERTIES ("replication_num" = "1",
                                     "enable_unique_key_merge_on_write" = "true",
                                     "store_row_column" = "${use_row_store}"); """
@@ -254,7 +260,9 @@ suite("test_primary_key_partial_update", "p0") {
                         `seq` BIGINT NOT NULL AUTO_INCREMENT(1),
                         `ctime` DATE DEFAULT CURRENT_DATE,
                         `corp_name` VARCHAR(600) NOT NULL
-                        ) ENGINE = OLAP UNIQUE KEY(`name`, `userid`) COMMENT 'OLAP' DISTRIBUTED BY HASH(`name`) BUCKETS 10 
+                        ) ENGINE = OLAP UNIQUE KEY(`name`, `userid`) COMMENT 'OLAP'
+                        CLUSTER BY(`corp_name`, `seq`, `name`) 
+                        DISTRIBUTED BY HASH(`name`) BUCKETS 10 
                         PROPERTIES ("replication_num" = "1",
                                     "enable_unique_key_merge_on_write" = "true",
                                     "store_row_column" = "${use_row_store}"); """
