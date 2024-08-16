@@ -38,7 +38,9 @@ suite("test_partial_update_native_insert_seq_col", "p0") {
                         `test` int(11) NULL COMMENT "null test",
                         `dft` int(11) DEFAULT "4321",
                         `update_time` date NULL)
-                    UNIQUE KEY(`id`) DISTRIBUTED BY HASH(`id`) BUCKETS 1
+                    UNIQUE KEY(`id`)
+                    CLUSTER BY(test, dft) 
+                    DISTRIBUTED BY HASH(`id`) BUCKETS 1
                     PROPERTIES(
                         "replication_num" = "1",
                         "enable_unique_key_merge_on_write" = "true",
@@ -64,7 +66,10 @@ suite("test_partial_update_native_insert_seq_col", "p0") {
             // should use there original sequence column values.
             sql "set enable_unique_key_partial_update=true;"
             sql "sync;"
-            sql "insert into ${tableName}(id,score) values(2,400),(1,200);"
+            test {
+                sql "insert into ${tableName}(id,score) values(2,400),(1,200);"
+                exception "need to specify the sequence column"
+            }
             sql "set enable_unique_key_partial_update=false;"
             sql "sync;"
 
@@ -101,7 +106,9 @@ suite("test_partial_update_native_insert_seq_col", "p0") {
                         `id` int(11) NOT NULL COMMENT "用户 ID",
                         `score` int(11) NOT NULL COMMENT "用户得分",
                         `update_time` DATETIMEV2 NULL DEFAULT CURRENT_TIMESTAMP)
-                    UNIQUE KEY(`id`) DISTRIBUTED BY HASH(`id`) BUCKETS 1
+                    UNIQUE KEY(`id`)
+                    CLUSTER BY(score) 
+                    DISTRIBUTED BY HASH(`id`) BUCKETS 1
                     PROPERTIES(
                         "replication_num" = "1",
                         "enable_unique_key_merge_on_write" = "true",

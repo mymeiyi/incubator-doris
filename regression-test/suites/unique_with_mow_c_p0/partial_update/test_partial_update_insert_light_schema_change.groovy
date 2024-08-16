@@ -45,7 +45,9 @@ suite("test_partial_update_insert_light_schema_change", "p0") {
                         `c7` int NULL,
                         `c8` int NULL,
                         `c9` int NULL)
-                        UNIQUE KEY(`c0`) DISTRIBUTED BY HASH(`c0`) BUCKETS 1
+                        UNIQUE KEY(`c0`)
+                        CLUSTER BY(c2, c8) 
+                        DISTRIBUTED BY HASH(`c0`) BUCKETS 1
                         PROPERTIES(
                             "replication_num" = "1",
                             "light_schema_change" = "true",
@@ -104,7 +106,9 @@ suite("test_partial_update_insert_light_schema_change", "p0") {
                         `c7` int NULL,
                         `c8` int NULL,
                         `c9` int NULL)
-                        UNIQUE KEY(`c0`) DISTRIBUTED BY HASH(`c0`) BUCKETS 1
+                        UNIQUE KEY(`c0`)
+                        CLUSTER BY(c9, c5, c3) 
+                        DISTRIBUTED BY HASH(`c0`) BUCKETS 1
                         PROPERTIES(
                             "replication_num" = "1",
                             "light_schema_change" = "true",
@@ -149,7 +153,9 @@ suite("test_partial_update_insert_light_schema_change", "p0") {
                         `v1` int NULL,
                         `v2` int NULL,
                         `c` int NULL)
-                        UNIQUE KEY(`k`) DISTRIBUTED BY HASH(`k`) BUCKETS 1
+                        UNIQUE KEY(`k`)
+                        CLUSTER BY(v2) 
+                        DISTRIBUTED BY HASH(`k`) BUCKETS 1
                         PROPERTIES(
                             "replication_num" = "1",
                             "light_schema_change" = "true",
@@ -180,7 +186,9 @@ suite("test_partial_update_insert_light_schema_change", "p0") {
                         `c7` int NULL,
                         `c8` int NULL,
                         `c9` int NULL)
-                        UNIQUE KEY(`c0`) DISTRIBUTED BY HASH(`c0`) BUCKETS 1
+                        UNIQUE KEY(`c0`)
+                        CLUSTER BY(c7, c6) 
+                        DISTRIBUTED BY HASH(`c0`) BUCKETS 1
                         PROPERTIES(
                             "replication_num" = "1",
                             "light_schema_change" = "true",
@@ -293,7 +301,9 @@ suite("test_partial_update_insert_light_schema_change", "p0") {
                         `c7` int NULL,
                         `c8` int NULL,
                         `c9` int NULL)
-                        UNIQUE KEY(`c0`) DISTRIBUTED BY HASH(`c0`) BUCKETS 1
+                        UNIQUE KEY(`c0`)
+                        CLUSTER BY(c3, c8) 
+                        DISTRIBUTED BY HASH(`c0`) BUCKETS 1
                         PROPERTIES(
                             "replication_num" = "1",
                             "light_schema_change" = "true",

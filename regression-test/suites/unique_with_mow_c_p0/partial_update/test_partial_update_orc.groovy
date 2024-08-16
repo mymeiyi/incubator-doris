@@ -28,7 +28,9 @@ suite("test_primary_key_partial_update_orc", "p0") {
                 `col_2` varchar(65533) NOT NULL COMMENT "col_2",
                 `col_3` varchar(65533) NULL COMMENT "col_3",
                 `col_4` varchar(65533) DEFAULT "4321")
-                UNIQUE KEY(`col_0`) DISTRIBUTED BY HASH(`col_0`) BUCKETS 1
+                UNIQUE KEY(`col_0`)
+                CLUSTER BY(`col_1`, `col_2`) 
+                DISTRIBUTED BY HASH(`col_0`) BUCKETS 1
                 PROPERTIES("replication_num" = "1", "enable_unique_key_merge_on_write" = "true")
     """
 
@@ -50,6 +52,17 @@ suite("test_primary_key_partial_update_orc", "p0") {
 
         file 'update.orc'
         time 10000 // limit inflight 10s
+
+        check { result, exception, startTime, endTime ->
+            if (exception != null) {
+                throw exception
+            }
+            log.info("Stream load result: ${result}".toString())
+            def json = parseJson(result)
+            txnId = json.TxnId
+            assertEquals("fail", json.Status.toLowerCase())
+            assertTrue(json.Message.contains("Only unique key merge on write without cluster keys support partial update"))
+        }
     }
 
     sql "sync"
