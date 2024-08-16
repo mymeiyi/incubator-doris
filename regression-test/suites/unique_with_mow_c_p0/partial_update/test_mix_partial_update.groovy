@@ -185,6 +185,17 @@ suite('test_mix_partial_update') {
                 set 'partial_columns', 'true'
                 file "test_mix_partial_update_load5.csv"
                 time 10000 // limit inflight 10s
+
+                check { result, exception, startTime, endTime ->
+                    if (exception != null) {
+                        throw exception
+                    }
+                    log.info("Stream load result: ${result}".toString())
+                    def json = parseJson(result)
+                    txnId = json.TxnId
+                    assertEquals("fail", json.Status.toLowerCase())
+                    assertTrue(json.Message.contains("Only unique key merge on write without cluster keys support partial update"))
+                }
             }
             //sql "set enable_unique_key_partial_update=true;"
             //sql "set enable_insert_strict=false;"
@@ -201,6 +212,17 @@ suite('test_mix_partial_update') {
                 set 'partial_columns', 'true'
                 file "test_mix_partial_update_load6.csv"
                 time 10000 // limit inflight 10s
+
+                check { result, exception, startTime, endTime ->
+                    if (exception != null) {
+                        throw exception
+                    }
+                    log.info("Stream load result: ${result}".toString())
+                    def json = parseJson(result)
+                    txnId = json.TxnId
+                    assertEquals("fail", json.Status.toLowerCase())
+                    assertTrue(json.Message.contains("Only unique key merge on write without cluster keys support partial update"))
+                }
             }
             //sql "set enable_unique_key_partial_update=true;"
             //sql "set enable_insert_strict=false;"
@@ -333,6 +355,17 @@ suite('test_mix_partial_update') {
                 set 'format', 'csv'
                 file "test_mix_partial_update_load_B.csv"
                 time 10000 // limit inflight 10s
+
+                check { result, exception, startTime, endTime ->
+                    if (exception != null) {
+                        throw exception
+                    }
+                    log.info("Stream load result: ${result}".toString())
+                    def json = parseJson(result)
+                    txnId = json.TxnId
+                    assertEquals("fail", json.Status.toLowerCase())
+                    assertTrue(json.Message.contains("Only unique key merge on write without cluster keys support partial update"))
+                }
             }
             qt_select_B "select k1,c2,c3,c4 from ${tableStreamName2}"
             qt_select_BB "select count(distinct c1) from ${tableStreamName2}"

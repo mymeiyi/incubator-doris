@@ -61,6 +61,17 @@ suite("test_primary_key_partial_update", "p0") {
 
                 file 'basic.csv'
                 time 10000 // limit inflight 10s
+
+                check { result, exception, startTime, endTime ->
+                    if (exception != null) {
+                        throw exception
+                    }
+                    log.info("Stream load result: ${result}".toString())
+                    def json = parseJson(result)
+                    txnId = json.TxnId
+                    assertEquals("fail", json.Status.toLowerCase())
+                    assertTrue(json.Message.contains("Only unique key merge on write without cluster keys support partial update"))
+                }
             }
 
             sql "sync"
@@ -80,6 +91,17 @@ suite("test_primary_key_partial_update", "p0") {
 
                 file 'basic_with_duplicate.csv'
                 time 10000 // limit inflight 10s
+
+                check { result, exception, startTime, endTime ->
+                    if (exception != null) {
+                        throw exception
+                    }
+                    log.info("Stream load result: ${result}".toString())
+                    def json = parseJson(result)
+                    txnId = json.TxnId
+                    assertEquals("fail", json.Status.toLowerCase())
+                    assertTrue(json.Message.contains("Only unique key merge on write without cluster keys support partial update"))
+                }
             }
 
             sql "sync"
@@ -98,6 +120,17 @@ suite("test_primary_key_partial_update", "p0") {
 
                 file 'basic_with_duplicate2.csv'
                 time 10000 // limit inflight 10s
+
+                check { result, exception, startTime, endTime ->
+                    if (exception != null) {
+                        throw exception
+                    }
+                    log.info("Stream load result: ${result}".toString())
+                    def json = parseJson(result)
+                    txnId = json.TxnId
+                    assertEquals("fail", json.Status.toLowerCase())
+                    assertTrue(json.Message.contains("Only unique key merge on write without cluster keys support partial update"))
+                }
             }
 
             sql "sync"
@@ -115,6 +148,17 @@ suite("test_primary_key_partial_update", "p0") {
 
                 file 'basic_with_new_keys.csv'
                 time 10000 // limit inflight 10s
+
+                check { result, exception, startTime, endTime ->
+                    if (exception != null) {
+                        throw exception
+                    }
+                    log.info("Stream load result: ${result}".toString())
+                    def json = parseJson(result)
+                    txnId = json.TxnId
+                    assertEquals("fail", json.Status.toLowerCase())
+                    assertTrue(json.Message.contains("Only unique key merge on write without cluster keys support partial update"))
+                }
             }
 
             sql "sync"
@@ -172,14 +216,15 @@ suite("test_primary_key_partial_update", "p0") {
                 file 'basic_invalid.csv'
                 time 10000// limit inflight 10s
 
-                check {result, exception, startTime, endTime ->
-                    assertTrue(exception == null)
+                check { result, exception, startTime, endTime ->
+                    if (exception != null) {
+                        throw exception
+                    }
+                    log.info("Stream load result: ${result}".toString())
                     def json = parseJson(result)
-                    assertEquals("Fail", json.Status)
-                    assertTrue(json.Message.contains("[DATA_QUALITY_ERROR]too many filtered rows"))
-                    assertEquals(3, json.NumberTotalRows)
-                    assertEquals(1, json.NumberLoadedRows)
-                    assertEquals(2, json.NumberFilteredRows)
+                    txnId = json.TxnId
+                    assertEquals("fail", json.Status.toLowerCase())
+                    assertTrue(json.Message.contains("Only unique key merge on write without cluster keys support partial update"))
                 }
             }
             sql "sync"
@@ -197,8 +242,9 @@ suite("test_primary_key_partial_update", "p0") {
                         `ctime` DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3),
                         `rtime` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
                         `corp_name` VARCHAR(600) NOT NULL
-                        ) ENGINE = OLAP UNIQUE KEY(`name`, `userid`) COMMENT 'OLAP'
+                        ) ENGINE = OLAP UNIQUE KEY(`name`, `userid`)
                         CLUSTER BY(`userid`) 
+                        COMMENT 'OLAP'
                         DISTRIBUTED BY HASH(`name`) BUCKETS 10 
                         PROPERTIES ("replication_num" = "1",
                                     "enable_unique_key_merge_on_write" = "true",
@@ -229,8 +275,9 @@ suite("test_primary_key_partial_update", "p0") {
                         `seq` BIGINT NOT NULL AUTO_INCREMENT(1),
                         `ctime` DATE DEFAULT CURRENT_DATE,
                         `corp_name` VARCHAR(600) NOT NULL
-                        ) ENGINE = OLAP UNIQUE KEY(`name`, `userid`) COMMENT 'OLAP'
+                        ) ENGINE = OLAP UNIQUE KEY(`name`, `userid`) 
                         CLUSTER BY(`seq`, `name`) 
+                        COMMENT 'OLAP'
                         DISTRIBUTED BY HASH(`name`) BUCKETS 10 
                         PROPERTIES ("replication_num" = "1",
                                     "enable_unique_key_merge_on_write" = "true",
@@ -260,8 +307,9 @@ suite("test_primary_key_partial_update", "p0") {
                         `seq` BIGINT NOT NULL AUTO_INCREMENT(1),
                         `ctime` DATE DEFAULT CURRENT_DATE,
                         `corp_name` VARCHAR(600) NOT NULL
-                        ) ENGINE = OLAP UNIQUE KEY(`name`, `userid`) COMMENT 'OLAP'
+                        ) ENGINE = OLAP UNIQUE KEY(`name`, `userid`) 
                         CLUSTER BY(`corp_name`, `seq`, `name`) 
+                        COMMENT 'OLAP'
                         DISTRIBUTED BY HASH(`name`) BUCKETS 10 
                         PROPERTIES ("replication_num" = "1",
                                     "enable_unique_key_merge_on_write" = "true",

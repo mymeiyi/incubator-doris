@@ -153,7 +153,8 @@ suite("test_partial_update_2pc_schema_change", "p0") {
                     log.info("Stream load result: ${result}".toString())
                     def json = parseJson(result)
                     txnId = json.TxnId
-                    assertEquals("success", json.Status.toLowerCase())
+                    assertEquals("fail", json.Status.toLowerCase())
+                    assertTrue(json.Message.contains("Only unique key merge on write without cluster keys support partial update"))
                 }
             }
             sql "sync;"
@@ -178,6 +179,17 @@ suite("test_partial_update_2pc_schema_change", "p0") {
                 set 'strict_mode', "false"
                 file 'concurrency_update2.csv'
                 time 10000 // limit inflight 10s
+
+                check { result, exception, startTime, endTime ->
+                    if (exception != null) {
+                        throw exception
+                    }
+                    log.info("Stream load result: ${result}".toString())
+                    def json = parseJson(result)
+                    txnId = json.TxnId
+                    assertEquals("fail", json.Status.toLowerCase())
+                    assertTrue(json.Message.contains("Only unique key merge on write without cluster keys support partial update"))
+                }
             }
             sql "sync;"
             qt_sql """ select * from ${tableName} order by k1;"""
