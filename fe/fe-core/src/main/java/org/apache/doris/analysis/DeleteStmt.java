@@ -151,6 +151,7 @@ public class DeleteStmt extends DdlStmt implements NotFallbackInParser {
                     + " Please check the following session variables: "
                     + ConnectContext.get().getSessionVariable().printDebugModeVariables());
         }
+        (OlapTable) targetTable
         boolean isMow = ((OlapTable) targetTable).getEnableUniqueKeyMergeOnWrite();
         for (Column column : targetTable.getColumns()) {
             Expr expr;
@@ -193,8 +194,8 @@ public class DeleteStmt extends DdlStmt implements NotFallbackInParser {
                 LimitElement.NO_LIMIT
         );
         boolean isPartialUpdate = false;
-        if (((OlapTable) targetTable).getEnableUniqueKeyMergeOnWrite()
-                && !((OlapTable) targetTable).isUniqKeyMergeOnWriteWithClusterKeys()
+        OlapTable olapTable = (OlapTable) targetTable;
+        if (olapTable.getEnableUniqueKeyMergeOnWrite() && !olapTable.isUniqKeyMergeOnWriteWithClusterKeys()
                 && cols.size() < targetTable.getColumns().size()) {
             isPartialUpdate = true;
         }
