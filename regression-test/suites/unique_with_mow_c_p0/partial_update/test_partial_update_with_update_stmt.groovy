@@ -57,9 +57,10 @@ suite("test_primary_key_partial_update_with_update_stmt", "p0") {
             """
 
             // case 1: partially update normally
-            sql """
-                update ${tableName} set score = 4000 where id = 1
-            """
+            test {
+                sql """ update ${tableName} set score = 4000 where id = 1 """
+                exception "Insert has filtered data in strict mode"
+            }
 
             sql "sync"
 
