@@ -151,7 +151,6 @@ public class DeleteStmt extends DdlStmt implements NotFallbackInParser {
                     + " Please check the following session variables: "
                     + ConnectContext.get().getSessionVariable().printDebugModeVariables());
         }
-        (OlapTable) targetTable
         boolean isMow = ((OlapTable) targetTable).getEnableUniqueKeyMergeOnWrite();
         for (Column column : targetTable.getColumns()) {
             Expr expr;
