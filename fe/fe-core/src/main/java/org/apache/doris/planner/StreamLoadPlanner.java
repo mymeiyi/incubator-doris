@@ -147,6 +147,9 @@ public class StreamLoadPlanner {
         if (isPartialUpdate && !destTable.getEnableUniqueKeyMergeOnWrite()) {
             throw new UserException("Only unique key merge on write support partial update");
         }
+        if (isPartialUpdate && destTable.isUniqKeyMergeOnWriteWithClusterKeys()) {
+            throw new UserException("Only unique key merge on write without cluster keys support partial update");
+        }
         HashSet<String> partialUpdateInputColumns = new HashSet<>();
         if (isPartialUpdate) {
             for (Column col : destTable.getFullSchema()) {
