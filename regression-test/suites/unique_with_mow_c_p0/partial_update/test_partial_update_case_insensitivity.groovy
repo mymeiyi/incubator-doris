@@ -42,8 +42,9 @@ suite("test_partial_update_case_insensitivity", "p0") {
                         MY_COLUMN int,
                         UpAndDown int
                         ) ENGINE=OLAP
-                        UNIQUE KEY(name) COMMENT 'OLAP'
+                        UNIQUE KEY(name) 
                         CLUSTER BY(UpAndDown)
+                        COMMENT 'OLAP'
                         DISTRIBUTED BY HASH(name) BUCKETS 1
                         PROPERTIES (
                         "replication_allocation" = "tag.location.default: 1",

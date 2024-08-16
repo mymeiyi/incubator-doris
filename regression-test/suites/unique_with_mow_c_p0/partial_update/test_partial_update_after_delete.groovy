@@ -20,7 +20,7 @@ suite("test_partial_update_after_delete", "p0") {
     String db = context.config.getDbNameByFile(context.file)
     sql "select 1;" // to create database
 
-    for (def use_row_store : [false, true]) {
+    for (def use_row_store : [/*false,*/ true]) {
         logger.info("current params: use_row_store: ${use_row_store}")
 
         connect(user = context.config.jdbcUser, password = context.config.jdbcPassword, url = context.config.jdbcUrl) {

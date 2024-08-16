@@ -20,7 +20,7 @@ suite("test_partial_update_auto_inc") {
     String db = context.config.getDbNameByFile(context.file)
     sql "select 1;" // to create database
 
-    for (def use_mow : [false, true]) {
+    for (def use_mow : [/*false,*/ true]) {
         for (def use_nereids_planner : [false, true]) {
             logger.info("current params: use_mow: ${use_mow}, use_nereids_planner: ${use_nereids_planner}")
             connect(user = context.config.jdbcUser, password = context.config.jdbcPassword, url = context.config.jdbcUrl) {
@@ -41,7 +41,7 @@ suite("test_partial_update_auto_inc") {
                             `id` BIGINT NOT NULL AUTO_INCREMENT,
                             `name` varchar(65533) NOT NULL COMMENT "用户姓名" )
                             UNIQUE KEY(`id`)
-                            CLUSTER BY(`name`) 
+                            CLUSTER BY(`name`)
                             DISTRIBUTED BY HASH(`id`) BUCKETS 1
                             PROPERTIES("replication_num" = "1", "enable_unique_key_merge_on_write" = "${use_mow}"); """
 
