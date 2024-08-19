@@ -100,7 +100,7 @@ VerticalSegmentWriter::VerticalSegmentWriter(io::FileWriter* file_writer, uint32
     CHECK_NOTNULL(file_writer);
     _num_key_columns = _tablet_schema->num_key_columns();
     _num_short_key_columns = _tablet_schema->num_short_key_columns();
-    DCHECK(_num_key_columns >= _num_short_key_columns);
+    DCHECK(_num_key_columns >= _num_short_key_columns) << ", tablet_id=" << tablet->tablet_id();
     for (size_t cid = 0; cid < _num_key_columns; ++cid) {
         const auto& column = _tablet_schema->column(cid);
         _key_coders.push_back(get_key_coder(column.type()));

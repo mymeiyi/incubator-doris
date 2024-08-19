@@ -1,0 +1,6 @@
+#!/bin/bash
+git add .
+git commit -m "r"
+git push origin cluster-key-forbid-update-0819
+
+
