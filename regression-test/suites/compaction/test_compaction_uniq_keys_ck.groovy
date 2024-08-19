@@ -17,8 +17,8 @@
 
 import org.codehaus.groovy.runtime.IOGroovyMethods
 
-suite("test_compaction_uniq_keys_cluster_key") {
-    def tableName = "compaction_uniq_keys_cluster_key"
+suite("test_compaction_uniq_keys_ck") {
+    def tableName = "compaction_uniq_keys_ck"
 
     try {
         String backend_id;
