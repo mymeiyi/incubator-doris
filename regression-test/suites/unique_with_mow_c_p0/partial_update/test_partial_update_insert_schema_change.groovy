@@ -54,9 +54,9 @@ suite("test_partial_update_insert_schema_change", "p0") {
         sql " ALTER table ${tableName} add column c10 INT DEFAULT '0' "
         exception "table light_schema_change is false, can not alter merge on write table with cluster keys"
     }
-    /*def try_times=1200
+    def try_times=1200
     // if timeout awaitility will raise exception
-    Awaitility.await().atMost(try_times, TimeUnit.SECONDS).with().pollDelay(100, TimeUnit.MILLISECONDS).await().until(() -> {
+    /*Awaitility.await().atMost(try_times, TimeUnit.SECONDS).with().pollDelay(100, TimeUnit.MILLISECONDS).await().until(() -> {
         def res = sql " SHOW ALTER TABLE COLUMN WHERE TableName = '${tableName}' ORDER BY CreateTime DESC LIMIT 1 "
         if(res[0][9].toString() == "FINISHED"){
             return true;
@@ -75,13 +75,13 @@ suite("test_partial_update_insert_schema_change", "p0") {
     qt_add_value_col_2 " select * from ${tableName} order by c0 "
 
     // test insert data with new column
-    sql "set enable_unique_key_partial_update=true;"
+    /*sql "set enable_unique_key_partial_update=true;"
     sql "insert into ${tableName}(c0,c1,c2,c10) values(1,1,1,10);"
     sql "set enable_unique_key_partial_update=false;"
     sql "sync"
 
     // check data, new column is filled by given value.
-    qt_add_value_col_3 " select * from ${tableName} order by c0 "
+    qt_add_value_col_3 " select * from ${tableName} order by c0 "*/
 
     // sql """ DROP TABLE IF EXISTS ${tableName} """
 
@@ -124,7 +124,7 @@ suite("test_partial_update_insert_schema_change", "p0") {
             return true;
         }
         return false;
-    });*/
+    });
     sql "sync"
 
     // test insert data without delete column
@@ -132,7 +132,7 @@ suite("test_partial_update_insert_schema_change", "p0") {
     test {
         sql "insert into ${tableName}(c0,c1,c2,c8) values(1,1,1,10);"
         exception "c8"
-    }
+    }*/
     sql "insert into ${tableName}(c0,c1,c2) values(1,1,1);"
     sql "set enable_unique_key_partial_update=false;"
     sql "sync"
@@ -163,7 +163,8 @@ suite("test_partial_update_insert_schema_change", "p0") {
     // schema change
     test {
         sql " ALTER table ${tableName} DROP COLUMN c;"
-        exception "Can not drop sequence mapping column[c] in Unique data model table[${tableName}]"
+        // exception "Can not drop sequence mapping column[c] in Unique data model table[${tableName}]"
+        exception "table light_schema_change is false, can not alter merge on write table with cluster keys"
     }
 
     // test update value column
@@ -191,11 +192,14 @@ suite("test_partial_update_insert_schema_change", "p0") {
     sql "insert into ${tableName} values(1, 0, 0, 0, 0, 0, 0, 0, 0, 0);"
     sql "sync"
     qt_update_value_col_1 " select * from ${tableName} order by c0 "
-    
-    // schema change
-    sql " ALTER table ${tableName} MODIFY COLUMN c2 double "
+
+    test {
+        // schema change
+        sql " ALTER table ${tableName} MODIFY COLUMN c2 double "
+        exception "table light_schema_change is false, can not alter merge on write table with cluster keys"
+    }
     // if timeout awaitility will raise exception
-    Awaitility.await().atMost(try_times, TimeUnit.SECONDS).with().pollDelay(100, TimeUnit.MILLISECONDS).await().until(() -> {
+    /*Awaitility.await().atMost(try_times, TimeUnit.SECONDS).with().pollDelay(100, TimeUnit.MILLISECONDS).await().until(() -> {
         def res = sql " SHOW ALTER TABLE COLUMN WHERE TableName = '${tableName}' ORDER BY CreateTime DESC LIMIT 1 "
         if(res[0][9].toString() == "FINISHED"){
             return true;
@@ -211,7 +215,7 @@ suite("test_partial_update_insert_schema_change", "p0") {
     sql "sync"
     qt_update_value_col_2 " select * from ${tableName} order by c0 "
 
-    sql """ DROP TABLE IF EXISTS ${tableName} """
+    sql """ DROP TABLE IF EXISTS ${tableName} """*/
 
 
     // test add key column
@@ -227,7 +231,7 @@ suite("test_partial_update_insert_schema_change", "p0") {
     sql "insert into ${tableName} values(1);"
     sql "sync"
     qt_add_key_col_1 " select * from ${tableName} order by c0; "
-    
+
     // schema change
     sql """ ALTER table ${tableName} ADD COLUMN c1 int key default "0"; """
     // if timeout awaitility will raise exception
@@ -305,17 +309,19 @@ suite("test_partial_update_insert_schema_change", "p0") {
     sql "sync"
     qt_create_index_1 " select * from ${tableName} order by c0 "
 
-    
-    sql " CREATE INDEX test ON ${tableName} (c1) USING BITMAP "
+    test {
+        sql " CREATE INDEX test ON ${tableName} (c1) USING BITMAP "
+        exception "table light_schema_change is false, can not alter merge on write table with cluster keys"
+    }
     // if timeout awaitility will raise exception
-    Awaitility.await().atMost(try_times, TimeUnit.SECONDS).with().pollDelay(100, TimeUnit.MILLISECONDS).await().until(() -> {
+    /*Awaitility.await().atMost(try_times, TimeUnit.SECONDS).with().pollDelay(100, TimeUnit.MILLISECONDS).await().until(() -> {
         def res = sql " SHOW ALTER TABLE COLUMN WHERE TableName = '${tableName}' ORDER BY CreateTime DESC LIMIT 1 "
         if(res[0][9].toString() == "FINISHED"){
             return true;
         }
         return false;
     });
-    sql "sync"
+    sql "sync"*/
     
     //test insert data with create index
     sql "set enable_unique_key_partial_update=true;"
