@@ -3,19 +3,13 @@
 1	0	0	0	0	0	0	0	0	0
 
 -- !add_value_col_2 --
-1	0	0	0	0	0	0	0	0	0	0
-1	1	1	\N	\N	\N	\N	\N	\N	\N	0
-
--- !add_value_col_3 --
-1	0	0	0	0	0	0	0	0	0	0
-1	1	1	\N	\N	\N	\N	\N	\N	\N	10
+1	1	1	\N	\N	\N	\N	\N	\N	\N
 
 -- !delete_value_col_1 --
 1	0	0	0	0	0	0	0	0	0
 
 -- !delete_value_col_2 --
-1	0	0	0	0	0	0	0	0
-1	1	1	\N	\N	\N	\N	\N	\N
+1	1	1	\N	\N	\N	\N	\N	\N	\N
 
 -- !delete_seq_col_1 --
 1	10	10	10
@@ -23,9 +17,6 @@
 
 -- !update_value_col_1 --
 1	0	0	0	0	0	0	0	0	0
-
--- !update_value_col_2 --
-1	1	1.0	\N	\N	\N	\N	\N	\N	\N
 
 -- !add_key_col_1 --
 1
