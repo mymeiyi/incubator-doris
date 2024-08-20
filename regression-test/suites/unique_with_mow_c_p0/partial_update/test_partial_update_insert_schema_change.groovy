@@ -80,7 +80,7 @@ suite("test_partial_update_insert_schema_change", "p0") {
     // check data, new column is filled by given value.
     qt_add_value_col_3 " select * from ${tableName} order by c0 "
 
-    sql """ DROP TABLE IF EXISTS ${tableName} """
+    // sql """ DROP TABLE IF EXISTS ${tableName} """
 
 
     // test delete value column
@@ -317,5 +317,5 @@ suite("test_partial_update_insert_schema_change", "p0") {
     sql "set enable_unique_key_partial_update=false;"
     sql "sync"
     qt_create_index_2 " select * from ${tableName} order by c0 "
-    sql """ DROP TABLE IF EXISTS ${tableName} """
+    // sql """ DROP TABLE IF EXISTS ${tableName} """
 }

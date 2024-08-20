@@ -99,6 +99,7 @@ SegmentWriter::SegmentWriter(io::FileWriter* file_writer, uint32_t segment_id,
     if (!_is_mow_with_cluster_key()) {
         DCHECK(_num_sort_key_columns >= _num_short_key_columns)
                 << ", table_id=" << _tablet_schema->table_id()
+                << ", tablet_id=" << _tablet_schema->table_id()
                 << ", num_key_columns=" << _num_sort_key_columns
                 << ", num_short_key_columns=" << _num_short_key_columns
                 << ", cluster_key_columns=" << _tablet_schema->cluster_key_idxes().size();
