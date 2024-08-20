@@ -48,10 +48,13 @@ suite("test_partial_update_insert_schema_change", "p0") {
     sql "insert into ${tableName} values(1, 0, 0, 0, 0, 0, 0, 0, 0, 0);"
     sql "sync"
     qt_add_value_col_1 " select * from ${tableName} order by c0 "
-    
-    // schema change
-    sql " ALTER table ${tableName} add column c10 INT DEFAULT '0' "
-    def try_times=1200
+
+    test {
+        // schema change
+        sql " ALTER table ${tableName} add column c10 INT DEFAULT '0' "
+        exception "table light_schema_change is false, can not alter merge on write table with cluster keys"
+    }
+    /*def try_times=1200
     // if timeout awaitility will raise exception
     Awaitility.await().atMost(try_times, TimeUnit.SECONDS).with().pollDelay(100, TimeUnit.MILLISECONDS).await().until(() -> {
         def res = sql " SHOW ALTER TABLE COLUMN WHERE TableName = '${tableName}' ORDER BY CreateTime DESC LIMIT 1 "
@@ -59,7 +62,7 @@ suite("test_partial_update_insert_schema_change", "p0") {
             return true;
         }
         return false;
-    });
+    });*/
     sql "sync"
     
     // test insert data without new column
@@ -108,17 +111,20 @@ suite("test_partial_update_insert_schema_change", "p0") {
     sql "insert into ${tableName} values(1, 0, 0, 0, 0, 0, 0, 0, 0, 0);"
     sql "sync"
     qt_delete_value_col_1 " select * from ${tableName} order by c0 "
-    
-    // schema change
-    sql " ALTER table ${tableName} DROP COLUMN c8 "
+
+    test {
+        // schema change
+        sql " ALTER table ${tableName} DROP COLUMN c8 "
+        exception "table light_schema_change is false, can not alter merge on write table with cluster keys"
+    }
     // if timeout awaitility will raise exception
-    Awaitility.await().atMost(try_times, TimeUnit.SECONDS).with().pollDelay(100, TimeUnit.MILLISECONDS).await().until(() -> {
+    /*Awaitility.await().atMost(try_times, TimeUnit.SECONDS).with().pollDelay(100, TimeUnit.MILLISECONDS).await().until(() -> {
         def res = sql " SHOW ALTER TABLE COLUMN WHERE TableName = '${tableName}' ORDER BY CreateTime DESC LIMIT 1 "
         if(res[0][9].toString() == "FINISHED"){
             return true;
         }
         return false;
-    });
+    });*/
     sql "sync"
 
     // test insert data without delete column

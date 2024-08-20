@@ -2022,7 +2022,8 @@ public class SchemaChangeHandler extends AlterHandler {
                 }
 
                 if (!olapTable.getEnableLightSchemaChange() && olapTable.isUniqKeyMergeOnWriteWithClusterKeys()) {
-                    throw new DdlException("Can not alter table when table is merge on write with cluster keys");
+                    throw new DdlException(
+                            "table light_schema_change is false, can not alter merge on write table with cluster keys");
                 }
                 if (alterClause instanceof AddColumnClause) {
                     // add column
