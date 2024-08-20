@@ -2021,6 +2021,9 @@ public class SchemaChangeHandler extends AlterHandler {
                     throw new DdlException("Can not alter table when there are temp partitions in table");
                 }
 
+                if (!olapTable.getEnableLightSchemaChange() && olapTable.isUniqKeyMergeOnWriteWithClusterKeys()) {
+                    throw new DdlException("Can not alter table when table is merge on write with cluster keys");
+                }
                 if (alterClause instanceof AddColumnClause) {
                     // add column
                     boolean clauseCanLightSchemaChange = processAddColumn((AddColumnClause) alterClause, olapTable,
