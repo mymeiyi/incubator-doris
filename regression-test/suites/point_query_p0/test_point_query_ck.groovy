@@ -17,7 +17,7 @@
 
 import java.math.BigDecimal;
 
-suite("test_point_query_cluster_key") {
+suite("test_point_query_ck") {
     def backendId_to_backendIP = [:]
     def backendId_to_backendHttpPort = [:]
     getBackendIpHttpPort(backendId_to_backendIP, backendId_to_backendHttpPort);
@@ -30,12 +30,12 @@ suite("test_point_query_cluster_key") {
     try {
         set_be_config.call("disable_storage_row_cache", "false")
         // nereids do not support point query now
+        sql "set enable_fallback_to_original_planner = false"
         sql """set enable_nereids_planner=true"""
-
         def user = context.config.jdbcUser
         def password = context.config.jdbcPassword
         def realDb = "regression_test_serving_p0"
-        def tableName = realDb + ".tbl_point_query_cluster_key"
+        def tableName = realDb + ".tbl_point_query_ck"
         sql "CREATE DATABASE IF NOT EXISTS ${realDb}"
 
         // Parse url
@@ -118,7 +118,7 @@ suite("test_point_query_cluster_key") {
         }
 
         for (int i = 0; i < 2; i++) {
-            tableName = realDb + ".tbl_point_query_cluster_key" + i
+            tableName = realDb + ".tbl_point_query_ck" + i
             sql """DROP TABLE IF EXISTS ${tableName}"""
             if (i == 0) {
                 def sql0 = create_table_sql("")
@@ -196,11 +196,13 @@ suite("test_point_query_cluster_key") {
                 """
                 sleep(1);
                 nprep_sql """ INSERT INTO ${tableName} VALUES(1235, 120939.11130, "a    ddd", "laooq", "2030-01-02", "2020-01-01 12:36:38", 22.822, "7022-01-01 11:30:38", 1, 1.1111299, [119291.19291], ["111", "222", "333"], 1) """
+                stmt.setBigDecimal(1, 1235)
                 stmt.setBigDecimal(2, new BigDecimal("120939.11130"))
                 stmt.setString(3, "a    ddd")
                 qe_point_select stmt
                 qe_point_select stmt
                 // invalidate cache
+                sql "sync"
                 nprep_sql """ INSERT INTO ${tableName} VALUES(1235, 120939.11130, "a    ddd", "xxxxxx", "2030-01-02", "2020-01-01 12:36:38", 22.822, "7022-01-01 11:30:38", 0, 1929111.1111,[119291.19291], ["111", "222", "333"], 2) """
                 qe_point_select stmt
                 qe_point_select stmt
@@ -234,7 +236,7 @@ suite("test_point_query_cluster_key") {
                 // sql """prepare stmt2 from  select * from ${tableName} where k1 = % and k2 = % and k3 = %"""
                 // qt_sql """execute stmt2 using (1231, 119291.11, 'ddd')"""
                 // qt_sql """execute stmt2 using (1237, 120939.11130, 'a    ddd')"""
-                tableName = "test_query_cluster_key"
+                tableName = "test_query_ck"
                 sql """DROP TABLE IF EXISTS ${tableName}"""
                 sql """CREATE TABLE ${tableName} (
                         `customer_key` bigint(20) NULL,
@@ -258,6 +260,24 @@ suite("test_point_query_cluster_key") {
                 qt_sql """select /*+ SET_VAR(enable_nereids_planner=true) */ * from ${tableName} where customer_key = 0"""
             }
         }
+        tableName = "test_ODS_EBA_LLREPORT_ck"
+        sql "DROP TABLE IF EXISTS ${tableName}";
+        sql """
+            CREATE TABLE `${tableName}` (
+              `RPTNO` VARCHAR(20) NOT NULL ,
+              `A_ENTTYP` VARCHAR(6) NULL ,
+              `A_INTIME` DATETIME NULL
+            ) ENGINE=OLAP
+            UNIQUE KEY(`RPTNO`)
+            CLUSTER BY(`A_ENTTYP`, `A_INTIME`)
+            DISTRIBUTED BY HASH(`RPTNO`) BUCKETS 3
+            PROPERTIES (
+            "replication_allocation" = "tag.location.default: 1",
+            "store_row_column" = "true"
+            ); 
+        """
+        sql "insert into ${tableName}(RPTNO) values('567890')"
+        sql "select  /*+ SET_VAR(enable_nereids_planner=true) */  substr(RPTNO,2,5) from ${tableName} where  RPTNO = '567890'"
     } finally {
         set_be_config.call("disable_storage_row_cache", "true")
     }
