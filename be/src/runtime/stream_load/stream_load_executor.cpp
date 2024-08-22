@@ -130,7 +130,11 @@ Status StreamLoadExecutor::execute_plan_fragment(std::shared_ptr<StreamLoadConte
                 ctx->status = *status;
                 this->rollback_txn(ctx.get());
             } else {
-                static_cast<void>(this->commit_txn(ctx.get()));
+                for (int i = 0; i < 5; i++) {
+                    _thread_pool.submit([ctx, this]() {
+                        static_cast<void>(this->commit_txn(ctx.get()));
+                    };
+                }
             }
         }
 
