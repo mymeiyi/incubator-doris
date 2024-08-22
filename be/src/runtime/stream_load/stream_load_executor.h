@@ -20,6 +20,7 @@
 #include <memory>
 
 #include "common/factory_creator.h"
+#include "util/threadpool.h"
 
 namespace doris {
 
