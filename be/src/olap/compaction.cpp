@@ -960,14 +960,20 @@ Status CompactionMixin::modify_rowsets() {
                 &output_rowset_delete_bitmap);
         if (missed_rows) {
             missed_rows_size = missed_rows->size();
+            std::size_t merged_missed_rows_size = _stats.merged_rows;
+            bool has_cluster_key =
+                    !_tablet->tablet_meta()->tablet_schema()->cluster_key_idxes().empty();
+            if (has_cluster_key) {
+                merged_missed_rows_size += _stats.filtered_rows;
+            }
             if (_tablet->tablet_state() == TABLET_RUNNING &&
-                _stats.merged_rows != missed_rows_size) {
+                merged_missed_rows_size != missed_rows_size) {
                 std::stringstream ss;
-                ss << "cumulative compaction: the merged rows(" << _stats.merged_rows
-                   << ") is not equal to missed rows(" << missed_rows_size
+                ss << "cumulative compaction: the merged rows(" << _stats.merged_rows << ")"
+                   << ", the filtered rows(" << _stats.filtered_rows << ")"
+                   << " is not equal to missed rows(" << missed_rows_size
                    << ") in rowid conversion, tablet_id: " << _tablet->tablet_id()
-                   << ", table_id:" << _tablet->table_id()
-                   << ", filtered_rows=" << _stats.filtered_rows;
+                   << ", table_id:" << _tablet->table_id();
                 if (missed_rows_size == 0) {
                     ss << ", debug info: ";
                     DeleteBitmap subset_map(_tablet->tablet_id());
@@ -982,11 +988,11 @@ Status CompactionMixin::modify_rowsets() {
                     ss << ", version[0-" << version.second + 1 << "]";
                 }
                 std::string err_msg = fmt::format(
-                        "cumulative compaction: the merged rows({}) is not equal to missed "
-                        "rows({}) in rowid conversion, tablet_id: {}, table_id:{}, "
-                        "filtered_rows: {}",
-                        _stats.merged_rows, missed_rows_size, _tablet->tablet_id(),
-                        _tablet->table_id(), _stats.filtered_rows);
+                        "cumulative compaction: the merged rows({}), filtered rows({}) "
+                        "is not equal to missed rows({}) in rowid conversion, tablet_id: {}, "
+                        "table_id:{}, filtered_rows: {}",
+                        _stats.merged_rows, _stats.filtered_rows, missed_rows_size,
+                        _tablet->tablet_id(), _tablet->table_id(), _stats.filtered_rows);
                 if (config::enable_mow_compaction_correctness_check_core) {
                     CHECK(false) << err_msg;
                 } else {
