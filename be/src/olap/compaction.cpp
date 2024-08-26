@@ -966,7 +966,8 @@ Status CompactionMixin::modify_rowsets() {
                 ss << "cumulative compaction: the merged rows(" << _stats.merged_rows
                    << ") is not equal to missed rows(" << missed_rows_size
                    << ") in rowid conversion, tablet_id: " << _tablet->tablet_id()
-                   << ", table_id:" << _tablet->table_id();
+                   << ", table_id:" << _tablet->table_id()
+                   << ", filtered_rows=" << _stats.filtered_rows;
                 if (missed_rows_size == 0) {
                     ss << ", debug info: ";
                     DeleteBitmap subset_map(_tablet->tablet_id());
@@ -982,9 +983,10 @@ Status CompactionMixin::modify_rowsets() {
                 }
                 std::string err_msg = fmt::format(
                         "cumulative compaction: the merged rows({}) is not equal to missed "
-                        "rows({}) in rowid conversion, tablet_id: {}, table_id:{}",
+                        "rows({}) in rowid conversion, tablet_id: {}, table_id:{}, "
+                        "filtered_rows: {}",
                         _stats.merged_rows, missed_rows_size, _tablet->tablet_id(),
-                        _tablet->table_id());
+                        _tablet->table_id(), _stats.filtered_rows);
                 if (config::enable_mow_compaction_correctness_check_core) {
                     CHECK(false) << err_msg;
                 } else {
