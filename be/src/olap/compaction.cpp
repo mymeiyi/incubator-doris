@@ -970,7 +970,7 @@ Status CompactionMixin::modify_rowsets() {
                 merged_missed_rows_size != missed_rows_size) {
                 std::stringstream ss;
                 ss << "cumulative compaction: the merged rows(" << _stats.merged_rows << ")"
-                   << ", the filtered rows(" << _stats.filtered_rows << ")"
+                   << ", filtered rows(" << _stats.filtered_rows << ")"
                    << " is not equal to missed rows(" << missed_rows_size
                    << ") in rowid conversion, tablet_id: " << _tablet->tablet_id()
                    << ", table_id:" << _tablet->table_id();
