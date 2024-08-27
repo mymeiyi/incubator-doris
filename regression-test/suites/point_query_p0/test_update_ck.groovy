@@ -16,6 +16,7 @@
 // under the License.
 
 suite("test_update_ck", "p0") {
+    // TODO: error, this is a partial update case
     if (isCloudMode()) {
         logger.info("cloud does not support mow cluster key")
         return
@@ -31,7 +32,7 @@ suite("test_update_ck", "p0") {
         engine=olap
         unique key (workspace_id, user_id)
         cluster by(tenant_id, user_id)
-        distributed by hash(workspace_id, user_id)
+        distributed by hash(workspace_id, user_id) buckets 1
         properties (
         "replication_num" = "1",
         "enable_unique_key_merge_on_write" = "true",
@@ -41,4 +42,5 @@ suite("test_update_ck", "p0") {
     """
     sql """insert into test_ck (workspace_id, user_id, tenant_id) values (1, 'asdfadfa', 1);"""
     sql """update test_ck set tenant_id = 5 where workspace_id = 1 and user_id = 'asdfadfa';"""
+    qt_sql """select * from test_ck;"""
 }
