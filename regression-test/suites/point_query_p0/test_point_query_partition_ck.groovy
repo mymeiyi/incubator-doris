@@ -18,6 +18,10 @@
 import java.math.BigDecimal;
 
 suite("test_point_query_partition_ck") {
+    if (isCloudMode()) {
+        logger.info("cloud does not support mow cluster key")
+        return
+    }
     def user = context.config.jdbcUser
     def password = context.config.jdbcPassword
     def realDb = "regression_test_serving_p0"

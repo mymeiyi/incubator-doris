@@ -16,6 +16,10 @@
 // under the License.
 
 suite("test_update_ck", "p0") {
+    if (isCloudMode()) {
+        logger.info("cloud does not support mow cluster key")
+        return
+    }
     sql """
         create table if not exists test_ck (
         workspace_id int not null comment "Workspace id",

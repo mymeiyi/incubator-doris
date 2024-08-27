@@ -16,6 +16,10 @@
 // under the License.
 
 suite("test_rowstore_ck", "p0,nonConcurrent") {
+    if (isCloudMode()) {
+        logger.info("cloud does not support mow cluster key")
+        return
+    }
     // Parse url
     String jdbcUrl = context.config.jdbcUrl
     def user = context.config.jdbcUser

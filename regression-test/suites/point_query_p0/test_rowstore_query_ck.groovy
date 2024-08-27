@@ -16,6 +16,10 @@
 // under the License.
 
 suite("test_rowstore_ck", "p0") {
+    if (isCloudMode()) {
+        logger.info("cloud does not support mow cluster key")
+        return
+    }
     def tableName = "rs_query_2_ck"
     sql """DROP TABLE IF EXISTS ${tableName}"""
     sql "set enable_decimal256 = true"
