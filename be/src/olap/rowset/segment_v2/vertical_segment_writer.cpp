@@ -521,6 +521,7 @@ Status VerticalSegmentWriter::_append_block_with_partial_content(RowsInBlock& da
             _opts.rowset_ctx, _rsid_to_rowset, *_tablet_schema, full_block,
             use_default_or_null_flag, has_default_or_nullable, segment_start_pos, data.block));
 
+    LOG(INFO) << "sout: full block=\n" << full_block.dump_data(0);
     // row column should be filled here
     // convert block to row store format
     _serialize_block_to_row_column(full_block);
