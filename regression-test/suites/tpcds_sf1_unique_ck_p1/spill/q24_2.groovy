@@ -22,7 +22,7 @@ suite("q24_2_spill") {
     set min_revocable_mem=500;
   """
   sql """
-    use regression_test_tpcds_sf1_unique_p1;
+    use regression_test_tpcds_sf1_unique_ck_p1;
   """
   qt_q24_2 """
 WITH

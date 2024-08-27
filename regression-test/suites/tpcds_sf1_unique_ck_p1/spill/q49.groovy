@@ -22,7 +22,7 @@ suite("q49_spill") {
     set min_revocable_mem=1;
   """
   sql """
-    use regression_test_tpcds_sf1_unique_p1;
+    use regression_test_tpcds_sf1_unique_ck_p1;
   """
   qt_q49 """
 -- 目前union后跟得order没有效果，需要在外面包一层select后再order

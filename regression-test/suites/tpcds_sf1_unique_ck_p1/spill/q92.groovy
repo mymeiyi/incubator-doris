@@ -22,7 +22,7 @@ suite("q92_spill") {
     set min_revocable_mem=1;
   """
   multi_sql """
-    use regression_test_tpcds_sf1_unique_p1;
+    use regression_test_tpcds_sf1_unique_ck_p1;
     set enable_local_shuffle=false;
   """
 
