@@ -132,7 +132,15 @@ Status StreamLoadExecutor::execute_plan_fragment(std::shared_ptr<StreamLoadConte
                 ctx->status = *status;
                 this->rollback_txn(ctx.get());
             } else {
-                static_cast<void>(this->commit_txn(ctx.get()));
+                for (int i = 0; i < 5; i++) {
+                    LOG(INFO) << "sout: submit commit txn_id=" << ctx->txn_id
+                              << " to thread pool, i=" << std::to_string(i);
+                    [[maybe_unused]] auto commit_st = _thread_pool->submit_func([&, ctx, this] {
+                        auto sts = this->commit_txn(ctx.get());
+                        LOG(INFO) << "sout: commit txn_id=" << ctx->txn_id
+                                  << ", st=" << sts.to_string();
+                    });
+                }
             }
         }
     };
@@ -315,12 +323,26 @@ Status StreamLoadExecutor::commit_txn(StreamLoadContext* ctx) {
     TNetworkAddress master_addr = _exec_env->cluster_info()->master_fe_addr;
     TLoadTxnCommitResult result;
 #ifndef BE_TEST
-    RETURN_IF_ERROR(ThriftRpcHelper::rpc<FrontendServiceClient>(
+    for (int i = 0; i < 5; i++) {
+        LOG(INFO) << "sout: submit commit txn_id=" << ctx->txn_id
+                  << " to thread pool, i=" << std::to_string(i);
+        [[maybe_unused]] auto commit_st = _thread_pool->submit_func([request, master_addr, ctx] {
+            TLoadTxnCommitResult result;
+            auto st = ThriftRpcHelper::rpc<FrontendServiceClient>(
+                    master_addr.hostname, master_addr.port,
+                    [&request, &result](FrontendServiceConnection& client) {
+                        client->loadTxnCommit(result, request);
+                    },
+                    config::txn_commit_rpc_timeout_ms);
+            LOG(INFO) << "sout: commit txn_id=" << ctx->txn_id << ", st=" << st.to_string();
+        });
+    }
+    /*RETURN_IF_ERROR(ThriftRpcHelper::rpc<FrontendServiceClient>(
             master_addr.hostname, master_addr.port,
             [&request, &result](FrontendServiceConnection& client) {
                 client->loadTxnCommit(result, request);
             },
-            config::txn_commit_rpc_timeout_ms));
+            config::txn_commit_rpc_timeout_ms));*/
 #else
     result = k_stream_load_commit_result;
 #endif
@@ -328,6 +350,7 @@ Status StreamLoadExecutor::commit_txn(StreamLoadContext* ctx) {
     // to
     // rollback this transaction
     Status status(Status::create(result.status));
+    LOG(INFO) << "sout: commit transaction st=" << status << ", txn_id=" << ctx->txn_id;
     if (!status.ok()) {
         LOG(WARNING) << "commit transaction failed, errmsg=" << status << ", " << ctx->brief();
         if (status.is<PUBLISH_TIMEOUT>()) {

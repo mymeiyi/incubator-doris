@@ -20,6 +20,7 @@
 #include <memory>
 
 #include "common/factory_creator.h"
+#include "util/threadpool.h"
 
 namespace doris {
 
@@ -33,7 +34,12 @@ class StreamLoadExecutor {
     ENABLE_FACTORY_CREATOR(StreamLoadExecutor);
 
 public:
-    StreamLoadExecutor(ExecEnv* exec_env) : _exec_env(exec_env) {}
+    StreamLoadExecutor(ExecEnv* exec_env) : _exec_env(exec_env) {
+        static_cast<void>(ThreadPoolBuilder("StreamLoadExecutorPool")
+                                  .set_min_threads(10)
+                                  .set_max_threads(10)
+                                  .build(&_thread_pool));
+    }
 
     virtual ~StreamLoadExecutor() = default;
 
@@ -57,6 +63,7 @@ protected:
     bool collect_load_stat(StreamLoadContext* ctx, TTxnCommitAttachment* attachment);
 
     ExecEnv* _exec_env = nullptr;
+    std::unique_ptr<doris::ThreadPool> _thread_pool;
 };
 
 } // namespace doris
