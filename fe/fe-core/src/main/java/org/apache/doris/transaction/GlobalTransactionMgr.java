@@ -31,6 +31,7 @@ import org.apache.doris.common.MetaNotFoundException;
 import org.apache.doris.common.Pair;
 import org.apache.doris.common.QuotaExceedException;
 import org.apache.doris.common.UserException;
+import org.apache.doris.common.util.DebugPointUtil;
 import org.apache.doris.common.util.MetaLockUtils;
 import org.apache.doris.metric.AutoMappedMetric;
 import org.apache.doris.metric.GaugeMetricImpl;
@@ -286,14 +287,19 @@ public class GlobalTransactionMgr implements GlobalTransactionMgrIface {
             throws UserException {
         StopWatch stopWatch = new StopWatch();
         stopWatch.start();
-        if (!MetaLockUtils.tryWriteLockTablesOrMetaException(tableList, timeoutMillis, TimeUnit.MILLISECONDS)) {
+        boolean skipTableWriteLock = DebugPointUtil.isEnable(
+                "GlobalTransactionMgr.commitAndPublishTransaction.skip.table_write_lock");
+        if (!skipTableWriteLock && !MetaLockUtils.tryWriteLockTablesOrMetaException(tableList, timeoutMillis,
+                TimeUnit.MILLISECONDS)) {
             throw new UserException("get tableList write lock timeout, tableList=("
                     + StringUtils.join(tableList, ",") + ")");
         }
         try {
             commitTransaction(db.getId(), tableList, transactionId, tabletCommitInfos, txnCommitAttachment);
         } finally {
-            MetaLockUtils.writeUnlockTables(tableList);
+            if (!skipTableWriteLock) {
+                MetaLockUtils.writeUnlockTables(tableList);
+            }
         }
         stopWatch.stop();
         long publishTimeoutMillis = timeoutMillis - stopWatch.getTime();
