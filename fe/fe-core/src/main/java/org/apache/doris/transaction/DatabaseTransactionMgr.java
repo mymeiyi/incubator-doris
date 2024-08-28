@@ -128,6 +128,14 @@ public class DatabaseTransactionMgr {
     // transactionId -> running TransactionState
     private final Map<Long, TransactionState> idToRunningTransactionState = Maps.newHashMap();
 
+    /**
+     * the multi table ids that are in transaction, used to check whether a table is in transaction
+     * multi table transaction state
+     * txnId -> tableId list
+     */
+    private final ConcurrentHashMap<Long, List<Long>> multiTableRunningTransactionTableIdMaps =
+            new ConcurrentHashMap<>();
+
     // transactionId -> final status TransactionState
     private final Map<Long, TransactionState> idToFinalStatusTransactionState = Maps.newHashMap();
     private final Map<Long, Long> subTxnIdToTxnId = new ConcurrentHashMap<>();
@@ -470,13 +478,8 @@ public class DatabaseTransactionMgr {
         checkCommitStatus(tableList, transactionState, tabletCommitInfos, txnCommitAttachment, errorReplicaIds,
                           tableToPartition, totalInvolvedBackends);
 
-        writeLock();
-        try {
-            unprotectedPreCommitTransaction2PC(transactionState, errorReplicaIds, tableToPartition,
-                    totalInvolvedBackends, db);
-        } finally {
-            writeUnlock();
-        }
+        unprotectedPreCommitTransaction2PC(transactionState, errorReplicaIds, tableToPartition,
+                totalInvolvedBackends, db);
         LOG.info("transaction:[{}] successfully pre-committed", transactionState);
     }
 
@@ -1519,18 +1522,8 @@ public class DatabaseTransactionMgr {
     protected void unprotectedCommitTransaction(TransactionState transactionState, Set<Long> errorReplicaIds,
                                                 Map<Long, Set<Long>> tableToPartition, Set<Long> totalInvolvedBackends,
                                                 Database db) {
-        // transaction state is modified during check if the transaction could committed
-        if (transactionState.getTransactionStatus() != TransactionStatus.PREPARE) {
-            return;
-        }
-        // update transaction state version
-        long commitTime = System.currentTimeMillis();
-        transactionState.setCommitTime(commitTime);
-        if (MetricRepo.isInit) {
-            MetricRepo.HISTO_TXN_EXEC_LATENCY.update(commitTime - transactionState.getPrepareTime());
-        }
-        transactionState.setTransactionStatus(TransactionStatus.COMMITTED);
-        transactionState.setErrorReplicas(errorReplicaIds);
+        checkBeforeUnprotectedCommitTransaction(transactionState, errorReplicaIds);
+
         for (long tableId : tableToPartition.keySet()) {
             OlapTable table = (OlapTable) db.getTableNullable(tableId);
             TableCommitInfo tableCommitInfo = new TableCommitInfo(tableId);
@@ -1546,9 +1539,7 @@ public class DatabaseTransactionMgr {
         transactionState.setInvolvedBackends(totalInvolvedBackends);
     }
 
-    protected void unprotectedCommitTransaction(TransactionState transactionState, Set<Long> errorReplicaIds,
-            Map<Long, Set<Long>> subTxnToPartition, Set<Long> totalInvolvedBackends,
-            List<SubTransactionState> subTransactionStates, Database db) {
+    private void checkBeforeUnprotectedCommitTransaction(TransactionState transactionState, Set<Long> errorReplicaIds) {
         // transaction state is modified during check if the transaction could committed
         if (transactionState.getTransactionStatus() != TransactionStatus.PREPARE) {
             return;
@@ -1561,6 +1552,15 @@ public class DatabaseTransactionMgr {
         }
         transactionState.setTransactionStatus(TransactionStatus.COMMITTED);
         transactionState.setErrorReplicas(errorReplicaIds);
+
+        // persist transactionState
+        unprotectUpsertTransactionState(transactionState, false);
+    }
+
+    protected void unprotectedCommitTransaction(TransactionState transactionState, Set<Long> errorReplicaIds,
+            Map<Long, Set<Long>> subTxnToPartition, Set<Long> totalInvolvedBackends,
+            List<SubTransactionState> subTransactionStates, Database db) {
+        checkBeforeUnprotectedCommitTransaction(transactionState, errorReplicaIds);
 
         Map<Long, List<SubTransactionState>> tableToSubTransactionState = new HashMap<>();
         for (SubTransactionState subTransactionState : subTransactionStates) {
