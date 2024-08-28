@@ -2183,14 +2183,14 @@ public class DatabaseTransactionMgr {
             }
         }
         if (LOG.isDebugEnabled()) {
-            LOG.debug("txn_id={}, partition to next version={}", transactionState.getTransactionId(),
+            LOG.debug("txn_id={}, partition to version={}", transactionState.getTransactionId(),
                     partitionToVersionMap);
         }
         for (Entry<Partition, Long> entry : partitionToVersionMap.entrySet()) {
             Partition partition = entry.getKey();
             long version = entry.getValue();
             partition.setNextVersion(version + 1);
-            LOG.debug("set partition={}, next_version={}", partition.getId(), partition.getNextVersion());
+            LOG.debug("set partition={}, next_version={}", partition.getId(), version + 1);
         }
     }
 
