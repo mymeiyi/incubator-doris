@@ -2638,8 +2638,8 @@ public class InternalCatalog implements CatalogIf<Database> {
         olapTable.setRowStorePageSize(rowStorePageSize);
 
         // check data sort properties
-        int keyColumnSize = CollectionUtils.isEmpty(keysDesc.getClusterKeysColumnIds()) ? keysDesc.keysColumnSize() :
-                keysDesc.getClusterKeysColumnIds().size();
+        int keyColumnSize = CollectionUtils.isEmpty(keysDesc.getClusterKeysColumnNames()) ? keysDesc.keysColumnSize() :
+                keysDesc.getClusterKeysColumnNames().size();
         DataSortInfo dataSortInfo = PropertyAnalyzer.analyzeDataSortInfo(properties, keysType,
                 keyColumnSize, storageFormat);
         olapTable.setDataSortInfo(dataSortInfo);
