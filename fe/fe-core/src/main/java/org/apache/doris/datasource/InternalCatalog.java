@@ -1751,7 +1751,15 @@ public class InternalCatalog implements CatalogIf<Database> {
             if (!isCreateTable) {
                 beforeCreatePartitions(db.getId(), olapTable.getId(), partitionIds, indexIds, isCreateTable);
             }
-            // TODO cluster key index
+            Map<Integer, Integer> clusterKeyMap = new TreeMap<>();
+            for (Column column : olapTable.getBaseSchema(true)) {
+                if (column.isClusterKey()) {
+                    clusterKeyMap.put(column.getClusterKeyId(), column.getUniqueId());
+                }
+            }
+            List<Integer> clusterKeyIds = clusterKeyMap.isEmpty() ? null : clusterKeyMap.values().stream().collect(
+                    Collectors.toList());
+            LOG.info("sout: clusterKeyIds: {}", clusterKeyIds);
             Partition partition = createPartitionWithIndices(db.getId(), olapTable,
                     partitionId, partitionName, indexIdToMeta,
                     distributionInfo, dataProperty, singlePartitionDesc.getReplicaAlloc(),
@@ -1759,8 +1767,7 @@ public class InternalCatalog implements CatalogIf<Database> {
                     singlePartitionDesc.isInMemory(),
                     singlePartitionDesc.getTabletType(),
                     storagePolicy, idGeneratorBuffer,
-                    binlogConfig, dataProperty.isStorageMediumSpecified(), null);
-            // TODO cluster key ids
+                    binlogConfig, dataProperty.isStorageMediumSpecified(), clusterKeyIds);
 
             // check again
             olapTable = db.getOlapTableOrDdlException(tableName);

@@ -52,7 +52,7 @@ Status CloudTxnDeleteBitmapCache::init() {
 }
 
 Status CloudTxnDeleteBitmapCache::get_tablet_txn_info(
-        TTransactionId transaction_id, int64_t tablet_id, RowsetSharedPtr* rowset,
+        TTransactionId transaction_id, int64_t tablet_id, RowsetSharedPtr* rowsrowsetet,
         DeleteBitmapPtr* delete_bitmap, RowsetIdUnorderedSet* rowset_ids, int64_t* txn_expiration,
         std::shared_ptr<PartialUpdateInfo>* partial_update_info,
         std::shared_ptr<PublishStatus>* publish_status, TxnPublishInfo* previous_publish_info) {
