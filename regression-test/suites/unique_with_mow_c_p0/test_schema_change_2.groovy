@@ -1,0 +1,106 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
+import org.codehaus.groovy.runtime.IOGroovyMethods
+
+// TODO: find a way to check the file content
+suite("test_schema_change_2") {
+    def tableName = "test_schema_change_2"
+
+    def getAlterTableState = {
+        waitForSchemaChangeDone {
+            sql """ SHOW ALTER TABLE COLUMN WHERE tablename='${tableName}' ORDER BY createtime DESC LIMIT 1 """
+            time 600
+        }
+        return true
+    }
+
+    sql """ DROP TABLE IF EXISTS ${tableName} """
+    sql """
+        CREATE TABLE IF NOT EXISTS ${tableName} (
+            `c1` int(11) NULL,
+            `c2` int(11) NULL,
+            `c3` int(11) NULL
+        ) ENGINE=OLAP
+        unique KEY(`c1`)
+        cluster by(`c3`, `c2`)
+        DISTRIBUTED BY HASH(`c1`) BUCKETS 1
+        PROPERTIES (
+            "replication_num" = "1"
+        );
+    """
+
+    sql """ INSERT INTO ${tableName} VALUES (10, 20, 30) """
+    sql """ INSERT INTO ${tableName} VALUES (11, 21, 31) """
+
+    /****** add value column ******/
+    // after cluster key
+    sql """ alter table ${tableName} ADD column c4 int(11) after c3; """
+    assertTrue(getAlterTableState(), "add column should success")
+    sql """ INSERT INTO ${tableName}(c1, c2, c3, c4) VALUES (12, 22, 32, 42) """
+    order_qt_select_add_c4 """select * from ${tableName}"""
+
+    // before cluster key
+    sql """ alter table ${tableName} ADD column c5 int(11) after c1; """
+    assertTrue(getAlterTableState(), "add column should success")
+    sql """ INSERT INTO ${tableName}(c1, c2, c3, c4, c5) VALUES (13, 24, 34, 44, 54) """
+    order_qt_select_add_c5 """select * from ${tableName}"""
+
+    // in the middle of cluster key
+    sql """ alter table ${tableName} ADD column c6 int(11) after c2; """
+    assertTrue(getAlterTableState(), "add column should success")
+    sql """ INSERT INTO ${tableName}(c1, c2, c3, c4, c5, c6) VALUES (15, 25, 35, 45, 55, 65) """
+    order_qt_select_add_c6 """select * from ${tableName}"""
+
+    /****** add key column ******/
+    sql """ alter table ${tableName} ADD column k2 int(11) key after c1; """
+    assertTrue(getAlterTableState(), "add column should success")
+    sql """ INSERT INTO ${tableName}(c1, c2, c3, k2) VALUES (16, 26, 36, 206) """
+    order_qt_select_add_k2 """select * from ${tableName}"""
+
+    /****** add cluster key column ******/
+
+    /****** drop value column ******/
+    sql """ alter table ${tableName} drop column c4; """
+    assertTrue(getAlterTableState(), "drop column should success")
+    order_qt_select_drop_c4 """select * from ${tableName}"""
+
+    sql """ alter table ${tableName} drop column c5; """
+    assertTrue(getAlterTableState(), "drop column should success")
+    order_qt_select_drop_c5 """select * from ${tableName}"""
+
+    sql """ alter table ${tableName} drop column c6; """
+    assertTrue(getAlterTableState(), "drop column should success")
+    order_qt_select_drop_c6 """select * from ${tableName}"""
+
+    /****** drop key column ******/
+    test {
+        sql """ alter table ${tableName} drop column k2; """
+        exception "Can not drop key column in Unique data model table"
+    }
+
+    /****** drop cluster key column: should be handled as hard weight schema change ******/
+    sql """ alter table ${tableName} drop column c2; """
+    assertTrue(getAlterTableState(), "drop column should success")
+    order_qt_select_drop_c2 """select * from ${tableName}"""
+
+    /****** reorder ******/
+
+    /****** modify data type ******/
+
+    /****** create index ******/
+}

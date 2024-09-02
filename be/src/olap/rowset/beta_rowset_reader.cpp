@@ -395,7 +395,9 @@ Status BetaRowsetReader::next_block(vectorized::Block* block) {
             return s;
         }
     } while (block->empty());
-
+    if (block) {
+        LOG(INFO) << "sout: read block=\n" << block->dump_data(0);
+    }
     return Status::OK();
 }
 
@@ -411,7 +413,9 @@ Status BetaRowsetReader::next_block_view(vectorized::BlockView* block_view) {
             return s;
         }
     } while (block_view->empty());
-
+    if (block_view) {
+        LOG(INFO) << "sout: read block view";
+    }
     return Status::OK();
 }
 

@@ -320,9 +320,9 @@ public class SchemaChangeHandler extends AlterHandler {
                 if (column.getName().equalsIgnoreCase(dropColName)) {
                     if (column.isKey()) {
                         throw new DdlException("Can not drop key column in Unique data model table");
-                    } else if (column.isClusterKey()) {
+                    } /*else if (column.isClusterKey()) {
                         throw new DdlException("Can not drop cluster key column in Unique data model table");
-                    }
+                    }*/
                 }
             }
             if (olapTable.hasSequenceCol() && dropColName.equalsIgnoreCase(olapTable.getSequenceMapCol())) {
@@ -844,9 +844,9 @@ public class SchemaChangeHandler extends AlterHandler {
                 if (!column.isVisible()) {
                     newSchema.add(column);
                 }
-                if (column.isClusterKey()) {
+                /*if (column.isClusterKey()) {
                     throw new DdlException("Can not modify column order in Unique data model table");
-                }
+                }*/
             }
         }
         if (newSchema.size() != targetIndexSchema.size()) {
