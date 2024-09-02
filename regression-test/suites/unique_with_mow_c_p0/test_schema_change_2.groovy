@@ -45,7 +45,7 @@ suite("test_schema_change_2") {
         );
     """
 
-    sql """ INSERT INTO ${tableName} VALUES (11, 20, 38), (10, 20, 39) """
+    sql """ INSERT INTO ${tableName} VALUES (11, 28, 38), (10, 29, 39) """
     qt_select_original """select * from ${tableName}"""
 
     /****** add value column ******/
@@ -95,9 +95,9 @@ suite("test_schema_change_2") {
     }
 
     /****** drop cluster key column: should be handled as hard weight schema change ******/
-    sql """ alter table ${tableName} drop column c2; """
+    sql """ alter table ${tableName} drop column c3; """
     assertTrue(getAlterTableState(), "drop column should success")
-    qt_select_drop_c2 """select * from ${tableName}"""
+    qt_select_drop_c3 """select * from ${tableName}"""
 
     /****** reorder ******/
 
