@@ -322,9 +322,20 @@ Status MemTable::_sort_by_cluster_keys() {
     }
     Tie tie = Tie(0, mutable_block.rows());
 
-    for (auto i : _tablet_schema->cluster_key_idxes()) {
+    for (auto cid : _tablet_schema->cluster_key_idxes()) {
+        // _tablet_schema->column_by_uid(i);
+        auto index = -1;
+        for (auto i = 0; i < _tablet_schema->columns().size(); ++i) {
+            if (_tablet_schema->columns()[i]->unique_id() == cid) {
+                index = i;
+                break;
+            }
+        }
+        if (index == -1) {
+            return Status::InternalError("column not found");
+        }
         auto cmp = [&](const RowInBlock* lhs, const RowInBlock* rhs) -> int {
-            return mutable_block.compare_one_column(lhs->_row_pos, rhs->_row_pos, i, -1);
+            return mutable_block.compare_one_column(lhs->_row_pos, rhs->_row_pos, index, -1);
         };
         _sort_one_column(row_in_blocks, tie, cmp);
     }
