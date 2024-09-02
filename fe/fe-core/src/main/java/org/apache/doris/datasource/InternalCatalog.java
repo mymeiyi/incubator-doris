@@ -1751,6 +1751,7 @@ public class InternalCatalog implements CatalogIf<Database> {
             if (!isCreateTable) {
                 beforeCreatePartitions(db.getId(), olapTable.getId(), partitionIds, indexIds, isCreateTable);
             }
+            // TODO cluster key index
             Partition partition = createPartitionWithIndices(db.getId(), olapTable,
                     partitionId, partitionName, indexIdToMeta,
                     distributionInfo, dataProperty, singlePartitionDesc.getReplicaAlloc(),
@@ -2994,6 +2995,23 @@ public class InternalCatalog implements CatalogIf<Database> {
         olapTable.initSchemaColumnUniqueId();
         olapTable.initAutoIncrementGenerator(db.getId());
         olapTable.rebuildFullSchema();
+        List<Integer> clusterKeyColumnIds = null;
+        if (!CollectionUtils.isEmpty(keysDesc.getClusterKeysColumnNames())) {
+            clusterKeyColumnIds = new ArrayList<>();
+            for (String name : keysDesc.getClusterKeysColumnNames()) {
+                boolean found = false;
+                for (Column column : olapTable.getBaseSchema(true)) {
+                    if (column.getName().equalsIgnoreCase(name)) {
+                        clusterKeyColumnIds.add(column.getUniqueId());
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    throw new DdlException("Cluster key column " + name + " not found in table schema");
+                }
+            }
+        }
 
         // analyze version info
         Long versionInfo = null;
@@ -3042,7 +3060,7 @@ public class InternalCatalog implements CatalogIf<Database> {
                         idGeneratorBuffer,
                         binlogConfigForTask,
                         partitionInfo.getDataProperty(partitionId).isStorageMediumSpecified(),
-                        keysDesc.getClusterKeysColumnIds());
+                        clusterKeyColumnIds);
                 afterCreatePartitions(db.getId(), olapTable.getId(), null,
                         olapTable.getIndexIdList(), true);
                 olapTable.addPartition(partition);
@@ -3127,7 +3145,7 @@ public class InternalCatalog implements CatalogIf<Database> {
                             partionStoragePolicy, idGeneratorBuffer,
                             binlogConfigForTask,
                             dataProperty.isStorageMediumSpecified(),
-                            keysDesc.getClusterKeysColumnIds());
+                            clusterKeyColumnIds);
                     olapTable.addPartition(partition);
                     olapTable.getPartitionInfo().getDataProperty(partition.getId())
                             .setStoragePolicy(partionStoragePolicy);
@@ -3554,7 +3572,7 @@ public class InternalCatalog implements CatalogIf<Database> {
         for (int i = 0; i < olapTable.getBaseSchema().size(); i++) {
             Column column = olapTable.getBaseSchema().get(i);
             if (column.getClusterKeyId() != -1) {
-                clusterKeyMap.put(column.getClusterKeyId(), i);
+                clusterKeyMap.put(column.getClusterKeyId(), column.getUniqueId());
             }
         }
         List<Integer> clusterKeyIdxes = clusterKeyMap.values().stream().collect(Collectors.toList());
