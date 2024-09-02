@@ -40,52 +40,53 @@ suite("test_schema_change_2") {
         cluster by(`c3`, `c2`)
         DISTRIBUTED BY HASH(`c1`) BUCKETS 1
         PROPERTIES (
-            "replication_num" = "1"
+            "replication_num" = "1",
+            "disable_auto_compaction" = "true"
         );
     """
 
-    sql """ INSERT INTO ${tableName} VALUES (10, 20, 30) """
-    sql """ INSERT INTO ${tableName} VALUES (11, 21, 31) """
+    sql """ INSERT INTO ${tableName} VALUES (11, 20, 38), (10, 20, 39) """
+    qt_select_original """select * from ${tableName}"""
 
     /****** add value column ******/
     // after cluster key
     sql """ alter table ${tableName} ADD column c4 int(11) after c3; """
     assertTrue(getAlterTableState(), "add column should success")
-    sql """ INSERT INTO ${tableName}(c1, c2, c3, c4) VALUES (12, 22, 32, 42) """
-    order_qt_select_add_c4 """select * from ${tableName}"""
+    sql """ INSERT INTO ${tableName}(c1, c2, c3, c4) VALUES (13, 20, 36, 40), (12, 20, 37, 40) """
+    qt_select_add_c4 """select * from ${tableName}"""
 
     // before cluster key
     sql """ alter table ${tableName} ADD column c5 int(11) after c1; """
     assertTrue(getAlterTableState(), "add column should success")
-    sql """ INSERT INTO ${tableName}(c1, c2, c3, c4, c5) VALUES (13, 24, 34, 44, 54) """
-    order_qt_select_add_c5 """select * from ${tableName}"""
+    sql """ INSERT INTO ${tableName}(c1, c2, c3, c4, c5) VALUES (15, 20, 34, 40, 50), (14, 20, 35, 40, 50) """
+    qt_select_add_c5 """select * from ${tableName}"""
 
     // in the middle of cluster key
     sql """ alter table ${tableName} ADD column c6 int(11) after c2; """
     assertTrue(getAlterTableState(), "add column should success")
-    sql """ INSERT INTO ${tableName}(c1, c2, c3, c4, c5, c6) VALUES (15, 25, 35, 45, 55, 65) """
-    order_qt_select_add_c6 """select * from ${tableName}"""
+    sql """ INSERT INTO ${tableName}(c1, c2, c3, c4, c5, c6) VALUES (17, 20, 32, 40, 50, 60), (16, 20, 33, 40, 50, 60) """
+    qt_select_add_c6 """select * from ${tableName}"""
 
     /****** add key column ******/
     sql """ alter table ${tableName} ADD column k2 int(11) key after c1; """
     assertTrue(getAlterTableState(), "add column should success")
-    sql """ INSERT INTO ${tableName}(c1, c2, c3, k2) VALUES (16, 26, 36, 206) """
-    order_qt_select_add_k2 """select * from ${tableName}"""
+    sql """ INSERT INTO ${tableName}(c1, c2, c3, k2) VALUES (19, 20, 30, 200), (18, 20, 31, 200) """
+    qt_select_add_k2 """select * from ${tableName}"""
 
-    /****** add cluster key column ******/
+    /****** TODO add cluster key column ******/
 
     /****** drop value column ******/
     sql """ alter table ${tableName} drop column c4; """
     assertTrue(getAlterTableState(), "drop column should success")
-    order_qt_select_drop_c4 """select * from ${tableName}"""
+    qt_select_drop_c4 """select * from ${tableName}"""
 
     sql """ alter table ${tableName} drop column c5; """
     assertTrue(getAlterTableState(), "drop column should success")
-    order_qt_select_drop_c5 """select * from ${tableName}"""
+    qt_select_drop_c5 """select * from ${tableName}"""
 
     sql """ alter table ${tableName} drop column c6; """
     assertTrue(getAlterTableState(), "drop column should success")
-    order_qt_select_drop_c6 """select * from ${tableName}"""
+    qt_select_drop_c6 """select * from ${tableName}"""
 
     /****** drop key column ******/
     test {
@@ -96,7 +97,7 @@ suite("test_schema_change_2") {
     /****** drop cluster key column: should be handled as hard weight schema change ******/
     sql """ alter table ${tableName} drop column c2; """
     assertTrue(getAlterTableState(), "drop column should success")
-    order_qt_select_drop_c2 """select * from ${tableName}"""
+    qt_select_drop_c2 """select * from ${tableName}"""
 
     /****** reorder ******/
 
