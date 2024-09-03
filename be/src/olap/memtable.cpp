@@ -332,7 +332,8 @@ Status MemTable::_sort_by_cluster_keys() {
             }
         }
         if (index == -1) {
-            return Status::InternalError("column not found");
+            return Status::InternalError("could not found cluster key column with unique id=" +
+                                         std::to_string(cid));
         }
         auto cmp = [&](const RowInBlock* lhs, const RowInBlock* rhs) -> int {
             return mutable_block.compare_one_column(lhs->_row_pos, rhs->_row_pos, index, -1);
