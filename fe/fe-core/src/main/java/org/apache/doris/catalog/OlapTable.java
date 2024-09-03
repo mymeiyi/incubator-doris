@@ -3112,6 +3112,16 @@ public class OlapTable extends Table implements MTMVRelatedTableIf, GsonPostProc
         }
     }
 
+    public static List<Integer> getClusterKeyIndexes(List<Column> columns) {
+        Map<Integer, Integer> clusterKeyIndexes = new TreeMap<>();
+        for (Column column : columns) {
+            if (column.isClusterKey()) {
+                clusterKeyIndexes.put(column.getClusterKeyId(), column.getUniqueId());
+            }
+        }
+        return clusterKeyIndexes.isEmpty() ? null : new ArrayList<>(clusterKeyIndexes.values());
+    }
+
     public long getVisibleVersionTime() {
         return tableAttributes.getVisibleVersionTime();
     }

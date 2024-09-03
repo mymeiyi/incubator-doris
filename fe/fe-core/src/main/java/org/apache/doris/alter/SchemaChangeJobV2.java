@@ -310,16 +310,8 @@ public class SchemaChangeJobV2 extends AlterJobV2 {
                             }
                             createReplicaTask.setInvertedIndexFileStorageFormat(tbl
                                                     .getInvertedIndexFileStorageFormat());
-                            Map<Integer, Integer> clusterKeyIndexes = new TreeMap<>();
-                            for (Column column : indexSchemaMap.get(shadowIdxId)) {
-                                if (column.isClusterKey()) {
-                                    clusterKeyIndexes.put(column.getClusterKeyId(), column.getUniqueId());
-                                }
-                            }
-                            if (!clusterKeyIndexes.isEmpty()) {
-                                createReplicaTask.setClusterKeyIndexes(
-                                        clusterKeyIndexes.values().stream().collect(Collectors.toList()));
-                            }
+                            createReplicaTask.setClusterKeyIndexes(OlapTable.getClusterKeyIndexes(
+                                    indexSchemaMap.get(shadowIdxId)));
                             batchTask.addTask(createReplicaTask);
                         } // end for rollupReplicas
                     } // end for rollupTablets

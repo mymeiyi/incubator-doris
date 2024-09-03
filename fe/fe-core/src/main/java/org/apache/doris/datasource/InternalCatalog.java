@@ -2172,7 +2172,7 @@ public class InternalCatalog implements CatalogIf<Database> {
 
                     task.setStorageFormat(tbl.getStorageFormat());
                     task.setInvertedIndexFileStorageFormat(tbl.getInvertedIndexFileStorageFormat());
-                    task.setClusterKeyIndexes(clusterKeyIndexes);
+                    task.setClusterKeyIndexes(OlapTable.getClusterKeyIndexes(schema));
                     batchTask.addTask(task);
                     // add to AgentTaskQueue for handling finish report.
                     // not for resending task
