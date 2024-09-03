@@ -530,7 +530,10 @@ Status MemTable::_to_block(std::unique_ptr<vectorized::Block>* res) {
     }
     if (_keys_type == KeysType::UNIQUE_KEYS && _enable_unique_key_mow &&
         !_tablet_schema->cluster_key_idxes().empty()) {
+        LOG(INFO) << "sout: call _sort_by_cluster_keys";
         RETURN_IF_ERROR(_sort_by_cluster_keys());
+    } else {
+        LOG(INFO) << "sout: skip call _sort_by_cluster_keys";
     }
     g_memtable_input_block_allocated_size << -_input_mutable_block.allocated_bytes();
     _input_mutable_block.clear();
