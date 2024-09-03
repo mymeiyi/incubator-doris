@@ -323,7 +323,6 @@ Status MemTable::_sort_by_cluster_keys() {
     Tie tie = Tie(0, mutable_block.rows());
 
     for (auto cid : _tablet_schema->cluster_key_idxes()) {
-        // _tablet_schema->column_by_uid(i);
         auto index = -1;
         for (auto i = 0; i < _tablet_schema->columns().size(); ++i) {
             if (_tablet_schema->columns()[i]->unique_id() == cid) {
