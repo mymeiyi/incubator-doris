@@ -131,7 +131,7 @@ suite("test_schema_change_2") {
     sql """ INSERT INTO ${tableName}(c1, c2, c3, k2) VALUES (111, 21, 38, 200), (110, 20, 39, 200) """
     qt_select_modify_k2 """select * from ${tableName}"""
 
-    /****** TODO: does not support modify cluster key column data type ******/
+    /****** TODO does not support modify cluster key column data type ******/
     test {
         sql """ alter table ${tableName} modify column c2 BIGINT; """
         exception "Can not modify cluster key column"
