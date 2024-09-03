@@ -164,11 +164,14 @@ suite("test_schema_change_2") {
     sql """ INSERT INTO ${tableName}(c1, c2, c3, k2) VALUES (10011, 21, 38, 200), (10010, 20, 39, 200) """
     qt_select_add_partition """select * from ${tableName}"""
 
-    /****** truncate table ******/
-
     /****** backup restore ******/
 
     /****** specify index, not base index ******/
 
     /****** one sql contain multi column changes ******/
+
+    /****** truncate table ******/
+    sql """ TRUNCATE TABLE ${tableName} """
+    sql """ INSERT INTO ${tableName}(c1, c2, c3) VALUES (11, 28, 38), (10, 29, 39), (12, 26, 37), (13, 27, 36) """
+    qt_select_truncate """select * from ${tableName}"""
 }
