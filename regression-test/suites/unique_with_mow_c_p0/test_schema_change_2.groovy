@@ -30,12 +30,22 @@ suite("test_schema_change_2") {
     }
 
     sql """ DROP TABLE IF EXISTS ${tableName} """
+    test {
+        sql """
+            CREATE TABLE IF NOT EXISTS ${tableName} (`c1` int(11) NULL, `c2` int(11) NULL, `c3` int(11) NULL)
+            unique KEY(`c1`) 
+            cluster by(`c3`, `c2`) 
+            DISTRIBUTED BY HASH(`c1`) BUCKETS 1
+            PROPERTIES (
+                "replication_num" = "1",
+                "disable_auto_compaction" = "true",
+                "light_schema_change" = "false"
+            );
+        """
+        exception ""
+    }
     sql """
-        CREATE TABLE IF NOT EXISTS ${tableName} (
-            `c1` int(11) NULL,
-            `c2` int(11) NULL,
-            `c3` int(11) NULL
-        ) ENGINE=OLAP
+        CREATE TABLE IF NOT EXISTS ${tableName} (`c1` int(11) NULL, `c2` int(11) NULL, `c3` int(11) NULL)
         unique KEY(`c1`)
         cluster by(`c3`, `c2`)
         DISTRIBUTED BY HASH(`c1`) BUCKETS 1
@@ -97,15 +107,39 @@ suite("test_schema_change_2") {
         exception "Can not drop key column in Unique data model table"
     }
 
-    /****** TODO does not support drop cluster key column: the data must reorder ******/
+    /****** TODO does not support drop cluster key column because the data must reorder ******/
     test {
         sql """ alter table ${tableName} drop column c3; """
         exception "Can not drop cluster key column in Unique data model table"
     }
 
     /****** reorder ******/
+    sql """ alter table ${tableName} order by(c1, k2, c3, c2); """
+    assertTrue(getAlterTableState(), "reorder should success")
+    sql """ INSERT INTO ${tableName}(c1, c2, c3, k2) VALUES (113, 23, 36, 200), (112, 22, 37, 200) """
+    qt_select_reorder """select * from ${tableName}"""
 
     /****** modify data type ******/
+    sql """ alter table ${tableName} order by(c1, k2, c3, c2); """
+    assertTrue(getAlterTableState(), "modify should success")
+    sql """ INSERT INTO ${tableName}(c1, c2, c3, k2) VALUES (113, 23, 36, 200), (112, 22, 37, 200) """
+    qt_select_modify """select * from ${tableName}"""
 
     /****** create index ******/
+
+    /****** rollup ******/
+
+    /****** mvmt ******/
+
+    /****** add partition ******/
+
+    /****** truncate table ******/
+
+    /****** backup restore ******/
+
+    /****** specify index, not base index ******/
+
+    /****** add multi value columns ******/
+
+    /****** one sql contain multi column changes ******/
 }
