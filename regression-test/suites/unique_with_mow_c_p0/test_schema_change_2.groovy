@@ -125,11 +125,17 @@ suite("test_schema_change_2") {
     sql """ INSERT INTO ${tableName}(c1, c2, c3, k2) VALUES (113, 23, 36, 200), (112, 22, 37, 200) """
     qt_select_reorder """select * from ${tableName}"""
 
-    /****** modify data type ******/
-    /*sql """ alter table ${tableName} order by(c1, k2, c3, c2); """
+    /****** modify key column data type ******/
+    sql """ alter table ${tableName} modify column k2 BIGINT key; """
     assertTrue(getAlterTableState(), "modify should success")
-    sql """ INSERT INTO ${tableName}(c1, c2, c3, k2) VALUES (113, 23, 36, 200), (112, 22, 37, 200) """
-    qt_select_modify """select * from ${tableName}"""*/
+    sql """ INSERT INTO ${tableName}(c1, c2, c3, k2) VALUES (111, 21, 38, 200), (110, 20, 39, 200) """
+    qt_select_modify_k2 """select * from ${tableName}"""
+
+    /****** TODO: does not support modify cluster key column data type ******/
+    test {
+        sql """ alter table ${tableName} modify column c2 BIGINT; """
+        exception "Can not modify cluster key column"
+    }
 
     /****** create index ******/
 
