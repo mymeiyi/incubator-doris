@@ -98,10 +98,10 @@ suite("test_schema_change_2") {
     }
 
     /****** TODO does not support drop cluster key column: the data must reorder ******/
-    /*sql """ alter table ${tableName} drop column c3; """
-    assertTrue(getAlterTableState(), "drop column should success")
-    sql """ INSERT INTO ${tableName}(c1, c2, k2) VALUES (113, 23, 200), (112, 22, 200) """
-    qt_select_drop_c3 """select * from ${tableName}"""*/
+    test {
+        sql """ alter table ${tableName} drop column c3; """
+        exception "Can not drop cluster key column in Unique data model table"
+    }
 
     /****** reorder ******/
 
