@@ -54,11 +54,11 @@ suite("test_schema_change_2") {
             `c2` int(11) NULL, 
             `c3` int(11) NULL
         ) unique KEY(`c1`)
+        cluster by(`c3`, `c2`)
         PARTITION BY RANGE(`c1`)
         ( 
-            PARTITION `p_1000` VALUES [0, 10000) 
+            PARTITION `p_10000` VALUES [("0"), ("10000")) 
         )
-        cluster by(`c3`, `c2`)
         DISTRIBUTED BY HASH(`c1`) BUCKETS 1
         PROPERTIES (
             "replication_num" = "1",
@@ -151,6 +151,18 @@ suite("test_schema_change_2") {
     qt_select_create_mv_mv """select c1, c3 from ${tableName}"""
 
     /****** add partition ******/
+    sql "ALTER TABLE ${tableName} ADD PARTITION p_20000 VALUES [('10000'), ('20000'));"
+    for (int i = 0; i < 10; i++) {
+        List<List<Object>> partitions = sql "show partitions from ${tableName};"
+        logger.info("partitions: ${partitions}")
+        if (partitions.size() < 2 && i < 10) {
+            sleep(50)
+            continue
+        }
+        assertEquals(partitions.size(), 2)
+    }
+    sql """ INSERT INTO ${tableName}(c1, c2, c3, k2) VALUES (10011, 21, 38, 200), (10010, 20, 39, 200) """
+    qt_select_add_partition """select * from ${tableName}"""
 
     /****** truncate table ******/
 
