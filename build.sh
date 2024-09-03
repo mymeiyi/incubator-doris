@@ -503,7 +503,7 @@ echo "Get params:
 if [[ "${CLEAN}" -eq 1 ]]; then
     clean_gensrc
 fi
-"${DORIS_HOME}"/generated-source.sh noclean
+#"${DORIS_HOME}"/generated-source.sh noclean
 
 # Assesmble FE modules
 FE_MODULES=''

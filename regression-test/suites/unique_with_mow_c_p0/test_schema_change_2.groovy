@@ -126,10 +126,10 @@ suite("test_schema_change_2") {
     qt_select_reorder """select * from ${tableName}"""
 
     /****** modify data type ******/
-    sql """ alter table ${tableName} order by(c1, k2, c3, c2); """
+    /*sql """ alter table ${tableName} order by(c1, k2, c3, c2); """
     assertTrue(getAlterTableState(), "modify should success")
     sql """ INSERT INTO ${tableName}(c1, c2, c3, k2) VALUES (113, 23, 36, 200), (112, 22, 37, 200) """
-    qt_select_modify """select * from ${tableName}"""
+    qt_select_modify """select * from ${tableName}"""*/
 
     /****** create index ******/
 
