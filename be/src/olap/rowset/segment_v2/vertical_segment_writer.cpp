@@ -765,11 +765,12 @@ Status VerticalSegmentWriter::write_batch() {
             if (_tablet_schema->has_sequence_col() && cid == _tablet_schema->sequence_col_idx()) {
                 seq_column = column;
             }
+            auto column_unique_id = _tablet_schema->column(cid).unique_id();
             if (_is_mow_with_cluster_key() &&
                 std::find(_tablet_schema->cluster_key_idxes().begin(),
                           _tablet_schema->cluster_key_idxes().end(),
-                          cid) != _tablet_schema->cluster_key_idxes().end()) {
-                cid_to_column[cid] = column;
+                          column_unique_id) != _tablet_schema->cluster_key_idxes().end()) {
+                cid_to_column[column_unique_id] = column;
             }
             RETURN_IF_ERROR(_column_writers[cid]->append(column->get_nullmap(), column->get_data(),
                                                          data.num_rows));
