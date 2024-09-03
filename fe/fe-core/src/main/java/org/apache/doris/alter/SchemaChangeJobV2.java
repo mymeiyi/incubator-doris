@@ -81,6 +81,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -309,9 +310,15 @@ public class SchemaChangeJobV2 extends AlterJobV2 {
                             }
                             createReplicaTask.setInvertedIndexFileStorageFormat(tbl
                                                     .getInvertedIndexFileStorageFormat());
-                            List<Integer> clusterKeyIndexes = tbl.getClusterKeyIndexes(shadowIdxId);
-                            if (clusterKeyIndexes != null) {
-                                createReplicaTask.setClusterKeyIndexes(clusterKeyIndexes);
+                            Map<Integer, Integer> clusterKeyIndexes = new TreeMap<>();
+                            for (Column column : indexSchemaMap.get(shadowIdxId)) {
+                                if (column.isClusterKey()) {
+                                    clusterKeyIndexes.put(column.getClusterKeyId(), column.getUniqueId());
+                                }
+                            }
+                            if (!clusterKeyIndexes.isEmpty()) {
+                                createReplicaTask.setClusterKeyIndexes(
+                                        clusterKeyIndexes.values().stream().collect(Collectors.toList()));
                             }
                             batchTask.addTask(createReplicaTask);
                         } // end for rollupReplicas
