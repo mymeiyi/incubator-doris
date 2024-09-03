@@ -54,6 +54,10 @@ suite("test_schema_change_2") {
             `c2` int(11) NULL, 
             `c3` int(11) NULL
         ) unique KEY(`c1`)
+        PARTITION BY RANGE(`c1`)
+        ( 
+            PARTITION `p_1000` VALUES [0, 10000) 
+        )
         cluster by(`c3`, `c2`)
         DISTRIBUTED BY HASH(`c1`) BUCKETS 1
         PROPERTIES (
@@ -138,18 +142,13 @@ suite("test_schema_change_2") {
         exception "Can not modify cluster key column"
     }
 
-    /****** create index ******/
+    /****** create mv ******/
     def mv_name = "k2_c3"
     sql """DROP MATERIALIZED VIEW IF EXISTS ${mv_name}"""
     createMV """ create materialized view ${mv_name} as select c1, c3 from ${tableName}; """
     sql """ INSERT INTO ${tableName}(c1, c2, c3, k2) VALUES (211, 21, 38, 200), (210, 20, 39, 200) """
     qt_select_create_mv_base """select * from ${tableName}"""
     qt_select_create_mv_mv """select c1, c3 from ${tableName}"""
-
-
-    /****** rollup ******/
-
-    /****** mvmt ******/
 
     /****** add partition ******/
 
