@@ -761,7 +761,7 @@ public class CreateTableInfo {
                     }
                     if (j == columns.size() - 1) {
                         throw new AnalysisException(
-                                "Key cluster column[" + name + "] doesn't exist.");
+                                "cluster key column[" + name + "] doesn't exist.");
                     }
                 }
             }

@@ -32,8 +32,11 @@ suite("test_schema_change_2") {
     sql """ DROP TABLE IF EXISTS ${tableName} """
     test {
         sql """
-            CREATE TABLE IF NOT EXISTS ${tableName} (`c1` int(11) NULL, `c2` int(11) NULL, `c3` int(11) NULL)
-            unique KEY(`c1`) 
+            CREATE TABLE IF NOT EXISTS ${tableName} (
+                `c1` int(11) NULL, 
+                `c2` int(11) NULL, 
+                `c3` int(11) NULL
+            ) unique KEY(`c1`) 
             cluster by(`c3`, `c2`) 
             DISTRIBUTED BY HASH(`c1`) BUCKETS 1
             PROPERTIES (
@@ -42,11 +45,14 @@ suite("test_schema_change_2") {
                 "light_schema_change" = "false"
             );
         """
-        exception ""
+        exception "Unique merge-on-write table with cluster keys must enable light schema change"
     }
     sql """
-        CREATE TABLE IF NOT EXISTS ${tableName} (`c1` int(11) NULL, `c2` int(11) NULL, `c3` int(11) NULL)
-        unique KEY(`c1`)
+        CREATE TABLE IF NOT EXISTS ${tableName} (
+            `c1` int(11) NULL, 
+            `c2` int(11) NULL, 
+            `c3` int(11) NULL
+        ) unique KEY(`c1`)
         cluster by(`c3`, `c2`)
         DISTRIBUTED BY HASH(`c1`) BUCKETS 1
         PROPERTIES (

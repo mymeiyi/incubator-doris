@@ -161,14 +161,14 @@ public class KeysDesc implements Writable {
             }
             // check if key exists and generate key column ids
             for (int j = 0; j < cols.size(); j++) {
-                /*if (cols.get(j).getName().equalsIgnoreCase(name)) {
-                    cols.get(j).setClusterKeyId(clusterKeysColumnIds.size());
+                if (cols.get(j).getName().equalsIgnoreCase(name)) {
+                    cols.get(j).setClusterKeyId(i);
                     // TODO use column id
-                    clusterKeysColumnIds.add(j);
+                    // clusterKeysColumnIds.add(j);
                     break;
-                }*/
+                }
                 if (j == cols.size() - 1) {
-                    throw new AnalysisException("Key cluster column[" + name + "] doesn't exist.");
+                    throw new AnalysisException("Cluster key column[" + name + "] doesn't exist.");
                 }
             }
         }
