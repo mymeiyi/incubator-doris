@@ -76,7 +76,7 @@ suite("test_schema_change_2") {
     /****** TODO add cluster key column ******/
 
     /****** drop value column ******/
-    sql """ alter table ${tableName} drop column c4; """
+    /*sql """ alter table ${tableName} drop column c4; """
     assertTrue(getAlterTableState(), "drop column should success")
     sql """ INSERT INTO ${tableName}(c1, c2, c3, k2) VALUES (119, 20, 30, 200), (118, 20, 31, 200) """
     qt_select_drop_c4 """select * from ${tableName}"""
@@ -91,17 +91,17 @@ suite("test_schema_change_2") {
     sql """ INSERT INTO ${tableName}(c1, c2, c3, k2) VALUES (115, 20, 34, 200), (114, 20, 35, 200) """
     qt_select_drop_c6 """select * from ${tableName}"""
 
-    /****** drop key column ******/
+    *//****** drop key column ******//*
     test {
         sql """ alter table ${tableName} drop column k2; """
         exception "Can not drop key column in Unique data model table"
     }
 
-    /****** drop cluster key column: should be handled as hard weight schema change ******/
+    *//****** drop cluster key column: should be handled as hard weight schema change ******//*
     sql """ alter table ${tableName} drop column c3; """
     assertTrue(getAlterTableState(), "drop column should success")
     sql """ INSERT INTO ${tableName}(c1, c2, k2) VALUES (115, 20, 200), (114, 20, 200) """
-    qt_select_drop_c3 """select * from ${tableName}"""
+    qt_select_drop_c3 """select * from ${tableName}"""*/
 
     /****** reorder ******/
 

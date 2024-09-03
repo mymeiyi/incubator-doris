@@ -110,6 +110,7 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -449,6 +450,17 @@ public class OlapTable extends Table implements MTMVRelatedTableIf, GsonPostProc
 
         indexIdToMeta.put(indexId, indexMeta);
         indexNameToId.put(indexName, indexId);
+    }
+
+    // should hold table lock when calling this method, return null if does not contain cluster key
+    public List<Integer> getClusterKeyIndexes() {
+        Map<Integer, Integer> clusterKeyIndexes = new TreeMap<>();
+        for (Column column : getBaseSchema(true)) {
+            if (column.isClusterKey()) {
+                clusterKeyIndexes.put(column.getClusterKeyId(), column.getUniqueId());
+            }
+        }
+        return clusterKeyIndexes.isEmpty() ? null : clusterKeyIndexes.values().stream().collect(Collectors.toList());
     }
 
     // rebuild the full schema of table
