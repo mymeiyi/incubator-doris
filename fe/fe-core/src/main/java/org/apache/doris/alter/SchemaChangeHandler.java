@@ -321,8 +321,7 @@ public class SchemaChangeHandler extends AlterHandler {
                     if (column.isKey()) {
                         throw new DdlException("Can not drop key column in Unique data model table");
                     } else if (column.isClusterKey()) {
-                        // throw new DdlException("Can not drop cluster key column in Unique data model table");
-                        lightSchemaChange = false;
+                        throw new DdlException("Can not drop cluster key column in Unique data model table");
                     }
                 }
             }

@@ -97,7 +97,7 @@ suite("test_schema_change_2") {
         exception "Can not drop key column in Unique data model table"
     }
 
-    /****** drop cluster key column: should be handled as hard weight schema change ******/
+    /****** TODO does not support drop cluster key column: the data must reorder ******/
     /*sql """ alter table ${tableName} drop column c3; """
     assertTrue(getAlterTableState(), "drop column should success")
     sql """ INSERT INTO ${tableName}(c1, c2, k2) VALUES (113, 23, 200), (112, 22, 200) """
