@@ -787,7 +787,9 @@ Status SegmentWriter::append_block(const vectorized::Block* block, size_t row_po
             for (const auto& cid : _tablet_schema->cluster_key_idxes()) {
                 for (size_t id = 0; id < _column_writers.size(); ++id) {
                     // olap data convertor always start from id = 0
-                    if (cid == _column_ids[id]) {
+                    if (cid == _tablet_schema->column(id).unique_id()) {
+                        LOG(INFO) << "sout: cid=" << cid << ", id=" << id
+                                  << ", uid=" << _tablet_schema->column(id).unique_id();
                         auto converted_result = _olap_data_convertor->convert_column_data(id);
                         if (!converted_result.first.ok()) {
                             return converted_result.first;
