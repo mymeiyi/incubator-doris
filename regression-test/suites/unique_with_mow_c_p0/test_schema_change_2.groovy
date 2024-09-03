@@ -19,6 +19,7 @@ import org.codehaus.groovy.runtime.IOGroovyMethods
 
 // TODO: find a way to check the file content
 suite("test_schema_change_2") {
+    def db = "regression_test_unique_with_mow_c_p0"
     def tableName = "test_schema_change_2"
 
     def getAlterTableState = {
@@ -138,6 +139,13 @@ suite("test_schema_change_2") {
     }
 
     /****** create index ******/
+    def mv_name = "k2_c3"
+    sql """DROP MATERIALIZED VIEW IF EXISTS ${mv_name}"""
+    createMV """ create materialized view ${mv_name} as select c1, c3 from ${tableName}; """
+    sql """ INSERT INTO ${tableName}(c1, c2, c3, k2) VALUES (211, 21, 38, 200), (210, 20, 39, 200) """
+    qt_select_create_mv_base """select * from ${tableName}"""
+    qt_select_create_mv_mv """select c1, c3 from ${tableName}"""
+
 
     /****** rollup ******/
 
@@ -150,8 +158,6 @@ suite("test_schema_change_2") {
     /****** backup restore ******/
 
     /****** specify index, not base index ******/
-
-    /****** add multi value columns ******/
 
     /****** one sql contain multi column changes ******/
 }
