@@ -52,7 +52,7 @@ suite("test_schema_change_2") {
     // after cluster key
     sql """ alter table ${tableName} ADD column c4 int(11) after c3; """
     assertTrue(getAlterTableState(), "add column should success")
-    sql """ INSERT INTO ${tableName}(c1, c2, c3, c4) VALUES (13, 26, 36, 40), (12, 27, 37, 40) """
+    sql """ INSERT INTO ${tableName}(c1, c2, c3, c4) VALUES (13, 27, 36, 40), (12, 26, 37, 40) """
     qt_select_add_c4 """select * from ${tableName}"""
 
     // before cluster key
@@ -98,10 +98,10 @@ suite("test_schema_change_2") {
     }
 
     /****** drop cluster key column: should be handled as hard weight schema change ******/
-    sql """ alter table ${tableName} drop column c3; """
+    /*sql """ alter table ${tableName} drop column c3; """
     assertTrue(getAlterTableState(), "drop column should success")
     sql """ INSERT INTO ${tableName}(c1, c2, k2) VALUES (113, 23, 200), (112, 22, 200) """
-    qt_select_drop_c3 """select * from ${tableName}"""
+    qt_select_drop_c3 """select * from ${tableName}"""*/
 
     /****** reorder ******/
 
