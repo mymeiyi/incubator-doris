@@ -453,9 +453,9 @@ public class OlapTable extends Table implements MTMVRelatedTableIf, GsonPostProc
     }
 
     // should hold table lock when calling this method, return null if does not contain cluster key
-    public List<Integer> getClusterKeyIndexes() {
+    public List<Integer> getClusterKeyIndexes(long index) {
         Map<Integer, Integer> clusterKeyIndexes = new TreeMap<>();
-        for (Column column : getBaseSchema(true)) {
+        for (Column column : getSchemaByIndexId(index)) {
             if (column.isClusterKey()) {
                 clusterKeyIndexes.put(column.getClusterKeyId(), column.getUniqueId());
             }

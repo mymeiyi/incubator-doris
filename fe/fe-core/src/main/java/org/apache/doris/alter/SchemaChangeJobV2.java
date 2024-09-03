@@ -309,7 +309,7 @@ public class SchemaChangeJobV2 extends AlterJobV2 {
                             }
                             createReplicaTask.setInvertedIndexFileStorageFormat(tbl
                                                     .getInvertedIndexFileStorageFormat());
-                            List<Integer> clusterKeyIndexes = tbl.getClusterKeyIndexes();
+                            List<Integer> clusterKeyIndexes = tbl.getClusterKeyIndexes(shadowIdxId);
                             if (clusterKeyIndexes != null) {
                                 createReplicaTask.setClusterKeyIndexes(clusterKeyIndexes);
                             }
