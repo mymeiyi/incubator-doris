@@ -204,11 +204,12 @@ void Merger::vertical_split_columns(const TabletSchema& tablet_schema,
             key_columns.emplace_back(delete_sign_idx);
         }
         if (!tablet_schema.cluster_key_idxes().empty()) {
+            std::map<size_t, size_t> cid_to_idx;
             for (const auto& cid : tablet_schema.cluster_key_idxes()) {
                 bool found = false;
                 for (auto idx = 0; idx < tablet_schema.columns().size(); ++idx) {
                     if (tablet_schema.column(idx).unique_id() == cid) {
-                        key_group_cluster_key_idxes->emplace_back(idx);
+                        cid_to_idx[cid] = idx;
                         if (idx >= num_key_cols) {
                             key_columns.emplace_back(idx);
                         }
@@ -223,6 +224,16 @@ void Merger::vertical_split_columns(const TabletSchema& tablet_schema,
                              << tablet_schema.table_id() << " column_unique_id=" << cid
                              << ", tablet_schema=" << ss.str()
                              << ", cluster key ids=" << ss1.str();*/
+                }
+            }
+            // key_group_cluster_key_idxes->emplace_back(idx);
+            for (const auto& cid : tablet_schema.cluster_key_idxes()) {
+                size_t idx = cid_to_idx[cid];
+                for (auto i = 0; i < key_columns.size(); ++i) {
+                    if (idx == key_columns[i]) {
+                        key_group_cluster_key_idxes->emplace_back(i);
+                        break;
+                    }
                 }
             }
             std::stringstream ss;
