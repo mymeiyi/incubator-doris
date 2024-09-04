@@ -181,7 +181,8 @@ Status Merger::vmerge_rowsets(BaseTabletSPtr tablet, ReaderType reader_type,
 // split columns into several groups, make sure all keys in one group
 // unique_key should consider sequence&delete column
 void Merger::vertical_split_columns(const TabletSchema& tablet_schema,
-                                    std::vector<std::vector<uint32_t>>* column_groups) {
+                                    std::vector<std::vector<uint32_t>>* column_groups,
+                                    std::vector<uint32_t>* key_group_cluster_key_idxes) {
     uint32_t num_key_cols = tablet_schema.num_key_columns();
     uint32_t total_cols = tablet_schema.num_columns();
     std::vector<uint32_t> key_columns;
@@ -207,6 +208,7 @@ void Merger::vertical_split_columns(const TabletSchema& tablet_schema,
                 bool found = false;
                 for (auto idx = 0; idx < tablet_schema.columns().size(); ++idx) {
                     if (tablet_schema.column(idx).unique_id() == cid) {
+                        key_group_cluster_key_idxes->emplace_back(idx);
                         if (idx >= num_key_cols) {
                             key_columns.emplace_back(idx);
                         }
@@ -236,9 +238,13 @@ void Merger::vertical_split_columns(const TabletSchema& tablet_schema,
             for (const auto& item : key_columns) {
                 ss2 << item << " ";
             }
+            std::stringstream ss3;
+            for (const auto item : *key_group_cluster_key_idxes) {
+                ss3 << item << " ";
+            }
             LOG(INFO) << "sout: vertical_split_columns, table_id=" << tablet_schema.table_id()
                       << ", tablet_schema=" << ss.str() << ", cluster key ids=" << ss1.str()
-                      << ", key columns=" << ss2.str();
+                      << ", key columns=" << ss2.str() << ", cluster key idxes=" << ss3.str();
         }
     }
     VLOG_NOTICE << "sequence_col_idx=" << sequence_col_idx
@@ -484,11 +490,10 @@ Status Merger::vertical_merge_rowsets(BaseTabletSPtr tablet, ReaderType reader_t
                                       int64_t merge_way_num, Statistics* stats_output) {
     LOG(INFO) << "Start to do vertical compaction, tablet_id: " << tablet->tablet_id();
     std::vector<std::vector<uint32_t>> column_groups;
-    vertical_split_columns(tablet_schema, &column_groups);
-
     std::vector<uint32_t> key_group_cluster_key_idxes;
-    _generate_key_group_cluster_key_idxes(tablet_schema, column_groups,
-                                          key_group_cluster_key_idxes);
+    vertical_split_columns(tablet_schema, &column_groups, &key_group_cluster_key_idxes);
+    /*_generate_key_group_cluster_key_idxes(tablet_schema, column_groups,
+                                          key_group_cluster_key_idxes);*/
 
     vectorized::RowSourcesBuffer row_sources_buf(
             tablet->tablet_id(), dst_rowset_writer->context().tablet_path, reader_type);
