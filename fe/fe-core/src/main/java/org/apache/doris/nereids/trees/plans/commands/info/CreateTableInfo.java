@@ -742,7 +742,6 @@ public class CreateTableInfo {
             if (keysType != KeysType.UNIQUE_KEYS) {
                 throw new AnalysisException("Cluster keys only support unique keys table.");
             }
-            int clusterKeyCount = 0;
             for (int i = 0; i < clusterKeysColumnNames.size(); ++i) {
                 String name = clusterKeysColumnNames.get(i);
                 // check if key is duplicate
@@ -754,8 +753,7 @@ public class CreateTableInfo {
                 // check if key exists and generate key column ids
                 for (int j = 0; j < columns.size(); j++) {
                     if (columns.get(j).getName().equalsIgnoreCase(name)) {
-                        columns.get(j).setClusterKeyId(clusterKeyCount);
-                        clusterKeyCount++;
+                        columns.get(j).setClusterKeyId(i);
                         break;
                     }
                     if (j == columns.size() - 1) {
