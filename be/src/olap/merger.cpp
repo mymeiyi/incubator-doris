@@ -228,6 +228,10 @@ void Merger::vertical_split_columns(const TabletSchema& tablet_schema,
                                  << tablet_schema.table_id() << " column_unique_id=" << cid
                                  << ", tablet_schema=" << ss.str()
                                  << ", cluster key ids=" << ss1.str();
+                    LOG(INFO) << "cluster key column not found, table_id="
+                              << tablet_schema.table_id() << " column_unique_id=" << cid
+                              << ", tablet_schema=" << ss.str()
+                              << ", cluster key ids=" << ss1.str();
                 // }
             }
         }
