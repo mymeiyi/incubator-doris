@@ -129,11 +129,14 @@ VerticalSegmentWriter::VerticalSegmentWriter(io::FileWriter* file_writer, uint32
             _key_coders.clear();
             _key_index_size.clear();
             _num_sort_key_columns = _tablet_schema->cluster_key_idxes().size();
+            std::stringstream ss;
             for (auto cid : _tablet_schema->cluster_key_idxes()) {
-                const auto& column = _tablet_schema->column(cid);
+                const auto& column = _tablet_schema->column_by_uid(cid);
                 _key_coders.push_back(get_key_coder(column.type()));
                 _key_index_size.push_back(column.index_length());
+                ss << "[" << column.name() << ", " << cid << "], ";
             }
+            LOG(INFO) << "sout: cluster keys=" << ss.str();
         }
     }
     if (_tablet_schema->has_inverted_index()) {
@@ -580,6 +583,7 @@ Status VerticalSegmentWriter::_append_block_with_partial_content(RowsInBlock& da
 
 Status VerticalSegmentWriter::batch_block(const vectorized::Block* block, size_t row_pos,
                                           size_t num_rows) {
+    LOG(INFO) << "sout: batch_block=\n" << block->dump_data(0);
     if (_opts.rowset_ctx->partial_update_info &&
         _opts.rowset_ctx->partial_update_info->is_partial_update &&
         _opts.write_type == DataWriteType::TYPE_DIRECT &&
@@ -761,11 +765,12 @@ Status VerticalSegmentWriter::write_batch() {
             if (_tablet_schema->has_sequence_col() && cid == _tablet_schema->sequence_col_idx()) {
                 seq_column = column;
             }
+            auto column_unique_id = _tablet_schema->column(cid).unique_id();
             if (_is_mow_with_cluster_key() &&
                 std::find(_tablet_schema->cluster_key_idxes().begin(),
                           _tablet_schema->cluster_key_idxes().end(),
-                          cid) != _tablet_schema->cluster_key_idxes().end()) {
-                cid_to_column[cid] = column;
+                          column_unique_id) != _tablet_schema->cluster_key_idxes().end()) {
+                cid_to_column[column_unique_id] = column;
             }
             RETURN_IF_ERROR(_column_writers[cid]->append(column->get_nullmap(), column->get_data(),
                                                          data.num_rows));

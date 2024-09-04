@@ -1751,6 +1751,15 @@ public class InternalCatalog implements CatalogIf<Database> {
             if (!isCreateTable) {
                 beforeCreatePartitions(db.getId(), olapTable.getId(), partitionIds, indexIds, isCreateTable);
             }
+            Map<Integer, Integer> clusterKeyMap = new TreeMap<>();
+            for (Column column : olapTable.getBaseSchema(true)) {
+                if (column.isClusterKey()) {
+                    clusterKeyMap.put(column.getClusterKeyId(), column.getUniqueId());
+                }
+            }
+            List<Integer> clusterKeyIds = clusterKeyMap.isEmpty() ? null : clusterKeyMap.values().stream().collect(
+                    Collectors.toList());
+            LOG.info("sout: clusterKeyIds: {}", clusterKeyIds);
             Partition partition = createPartitionWithIndices(db.getId(), olapTable,
                     partitionId, partitionName, indexIdToMeta,
                     distributionInfo, dataProperty, singlePartitionDesc.getReplicaAlloc(),
@@ -1758,8 +1767,7 @@ public class InternalCatalog implements CatalogIf<Database> {
                     singlePartitionDesc.isInMemory(),
                     singlePartitionDesc.getTabletType(),
                     storagePolicy, idGeneratorBuffer,
-                    binlogConfig, dataProperty.isStorageMediumSpecified(), null);
-            // TODO cluster key ids
+                    binlogConfig, dataProperty.isStorageMediumSpecified(), clusterKeyIds);
 
             // check again
             olapTable = db.getOlapTableOrDdlException(tableName);
@@ -2164,7 +2172,7 @@ public class InternalCatalog implements CatalogIf<Database> {
 
                     task.setStorageFormat(tbl.getStorageFormat());
                     task.setInvertedIndexFileStorageFormat(tbl.getInvertedIndexFileStorageFormat());
-                    task.setClusterKeyIndexes(clusterKeyIndexes);
+                    task.setClusterKeyIndexes(OlapTable.getClusterKeyIndexes(schema));
                     batchTask.addTask(task);
                     // add to AgentTaskQueue for handling finish report.
                     // not for resending task
@@ -2637,8 +2645,8 @@ public class InternalCatalog implements CatalogIf<Database> {
         olapTable.setRowStorePageSize(rowStorePageSize);
 
         // check data sort properties
-        int keyColumnSize = CollectionUtils.isEmpty(keysDesc.getClusterKeysColumnIds()) ? keysDesc.keysColumnSize() :
-                keysDesc.getClusterKeysColumnIds().size();
+        int keyColumnSize = CollectionUtils.isEmpty(keysDesc.getClusterKeysColumnNames()) ? keysDesc.keysColumnSize() :
+                keysDesc.getClusterKeysColumnNames().size();
         DataSortInfo dataSortInfo = PropertyAnalyzer.analyzeDataSortInfo(properties, keysType,
                 keyColumnSize, storageFormat);
         olapTable.setDataSortInfo(dataSortInfo);
@@ -2649,6 +2657,10 @@ public class InternalCatalog implements CatalogIf<Database> {
                 enableUniqueKeyMergeOnWrite = PropertyAnalyzer.analyzeUniqueKeyMergeOnWrite(properties);
             } catch (AnalysisException e) {
                 throw new DdlException(e.getMessage());
+            }
+            if (enableUniqueKeyMergeOnWrite && !enableLightSchemaChange && !CollectionUtils.isEmpty(
+                    keysDesc.getClusterKeysColumnNames())) {
+                throw new DdlException("Unique merge-on-write table with cluster keys must enable light schema change");
             }
         }
         olapTable.setEnableUniqueKeyMergeOnWrite(enableUniqueKeyMergeOnWrite);
@@ -2994,6 +3006,23 @@ public class InternalCatalog implements CatalogIf<Database> {
         olapTable.initSchemaColumnUniqueId();
         olapTable.initAutoIncrementGenerator(db.getId());
         olapTable.rebuildFullSchema();
+        List<Integer> clusterKeyColumnIds = null;
+        if (!CollectionUtils.isEmpty(keysDesc.getClusterKeysColumnNames())) {
+            clusterKeyColumnIds = new ArrayList<>();
+            for (String name : keysDesc.getClusterKeysColumnNames()) {
+                boolean found = false;
+                for (Column column : olapTable.getBaseSchema(true)) {
+                    if (column.getName().equalsIgnoreCase(name)) {
+                        clusterKeyColumnIds.add(column.getUniqueId());
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    throw new DdlException("Cluster key column " + name + " not found in table schema");
+                }
+            }
+        }
 
         // analyze version info
         Long versionInfo = null;
@@ -3042,7 +3071,7 @@ public class InternalCatalog implements CatalogIf<Database> {
                         idGeneratorBuffer,
                         binlogConfigForTask,
                         partitionInfo.getDataProperty(partitionId).isStorageMediumSpecified(),
-                        keysDesc.getClusterKeysColumnIds());
+                        clusterKeyColumnIds);
                 afterCreatePartitions(db.getId(), olapTable.getId(), null,
                         olapTable.getIndexIdList(), true);
                 olapTable.addPartition(partition);
@@ -3127,7 +3156,7 @@ public class InternalCatalog implements CatalogIf<Database> {
                             partionStoragePolicy, idGeneratorBuffer,
                             binlogConfigForTask,
                             dataProperty.isStorageMediumSpecified(),
-                            keysDesc.getClusterKeysColumnIds());
+                            clusterKeyColumnIds);
                     olapTable.addPartition(partition);
                     olapTable.getPartitionInfo().getDataProperty(partition.getId())
                             .setStoragePolicy(partionStoragePolicy);
@@ -3554,7 +3583,7 @@ public class InternalCatalog implements CatalogIf<Database> {
         for (int i = 0; i < olapTable.getBaseSchema().size(); i++) {
             Column column = olapTable.getBaseSchema().get(i);
             if (column.getClusterKeyId() != -1) {
-                clusterKeyMap.put(column.getClusterKeyId(), i);
+                clusterKeyMap.put(column.getClusterKeyId(), column.getUniqueId());
             }
         }
         List<Integer> clusterKeyIdxes = clusterKeyMap.values().stream().collect(Collectors.toList());

@@ -310,7 +310,7 @@ public class SchemaChangeHandler extends AlterHandler {
         boolean lightSchemaChange = olapTable.getEnableLightSchemaChange();
         /*
          * UNIQUE:
-         *      Can not drop any key column.
+         *      Can not drop any key column, cluster key column
          * AGGREGATION:
          *      Can not drp any key column is has value with REPLACE method
          */
@@ -844,9 +844,9 @@ public class SchemaChangeHandler extends AlterHandler {
                 if (!column.isVisible()) {
                     newSchema.add(column);
                 }
-                if (column.isClusterKey()) {
+                /*if (column.isClusterKey()) {
                     throw new DdlException("Can not modify column order in Unique data model table");
-                }
+                }*/
             }
         }
         if (newSchema.size() != targetIndexSchema.size()) {
@@ -2136,7 +2136,7 @@ public class SchemaChangeHandler extends AlterHandler {
             } // end for alter clauses
 
             if (LOG.isDebugEnabled()) {
-                LOG.debug("table: {}({}), lightSchemaChange: {}, lightIndexChange: {},"
+                LOG.debug("sout: table: {}({}), lightSchemaChange: {}, lightIndexChange: {},"
                         + " buildIndexChange: {}, indexSchemaMap:{}",
                         olapTable.getName(), olapTable.getId(), lightSchemaChange,
                         lightIndexChange, buildIndexChange, indexSchemaMap);

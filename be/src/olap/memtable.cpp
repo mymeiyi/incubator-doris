@@ -322,9 +322,20 @@ Status MemTable::_sort_by_cluster_keys() {
     }
     Tie tie = Tie(0, mutable_block.rows());
 
-    for (auto i : _tablet_schema->cluster_key_idxes()) {
+    for (auto cid : _tablet_schema->cluster_key_idxes()) {
+        auto index = -1;
+        for (auto i = 0; i < _tablet_schema->columns().size(); ++i) {
+            if (_tablet_schema->columns()[i]->unique_id() == cid) {
+                index = i;
+                break;
+            }
+        }
+        if (index == -1) {
+            return Status::InternalError("could not found cluster key column with unique id=" +
+                                         std::to_string(cid));
+        }
         auto cmp = [&](const RowInBlock* lhs, const RowInBlock* rhs) -> int {
-            return mutable_block.compare_one_column(lhs->_row_pos, rhs->_row_pos, i, -1);
+            return mutable_block.compare_one_column(lhs->_row_pos, rhs->_row_pos, index, -1);
         };
         _sort_one_column(row_in_blocks, tie, cmp);
     }
@@ -519,7 +530,10 @@ Status MemTable::_to_block(std::unique_ptr<vectorized::Block>* res) {
     }
     if (_keys_type == KeysType::UNIQUE_KEYS && _enable_unique_key_mow &&
         !_tablet_schema->cluster_key_idxes().empty()) {
+        LOG(INFO) << "sout: call _sort_by_cluster_keys";
         RETURN_IF_ERROR(_sort_by_cluster_keys());
+    } else {
+        LOG(INFO) << "sout: skip call _sort_by_cluster_keys";
     }
     g_memtable_input_block_allocated_size << -_input_mutable_block.allocated_bytes();
     _input_mutable_block.clear();

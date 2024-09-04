@@ -117,6 +117,7 @@ SegmentWriter::SegmentWriter(io::FileWriter* file_writer, uint32_t segment_id,
         }
         // encode the rowid into the primary key index
         if (_is_mow_with_cluster_key()) {
+            LOG(INFO) << "sout: segment_writer";
             const auto* type_info = get_scalar_type_info<FieldType::OLAP_FIELD_TYPE_UNSIGNED_INT>();
             _rowid_coder = get_key_coder(type_info->type());
             // primary keys
@@ -126,7 +127,7 @@ SegmentWriter::SegmentWriter(io::FileWriter* file_writer, uint32_t segment_id,
             _key_index_size.clear();
             _num_sort_key_columns = _tablet_schema->cluster_key_idxes().size();
             for (auto cid : _tablet_schema->cluster_key_idxes()) {
-                const auto& column = _tablet_schema->column(cid);
+                const auto& column = _tablet_schema->column_by_uid(cid);
                 _key_coders.push_back(get_key_coder(column.type()));
                 _key_index_size.push_back(column.index_length());
             }
@@ -784,16 +785,27 @@ Status SegmentWriter::append_block(const vectorized::Block* block, size_t row_po
             // 2. generate short key index (use cluster key)
             key_columns.clear();
             for (const auto& cid : _tablet_schema->cluster_key_idxes()) {
+                bool found = false;
                 for (size_t id = 0; id < _column_writers.size(); ++id) {
                     // olap data convertor always start from id = 0
-                    if (cid == _column_ids[id]) {
+                    if (cid == _tablet_schema->column(id).unique_id()) {
+                        LOG(INFO) << "sout: cid=" << cid << ", id=" << id
+                                  << ", uid=" << _tablet_schema->column(id).unique_id()
+                                  << ", tablet_schema_column_cnt=" << _tablet_schema->num_columns()
+                                  << ", column writer cnt=" << _column_writers.size();
                         auto converted_result = _olap_data_convertor->convert_column_data(id);
                         if (!converted_result.first.ok()) {
                             return converted_result.first;
                         }
                         key_columns.push_back(converted_result.second);
+                        found = true;
                         break;
                     }
+                }
+                if (!found) {
+                    return Status::InternalError(
+                            "could not found cluster key column with unique id=" +
+                            std::to_string(cid));
                 }
             }
             RETURN_IF_ERROR(_generate_short_key_index(key_columns, num_rows, short_key_pos));

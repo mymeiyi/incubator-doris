@@ -761,7 +761,7 @@ public class CreateTableInfo {
                     }
                     if (j == columns.size() - 1) {
                         throw new AnalysisException(
-                                "Key cluster column[" + name + "] doesn't exist.");
+                                "cluster key column[" + name + "] doesn't exist.");
                     }
                 }
             }
@@ -858,7 +858,7 @@ public class CreateTableInfo {
         return new CreateTableStmt(ifNotExists, isExternal,
                 new TableName(ctlName, dbName, tableName),
                 catalogColumns, catalogIndexes, engineName,
-                new KeysDesc(keysType, keys, clusterKeysColumnNames, clusterKeysColumnIds),
+                new KeysDesc(keysType, keys, clusterKeysColumnNames),
                 partitionDesc, distributionDesc, Maps.newHashMap(properties), extProperties,
                 comment, addRollups, null);
     }
