@@ -204,8 +204,12 @@ void Merger::vertical_split_columns(const TabletSchema& tablet_schema,
         }
         if (!tablet_schema.cluster_key_idxes().empty()) {
             for (const auto& cid : tablet_schema.cluster_key_idxes()) {
-                if (cid >= num_key_cols) {
-                    key_columns.emplace_back(cid);
+                for (auto idx = 0; idx < tablet_schema.columns().size(); ++idx) {
+                    if (tablet_schema.column(idx).unique_id() == cid) {
+                        if (idx >= num_key_cols) {
+                            key_columns.emplace_back(idx);
+                        }
+                    }
                 }
             }
         }
