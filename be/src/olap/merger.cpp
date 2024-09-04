@@ -204,18 +204,37 @@ void Merger::vertical_split_columns(const TabletSchema& tablet_schema,
         }
         if (!tablet_schema.cluster_key_idxes().empty()) {
             for (const auto& cid : tablet_schema.cluster_key_idxes()) {
+                bool found = false;
                 for (auto idx = 0; idx < tablet_schema.columns().size(); ++idx) {
                     if (tablet_schema.column(idx).unique_id() == cid) {
                         if (idx >= num_key_cols) {
                             key_columns.emplace_back(idx);
                         }
+                        found = true;
+                        break;
                     }
                 }
+                // if (!found) {
+                    std::stringstream ss;
+                    ss << "index to cid: ";
+                    for (auto idx = 0; idx < tablet_schema.columns().size(); ++idx) {
+                        ss << "[" << idx << ": " << tablet_schema.column(idx).unique_id() << "] ";
+                    }
+                    std::stringstream ss1;
+                    for (const auto& id : tablet_schema.cluster_key_idxes()) {
+                        ss1 << id << " ";
+                    }
+                    CHECK(found) << "cluster key column not found, table_id="
+                                 << tablet_schema.table_id() << " column_unique_id=" << cid
+                                 << ", tablet_schema=" << ss.str()
+                                 << ", cluster key ids=" << ss1.str();
+                // }
             }
         }
     }
     VLOG_NOTICE << "sequence_col_idx=" << sequence_col_idx
-                << ", delete_sign_idx=" << delete_sign_idx;
+                << ", delete_sign_idx=" << delete_sign_idx
+                << ", ";
     // for duplicate no keys
     if (!key_columns.empty()) {
         column_groups->emplace_back(std::move(key_columns));
