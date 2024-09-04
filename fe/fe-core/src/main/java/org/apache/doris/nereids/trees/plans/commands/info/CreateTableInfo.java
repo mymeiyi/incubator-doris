@@ -131,7 +131,6 @@ public class CreateTableInfo {
     private boolean isExternal = false;
     private String clusterName = null;
     private List<String> clusterKeysColumnNames = null;
-    private List<Integer> clusterKeysColumnIds = null;
     private PartitionTableInfo partitionTableInfo; // get when validate
 
     /**
@@ -743,7 +742,7 @@ public class CreateTableInfo {
             if (keysType != KeysType.UNIQUE_KEYS) {
                 throw new AnalysisException("Cluster keys only support unique keys table.");
             }
-            clusterKeysColumnIds = Lists.newArrayList();
+            int clusterKeyCount = 0;
             for (int i = 0; i < clusterKeysColumnNames.size(); ++i) {
                 String name = clusterKeysColumnNames.get(i);
                 // check if key is duplicate
@@ -755,13 +754,12 @@ public class CreateTableInfo {
                 // check if key exists and generate key column ids
                 for (int j = 0; j < columns.size(); j++) {
                     if (columns.get(j).getName().equalsIgnoreCase(name)) {
-                        columns.get(j).setClusterKeyId(clusterKeysColumnIds.size());
-                        clusterKeysColumnIds.add(j);
+                        columns.get(j).setClusterKeyId(clusterKeyCount);
+                        clusterKeyCount++;
                         break;
                     }
                     if (j == columns.size() - 1) {
-                        throw new AnalysisException(
-                                "Cluster key column[" + name + "] doesn't exist.");
+                        throw new AnalysisException("Cluster key column[" + name + "] doesn't exist.");
                     }
                 }
             }

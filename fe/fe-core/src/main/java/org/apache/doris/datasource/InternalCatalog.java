@@ -2998,19 +2998,9 @@ public class InternalCatalog implements CatalogIf<Database> {
         olapTable.initSchemaColumnUniqueId();
         olapTable.initAutoIncrementGenerator(db.getId());
         olapTable.rebuildFullSchema();
-        List<Integer> clusterKeyColumnIds = null;
         if (!CollectionUtils.isEmpty(keysDesc.getClusterKeysColumnNames())) {
-            clusterKeyColumnIds = new ArrayList<>();
             for (String name : keysDesc.getClusterKeysColumnNames()) {
-                boolean found = false;
-                for (Column column : olapTable.getBaseSchema(true)) {
-                    if (column.getName().equalsIgnoreCase(name)) {
-                        clusterKeyColumnIds.add(column.getUniqueId());
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found) {
+                if (olapTable.getColumn(name) == null) {
                     throw new DdlException("Cluster key column " + name + " not found in table schema");
                 }
             }
@@ -3031,6 +3021,7 @@ public class InternalCatalog implements CatalogIf<Database> {
         // create partition
         boolean hadLogEditCreateTable = false;
         try {
+            List<Integer> clusterKeyColumnIds = OlapTable.getClusterKeyIndexes(olapTable.getBaseSchema(true));
             if (partitionInfo.getType() == PartitionType.UNPARTITIONED) {
                 if (properties != null && !properties.isEmpty()) {
                     // here, all properties should be checked
@@ -3571,14 +3562,6 @@ public class InternalCatalog implements CatalogIf<Database> {
                 Env.getCurrentInvertedIndex().deleteTablet(tabletId);
             }
         };
-        Map<Integer, Integer> clusterKeyMap = new TreeMap<>();
-        for (int i = 0; i < olapTable.getBaseSchema().size(); i++) {
-            Column column = olapTable.getBaseSchema().get(i);
-            if (column.getClusterKeyId() != -1) {
-                clusterKeyMap.put(column.getClusterKeyId(), column.getUniqueId());
-            }
-        }
-        List<Integer> clusterKeyIdxes = clusterKeyMap.values().stream().collect(Collectors.toList());
         try {
             long bufferSize = IdGeneratorUtil.getBufferSizeForTruncateTable(copiedTbl, origPartitions.values());
             IdGeneratorBuffer idGeneratorBuffer =
@@ -3596,6 +3579,7 @@ public class InternalCatalog implements CatalogIf<Database> {
             List<Long> indexIds = copiedTbl.getIndexIdToMeta().keySet().stream().collect(Collectors.toList());
             beforeCreatePartitions(db.getId(), copiedTbl.getId(), newPartitionIds, indexIds, true);
 
+            List<Integer> clusterKeyIdxes = OlapTable.getClusterKeyIndexes(olapTable.getBaseSchema());
             for (Map.Entry<String, Long> entry : origPartitions.entrySet()) {
                 // the new partition must use new id
                 // If we still use the old partition id, the behavior of current load jobs on this partition
