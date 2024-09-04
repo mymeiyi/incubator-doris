@@ -34,7 +34,6 @@ public class KeysDesc implements Writable {
     private KeysType type;
     private List<String> keysColumnNames;
     private List<String> clusterKeysColumnNames;
-    private List<Integer> clusterKeysColumnIds = null;
 
     public KeysDesc() {
         this.type = KeysType.AGG_KEYS;
@@ -51,12 +50,6 @@ public class KeysDesc implements Writable {
         this.clusterKeysColumnNames = clusterKeyColumnNames;
     }
 
-    public KeysDesc(KeysType type, List<String> keysColumnNames, List<String> clusterKeyColumnNames,
-                    List<Integer> clusterKeysColumnIds) {
-        this(type, keysColumnNames, clusterKeyColumnNames);
-        this.clusterKeysColumnIds = clusterKeysColumnIds;
-    }
-
     public KeysType getKeysType() {
         return type;
     }
@@ -67,10 +60,6 @@ public class KeysDesc implements Writable {
 
     public List<String> getClusterKeysColumnNames() {
         return clusterKeysColumnNames;
-    }
-
-    public List<Integer> getClusterKeysColumnIds() {
-        return clusterKeysColumnIds;
     }
 
     public boolean containsCol(String colName) {
@@ -97,7 +86,6 @@ public class KeysDesc implements Writable {
             if (type != KeysType.UNIQUE_KEYS) {
                 throw new AnalysisException("Cluster keys only support unique keys table.");
             }
-            clusterKeysColumnIds = Lists.newArrayList();
             analyzeClusterKeys(cols);
         }
 
@@ -162,12 +150,11 @@ public class KeysDesc implements Writable {
             // check if key exists and generate key column ids
             for (int j = 0; j < cols.size(); j++) {
                 if (cols.get(j).getName().equalsIgnoreCase(name)) {
-                    cols.get(j).setClusterKeyId(clusterKeysColumnIds.size());
-                    clusterKeysColumnIds.add(j);
+                    cols.get(j).setClusterKeyId(i);
                     break;
                 }
                 if (j == cols.size() - 1) {
-                    throw new AnalysisException("Key cluster column[" + name + "] doesn't exist.");
+                    throw new AnalysisException("Cluster key column[" + name + "] doesn't exist.");
                 }
             }
         }
