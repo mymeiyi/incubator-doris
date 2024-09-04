@@ -56,30 +56,6 @@
 #include "vec/olap/vertical_merge_iterator.h"
 
 namespace doris {
-namespace {
-
-// for mow with cluster key table, the key group also contains cluster key columns.
-// the `key_group_cluster_key_idxes` marks the positions of cluster key columns in key group.
-void _generate_key_group_cluster_key_idxes(const TabletSchema& tablet_schema,
-                                           std::vector<std::vector<uint32_t>>& column_groups,
-                                           std::vector<uint32_t>& key_group_cluster_key_idxes) {
-    if (column_groups.empty() || tablet_schema.cluster_key_idxes().empty()) {
-        return;
-    }
-
-    auto& key_column_group = column_groups[0];
-    for (const auto& index_in_tablet_schema : tablet_schema.cluster_key_idxes()) {
-        for (auto j = 0; j < key_column_group.size(); ++j) {
-            auto cid = key_column_group[j];
-            if (cid == index_in_tablet_schema) {
-                key_group_cluster_key_idxes.emplace_back(j);
-                break;
-            }
-        }
-    }
-}
-
-} // namespace
 
 Status Merger::vmerge_rowsets(BaseTabletSPtr tablet, ReaderType reader_type,
                               const TabletSchema& cur_tablet_schema,
@@ -181,7 +157,8 @@ Status Merger::vmerge_rowsets(BaseTabletSPtr tablet, ReaderType reader_type,
 // split columns into several groups, make sure all keys in one group
 // unique_key should consider sequence&delete column
 void Merger::vertical_split_columns(const TabletSchema& tablet_schema,
-                                    std::vector<std::vector<uint32_t>>* column_groups) {
+                                    std::vector<std::vector<uint32_t>>* column_groups,
+                                    std::vector<uint32_t>* key_group_cluster_key_idxes) {
     uint32_t num_key_cols = tablet_schema.num_key_columns();
     uint32_t total_cols = tablet_schema.num_columns();
     std::vector<uint32_t> key_columns;
@@ -203,9 +180,29 @@ void Merger::vertical_split_columns(const TabletSchema& tablet_schema,
             key_columns.emplace_back(delete_sign_idx);
         }
         if (!tablet_schema.cluster_key_idxes().empty()) {
+            std::map<size_t, size_t> cid_to_idx;
             for (const auto& cid : tablet_schema.cluster_key_idxes()) {
-                if (cid >= num_key_cols) {
-                    key_columns.emplace_back(cid);
+                bool found = false;
+                for (auto idx = 0; idx < tablet_schema.columns().size(); ++idx) {
+                    if (tablet_schema.column(idx).unique_id() == cid) {
+                        cid_to_idx[cid] = idx;
+                        if (idx >= num_key_cols) {
+                            key_columns.emplace_back(idx);
+                        }
+                        found = true;
+                        break;
+                    }
+                }
+                DCHECK(found) << "cluster key column not found, table_id="
+                              << tablet_schema.table_id() << " column_unique_id=" << cid;
+            }
+            for (const auto& cid : tablet_schema.cluster_key_idxes()) {
+                size_t idx = cid_to_idx[cid];
+                for (auto i = 0; i < key_columns.size(); ++i) {
+                    if (idx == key_columns[i]) {
+                        key_group_cluster_key_idxes->emplace_back(i);
+                        break;
+                    }
                 }
             }
         }
@@ -452,11 +449,8 @@ Status Merger::vertical_merge_rowsets(BaseTabletSPtr tablet, ReaderType reader_t
                                       int64_t merge_way_num, Statistics* stats_output) {
     LOG(INFO) << "Start to do vertical compaction, tablet_id: " << tablet->tablet_id();
     std::vector<std::vector<uint32_t>> column_groups;
-    vertical_split_columns(tablet_schema, &column_groups);
-
     std::vector<uint32_t> key_group_cluster_key_idxes;
-    _generate_key_group_cluster_key_idxes(tablet_schema, column_groups,
-                                          key_group_cluster_key_idxes);
+    vertical_split_columns(tablet_schema, &column_groups, &key_group_cluster_key_idxes);
 
     vectorized::RowSourcesBuffer row_sources_buf(
             tablet->tablet_id(), dst_rowset_writer->context().tablet_path, reader_type);

@@ -309,6 +309,8 @@ public class SchemaChangeJobV2 extends AlterJobV2 {
                             }
                             createReplicaTask.setInvertedIndexFileStorageFormat(tbl
                                                     .getInvertedIndexFileStorageFormat());
+                            createReplicaTask.setClusterKeyIndexes(OlapTable.getClusterKeyIndexes(
+                                    indexSchemaMap.get(shadowIdxId)));
                             batchTask.addTask(createReplicaTask);
                         } // end for rollupReplicas
                     } // end for rollupTablets
