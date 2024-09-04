@@ -2998,13 +2998,6 @@ public class InternalCatalog implements CatalogIf<Database> {
         olapTable.initSchemaColumnUniqueId();
         olapTable.initAutoIncrementGenerator(db.getId());
         olapTable.rebuildFullSchema();
-        if (!CollectionUtils.isEmpty(keysDesc.getClusterKeysColumnNames())) {
-            for (String name : keysDesc.getClusterKeysColumnNames()) {
-                if (olapTable.getColumn(name) == null) {
-                    throw new DdlException("Cluster key column " + name + " not found in table schema");
-                }
-            }
-        }
 
         // analyze version info
         Long versionInfo = null;
