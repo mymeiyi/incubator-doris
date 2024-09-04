@@ -60,7 +60,7 @@ namespace {
 
 // for mow with cluster key table, the key group also contains cluster key columns.
 // the `key_group_cluster_key_idxes` marks the positions of cluster key columns in key group.
-void _generate_key_group_cluster_key_idxes(const TabletSchema& tablet_schema,
+/*void _generate_key_group_cluster_key_idxes(const TabletSchema& tablet_schema,
                                            std::vector<std::vector<uint32_t>>& column_groups,
                                            std::vector<uint32_t>& key_group_cluster_key_idxes) {
     if (column_groups.empty() || tablet_schema.cluster_key_idxes().empty()) {
@@ -77,7 +77,7 @@ void _generate_key_group_cluster_key_idxes(const TabletSchema& tablet_schema,
             }
         }
     }
-}
+}*/
 
 } // namespace
 
