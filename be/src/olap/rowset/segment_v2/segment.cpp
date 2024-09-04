@@ -88,7 +88,7 @@ Status Segment::open(io::FileSystemSPtr fs, const std::string& path, uint32_t se
                      RowsetId rowset_id, TabletSchemaSPtr tablet_schema,
                      const io::FileReaderOptions& reader_options, std::shared_ptr<Segment>* output,
                      InvertedIndexFileInfo idx_file_info) {
-    LOG(INFO) << "sout: open segment, tablet schema columns=" << tablet_schema->num_columns();
+    // LOG(INFO) << "sout: open segment, tablet schema columns=" << tablet_schema->num_columns();
     io::FileReaderSPtr file_reader;
     RETURN_IF_ERROR(fs->open_file(path, &file_reader, &reader_options));
     std::shared_ptr<Segment> segment(

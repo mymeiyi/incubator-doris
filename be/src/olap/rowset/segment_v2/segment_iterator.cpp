@@ -267,7 +267,7 @@ SegmentIterator::SegmentIterator(std::shared_ptr<Segment> segment, SchemaSPtr sc
           _lazy_inited(false),
           _inited(false),
           _pool(new ObjectPool) {
-    LOG(INFO) << "sout: _schema columns=" << _schema->num_columns();
+    // LOG(INFO) << "sout: _schema columns=" << _schema->num_columns();
 }
 
 Status SegmentIterator::init(const StorageReadOptions& opts) {
