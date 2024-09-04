@@ -48,7 +48,7 @@ suite("test_schema_change") {
             `min_dwell_time` INT DEFAULT "99999" COMMENT "用户最小停留时间")
         UNIQUE KEY(`user_id`, `date`, `city`, `age`, `sex`)
         CLUSTER BY(`cost`, `comment`)
-        DISTRIBUTED BY HASH(`user_id`)
+        DISTRIBUTED BY HASH(`user_id`) BUCKETS 1
         PROPERTIES ( "replication_num" = "1",
                      "enable_unique_key_merge_on_write" = "true"
         );

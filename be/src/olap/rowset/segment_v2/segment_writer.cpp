@@ -784,6 +784,8 @@ Status SegmentWriter::append_block(const vectorized::Block* block, size_t row_po
                                                         seq_column, num_rows, true));
             // 2. generate short key index (use cluster key)
             key_columns.clear();
+            LOG(INFO) << "sout: column writer cnt=" << _column_writers.size()
+                      << ", ck cnt=" << _tablet_schema->cluster_key_idxes().size();
             for (const auto& cid : _tablet_schema->cluster_key_idxes()) {
                 bool found = false;
                 for (size_t id = 0; id < _column_writers.size(); ++id) {
