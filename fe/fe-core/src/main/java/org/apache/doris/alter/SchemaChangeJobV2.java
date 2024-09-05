@@ -71,6 +71,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Table;
 import com.google.common.collect.Table.Cell;
 import com.google.gson.annotations.SerializedName;
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -261,6 +262,10 @@ public class SchemaChangeJobV2 extends AlterJobV2 {
 
                     short shadowShortKeyColumnCount = indexShortKeyMap.get(shadowIdxId);
                     List<Column> shadowSchema = indexSchemaMap.get(shadowIdxId);
+                    List<Integer> clusterKeyIndexes = null;
+                    if (shadowIdxId == tbl.getBaseIndexId() || tbl.isShadowIndex(shadowIdxId)) {
+                        clusterKeyIndexes = OlapTable.getClusterKeyIndexes(shadowSchema);
+                    }
                     int shadowSchemaHash = indexSchemaVersionAndHashMap.get(shadowIdxId).schemaHash;
                     long originIndexId = indexIdMap.get(shadowIdxId);
                     int originSchemaHash = tbl.getSchemaHashByIndexId(originIndexId);
@@ -309,8 +314,11 @@ public class SchemaChangeJobV2 extends AlterJobV2 {
                             }
                             createReplicaTask.setInvertedIndexFileStorageFormat(tbl
                                                     .getInvertedIndexFileStorageFormat());
-                            createReplicaTask.setClusterKeyIndexes(OlapTable.getClusterKeyIndexes(
-                                    indexSchemaMap.get(shadowIdxId)));
+                            if (!CollectionUtils.isEmpty(clusterKeyIndexes)) {
+                                createReplicaTask.setClusterKeyIndexes(clusterKeyIndexes);
+                                LOG.info("table: {}, partition: {}, index: {}, tablet: {}, cluster key indexes: {}",
+                                        tableId, partitionId, shadowIdxId, shadowTabletId, clusterKeyIndexes);
+                            }
                             batchTask.addTask(createReplicaTask);
                         } // end for rollupReplicas
                     } // end for rollupTablets

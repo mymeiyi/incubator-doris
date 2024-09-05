@@ -77,6 +77,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.gson.annotations.SerializedName;
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -233,7 +234,10 @@ public class RollupJobV2 extends AlterJobV2 implements GsonPostProcessable {
                 TStorageMedium storageMedium = tbl.getPartitionInfo().getDataProperty(partitionId).getStorageMedium();
                 TTabletType tabletType = tbl.getPartitionInfo().getTabletType(partitionId);
                 MaterializedIndex rollupIndex = entry.getValue();
-
+                List<Integer> clusterKeyIndexes = null;
+                if (rollupIndexId == tbl.getBaseIndexId() || tbl.isShadowIndex(rollupIndexId)) {
+                    clusterKeyIndexes = OlapTable.getClusterKeyIndexes(rollupSchema);
+                }
                 Map<Long, Long> tabletIdMap = this.partitionIdToBaseRollupTabletIdMap.get(partitionId);
                 for (Tablet rollupTablet : rollupIndex.getTablets()) {
                     long rollupTabletId = rollupTablet.getId();
@@ -275,6 +279,11 @@ public class RollupJobV2 extends AlterJobV2 implements GsonPostProcessable {
                         createReplicaTask.setBaseTablet(tabletIdMap.get(rollupTabletId), baseSchemaHash);
                         if (this.storageFormat != null) {
                             createReplicaTask.setStorageFormat(this.storageFormat);
+                        }
+                        if (!CollectionUtils.isEmpty(clusterKeyIndexes)) {
+                            createReplicaTask.setClusterKeyIndexes(clusterKeyIndexes);
+                            LOG.info("table: {}, partition: {}, index: {}, tablet: {}, cluster key indexes: {}",
+                                    tableId, partitionId, rollupIndexId, rollupTabletId, clusterKeyIndexes);
                         }
                         // rollup replica does not need to set mow cluster keys
                         batchTask.addTask(createReplicaTask);

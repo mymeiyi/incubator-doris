@@ -79,16 +79,6 @@ public class KeysDesc implements Writable {
             throw new AnalysisException("The number of key columns should be less than the number of columns.");
         }
 
-        if (clusterKeysColumnNames != null) {
-            if (Config.isCloudMode()) {
-                throw new AnalysisException("Cluster key is not supported in cloud mode");
-            }
-            if (type != KeysType.UNIQUE_KEYS) {
-                throw new AnalysisException("Cluster keys only support unique keys table.");
-            }
-            analyzeClusterKeys(cols);
-        }
-
         for (int i = 0; i < keysColumnNames.size(); ++i) {
             String name = cols.get(i).getName();
             if (!keysColumnNames.get(i).equalsIgnoreCase(name)) {
@@ -123,31 +113,41 @@ public class KeysDesc implements Writable {
         }
 
         if (clusterKeysColumnNames != null) {
-            int minKeySize = keysColumnNames.size() < clusterKeysColumnNames.size() ? keysColumnNames.size()
-                    : clusterKeysColumnNames.size();
-            boolean sameKey = true;
-            for (int i = 0; i < minKeySize; ++i) {
-                if (!keysColumnNames.get(i).equalsIgnoreCase(clusterKeysColumnNames.get(i))) {
-                    sameKey = false;
-                    break;
-                }
-            }
-            if (sameKey) {
-                throw new AnalysisException("Unique keys and cluster keys should be different.");
-            }
+            analyzeClusterKeys(cols);
         }
     }
 
     private void analyzeClusterKeys(List<ColumnDef> cols) throws AnalysisException {
-        for (int i = 0; i < clusterKeysColumnNames.size(); ++i) {
+        if (Config.isCloudMode()) {
+            throw new AnalysisException("Cluster key is not supported in cloud mode");
+        }
+        if (type != KeysType.UNIQUE_KEYS) {
+            throw new AnalysisException("Cluster keys only support unique keys table");
+        }
+        // check that cluster keys is not duplicated
+        for (int i = 0; i < clusterKeysColumnNames.size(); i++) {
             String name = clusterKeysColumnNames.get(i);
-            // check if key is duplicate
             for (int j = 0; j < i; j++) {
                 if (clusterKeysColumnNames.get(j).equalsIgnoreCase(name)) {
                     throw new AnalysisException("Duplicate cluster key column[" + name + "].");
                 }
             }
-            // check if key exists and generate key column ids
+        }
+        // check that cluster keys is not equal to primary keys
+        int minKeySize = Math.min(keysColumnNames.size(), clusterKeysColumnNames.size());
+        boolean sameKey = true;
+        for (int i = 0; i < minKeySize; i++) {
+            if (!keysColumnNames.get(i).equalsIgnoreCase(clusterKeysColumnNames.get(i))) {
+                sameKey = false;
+                break;
+            }
+        }
+        if (sameKey) {
+            throw new AnalysisException("Unique keys and cluster keys should be different.");
+        }
+        // check that cluster key column exists
+        for (int i = 0; i < clusterKeysColumnNames.size(); i++) {
+            String name = clusterKeysColumnNames.get(i);
             for (int j = 0; j < cols.size(); j++) {
                 if (cols.get(j).getName().equalsIgnoreCase(name)) {
                     cols.get(j).setClusterKeyId(i);
