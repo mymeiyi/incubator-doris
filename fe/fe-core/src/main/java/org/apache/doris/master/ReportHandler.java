@@ -971,9 +971,9 @@ public class ReportHandler extends Daemon {
                                                 indexMeta.getSchema());
                                         if (!CollectionUtils.isEmpty(clusterKeyIndexes)) {
                                             createReplicaTask.setClusterKeyIndexes(clusterKeyIndexes);
-                                            LOG.info(
-                                                    "table: {}, partition: {}, index: {}, tablet: {}, cluster key indexes: {}",
-                                                    tableId, partitionId, indexId, tabletId, clusterKeyIndexes);
+                                            LOG.info("table: {}, partition: {}, index: {}, tablet: {}, "
+                                                            + "cluster key indexes: {}", tableId, partitionId, indexId,
+                                                    tabletId, clusterKeyIndexes);
                                         }
                                     }
                                     createReplicaBatchTask.addTask(createReplicaTask);
