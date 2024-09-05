@@ -785,11 +785,23 @@ Status SegmentWriter::append_block(const vectorized::Block* block, size_t row_po
             // 2. generate short key index (use cluster key)
             key_columns.clear();
             for (const auto& cid : _tablet_schema->cluster_key_idxes()) {
+                // find cluster key index in tablet schema
+                auto cluster_key_index = -1;
+                for (auto i = 0; i < _tablet_schema->num_columns(); ++i) {
+                    if (_tablet_schema->column(i).unique_id() == cid) {
+                        cluster_key_index = i;
+                        break;
+                    }
+                }
+                if (cluster_key_index == -1) {
+                    return Status::InternalError(
+                            "could not found cluster key column with unique id=" +
+                            std::to_string(cid));
+                }
                 bool found = false;
-                for (size_t id = 0; id < _column_writers.size(); ++id) {
-                    // olap data convertor always start from id = 0
-                    if (cid == _column_ids[id]) {
-                        auto converted_result = _olap_data_convertor->convert_column_data(id);
+                for (auto i = 0; i < _column_ids.size(); ++i) {
+                    if (_column_ids[i] == cluster_key_index) {
+                        auto converted_result = _olap_data_convertor->convert_column_data(i);
                         if (!converted_result.first.ok()) {
                             return converted_result.first;
                         }
@@ -801,7 +813,8 @@ Status SegmentWriter::append_block(const vectorized::Block* block, size_t row_po
                 if (!found) {
                     return Status::InternalError(
                             "could not found cluster key column with unique id=" +
-                            std::to_string(cid));
+                            std::to_string(cid) +
+                            ", index in tablet schema=" + std::to_string(cluster_key_index));
                 }
             }
             RETURN_IF_ERROR(_generate_short_key_index(key_columns, num_rows, short_key_pos));
