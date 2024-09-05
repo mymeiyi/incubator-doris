@@ -263,7 +263,8 @@ public class SchemaChangeJobV2 extends AlterJobV2 {
                     short shadowShortKeyColumnCount = indexShortKeyMap.get(shadowIdxId);
                     List<Column> shadowSchema = indexSchemaMap.get(shadowIdxId);
                     List<Integer> clusterKeyIndexes = null;
-                    if (shadowIdxId == tbl.getBaseIndexId() || tbl.isShadowIndex(shadowIdxId)) {
+                    if (shadowIdxId == tbl.getBaseIndexId() || indexIdToName.get(shadowIdxId)
+                            .startsWith(SchemaChangeHandler.SHADOW_NAME_PREFIX)) {
                         clusterKeyIndexes = OlapTable.getClusterKeyIndexes(shadowSchema);
                     }
                     int shadowSchemaHash = indexSchemaVersionAndHashMap.get(shadowIdxId).schemaHash;
