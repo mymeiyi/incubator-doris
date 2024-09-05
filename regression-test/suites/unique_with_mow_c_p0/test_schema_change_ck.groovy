@@ -149,6 +149,16 @@ suite("test_schema_change_ck") {
     qt_select_create_mv_base """select * from ${tableName}"""
     qt_select_create_mv_mv """select c1, c3 from ${tableName}"""
 
+    /****** create rollup ******/
+    sql """ alter table ${tableName} ADD ROLLUP r1(k2, c1, c2); """
+    waitForSchemaChangeDone {
+        sql """show alter table rollup where tablename='${tableName}' order by createtime desc limit 1"""
+        time 600
+    }
+    sql """ INSERT INTO ${tableName}(c1, c2, c3, k2) VALUES (311, 21, 38, 200), (310, 20, 39, 200) """
+    qt_select_create_rollup_base """select * from ${tableName}"""
+    qt_select_create_rollup_roll """select k2, c1, c2 from ${tableName}"""
+
     /****** add partition ******/
     sql "ALTER TABLE ${tableName} ADD PARTITION p_20000 VALUES [('10000'), ('20000'));"
     for (int i = 0; i < 10; i++) {
