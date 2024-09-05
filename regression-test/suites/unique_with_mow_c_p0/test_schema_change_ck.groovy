@@ -17,7 +17,6 @@
 
 import org.codehaus.groovy.runtime.IOGroovyMethods
 
-// TODO: find a way to check the file content
 suite("test_schema_change_ck") {
     def db = "regression_test_unique_with_mow_c_p0"
     def tableName = "test_schema_change_ck"
@@ -94,7 +93,7 @@ suite("test_schema_change_ck") {
     sql """ INSERT INTO ${tableName}(c1, c2, c3, k2) VALUES (19, 20, 30, 200), (18, 20, 31, 200) """
     qt_select_add_k2 """select * from ${tableName}"""
 
-    /****** TODO add cluster key column ******/
+    /****** TODO add cluster key column is not supported ******/
 
     /****** drop value column ******/
     sql """ alter table ${tableName} drop column c4; """
@@ -118,7 +117,7 @@ suite("test_schema_change_ck") {
         exception "Can not drop key column in Unique data model table"
     }
 
-    /****** TODO does not support drop cluster key column because the data must reorder ******/
+    /****** TODO does not support drop cluster key ******/
     test {
         sql """ alter table ${tableName} drop column c3; """
         exception "Can not drop cluster key column in Unique data model table"
@@ -174,4 +173,24 @@ suite("test_schema_change_ck") {
     sql """ TRUNCATE TABLE ${tableName} """
     sql """ INSERT INTO ${tableName}(c1, c2, c3) VALUES (11, 28, 38), (10, 29, 39), (12, 26, 37), (13, 27, 36) """
     qt_select_truncate """select * from ${tableName}"""
+
+    /****** create table with rollup does not work for mow ******/
+    /*tableName = tableName + "_rollup"
+    sql """ DROP TABLE IF EXISTS ${tableName} """
+    sql """
+        CREATE TABLE IF NOT EXISTS ${tableName} (
+            `c1` int(11) NULL, 
+            `c2` int(11) NULL, 
+            `c3` int(11) NULL
+        ) unique KEY(`c1`)
+        cluster by(`c3`, `c2`)
+        DISTRIBUTED BY HASH(`c1`) BUCKETS 1
+        ROLLUP (
+            r1 (c1, c3)
+        )
+        PROPERTIES (
+            "replication_num" = "1",
+            "disable_auto_compaction" = "true"
+        );
+    """*/
 }
