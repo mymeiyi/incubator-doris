@@ -118,9 +118,6 @@ public class KeysDesc implements Writable {
     }
 
     private void analyzeClusterKeys(List<ColumnDef> cols) throws AnalysisException {
-        if (Config.isCloudMode()) {
-            throw new AnalysisException("Cluster key is not supported in cloud mode");
-        }
         if (type != KeysType.UNIQUE_KEYS) {
             throw new AnalysisException("Cluster keys only support unique keys table");
         }
