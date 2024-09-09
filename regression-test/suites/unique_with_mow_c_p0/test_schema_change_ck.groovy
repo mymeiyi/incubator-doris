@@ -173,10 +173,6 @@ suite("test_schema_change_ck") {
     sql """ INSERT INTO ${tableName}(c1, c2, c3, k2) VALUES (10011, 21, 38, 200), (10010, 20, 39, 200) """
     qt_select_add_partition """select * from ${tableName}"""
 
-    /****** backup restore ******/
-
-    /****** specify index, not base index ******/
-
     /****** one sql contain multi column changes ******/
 
     /****** truncate table ******/
@@ -184,23 +180,56 @@ suite("test_schema_change_ck") {
     sql """ INSERT INTO ${tableName}(c1, c2, c3) VALUES (11, 28, 38), (10, 29, 39), (12, 26, 37), (13, 27, 36) """
     qt_select_truncate """select * from ${tableName}"""
 
-    /****** create table with rollup does not work for mow ******/
-    /*tableName = tableName + "_rollup"
-    sql """ DROP TABLE IF EXISTS ${tableName} """
+    /****** create table with rollup ******/
+    tableName = tableName + "_rollup"
+    sql """ DROP TABLE IF EXISTS ${tableName}; """
     sql """
         CREATE TABLE IF NOT EXISTS ${tableName} (
-            `c1` int(11) NULL, 
-            `c2` int(11) NULL, 
-            `c3` int(11) NULL
-        ) unique KEY(`c1`)
-        cluster by(`c3`, `c2`)
-        DISTRIBUTED BY HASH(`c1`) BUCKETS 1
+            `k1` int(11) NULL, 
+            `k2` int(11) NULL,
+            `c3` int(11) NULL, 
+            `c4` int(11) NULL,
+            `c5` int(11) NULL
+        ) unique KEY(`k1`, `k2`)
+        cluster by(`c4`, `c5`)
+        DISTRIBUTED BY HASH(`k1`) BUCKETS 1
         ROLLUP (
-            r1 (c1, c3)
+            r1 (k2, k1, c4, c3)
         )
         PROPERTIES (
             "replication_num" = "1",
             "disable_auto_compaction" = "true"
         );
-    """*/
+    """
+    sql """ INSERT INTO ${tableName} VALUES (11, 21, 32, 42, 52), (12, 22, 31, 41, 51); """
+    qt_select_rollup_base """select * from ${tableName};"""
+    qt_select_rollup_roll """select k2, k1, c4, c3 from ${tableName};"""
+
+    /****** specify index, not base index ******/
+    sql """ ALTER TABLE ${tableName} ORDER BY(k2, k1, c3, c4) from r1; """
+    assertTrue(getAlterTableState(), "reorder rollup should success")
+    qt_select_rollup_base_sc """select * from ${tableName};"""
+    qt_select_rollup_roll_sc """select k2, k1, c4, c3 from ${tableName};"""
+    sql """ INSERT INTO ${tableName} VALUES (13, 23, 34, 44, 54), (14, 24, 33, 43, 53); """
+    qt_select_rollup_base_sc1 """select * from ${tableName};"""
+    qt_select_rollup_roll_sc1 """select k2, k1, c4, c3 from ${tableName};"""
+
+    /****** backup restore ******/
+    def repoName = "repo_" + UUID.randomUUID().toString().replace("-", "")
+    def backup = tableName + "_bak"
+    def syncer = getSyncer()
+    syncer.createS3Repository(repoName)
+    sql """ BACKUP SNAPSHOT ${context.dbName}.${backup} TO ${repoName} ON (${tableName}) properties("type"="full"); """
+    syncer.waitSnapshotFinish()
+    def snapshot = syncer.getSnapshotTimestamp(repoName, backup)
+    assertTrue(snapshot != null)
+    sql """ RESTORE SNAPSHOT ${context.dbName}.${backup} FROM `${repoName}` ON (`${tableName}`) PROPERTIES ("backup_timestamp" = "${snapshot}","replication_num" = "1" ) """
+    syncer.waitAllRestoreFinish(context.dbName)
+    qt_select_restore_base """select * from ${tableName};"""
+    qt_select_restore_roll """select k2, k1, c4, c3 from ${tableName};"""
+    sql "DROP REPOSITORY `${repoName}`"
+    sql """ INSERT INTO ${tableName} VALUES (15, 25, 35, 44, 54), (16, 26, 36, 43, 53); """
+    qt_select_restore_base1 """select * from ${tableName};"""
+    qt_select_restore_roll1 """select k2, k1, c4, c3 from ${tableName};"""
+
 }
