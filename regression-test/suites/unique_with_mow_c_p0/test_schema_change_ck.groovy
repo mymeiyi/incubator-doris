@@ -215,6 +215,7 @@ suite("test_schema_change_ck") {
     qt_select_rollup_roll_sc1 """select k2, k1, c4, c3 from ${tableName};"""
 
     /****** backup restore ******/
+    // backup
     def repoName = "repo_" + UUID.randomUUID().toString().replace("-", "")
     def backup = tableName + "_bak"
     def syncer = getSyncer()
@@ -223,12 +224,18 @@ suite("test_schema_change_ck") {
     syncer.waitSnapshotFinish()
     def snapshot = syncer.getSnapshotTimestamp(repoName, backup)
     assertTrue(snapshot != null)
+    sql """ INSERT INTO ${tableName} VALUES (15, 25, 34, 44, 54), (16, 26, 33, 43, 53); """
+    qt_select_restore_base2 """select * from ${tableName};"""
+    qt_select_restore_roll2 """select k2, k1, c4, c3 from ${tableName};"""
+
+    // restore
+    logger.info(""" RESTORE SNAPSHOT ${context.dbName}.${backup} FROM `${repoName}` ON (`${tableName}`) PROPERTIES ("backup_timestamp" = "${snapshot}","replication_num" = "1" ) """)
     sql """ RESTORE SNAPSHOT ${context.dbName}.${backup} FROM `${repoName}` ON (`${tableName}`) PROPERTIES ("backup_timestamp" = "${snapshot}","replication_num" = "1" ) """
     syncer.waitAllRestoreFinish(context.dbName)
     qt_select_restore_base """select * from ${tableName};"""
     qt_select_restore_roll """select k2, k1, c4, c3 from ${tableName};"""
     sql "DROP REPOSITORY `${repoName}`"
-    sql """ INSERT INTO ${tableName} VALUES (15, 25, 35, 44, 54), (16, 26, 36, 43, 53); """
+    sql """ INSERT INTO ${tableName} VALUES (17, 27, 34, 44, 54), (18, 28, 33, 43, 53); """
     qt_select_restore_base1 """select * from ${tableName};"""
     qt_select_restore_roll1 """select k2, k1, c4, c3 from ${tableName};"""
 
