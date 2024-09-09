@@ -30,6 +30,7 @@ suite("test_schema_change_ck") {
     }
 
     sql """ DROP TABLE IF EXISTS ${tableName} """
+    if (!isCloudMode()) {
     test {
         sql """
             CREATE TABLE IF NOT EXISTS ${tableName} (
@@ -46,6 +47,7 @@ suite("test_schema_change_ck") {
             );
         """
         exception "Unique merge-on-write table with cluster keys must enable light schema change"
+    }
     }
     sql """
         CREATE TABLE IF NOT EXISTS ${tableName} (
@@ -171,7 +173,7 @@ suite("test_schema_change_ck") {
         assertEquals(partitions.size(), 2)
     }
     sql """ INSERT INTO ${tableName}(c1, c2, c3, k2) VALUES (10011, 21, 38, 200), (10010, 20, 39, 200) """
-    qt_select_add_partition """select * from ${tableName}"""
+    qt_select_add_partition """select * from ${tableName} partition (p_20000)"""
 
     /****** one sql contain multi column changes ******/
 
@@ -215,28 +217,30 @@ suite("test_schema_change_ck") {
     qt_select_rollup_roll_sc1 """select k2, k1, c4, c3 from ${tableName};"""
 
     /****** backup restore ******/
-    // backup
-    def repoName = "repo_" + UUID.randomUUID().toString().replace("-", "")
-    def backup = tableName + "_bak"
-    def syncer = getSyncer()
-    syncer.createS3Repository(repoName)
-    sql """ BACKUP SNAPSHOT ${context.dbName}.${backup} TO ${repoName} ON (${tableName}) properties("type"="full"); """
-    syncer.waitSnapshotFinish()
-    def snapshot = syncer.getSnapshotTimestamp(repoName, backup)
-    assertTrue(snapshot != null)
-    sql """ INSERT INTO ${tableName} VALUES (15, 25, 34, 44, 54), (16, 26, 33, 43, 53); """
-    qt_select_restore_base2 """select * from ${tableName};"""
-    qt_select_restore_roll2 """select k2, k1, c4, c3 from ${tableName};"""
+    if (!isCloudMode()) {
+        // backup
+        def repoName = "repo_" + UUID.randomUUID().toString().replace("-", "")
+        def backup = tableName + "_bak"
+        def syncer = getSyncer()
+        syncer.createS3Repository(repoName)
+        sql """ BACKUP SNAPSHOT ${context.dbName}.${backup} TO ${repoName} ON (${tableName}) properties("type"="full"); """
+        syncer.waitSnapshotFinish()
+        def snapshot = syncer.getSnapshotTimestamp(repoName, backup)
+        assertTrue(snapshot != null)
+        sql """ INSERT INTO ${tableName} VALUES (15, 25, 34, 44, 54), (16, 26, 33, 43, 53); """
+        qt_select_restore_base2 """select * from ${tableName};"""
+        qt_select_restore_roll2 """select k2, k1, c4, c3 from ${tableName};"""
 
-    // restore
-    logger.info(""" RESTORE SNAPSHOT ${context.dbName}.${backup} FROM `${repoName}` ON (`${tableName}`) PROPERTIES ("backup_timestamp" = "${snapshot}","replication_num" = "1" ) """)
-    sql """ RESTORE SNAPSHOT ${context.dbName}.${backup} FROM `${repoName}` ON (`${tableName}`) PROPERTIES ("backup_timestamp" = "${snapshot}","replication_num" = "1" ) """
-    syncer.waitAllRestoreFinish(context.dbName)
-    qt_select_restore_base """select * from ${tableName};"""
-    qt_select_restore_roll """select k2, k1, c4, c3 from ${tableName};"""
-    sql "DROP REPOSITORY `${repoName}`"
-    sql """ INSERT INTO ${tableName} VALUES (17, 27, 34, 44, 54), (18, 28, 33, 43, 53); """
-    qt_select_restore_base1 """select * from ${tableName};"""
-    qt_select_restore_roll1 """select k2, k1, c4, c3 from ${tableName};"""
+        // restore
+        logger.info(""" RESTORE SNAPSHOT ${context.dbName}.${backup} FROM `${repoName}` ON (`${tableName}`) PROPERTIES ("backup_timestamp" = "${snapshot}","replication_num" = "1" ) """)
+        sql """ RESTORE SNAPSHOT ${context.dbName}.${backup} FROM `${repoName}` ON (`${tableName}`) PROPERTIES ("backup_timestamp" = "${snapshot}","replication_num" = "1" ) """
+        syncer.waitAllRestoreFinish(context.dbName)
+        qt_select_restore_base """select * from ${tableName};"""
+        qt_select_restore_roll """select k2, k1, c4, c3 from ${tableName};"""
+        sql "DROP REPOSITORY `${repoName}`"
+        sql """ INSERT INTO ${tableName} VALUES (17, 27, 34, 44, 54), (18, 28, 33, 43, 53); """
+        qt_select_restore_base1 """select * from ${tableName};"""
+        qt_select_restore_roll1 """select k2, k1, c4, c3 from ${tableName};"""
+    }
 
 }
