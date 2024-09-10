@@ -584,7 +584,7 @@ Status VerticalSegmentWriter::_append_block_with_partial_content(RowsInBlock& da
 
 Status VerticalSegmentWriter::batch_block(const vectorized::Block* block, size_t row_pos,
                                           size_t num_rows) {
-    LOG(INFO) << "sout: batch_block=\n" << block->dump_data(0);
+    // LOG(INFO) << "sout: batch_block=\n" << block->dump_data(0);
     if (_opts.rowset_ctx->partial_update_info &&
         _opts.rowset_ctx->partial_update_info->is_partial_update &&
         _opts.write_type == DataWriteType::TYPE_DIRECT &&
