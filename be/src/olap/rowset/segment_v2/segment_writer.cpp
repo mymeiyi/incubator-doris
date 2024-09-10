@@ -744,7 +744,7 @@ Status SegmentWriter::append_block(const vectorized::Block* block, size_t row_po
         _opts.write_type == DataWriteType::TYPE_SCHEMA_CHANGE) {
         _serialize_block_to_row_column(*const_cast<vectorized::Block*>(block));
     }
-    // LOG(INFO) << "sout: write block=\n" << block->dump_data(0);
+    LOG(INFO) << "sout: write block=\n" << block->dump_data(0);
 
     _olap_data_convertor->set_source_content(block, row_pos, num_rows);
 
