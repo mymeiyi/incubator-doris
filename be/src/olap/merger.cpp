@@ -229,7 +229,7 @@ void Merger::vertical_split_columns(const TabletSchema& tablet_schema,
     if (!key_columns.empty()) {
         column_groups->emplace_back(std::move(key_columns));
     }
-    auto&& cluster_key_idxes = tablet_schema.cluster_key_idxes();
+    // auto&& cluster_key_idxes = tablet_schema.cluster_key_idxes();
 
     std::vector<uint32_t> value_columns;
 
