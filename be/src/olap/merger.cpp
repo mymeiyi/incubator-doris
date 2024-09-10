@@ -235,8 +235,7 @@ void Merger::vertical_split_columns(const TabletSchema& tablet_schema,
 
     for (uint32_t i = num_key_cols; i < total_cols; ++i) {
         if (i == sequence_col_idx || i == delete_sign_idx ||
-            cluster_key_idxes.end() !=
-                    std::find(cluster_key_idxes.begin(), cluster_key_idxes.end(), i)) {
+            key_columns.end() != std::find(key_columns.begin(), key_columns.end(), i)) {
             continue;
         }
 
