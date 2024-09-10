@@ -201,6 +201,26 @@ void Merger::vertical_split_columns(const TabletSchema& tablet_schema,
                     }
                 }
             }
+            std::stringstream ss;
+            ss << "index to cid: ";
+            for (auto idx = 0; idx < tablet_schema.columns().size(); ++idx) {
+                ss << "[" << idx << ": " << tablet_schema.column(idx).unique_id() << "] ";
+            }
+            std::stringstream ss1;
+            for (const auto& id : tablet_schema.cluster_key_idxes()) {
+                ss1 << id << " ";
+            }
+            std::stringstream ss2;
+            for (const auto& item : key_columns) {
+                ss2 << item << " ";
+            }
+            std::stringstream ss3;
+            for (const auto item : *key_group_cluster_key_idxes) {
+                ss3 << item << " ";
+            }
+            LOG(INFO) << "sout: vertical_split_columns, table_id=" << tablet_schema.table_id()
+                      << ", tablet_schema=" << ss.str() << ", cluster key ids=" << ss1.str()
+                      << ", key columns=" << ss2.str() << ", cluster key idxes=" << ss3.str();
         }
     }
     VLOG_NOTICE << "sequence_col_idx=" << sequence_col_idx
