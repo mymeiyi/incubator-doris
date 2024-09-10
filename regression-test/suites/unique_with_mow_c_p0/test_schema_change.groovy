@@ -40,8 +40,8 @@ suite("test_schema_change") {
             `age` SMALLINT COMMENT "用户年龄",
             `sex` TINYINT COMMENT "用户性别",
             `last_visit_date` DATETIME DEFAULT "1970-01-01 00:00:00" COMMENT "用户最后一次访问时间",
-            `last_update_date` DATETIME DEFAULT "1970-01-01 00:00:00" COMMENT "用户最后一次更新时间",
-            `last_visit_date_not_null` DATETIME NOT NULL DEFAULT "1970-01-01 00:00:00" COMMENT "用户最后一次访问时间",
+            `last_update_date` DATETIME DEFAULT "1971-01-01 00:00:00" COMMENT "用户最后一次更新时间",
+            `last_visit_date_not_null` DATETIME NOT NULL DEFAULT "1972-01-01 00:00:00" COMMENT "用户最后一次访问时间",
             `cost` BIGINT DEFAULT "0" COMMENT "用户总消费",
             `comment` VARCHAR(5),
             `max_dwell_time` INT DEFAULT "0" COMMENT "用户最大停留时间",
@@ -63,31 +63,31 @@ suite("test_schema_change") {
         sql """ INSERT INTO ${tableName}
         (`user_id`, `date`, `city`, `age`, `sex`, `last_visit_date`, `last_update_date`, `last_visit_date_not_null`,
         `cost`, `max_dwell_time`, `min_dwell_time`) 
-        VALUES (1, '2017-10-01', 'Beijing', 10, 1, '2020-01-01', '2020-01-01', '2020-01-01', 1, 30, 20)
+        VALUES (1, '2017-10-01', 'Beijing', 10, 1, '2020-01-01', '2021-01-01', '2022-01-01', 1, 30, 20)
         """
 
         sql """ INSERT INTO ${tableName}
         (`user_id`, `date`, `city`, `age`, `sex`, `last_visit_date`, `last_update_date`, `last_visit_date_not_null`,
         `cost`, `max_dwell_time`, `min_dwell_time`) 
-        VALUES (2, '2017-10-01', 'Beijing', 10, 1, '2020-01-02', '2020-01-02', '2020-01-02', 1, 31, 21)
+        VALUES (2, '2017-10-01', 'Beijing', 10, 1, '2020-01-02', '2021-01-02', '2022-01-02', 1, 31, 21)
         """
 
         sql """ INSERT INTO ${tableName}
         (`user_id`, `date`, `city`, `age`, `sex`, `last_visit_date`, `last_update_date`, `last_visit_date_not_null`,
         `cost`, `max_dwell_time`, `min_dwell_time`) 
-        VALUES (3, '2017-10-01', 'Beijing', 10, 1, '2020-01-03', '2020-01-03', '2020-01-03', 1, 32, 20)
+        VALUES (3, '2017-10-01', 'Beijing', 10, 1, '2020-01-03', '2021-01-03', '2022-01-03', 1, 32, 20)
         """
 
         sql """ INSERT INTO ${tableName}
         (`user_id`, `date`, `city`, `age`, `sex`, `last_visit_date`, `last_update_date`, `last_visit_date_not_null`,
         `cost`, `max_dwell_time`, `min_dwell_time`) 
-        VALUES (4, '2017-10-01', 'Beijing', 10, 1, '2020-01-03', '2020-01-03', '2020-01-03', 1, 32, 22)
+        VALUES (4, '2017-10-01', 'Beijing', 10, 1, '2020-01-03', '2021-01-03', '2022-01-03', 1, 32, 22)
         """
 
         sql """ INSERT INTO ${tableName} 
         (`user_id`, `date`, `city`, `age`, `sex`, `last_visit_date`, `last_update_date`, `last_visit_date_not_null`,
         `cost`, `max_dwell_time`, `min_dwell_time`)
-        VALUES (5, '2017-10-01', 'Beijing', 10, 1, NULL, NULL, '2020-01-05', 1, 34, 20)
+        VALUES (5, '2017-10-01', 'Beijing', 10, 1, NULL, NULL, '2023-01-05', 1, 34, 20)
         """
 
         qt_sql """ SELECT `user_id`, `date`, `city`, `age`, `sex`, `last_visit_date`, `last_update_date`, `last_visit_date_not_null`, `cost`, `comment`, `max_dwell_time`, `min_dwell_time` FROM ${tableName} t ORDER BY user_id; """
@@ -96,7 +96,7 @@ suite("test_schema_change") {
         sql """ INSERT INTO ${tableName} 
         (`user_id`, `date`, `city`, `age`, `sex`, `last_visit_date`, `last_update_date`, `last_visit_date_not_null`,
         `cost`, `max_dwell_time`, `min_dwell_time`)
-        VALUES (5, '2017-10-01', 'Beijing', 10, 1, NULL, NULL, '2020-01-05', 1, 34, 21)
+        VALUES (5, '2017-10-01', 'Beijing', 10, 1, NULL, NULL, '2023-01-05', 1, 34, 21)
         """
         qt_sql """ SELECT `user_id`, `date`, `city`, `age`, `sex`, `last_visit_date`, `last_update_date`, `last_visit_date_not_null`, `cost`, `comment`, `max_dwell_time`, `min_dwell_time` FROM ${tableName} t ORDER BY user_id; """
 
@@ -104,7 +104,7 @@ suite("test_schema_change") {
         sql """ INSERT INTO ${tableName}
         (`user_id`, `date`, `city`, `age`, `sex`, `last_visit_date`, `last_update_date`, `last_visit_date_not_null`,
         `cost`, `max_dwell_time`, `min_dwell_time`) 
-        VALUES (5, '2017-10-01', 'Beijing', 10, 1, NULL, NULL, '2020-01-05', 1, 34, 22)
+        VALUES (5, '2017-10-01', 'Beijing', 10, 1, NULL, NULL, '2023-01-05', 1, 34, 22)
         """
         qt_sql """ SELECT `user_id`, `date`, `city`, `age`, `sex`, `last_visit_date`, `last_update_date`, `last_visit_date_not_null`, `cost`, `comment`, `max_dwell_time`, `min_dwell_time` FROM ${tableName} t ORDER BY user_id; """
 
@@ -119,7 +119,7 @@ suite("test_schema_change") {
         sql """ INSERT INTO ${tableName}
         (`user_id`, `date`, `city`, `age`, `sex`, `last_visit_date`, `last_update_date`, `last_visit_date_not_null`,
         `cost`, `max_dwell_time`, `min_dwell_time`) 
-        VALUES (6, '2017-10-01', 'Beijing', 10, 1, NULL, NULL, '2020-01-05', 1, 34, 22)
+        VALUES (6, '2017-10-01', 'Beijing', 10, 1, NULL, NULL, '2023-01-05', 1, 34, 22)
         """
         qt_sql """ SELECT `user_id`, `date`, `city`, `age`, `sex`, `last_visit_date`, `last_update_date`, `last_visit_date_not_null`, `cost`, `comment`, `max_dwell_time`, `min_dwell_time` FROM ${tableName} t ORDER BY user_id; """
 
@@ -128,10 +128,10 @@ suite("test_schema_change") {
             (`user_id`, `date`, `city`, `age`, `sex`, `last_visit_date`, `last_update_date`, `last_visit_date_not_null`,
             `cost`, `max_dwell_time`, `min_dwell_time`) 
             VALUES
-            (7, '2017-10-01', 'Beijing', 10, 1, NULL, NULL, '2020-01-05', 1, 34, 22),
-            (7, '2017-10-01', 'Beijing', 10, 1, NULL, NULL, '2020-01-05', 1, 34, 23),
-            (7, '2017-10-01', 'Beijing', 10, 1, NULL, NULL, '2020-01-05', 1, 34, 24),
-            (7, '2017-10-01', 'Beijing', 10, 1, NULL, NULL, '2020-01-05', 1, 34, 25)
+            (7, '2017-10-01', 'Beijing', 10, 1, NULL, NULL, '2023-01-05', 1, 34, 22),
+            (7, '2017-10-01', 'Beijing', 10, 1, NULL, NULL, '2023-01-05', 1, 34, 23),
+            (7, '2017-10-01', 'Beijing', 10, 1, NULL, NULL, '2023-01-05', 1, 34, 24),
+            (7, '2017-10-01', 'Beijing', 10, 1, NULL, NULL, '2023-01-05', 1, 34, 25)
         """
         qt_sql """ SELECT `user_id`, `date`, `city`, `age`, `sex`, `last_visit_date`, `last_update_date`, `last_visit_date_not_null`, `cost`, `comment`, `max_dwell_time`, `min_dwell_time` FROM ${tableName} t ORDER BY user_id; """
         qt_sql """
