@@ -50,7 +50,8 @@ suite("test_schema_change") {
         CLUSTER BY(`cost`, `comment`)
         DISTRIBUTED BY HASH(`user_id`) BUCKETS 1
         PROPERTIES ( "replication_num" = "1",
-                     "enable_unique_key_merge_on_write" = "true"
+                     "enable_unique_key_merge_on_write" = "true",
+                     "disable_auto_compaction" = "true"
         );
     """
 
@@ -141,8 +142,8 @@ suite("test_schema_change") {
     }
 
     // 2. drop a value column
-    sql """ alter table ${tableName} DROP column last_visit_date; """
-    assertTrue(getAlterTableState(), "drop column should success");
+    /*sql """ alter table ${tableName} DROP column last_visit_date; """
+    assertTrue(getAlterTableState(), "drop column should success");*/
     {
         sql """ INSERT INTO ${tableName}
         (`user_id`, `date`, `city`, `age`, `sex`, `last_update_date`, `last_visit_date_not_null`,

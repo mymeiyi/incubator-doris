@@ -525,20 +525,20 @@ Status MemTable::_to_block(std::unique_ptr<vectorized::Block>* res) {
     }
     if (_keys_type == KeysType::UNIQUE_KEYS && _enable_unique_key_mow &&
         !_tablet_schema->cluster_key_idxes().empty()) {
-        LOG(INFO) << "sout: call _sort_by_cluster_keys, tablet_id=" << tablet_id()
-                  << ", block\n=" << _input_mutable_block.dump_data(0);
+        /*LOG(INFO) << "sout: call _sort_by_cluster_keys, tablet_id=" << tablet_id()
+                  << ", block\n=" << _input_mutable_block.dump_data(0);*/
         RETURN_IF_ERROR(_sort_by_cluster_keys());
     } else {
-        LOG(INFO) << "sout: skip call _sort_by_cluster_keys, tablet_id=" << tablet_id()
-                  << ", block\n=" << _input_mutable_block.dump_data(0);
+        /*LOG(INFO) << "sout: skip call _sort_by_cluster_keys, tablet_id=" << tablet_id()
+                  << ", block\n=" << _input_mutable_block.dump_data(0);*/
     }
     g_memtable_input_block_allocated_size << -_input_mutable_block.allocated_bytes();
     _input_mutable_block.clear();
     _insert_mem_tracker->release(_mem_usage);
     _mem_usage = 0;
     *res = vectorized::Block::create_unique(_output_mutable_block.to_block());
-    LOG(INFO) << "sout: after _sort_by_cluster_keys, tablet_id=" << tablet_id()
-              << ", block\n=" << (*res)->dump_data(0);
+    /*LOG(INFO) << "sout: after _sort_by_cluster_keys, tablet_id=" << tablet_id()
+              << ", block\n=" << (*res)->dump_data(0);*/
     return Status::OK();
 }
 
