@@ -467,6 +467,13 @@ Status Merger::vertical_merge_rowsets(BaseTabletSPtr tablet, ReaderType reader_t
     std::vector<std::vector<uint32_t>> column_groups;
     std::vector<uint32_t> key_group_cluster_key_idxes;
     vertical_split_columns(tablet_schema, &column_groups, &key_group_cluster_key_idxes);
+    for (const auto& one_group : column_groups) {
+        std::stringstream ss;
+        for (const auto& item : one_group) {
+            ss << item << " ";
+        }
+        LOG(INFO) << "sout: one column group=" << ss.str();
+    }
 
     vectorized::RowSourcesBuffer row_sources_buf(
             tablet->tablet_id(), dst_rowset_writer->context().tablet_path, reader_type);
