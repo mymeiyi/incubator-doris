@@ -133,9 +133,10 @@ Status FlushToken::wait() {
 }
 
 Status FlushToken::_do_flush_memtable(MemTable* memtable, int32_t segment_id, int64_t* flush_size) {
-    VLOG_CRITICAL << "begin to flush memtable for tablet: " << memtable->tablet_id()
+    VLOG_CRITICAL << "sout: begin to flush memtable for tablet: " << memtable->tablet_id()
                   << ", memsize: " << memtable->memory_usage()
-                  << ", rows: " << memtable->stat().raw_rows;
+                  << ", rows: " << memtable->stat().raw_rows
+                  << ", merged_rows: " << memtable->stat().merged_rows;
     int64_t duration_ns;
     SCOPED_RAW_TIMER(&duration_ns);
     SCOPED_ATTACH_TASK(memtable->query_thread_context());
