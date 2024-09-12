@@ -538,9 +538,9 @@ public class TransactionEntry {
         return subTransactionStates.stream().map(s -> s.getTable().getId()).collect(Collectors.toSet());
     }
 
-    public List<Long> getSubTxnIds() {
+    /*public List<Long> getSubTxnIds() {
         return subTransactionStates.stream().map(SubTransactionState::getSubTransactionId).collect(Collectors.toList());
-    }
+    }*/
 
     public List<Long> getPartitionSubTxnIds(long tableId, Partition partition) {
         List<Long> subTxnIds = new ArrayList<>();
