@@ -107,6 +107,11 @@ Status CloudTablet::capture_rs_readers(const Version& spec_version,
     return capture_rs_readers_unlocked(version_path, rs_splits);
 }
 
+Status Tablet::capture_sub_txn_rs_readers(const std::vector<int64_t>& sub_txn_ids,
+                                          std::vector<RowSetSplits>* rs_splits) {
+    return Status::OK();
+}
+
 // There are only two tablet_states RUNNING and NOT_READY in cloud mode
 // This function will erase the tablet from `CloudTabletMgr` when it can't find this tablet in MS.
 Status CloudTablet::sync_rowsets(int64_t query_version, bool warmup_delta_data) {

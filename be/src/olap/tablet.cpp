@@ -933,6 +933,30 @@ Status Tablet::capture_rs_readers(const Version& spec_version, std::vector<RowSe
     return Status::OK();
 }
 
+Status Tablet::capture_sub_txn_rs_readers(const std::vector<int64_t>& sub_txn_ids,
+                                          std::vector<RowSetSplits>* rs_splits) {
+    LOG(INFO) << "sout: sub txn id size=" << sub_txn_ids.size();
+    for (const auto& sub_txn_id : sub_txn_ids) {
+        auto rowset = _engine.txn_manager()->get_tablet_rowset(
+                tablet_id(), tablet_uid(), partition_id(), sub_txn_id);
+        LOG(INFO) << "sout: sub_txn_id=" << sub_txn_id << ", tablet=" << tablet_id()
+                  << ", partition_id=" << partition_id()
+                  << ", tablet_uid=" << tablet_uid()
+                  << ", rowset is null=" << (rowset == nullptr);
+        if (rowset != nullptr) {
+            RowsetReaderSharedPtr rs_reader;
+            auto res = rowset->create_reader(&rs_reader);
+            if (!res.ok()) {
+                return Status::Error<ErrorCode::CAPTURE_ROWSET_READER_ERROR>(
+                        "failed to create reader for rowset:{}",
+                        rowset->rowset_id().to_string());
+            }
+            rs_splits->emplace_back(std::move(rs_reader));
+        }
+    }
+    return Status::OK();
+}
+
 Versions Tablet::calc_missed_versions(int64_t spec_version, Versions existing_versions) const {
     DCHECK(spec_version > 0) << "invalid spec_version: " << spec_version;
 

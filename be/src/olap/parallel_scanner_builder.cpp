@@ -171,8 +171,9 @@ Status ParallelScannerBuilder::_load() {
         const auto tablet_id = tablet->tablet_id();
         auto& read_source = _all_read_sources[tablet_id];
         RETURN_IF_ERROR(tablet->capture_rs_readers({0, version}, &read_source.rs_splits, false));
+        RETURN_IF_ERROR(tablet->capture_sub_txn_rs_readers(sub_txn_ids, &read_source.rs_splits));
 
-        if (!config::is_cloud_mode()) {
+        /*if (!config::is_cloud_mode()) {
             auto& engine = ExecEnv::GetInstance()->storage_engine().to_local();
             auto local_tablet = std::static_pointer_cast<Tablet>(tablet);
             LOG(INFO) << "sout: sub txn id size=" << sub_txn_ids.size();
@@ -194,7 +195,7 @@ Status ParallelScannerBuilder::_load() {
                     read_source.rs_splits.emplace_back(std::move(rs_reader));
                 }
             }
-        }
+        }*/
 
         if (!_state->skip_delete_predicate()) {
             read_source.fill_delete_predicates();
