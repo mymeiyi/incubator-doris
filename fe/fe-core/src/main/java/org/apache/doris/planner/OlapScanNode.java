@@ -801,6 +801,10 @@ public class OlapScanNode extends ScanNode {
             paloRange.setVersion(visibleVersionStr);
             paloRange.setVersionHash("");
             paloRange.setTabletId(tabletId);
+            if (ConnectContext.get().isTxnModel()) {
+                paloRange.setSubTxnIds(
+                        ConnectContext.get().getTxnEntry().getTabletSubTxnIds(olapTable.getId(), tablet));
+            }
 
             // random shuffle List && only collect one copy
             //
@@ -822,6 +826,10 @@ public class OlapScanNode extends ScanNode {
                     LOG.debug(sb.toString());
                 }
                 throw new UserException(sb.toString());
+            }
+            if (paloRange.isSetSubTxnIds() && !paloRange.getSubTxnIds().isEmpty()) {
+                List<Long> subTxnIds = paloRange.getSubTxnIds();
+
             }
 
             if (useFixReplica <= -1) {

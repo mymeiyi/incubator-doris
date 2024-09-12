@@ -24,6 +24,7 @@
 #include "cloud/config.h"
 #include "common/status.h"
 #include "olap/rowset/beta_rowset.h"
+#include "olap/storage_engine.h"
 #include "pipeline/exec/olap_scan_operator.h"
 #include "vec/exec/scan/new_olap_scanner.h"
 
@@ -44,7 +45,7 @@ Status ParallelScannerBuilder::build_scanners(std::list<VScannerSPtr>& scanners)
 Status ParallelScannerBuilder::_build_scanners_by_rowid(std::list<VScannerSPtr>& scanners) {
     DCHECK_GE(_rows_per_scanner, _min_rows_per_scanner);
 
-    for (auto&& [tablet, version] : _tablets) {
+    for (auto&& [tablet, version, sub_txn_ids] : _tablets) {
         DCHECK(_all_read_sources.contains(tablet->tablet_id()));
         auto& entire_read_source = _all_read_sources[tablet->tablet_id()];
 
@@ -166,13 +167,31 @@ Status ParallelScannerBuilder::_build_scanners_by_rowid(std::list<VScannerSPtr>&
  */
 Status ParallelScannerBuilder::_load() {
     _total_rows = 0;
-    for (auto&& [tablet, version] : _tablets) {
+    for (auto&& [tablet, version, sub_txn_ids] : _tablets) {
         const auto tablet_id = tablet->tablet_id();
         auto& read_source = _all_read_sources[tablet_id];
         RETURN_IF_ERROR(tablet->capture_rs_readers({0, version}, &read_source.rs_splits, false));
         if (!_state->skip_delete_predicate()) {
             read_source.fill_delete_predicates();
         }
+
+        if (!config::is_cloud_mode()) {
+            auto& engine = ExecEnv::GetInstance()->storage_engine().to_local();
+            auto local_tablet = std::static_pointer_cast<Tablet>(tablet);
+            LOG(INFO) << "sout: sub txn id size=" << sub_txn_ids.size();
+            for (const auto& sub_txn_id : sub_txn_ids) {
+                auto rowset = engine.txn_manager()->get_tablet_rowset(
+                        tablet_id, local_tablet->tablet_uid(), tablet->partition_id(), sub_txn_id);
+                LOG(INFO) << "sout: sub_txn_id=" << sub_txn_id << ", tablet=" << tablet_id
+                          << ", partition_id=" << tablet->partition_id()
+                          << ", tablet_uid=" << local_tablet->tablet_uid()
+                          << ", rowset is null=" << (rowset == nullptr);
+                if (rowset != nullptr) {
+                    rowsets.emplace_back(rowset);
+                }
+            }
+        }
+
         bool enable_segment_cache = _state->query_options().__isset.enable_segment_cache
                                             ? _state->query_options().enable_segment_cache
                                             : true;

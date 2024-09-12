@@ -229,6 +229,7 @@ bool OlapScanLocalState::_should_push_down_common_expr() {
 
 bool OlapScanLocalState::_storage_no_merge() {
     auto& p = _parent->cast<OlapScanOperatorX>();
+    LOG(INFO) << "sout: check _storage_no_merge";
     return (p._olap_scan_node.keyType == TKeysType::DUP_KEYS ||
             (p._olap_scan_node.keyType == TKeysType::UNIQUE_KEYS &&
              p._olap_scan_node.__isset.enable_unique_key_merge_on_write &&
@@ -282,15 +283,19 @@ Status OlapScanLocalState::_init_scanners(std::list<vectorized::VScannerSPtr>* s
         int64_t version = 0;
         std::from_chars(scan_range->version.data(),
                         scan_range->version.data() + scan_range->version.size(), version);
-        tablets.emplace_back(std::move(tablet), version);
+        std::vector<int64_t> sub_txn_ids = scan_range->sub_txn_ids;
+        tablets.emplace_back(std::move(tablet), version, sub_txn_ids);
+        LOG(INFO) << "sout: tablet: " << scan_range->tablet_id
+                  << ", version: " << scan_range->version
+                  << ", sub_txn_id size=" << sub_txn_ids.size();
     }
     int64_t duration_ns = 0;
     if (config::is_cloud_mode()) {
         SCOPED_RAW_TIMER(&duration_ns);
         std::vector<std::function<Status()>> tasks;
         tasks.reserve(_scan_ranges.size());
-        for (auto&& [tablet, version] : tablets) {
-            tasks.emplace_back([tablet, version]() {
+        for (auto&& [tablet, version, sub_txn_ids] : tablets) {
+            tasks.emplace_back([tablet, version, sub_txn_ids]() {
                 return std::dynamic_pointer_cast<CloudTablet>(tablet)->sync_rowsets(version);
             });
         }

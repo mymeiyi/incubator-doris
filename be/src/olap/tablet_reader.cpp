@@ -283,6 +283,7 @@ Status TabletReader::_init_params(const ReaderParams& read_params) {
     read_params.check_validation();
 
     _direct_mode = read_params.direct_mode;
+    LOG(INFO) << "sout: direct mode: " << _direct_mode;
     _aggregation = read_params.aggregation;
     _reader_type = read_params.reader_type;
     _tablet = read_params.tablet;
