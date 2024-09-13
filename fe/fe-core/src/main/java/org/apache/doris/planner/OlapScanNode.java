@@ -804,6 +804,8 @@ public class OlapScanNode extends ScanNode {
             if (ConnectContext.get().isTxnModel()) {
                 paloRange.setSubTxnIds(
                         ConnectContext.get().getTxnEntry().getTabletSubTxnIds(olapTable.getId(), tablet));
+                LOG.info("sout: table={}, tablet={}, set sub txn ids={}", olapTable.getId(), tablet.getId(),
+                        paloRange.getSubTxnIds());
             }
 
             // random shuffle List && only collect one copy
