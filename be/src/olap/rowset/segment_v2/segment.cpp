@@ -164,7 +164,7 @@ Status Segment::_open() {
     LOG(INFO) << "sout: num_rows: " << _num_rows << ", segment_id: " << _segment_id
               << ", rowset_id: " << _rowset_id
               << ", tablet_schema is null: " << (_tablet_schema == nullptr);
-    sleep(4);
+    // sleep(4);
 
     // An estimated memory usage of a segment
     _meta_mem_usage += _footer_pb->ByteSizeLong();
