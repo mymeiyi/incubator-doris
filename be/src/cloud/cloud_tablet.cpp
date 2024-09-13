@@ -112,7 +112,7 @@ Status CloudTablet::capture_sub_txn_rs_readers(const std::vector<int64_t>& sub_t
     LOG(INFO) << "sout: sub txn id size=" << sub_txn_ids.size();
     for (const auto& sub_txn_id : sub_txn_ids) {
         // see CloudMetaMgr::sync_tablet_rowsets, GetRowsetRequest
-
+        LOG(INFO) << "sout: sub_txn_id=" << sub_txn_id;
         _engine.txn_delete_bitmap_cache();
     }
     return Status::OK();
