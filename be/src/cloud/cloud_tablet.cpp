@@ -109,7 +109,7 @@ Status CloudTablet::capture_rs_readers(const Version& spec_version,
 
 Status CloudTablet::capture_sub_txn_rs_readers(const std::vector<int64_t>& sub_txn_ids,
                                                std::vector<RowSetSplits>* rs_splits) {
-    LOG(INFO) << "sout: sub txn id size=" << sub_txn_ids.size();
+    LOG(INFO) << "sout: sub txn id size=" << sub_txn_ids.size() << ", index_id=" << index_id();
     std::vector<std::shared_ptr<Rowset>> rowsets;
     RETURN_IF_ERROR(_engine.meta_mgr().get_tmp_rowset(tablet_schema(), index_id(), tablet_id(),
                                                       sub_txn_ids, rowsets));
