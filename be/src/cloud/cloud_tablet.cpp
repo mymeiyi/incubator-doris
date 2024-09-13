@@ -114,6 +114,7 @@ Status CloudTablet::capture_sub_txn_rs_readers(const std::vector<int64_t>& sub_t
     RETURN_IF_ERROR(_engine.meta_mgr().get_tmp_rowset(tablet_id(), sub_txn_ids, rowsets));
     DCHECK(rowsets.size() == sub_txn_ids.size())
             << ", sub_txn_id size=" << sub_txn_ids.size() << ", rowset size=" << rowsets.size();
+    LOG(INFO) << "sout: sub txn size=" << sub_txn_ids.size() << ", rowset size=" << rowsets.size();
     for (const auto& rowset : rowsets) {
         // see CloudMetaMgr::sync_tablet_rowsets, GetRowsetRequest
         if (rowset != nullptr) {
