@@ -171,32 +171,10 @@ Status ParallelScannerBuilder::_load() {
         const auto tablet_id = tablet->tablet_id();
         auto& read_source = _all_read_sources[tablet_id];
         RETURN_IF_ERROR(tablet->capture_rs_readers({0, version}, &read_source.rs_splits, false));
-        RETURN_IF_ERROR(tablet->capture_sub_txn_rs_readers(sub_txn_ids, &read_source.rs_splits));
-
-        /*if (!config::is_cloud_mode()) {
-            auto& engine = ExecEnv::GetInstance()->storage_engine().to_local();
-            auto local_tablet = std::static_pointer_cast<Tablet>(tablet);
-            LOG(INFO) << "sout: sub txn id size=" << sub_txn_ids.size();
-            for (const auto& sub_txn_id : sub_txn_ids) {
-                auto rowset = engine.txn_manager()->get_tablet_rowset(
-                        tablet_id, local_tablet->tablet_uid(), tablet->partition_id(), sub_txn_id);
-                LOG(INFO) << "sout: sub_txn_id=" << sub_txn_id << ", tablet=" << tablet_id
-                          << ", partition_id=" << tablet->partition_id()
-                          << ", tablet_uid=" << local_tablet->tablet_uid()
-                          << ", rowset is null=" << (rowset == nullptr);
-                if (rowset != nullptr) {
-                    RowsetReaderSharedPtr rs_reader;
-                    auto res = rowset->create_reader(&rs_reader);
-                    if (!res.ok()) {
-                        return Status::Error<ErrorCode::CAPTURE_ROWSET_READER_ERROR>(
-                                "failed to create reader for rowset:{}",
-                                rowset->rowset_id().to_string());
-                    }
-                    read_source.rs_splits.emplace_back(std::move(rs_reader));
-                }
-            }
-        }*/
-
+        if (!sub_txn_ids.empty()) {
+            RETURN_IF_ERROR(
+                    tablet->capture_sub_txn_rs_readers(sub_txn_ids, &read_source.rs_splits));
+        }
         if (!_state->skip_delete_predicate()) {
             read_source.fill_delete_predicates();
         }
