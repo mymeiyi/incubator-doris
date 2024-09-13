@@ -284,7 +284,7 @@ static std::string debug_info(const Request& req) {
         return fmt::format(" tablet_id={}, lock_id={}", req.tablet_id(), req.lock_id());
     } else if constexpr (is_any_v<Request, GetDeleteBitmapUpdateLockRequest>) {
         return fmt::format(" table_id={}, lock_id={}", req.table_id(), req.lock_id());
-    } else if constexpr (is_any_v<Request, GetTabletRequest>) {
+    } else if constexpr (is_any_v<Request, GetTabletRequest, GetTmpRowsetRequest>) {
         return fmt::format(" tablet_id={}", req.tablet_id());
     } else if constexpr (is_any_v<Request, GetObjStoreInfoRequest>) {
         return "";
