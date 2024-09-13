@@ -807,6 +807,7 @@ Status CloudMetaMgr::get_tmp_rowset(int64_t tablet_id, const std::vector<int64_t
     RETURN_IF_ERROR(st);
     for (const auto& cloud_rs_meta_pb : resp.rowset_meta()) {
         RowsetMetaPB meta_pb = cloud_rowset_meta_to_doris(cloud_rs_meta_pb);
+        LOG(INFO) << "sout: rowset meta: " << meta_pb.ShortDebugString();
         auto rs_meta = std::make_shared<RowsetMeta>();
         rs_meta->init_from_pb(meta_pb);
         RowsetSharedPtr rowset;
