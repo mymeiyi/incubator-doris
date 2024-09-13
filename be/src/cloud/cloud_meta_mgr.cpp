@@ -523,6 +523,7 @@ Status CloudMetaMgr::sync_tablet_rowsets(CloudTablet* tablet, bool warmup_delta_
                     continue; // Same rowset, skip it
                 }
                 RowsetMetaPB meta_pb = cloud_rowset_meta_to_doris(cloud_rs_meta_pb);
+                LOG(INFO) << "sout: rowset meta: " << meta_pb.ShortDebugString();
                 auto rs_meta = std::make_shared<RowsetMeta>();
                 rs_meta->init_from_pb(meta_pb);
                 RowsetSharedPtr rowset;
