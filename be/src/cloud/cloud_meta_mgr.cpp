@@ -803,6 +803,7 @@ Status CloudMetaMgr::get_tmp_rowset(int64_t tablet_id, const std::vector<int64_t
     }
     Status st = retry_rpc("get tmp rowset", req, &resp, &MetaService_Stub::get_tmp_rowset);
     RETURN_IF_ERROR(st);
+    LOG(INFO) << "sout: get tmp rowset, rowset_meta size: " << resp.rowset_meta().size();
     for (const auto& cloud_rs_meta_pb : resp.rowset_meta()) {
         RowsetMetaPB meta_pb = cloud_rowset_meta_to_doris(cloud_rs_meta_pb);
         auto rs_meta = std::make_shared<RowsetMeta>();
