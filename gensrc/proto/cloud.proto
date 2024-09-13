@@ -978,7 +978,7 @@ message GetRowsetResponse {
 
 message GetTmpRowsetRequest {
     optional string cloud_unique_id = 1; // For auth
-    optional TabletIndexPB idx = 2;
+    optional int64 tablet_id = 2;
     repeated int64 txn_ids = 3;
 }
 

@@ -1423,9 +1423,9 @@ void MetaServiceImpl::get_tmp_rowset(::google::protobuf::RpcController* controll
         return;
     }
     RPC_RATE_LIMIT(get_tmp_rowset)
-    if (!request->has_idx()) {
+    if (!request->has_tablet_id()) {
         code = MetaServiceCode::INVALID_ARGUMENT;
-        msg = "empty tablet index";
+        msg = "empty tablet id";
         return;
     }
     if (request->txn_ids().empty()) {
@@ -1444,7 +1444,7 @@ void MetaServiceImpl::get_tmp_rowset(::google::protobuf::RpcController* controll
     std::vector<std::optional<std::string>> tmp_rowset_values;
     tmp_rowset_keys.reserve(request->txn_ids().size());
     tmp_rowset_values.reserve(request->txn_ids().size());
-    int64_t tablet_id = request->idx().tablet_id();
+    int64_t tablet_id = request->tablet_id();
     // TODO avoid too many txn ids, should limit in fe
     for (const auto& txn_id : request->txn_ids()) {
         tmp_rowset_keys.push_back(meta_rowset_tmp_key({instance_id, txn_id, tablet_id}));

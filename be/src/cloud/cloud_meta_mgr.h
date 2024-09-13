@@ -67,6 +67,8 @@ public:
 
     Status update_tmp_rowset(const RowsetMeta& rs_meta);
 
+    Status get_tmp_rowset(int64_t tablet_id, std::vector<std::shared_ptr<RowsetMeta>> rs_metas);
+
     Status commit_txn(const StreamLoadContext& ctx, bool is_2pc);
 
     Status abort_txn(const StreamLoadContext& ctx);
