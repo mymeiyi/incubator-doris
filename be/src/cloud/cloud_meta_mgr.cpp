@@ -790,7 +790,8 @@ Status CloudMetaMgr::update_tmp_rowset(const RowsetMeta& rs_meta) {
     return st;
 }
 
-Status CloudMetaMgr::get_tmp_rowset(int64_t tablet_id, const std::vector<int64_t>& txn_ids,
+Status CloudMetaMgr::get_tmp_rowset(TabletSchemaSPtr tablet_schema, int64_t tablet_id,
+                                    const std::vector<int64_t>& txn_ids,
                                     std::vector<std::shared_ptr<Rowset>>& rowsets) {
     VLOG_DEBUG << "get tmp rowset, tablet_id: " << tablet_id
                << ", txn_ids size: " << txn_ids.size();
@@ -812,7 +813,7 @@ Status CloudMetaMgr::get_tmp_rowset(int64_t tablet_id, const std::vector<int64_t
         rs_meta->init_from_pb(meta_pb);
         RowsetSharedPtr rowset;
         // schema is nullptr implies using RowsetMeta.tablet_schema
-        Status s = RowsetFactory::create_rowset(nullptr, "", rs_meta, &rowset);
+        Status s = RowsetFactory::create_rowset(tablet_schema, "", rs_meta, &rowset);
         if (!s.ok()) {
             LOG_WARNING("create rowset").tag("status", s);
             return s;
