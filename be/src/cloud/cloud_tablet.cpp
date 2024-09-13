@@ -111,8 +111,8 @@ Status CloudTablet::capture_sub_txn_rs_readers(const std::vector<int64_t>& sub_t
                                                std::vector<RowSetSplits>* rs_splits) {
     LOG(INFO) << "sout: sub txn id size=" << sub_txn_ids.size();
     std::vector<std::shared_ptr<Rowset>> rowsets;
-    RETURN_IF_ERROR(
-            _engine.meta_mgr().get_tmp_rowset(tablet_schema(), tablet_id(), sub_txn_ids, rowsets));
+    RETURN_IF_ERROR(_engine.meta_mgr().get_tmp_rowset(tablet_schema(), index_id(), tablet_id(),
+                                                      sub_txn_ids, rowsets));
     DCHECK(rowsets.size() == sub_txn_ids.size())
             << ", sub_txn_id size=" << sub_txn_ids.size() << ", rowset size=" << rowsets.size();
     LOG(INFO) << "sout: sub txn size=" << sub_txn_ids.size() << ", rowset size=" << rowsets.size();

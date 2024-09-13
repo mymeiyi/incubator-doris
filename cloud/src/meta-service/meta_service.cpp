@@ -1423,6 +1423,11 @@ void MetaServiceImpl::get_tmp_rowset(::google::protobuf::RpcController* controll
         return;
     }
     RPC_RATE_LIMIT(get_tmp_rowset)
+    if (!request->has_index_id()) {
+        code = MetaServiceCode::INVALID_ARGUMENT;
+        msg = "empty index id";
+        return;
+    }
     if (!request->has_tablet_id()) {
         code = MetaServiceCode::INVALID_ARGUMENT;
         msg = "empty tablet id";
