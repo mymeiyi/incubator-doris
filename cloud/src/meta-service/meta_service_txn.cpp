@@ -854,6 +854,8 @@ void scan_tmp_rowset(
             }
             // Save keys that will be removed later
             tmp_rowsets_meta->back().first = std::string(k.data(), k.size());
+            LOG(INFO) << "sout: tmp rowset="
+                      << tmp_rowsets_meta->back().second.ShortDebugString();
             ++num_rowsets;
             if (!it->has_next()) rs_tmp_key0 = k;
         }
