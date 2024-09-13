@@ -110,10 +110,22 @@ Status CloudTablet::capture_rs_readers(const Version& spec_version,
 Status CloudTablet::capture_sub_txn_rs_readers(const std::vector<int64_t>& sub_txn_ids,
                                                std::vector<RowSetSplits>* rs_splits) {
     LOG(INFO) << "sout: sub txn id size=" << sub_txn_ids.size();
-    for (const auto& sub_txn_id : sub_txn_ids) {
+    std::vector<std::shared_ptr<Rowset>> rowsets;
+    RETURN_IF_ERROR(_engine.meta_mgr().get_tmp_rowset(tablet_id(), sub_txn_ids, rowsets));
+    DCHECK(rowsets.size() == sub_txn_ids.size())
+            << ", sub_txn_id size=" << sub_txn_ids.size() << ", rowset size=" << rowsets.size();
+    for (const auto& rowset : rowsets) {
         // see CloudMetaMgr::sync_tablet_rowsets, GetRowsetRequest
-        LOG(INFO) << "sout: sub_txn_id=" << sub_txn_id;
-        _engine.txn_delete_bitmap_cache();
+        if (rowset != nullptr) {
+            RowsetReaderSharedPtr rs_reader;
+            auto res = rowset->create_reader(&rs_reader);
+            if (!res.ok()) {
+                return Status::Error<ErrorCode::CAPTURE_ROWSET_READER_ERROR>(
+                        "failed to create reader for rowset:{}",
+                        rowset->rowset_id().to_string());
+            }
+            rs_splits->emplace_back(std::move(rs_reader));
+        }
     }
     return Status::OK();
 }

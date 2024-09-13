@@ -790,6 +790,35 @@ Status CloudMetaMgr::update_tmp_rowset(const RowsetMeta& rs_meta) {
     return st;
 }
 
+Status CloudMetaMgr::get_tmp_rowset(int64_t tablet_id, const std::vector<int64_t>& txn_ids,
+                                    std::vector<std::shared_ptr<Rowset>> rowsets) {
+    VLOG_DEBUG << "get tmp rowset, tablet_id: " << tablet_id
+               << ", txn_ids size: " << txn_ids.size();
+    GetTmpRowsetRequest req;
+    GetTmpRowsetResponse resp;
+    req.set_cloud_unique_id(config::cloud_unique_id);
+    req.set_tablet_id(tablet_id);
+    for (const auto& txn_id : txn_ids) {
+        req.add_txn_ids(txn_id);
+    }
+    Status st = retry_rpc("get tmp rowset", req, &resp, &MetaService_Stub::get_tmp_rowset);
+    RETURN_IF_ERROR(st);
+    for (const auto& cloud_rs_meta_pb : resp.rs_metas()) {
+        RowsetMetaPB meta_pb = cloud_rowset_meta_to_doris(cloud_rs_meta_pb);
+        auto rs_meta = std::make_shared<RowsetMeta>();
+        rs_meta->init_from_pb(meta_pb);
+        RowsetSharedPtr rowset;
+        // schema is nullptr implies using RowsetMeta.tablet_schema
+        Status s = RowsetFactory::create_rowset(nullptr, "", rs_meta, &rowset);
+        if (!s.ok()) {
+            LOG_WARNING("create rowset").tag("status", s);
+            return s;
+        }
+        rowsets.push_back(std::move(rowset));
+    }
+    return st;
+}
+
 // async send TableStats(in res) to FE coz we are in streamload ctx, response to the user ASAP
 static void send_stats_to_fe_async(const int64_t db_id, const int64_t txn_id,
                                    const std::string& label, CommitTxnResponse& res) {
