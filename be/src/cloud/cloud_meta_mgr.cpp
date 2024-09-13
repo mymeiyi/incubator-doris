@@ -799,6 +799,7 @@ Status CloudMetaMgr::get_tmp_rowset(TabletSchemaSPtr tablet_schema, int64_t inde
     GetTmpRowsetRequest req;
     GetTmpRowsetResponse resp;
     req.set_cloud_unique_id(config::cloud_unique_id);
+    req.set_index_id(index_id);
     req.set_tablet_id(tablet_id);
     for (const auto& txn_id : txn_ids) {
         req.add_txn_ids(txn_id);
