@@ -1498,12 +1498,12 @@ void MetaServiceImpl::get_tmp_rowset(::google::protobuf::RpcController* controll
             LOG(WARNING) << msg;
             return;
         }
-        if (auto it = version_to_schema.find(rowset_meta.schema_version());
+        if (auto it = version_to_schema.find(rowset_meta->schema_version());
             it != version_to_schema.end()) {
             rowset_meta->mutable_tablet_schema()->CopyFrom(*it->second);
         } else {
             auto key = meta_schema_key(
-                    {instance_id, idx.index_id(), rowset_meta->schema_version()});
+                    {instance_id, index_id, rowset_meta->schema_version()});
             if (!try_fetch_and_parse_schema(txn.get(), rowset_meta, key, code, msg)) {
                 return;
             }
