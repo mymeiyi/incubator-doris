@@ -814,7 +814,7 @@ Status CloudMetaMgr::get_tmp_rowset(TabletSchemaSPtr tablet_schema, int64_t tabl
         rs_meta->init_from_pb(meta_pb);
         RowsetSharedPtr rowset;
         // schema is nullptr implies using RowsetMeta.tablet_schema
-        Status s = RowsetFactory::create_rowset(tablet_schema, "", rs_meta, &rowset);
+        Status s = RowsetFactory::create_rowset(nullptr, "", rs_meta, &rowset);
         if (!s.ok()) {
             LOG_WARNING("create rowset").tag("status", s);
             return s;

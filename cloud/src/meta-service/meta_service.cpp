@@ -1445,6 +1445,7 @@ void MetaServiceImpl::get_tmp_rowset(::google::protobuf::RpcController* controll
     tmp_rowset_keys.reserve(request->txn_ids().size());
     tmp_rowset_values.reserve(request->txn_ids().size());
     int64_t tablet_id = request->tablet_id();
+    int64_t index_id = request->index_id();
     // TODO avoid too many txn ids, should limit in fe
     for (const auto& txn_id : request->txn_ids()) {
         tmp_rowset_keys.push_back(meta_rowset_tmp_key({instance_id, txn_id, tablet_id}));
@@ -1458,6 +1459,8 @@ void MetaServiceImpl::get_tmp_rowset(::google::protobuf::RpcController* controll
         LOG(WARNING) << msg;
         return;
     }
+    // get referenced schema
+    std::unordered_map<int32_t, doris::TabletSchemaCloudPB*> version_to_schema;
     for (size_t i = 0; i < tmp_rowset_keys.size(); ++i) {
         if (!tmp_rowset_values[i].has_value()) [[unlikely]] {
             code = MetaServiceCode::KV_TXN_GET_ERR;
@@ -1478,6 +1481,29 @@ void MetaServiceImpl::get_tmp_rowset(::google::protobuf::RpcController* controll
             msg = ss.str();
             LOG(WARNING) << msg;
             return;
+        }
+        // set tablet schema
+        if (rowset_meta->has_tablet_schema()) continue;
+        if (!rowset_meta->has_schema_version()) {
+            code = MetaServiceCode::INVALID_ARGUMENT;
+            ss << "rowset_meta must have either schema or schema_version, instance_id="
+               << instance_id << " tablet_id=" << tablet_id << " txn_id=" << request->txn_ids(i)
+               << " key=" << hex(tmp_rowset_keys[i]);
+            msg = ss.str();
+            LOG(WARNING) << msg;
+            return;
+        }
+        if (auto it = version_to_schema.find(rowset_meta.schema_version());
+            it != version_to_schema.end()) {
+            rowset_meta->mutable_tablet_schema()->CopyFrom(*it->second);
+        } else {
+            auto key = meta_schema_key(
+                    {instance_id, idx.index_id(), rowset_meta->schema_version()});
+            if (!try_fetch_and_parse_schema(txn.get(), rowset_meta, key, code, msg)) {
+                return;
+            }
+            version_to_schema.emplace(rowset_meta->schema_version(),
+                                      rowset_meta->mutable_tablet_schema());
         }
     }
 }
