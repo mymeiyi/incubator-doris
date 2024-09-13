@@ -126,7 +126,7 @@ static std::string read_columns_to_string(TabletSchemaSPtr tablet_schema,
 }
 
 Status NewOlapScanner::init() {
-    LOG(INFO) << "sout: NewOlapScanner::init";
+    // LOG(INFO) << "sout: NewOlapScanner::init";
     _is_init = true;
     auto* local_state = static_cast<pipeline::OlapScanLocalState*>(_local_state);
     auto& tablet = _tablet_reader_params.tablet;
@@ -183,7 +183,7 @@ Status NewOlapScanner::init() {
         }
 
         if (_tablet_reader_params.rs_splits.empty()) {
-            LOG(INFO) << "sout: NewOlapScanner::init, _tablet_reader_params.rs_splits.empty()";
+            // LOG(INFO) << "sout: NewOlapScanner::init, _tablet_reader_params.rs_splits.empty()";
             // Non-pipeline mode, Tablet : Scanner = 1 : 1
             // acquire tablet rowset readers at the beginning of the scan node
             // to prevent this case: when there are lots of olap scanners to run for example 10000
@@ -228,7 +228,7 @@ Status NewOlapScanner::init() {
 }
 
 Status NewOlapScanner::open(RuntimeState* state) {
-    LOG(INFO) << "sout: NewOlapScanner::open";
+    // LOG(INFO) << "sout: NewOlapScanner::open";
     RETURN_IF_ERROR(VScanner::open(state));
     auto* timer = ((pipeline::OlapScanLocalState*)_local_state)->_reader_init_timer;
     SCOPED_TIMER(timer);
