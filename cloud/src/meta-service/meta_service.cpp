@@ -1410,6 +1410,78 @@ static bool try_fetch_and_parse_schema(Transaction* txn, RowsetMetaCloudPB& rows
     return true;
 }
 
+void MetaServiceImpl::get_tmp_rowset(::google::protobuf::RpcController* controller,
+                                     const GetTmpRowsetRequest* request,
+                                     GetTmpRowsetResponse* response,
+                                     ::google::protobuf::Closure* done) {
+    RPC_PREPROCESS(get_tmp_rowset);
+    instance_id = get_instance_id(resource_mgr_, request->cloud_unique_id());
+    if (instance_id.empty()) {
+        code = MetaServiceCode::INVALID_ARGUMENT;
+        msg = "empty instance_id";
+        LOG(INFO) << msg << ", cloud_unique_id=" << request->cloud_unique_id();
+        return;
+    }
+    RPC_RATE_LIMIT(get_tmp_rowset)
+    if (!request->has_idx()) {
+        code = MetaServiceCode::INVALID_ARGUMENT;
+        msg = "empty tablet index";
+        return;
+    }
+    if (request->txn_ids().empty()) {
+        code = MetaServiceCode::INVALID_ARGUMENT;
+        msg = "empty txn ids";
+        return;
+    }
+    std::unique_ptr<Transaction> txn;
+    TxnErrorCode err = txn_kv_->create_txn(&txn);
+    if (err != TxnErrorCode::TXN_OK) {
+        code = cast_as<ErrCategory::CREATE>(err);
+        msg = "failed to create txn";
+        return;
+    }
+    std::vector<std::string> tmp_rowset_keys;
+    std::vector<std::optional<std::string>> tmp_rowset_values;
+    tmp_rowset_keys.reserve(request->txn_ids().size());
+    tmp_rowset_values.reserve(request->txn_ids().size());
+    int64_t tablet_id = request->idx().tablet_id();
+    // TODO avoid too many txn ids, should limit in fe
+    for (const auto& txn_id : request->txn_ids()) {
+        tmp_rowset_keys.push_back(meta_rowset_tmp_key({instance_id, txn_id, tablet_id}));
+    }
+    err = txn->batch_get(&tmp_rowset_values, tmp_rowset_keys);
+    if (err != TxnErrorCode::TXN_OK) {
+        code = cast_as<ErrCategory::READ>(err);
+        ss << "failed to batch get tmp rowset, instance_id=" << instance_id
+           << " tablet_id=" << tablet_id << " err=" << err;
+        msg = ss.str();
+        LOG(WARNING) << msg;
+        return;
+    }
+    for (size_t i = 0; i < tmp_rowset_keys.size(); ++i) {
+        if (!tmp_rowset_values[i].has_value()) [[unlikely]] {
+            code = MetaServiceCode::KV_TXN_GET_ERR;
+            ss << "failed to get tmp rowset, err=not found, instance_id=" << instance_id
+               << " tablet_id=" << tablet_id << " txn_id=" << request->txn_ids(i)
+               << " key=" << hex(tmp_rowset_keys[i]);
+            msg = ss.str();
+            LOG(WARNING) << msg;
+            return;
+        }
+        auto rowset_meta = response->add_rowset_meta();
+        if (!rowset_meta->ParseFromArray(tmp_rowset_values[i]->data(),
+                                         tmp_rowset_values[i]->size())) {
+            code = MetaServiceCode::PROTOBUF_PARSE_ERR;
+            ss << "malformed rowset meta value, instance_id=" << instance_id
+               << " tablet_id=" << tablet_id << " txn_id=" << request->txn_ids(i)
+               << " key=" << hex(tmp_rowset_keys[i]);
+            msg = ss.str();
+            LOG(WARNING) << msg;
+            return;
+        }
+    }
+}
+
 void MetaServiceImpl::get_rowset(::google::protobuf::RpcController* controller,
                                  const GetRowsetRequest* request, GetRowsetResponse* response,
                                  ::google::protobuf::Closure* done) {
