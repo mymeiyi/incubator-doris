@@ -1504,7 +1504,7 @@ void MetaServiceImpl::get_tmp_rowset(::google::protobuf::RpcController* controll
         } else {
             auto key = meta_schema_key(
                     {instance_id, index_id, rowset_meta->schema_version()});
-            if (!try_fetch_and_parse_schema(txn.get(), &rowset_meta, key, code, msg)) {
+            if (!try_fetch_and_parse_schema(txn.get(), *rowset_meta, key, code, msg)) {
                 return;
             }
             version_to_schema.emplace(rowset_meta->schema_version(),
