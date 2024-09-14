@@ -390,6 +390,7 @@ Status DeleteHandler::init(TabletSchemaSPtr tablet_schema,
     // TODO maybe core in asan
     DCHECK(version >= 0) << "invalid parameters. version=" << version;
     _predicate_arena = std::make_unique<vectorized::Arena>();
+    version = 4; // TODO
 
     for (const auto& delete_pred : delete_preds) {
         // Skip the delete condition with large version
@@ -471,7 +472,7 @@ void DeleteHandler::get_delete_conditions_after_version(
         int64_t version, AndBlockColumnPredicate* and_block_column_predicate_ptr,
         std::unordered_map<int32_t, std::vector<const ColumnPredicate*>>*
                 del_predicates_for_zone_map) const {
-    version = 4; // TODO
+    // version = 4; // TODO
     for (const auto& del_cond : _del_conds) {
         if (del_cond.filter_version > version) {
             // now, only query support delete column predicate operator
