@@ -73,6 +73,7 @@ NewOlapScanner::NewOlapScanner(pipeline::ScanLocalStateBase* parent,
                                NewOlapScanner::Params&& params)
         : VScanner(params.state, parent, params.limit, params.profile),
           _key_ranges(std::move(params.key_ranges)),
+          _sub_txn_ids(std::move(params.sub_txn_ids)),
           _tablet_reader_params({
                   .tablet = std::move(params.tablet),
                   .tablet_schema {},
@@ -198,6 +199,13 @@ Status NewOlapScanner::init() {
             auto st = tablet->capture_rs_readers(_tablet_reader_params.version,
                                                  &read_source.rs_splits,
                                                  _state->skip_missing_version());
+            LOG(INFO) << "sout: in load, version=" << _tablet_reader_params.version
+                      << ", sub txn size=" << _sub_txn_ids.size();
+            if (!_sub_txn_ids.empty()) {
+                RETURN_IF_ERROR(
+                        tablet->capture_sub_txn_rs_readers(_tablet_reader_params.version.second,
+                                                           _sub_txn_ids, &read_source.rs_splits));
+            }
             if (!st.ok()) {
                 LOG(WARNING) << "fail to init reader.res=" << st;
                 return st;

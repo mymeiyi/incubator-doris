@@ -344,7 +344,8 @@ Status OlapScanLocalState::_init_scanners(std::list<vectorized::VScannerSPtr>* s
     int scanners_per_tablet = std::max(1, 64 / (int)_scan_ranges.size());
 
     auto build_new_scanner = [&](BaseTabletSPtr tablet, int64_t version,
-                                 const std::vector<OlapScanRange*>& key_ranges) {
+                                 const std::vector<OlapScanRange*>& key_ranges,
+                                 std::vector<int64_t>& sub_txn_ids) {
         COUNTER_UPDATE(_key_range_counter, key_ranges.size());
         auto scanner = vectorized::NewOlapScanner::create_shared(
                 this, vectorized::NewOlapScanner::Params {
@@ -356,6 +357,7 @@ Status OlapScanLocalState::_init_scanners(std::list<vectorized::VScannerSPtr>* s
                               {},
                               p._limit,
                               p._olap_scan_node.is_preaggregation,
+                              sub_txn_ids,
                       });
         RETURN_IF_ERROR(scanner->prepare(state(), _conjuncts));
         scanners->push_back(std::move(scanner));
@@ -388,7 +390,8 @@ Status OlapScanLocalState::_init_scanners(std::list<vectorized::VScannerSPtr>* s
                 scanner_ranges.push_back((*ranges)[i].get());
             }
             LOG(INFO) << "sout: call build_new_scanner";
-            RETURN_IF_ERROR(build_new_scanner(tablet, version, scanner_ranges));
+            RETURN_IF_ERROR(
+                    build_new_scanner(tablet, version, scanner_ranges, scan_range->sub_txn_ids));
         }
     }
 
