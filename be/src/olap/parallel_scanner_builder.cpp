@@ -46,6 +46,11 @@ Status ParallelScannerBuilder::_build_scanners_by_rowid(std::list<VScannerSPtr>&
     DCHECK_GE(_rows_per_scanner, _min_rows_per_scanner);
 
     for (auto&& [tablet, version, sub_txn_ids] : _tablets) {
+        LOG(INFO) << "sout: before build, version=" << version
+                  << ", sub txn size=" << sub_txn_ids.size();
+        version += sub_txn_ids.size();
+        LOG(INFO) << "sout: after build, version=" << version
+                  << ", sub txn size=" << sub_txn_ids.size();
         DCHECK(_all_read_sources.contains(tablet->tablet_id()));
         auto& entire_read_source = _all_read_sources[tablet->tablet_id()];
 
@@ -168,12 +173,14 @@ Status ParallelScannerBuilder::_build_scanners_by_rowid(std::list<VScannerSPtr>&
 Status ParallelScannerBuilder::_load() {
     _total_rows = 0;
     for (auto&& [tablet, version, sub_txn_ids] : _tablets) {
+        LOG(INFO) << "sout: in load, version=" << version
+                  << ", sub txn size=" << sub_txn_ids.size();
         const auto tablet_id = tablet->tablet_id();
         auto& read_source = _all_read_sources[tablet_id];
         RETURN_IF_ERROR(tablet->capture_rs_readers({0, version}, &read_source.rs_splits, false));
         if (!sub_txn_ids.empty()) {
-            RETURN_IF_ERROR(
-                    tablet->capture_sub_txn_rs_readers(sub_txn_ids, &read_source.rs_splits));
+            RETURN_IF_ERROR(tablet->capture_sub_txn_rs_readers(version, sub_txn_ids,
+                                                               &read_source.rs_splits));
         }
         if (!_state->skip_delete_predicate()) {
             LOG(INFO) << "sout: !skip_delete_predicate()";

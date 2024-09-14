@@ -107,7 +107,7 @@ Status CloudTablet::capture_rs_readers(const Version& spec_version,
     return capture_rs_readers_unlocked(version_path, rs_splits);
 }
 
-Status CloudTablet::capture_sub_txn_rs_readers(const std::vector<int64_t>& sub_txn_ids,
+Status CloudTablet::capture_sub_txn_rs_readers(int64_t version, const std::vector<int64_t>& sub_txn_ids,
                                                std::vector<RowSetSplits>* rs_splits) {
     LOG(INFO) << "sout: sub txn id size=" << sub_txn_ids.size() << ", index_id=" << index_id();
     std::vector<std::shared_ptr<Rowset>> rowsets;

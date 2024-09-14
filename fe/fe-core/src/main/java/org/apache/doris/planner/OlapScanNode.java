@@ -738,6 +738,7 @@ public class OlapScanNode extends ScanNode {
                     continue;
                 }
                 TPaloScanRange scanRange = locations.getScanRange().getPaloScanRange();
+                // TODO
                 scanRange.setVersion(visibleVersionStr);
             }
         }
@@ -802,6 +803,7 @@ public class OlapScanNode extends ScanNode {
             paloRange.setVersionHash("");
             paloRange.setTabletId(tabletId);
             if (ConnectContext.get().isTxnModel()) {
+                // TODO multi replica when to choose
                 paloRange.setSubTxnIds(
                         ConnectContext.get().getTxnEntry().getTabletSubTxnIds(olapTable.getId(), tablet));
                 LOG.info("sout: table={}, tablet={}, set sub txn ids={}", olapTable.getId(), tablet.getId(),

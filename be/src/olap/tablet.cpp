@@ -933,21 +933,23 @@ Status Tablet::capture_rs_readers(const Version& spec_version, std::vector<RowSe
     return Status::OK();
 }
 
-Status Tablet::capture_sub_txn_rs_readers(const std::vector<int64_t>& sub_txn_ids,
+Status Tablet::capture_sub_txn_rs_readers(int64_t version, const std::vector<int64_t>& sub_txn_ids,
                                           std::vector<RowSetSplits>* rs_splits) {
     LOG(INFO) << "sout: sub txn id size=" << sub_txn_ids.size();
-    for (const auto& sub_txn_id : sub_txn_ids) {
+    for (int i = 0; i < sub_txn_ids.size(); ++i) {
+        auto sub_txn_id = sub_txn_ids[i];
         auto rowset = _engine.txn_manager()->get_tablet_rowset(
                 tablet_id(), tablet_uid(), partition_id(), sub_txn_id);
+        int64_t tmp_version = version + i + 1;
         LOG(INFO) << "sout: sub_txn_id=" << sub_txn_id << ", tablet=" << tablet_id()
-                  << ", partition_id=" << partition_id()
-                  << ", tablet_uid=" << tablet_uid()
-                  << ", rowset is null=" << (rowset == nullptr);
+                  << ", partition_id=" << partition_id() << ", tablet_uid=" << tablet_uid()
+                  << ", rowset is null=" << (rowset == nullptr)
+                  << ", set tmp version=" << tmp_version;
         // TODO: set it for delete predicate
+        rowset->set_version(Version(tmp_version, tmp_version));
         if (rowset->rowset_meta()->has_delete_predicate()) {
-            rowset->set_version(Version(4, 4));
             LOG(INFO) << "sout: sub_txn_id=" << sub_txn_id << ", has delete predicate";
-            rowset->rowset_meta()->mutable_delete_predicate()->set_version(4);
+            rowset->rowset_meta()->mutable_delete_predicate()->set_version(tmp_version);
         }
         if (rowset != nullptr) {
             RowsetReaderSharedPtr rs_reader;

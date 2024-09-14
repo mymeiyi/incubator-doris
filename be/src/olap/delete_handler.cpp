@@ -390,7 +390,7 @@ Status DeleteHandler::init(TabletSchemaSPtr tablet_schema,
     // TODO maybe core in asan
     DCHECK(version >= 0) << "invalid parameters. version=" << version;
     _predicate_arena = std::make_unique<vectorized::Arena>();
-    version = 4; // TODO
+    // version = 4; // TODO
 
     for (const auto& delete_pred : delete_preds) {
         // Skip the delete condition with large version
