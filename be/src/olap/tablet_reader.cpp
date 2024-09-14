@@ -105,6 +105,9 @@ void TabletReader::ReadSource::fill_delete_predicates() {
     for (auto&& split : rs_splits) {
         auto& rs_meta = split.rs_reader->rowset()->rowset_meta();
         if (rs_meta->has_delete_predicate()) {
+            LOG(INFO) << "sout: rowset has delete predicate, txn_id=" << rs_meta->txn_id()
+                      << ", version=" << rs_meta->version()
+                      << ", rowset_id=" << rs_meta->rowset_id();
             delete_predicates.push_back(rs_meta);
         }
     }
