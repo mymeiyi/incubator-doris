@@ -176,6 +176,7 @@ Status ParallelScannerBuilder::_load() {
                     tablet->capture_sub_txn_rs_readers(sub_txn_ids, &read_source.rs_splits));
         }
         if (!_state->skip_delete_predicate()) {
+            LOG(INFO) << "sout: !skip_delete_predicate()";
             read_source.fill_delete_predicates();
         }
 
