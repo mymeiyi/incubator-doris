@@ -332,6 +332,7 @@ Status OlapScanLocalState::_init_scanners(std::list<vectorized::VScannerSPtr>* s
         scanner_builder.set_max_scanners_count(max_scanners_count);
         scanner_builder.set_min_rows_per_scanner(min_rows_per_scanner);
 
+        LOG(INFO) << "sout: call build_scanners";
         RETURN_IF_ERROR(scanner_builder.build_scanners(*scanners));
         for (auto& scanner : *scanners) {
             auto* olap_scanner = assert_cast<vectorized::NewOlapScanner*>(scanner.get());
@@ -386,6 +387,7 @@ Status OlapScanLocalState::_init_scanners(std::list<vectorized::VScannerSPtr>* s
                  ++j, ++i) {
                 scanner_ranges.push_back((*ranges)[i].get());
             }
+            LOG(INFO) << "sout: call build_new_scanner";
             RETURN_IF_ERROR(build_new_scanner(tablet, version, scanner_ranges));
         }
     }
