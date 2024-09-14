@@ -47,6 +47,7 @@ public class PruneEmptyPartition extends OneRewriteRuleFactory {
                     if (partition == null) {
                         continue;
                     }
+                    // if partition version is -1 and the op is delete, can skip this partition
                     if (!ConnectContext.get().getTxnEntry().getPartitionSubTxnIds(table.getId(), partition).isEmpty()) {
                         ids.add(selectedPartitionId);
                     }
