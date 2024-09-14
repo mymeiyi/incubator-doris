@@ -715,7 +715,7 @@ public class StmtExecutor {
                     || logicalPlan instanceof UpdateCommand || logicalPlan instanceof DeleteFromUsingCommand
                     || logicalPlan instanceof DeleteFromCommand || logicalPlan instanceof UnsupportedCommand
                     || (context.getSessionVariable().enableQueryInTransactionLoad
-                    && logicalPlan instanceof Command))) {
+                    && !(logicalPlan instanceof Command)))) {
                 String errMsg = "This is in a transaction, only insert, update, delete, "
                         + "commit, rollback is acceptable.";
                 throw new NereidsException(errMsg, new AnalysisException(errMsg));
