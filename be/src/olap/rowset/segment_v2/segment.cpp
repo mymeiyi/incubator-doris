@@ -161,9 +161,9 @@ Status Segment::_open() {
     // DCHECK(footer.has_short_key_index_page());
     _sk_index_page = _footer_pb->short_key_index_page();
     _num_rows = _footer_pb->num_rows();
-    LOG(INFO) << "sout: num_rows: " << _num_rows << ", segment_id: " << _segment_id
+    /*LOG(INFO) << "sout: num_rows: " << _num_rows << ", segment_id: " << _segment_id
               << ", rowset_id: " << _rowset_id
-              << ", tablet_schema is null: " << (_tablet_schema == nullptr);
+              << ", tablet_schema is null: " << (_tablet_schema == nullptr);*/
     // sleep(4);
 
     // An estimated memory usage of a segment
