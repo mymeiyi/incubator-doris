@@ -943,6 +943,8 @@ Status Tablet::capture_sub_txn_rs_readers(const std::vector<int64_t>& sub_txn_id
                   << ", partition_id=" << partition_id()
                   << ", tablet_uid=" << tablet_uid()
                   << ", rowset is null=" << (rowset == nullptr);
+        // TODO: set it for delete predicate
+        rowset->set_version(Version(10, 10));
         if (rowset != nullptr) {
             RowsetReaderSharedPtr rs_reader;
             auto res = rowset->create_reader(&rs_reader);
