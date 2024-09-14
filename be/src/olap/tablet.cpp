@@ -944,10 +944,10 @@ Status Tablet::capture_sub_txn_rs_readers(const std::vector<int64_t>& sub_txn_id
                   << ", tablet_uid=" << tablet_uid()
                   << ", rowset is null=" << (rowset == nullptr);
         // TODO: set it for delete predicate
-        rowset->set_version(Version(10, 10));
         if (rowset->rowset_meta()->has_delete_predicate()) {
+            rowset->set_version(Version(4, 4));
             LOG(INFO) << "sout: sub_txn_id=" << sub_txn_id << ", has delete predicate";
-            rowset->rowset_meta()->mutable_delete_predicate()->set_version(10);
+            rowset->rowset_meta()->mutable_delete_predicate()->set_version(4);
         }
         if (rowset != nullptr) {
             RowsetReaderSharedPtr rs_reader;
