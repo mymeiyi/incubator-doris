@@ -656,6 +656,8 @@ Status TabletReader::init_reader_params_and_create_block(
     reader_params->reader_type = reader_type;
     reader_params->version =
             Version(input_rowsets.front()->start_version(), input_rowsets.back()->end_version());
+    LOG(INFO) << "sout: TabletReader::init_reader_params_and_create_block, version="
+              << reader_params->version;
 
     ReadSource read_source;
     for (const auto& rowset : input_rowsets) {
