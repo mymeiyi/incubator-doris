@@ -387,12 +387,15 @@ Status DeleteHandler::init(TabletSchemaSPtr tablet_schema,
                            const std::vector<RowsetMetaSharedPtr>& delete_preds, int64_t version,
                            bool with_sub_pred_v2) {
     DCHECK(!_is_inited) << "reinitialize delete handler.";
+    // TODO maybe core in asan
     DCHECK(version >= 0) << "invalid parameters. version=" << version;
     _predicate_arena = std::make_unique<vectorized::Arena>();
 
     for (const auto& delete_pred : delete_preds) {
         // Skip the delete condition with large version
         if (delete_pred->version().first > version) {
+            LOG(INFO) << "sout: skip init delete handler, table_id=" << tablet_schema->table_id()
+                      << ", delete version=" << delete_pred->version() << ", version=" << version;
             continue;
         }
         // Need the tablet schema at the delete condition to parse the accurate column

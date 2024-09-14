@@ -642,6 +642,8 @@ Status TabletReader::_init_delete_condition(const ReaderParams& read_params) {
     auto* runtime_state = read_params.runtime_state;
     bool enable_sub_pred_v2 =
             runtime_state == nullptr ? true : runtime_state->enable_delete_sub_pred_v2();
+    LOG(INFO) << "sout: read tablet=" << read_params.tablet->tablet_id()
+              << ", version=" << read_params.version.second;
     return _delete_handler.init(_tablet_schema, read_params.delete_predicates,
                                 read_params.version.second, enable_sub_pred_v2);
 }
