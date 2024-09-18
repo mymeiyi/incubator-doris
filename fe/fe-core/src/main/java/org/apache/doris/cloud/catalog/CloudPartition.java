@@ -253,7 +253,7 @@ public class CloudPartition extends Partition {
             LOG.debug("get version from meta service, partitions: {}, versions: {}", partitionIds, versions);
         }
 
-        if (isEmptyPartitionPruneDisabled()) {
+        if (isEmptyPartitionPruneDisabled()) { // TODO
             ArrayList<Long> news = new ArrayList<>();
             for (Long v : versions) {
                 news.add(v == -1 ? 1 : v);
