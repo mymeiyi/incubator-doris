@@ -393,6 +393,9 @@ Status DeleteHandler::init(TabletSchemaSPtr tablet_schema,
     for (const auto& delete_pred : delete_preds) {
         // Skip the delete condition with large version
         if (delete_pred->version().first > version) {
+            LOG(INFO) << "sout: skip delete condition with large version. version="
+                      << delete_pred->version().first << " target_version=" << version
+                      << ", txn_id=" << delete_pred->txn_id();
             continue;
         }
         // Need the tablet schema at the delete condition to parse the accurate column

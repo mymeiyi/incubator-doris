@@ -197,9 +197,13 @@ Status NewOlapScanner::init() {
                                                  &read_source.rs_splits,
                                                  _state->skip_missing_version());
             if (!_sub_txn_ids.empty()) {
+                LOG(INFO) << "capture sub txn rs readers, size=" << _sub_txn_ids.size()
+                          << ", tablet_id=" << tablet->tablet_id()
+                          << ", version=" << _tablet_reader_params.version.second;
                 RETURN_IF_ERROR(
                         tablet->capture_sub_txn_rs_readers(_tablet_reader_params.version.second,
                                                            _sub_txn_ids, &read_source.rs_splits));
+                _tablet_reader_params.version.second += _sub_txn_ids.size();
             }
             if (!st.ok()) {
                 LOG(WARNING) << "fail to init reader.res=" << st;
