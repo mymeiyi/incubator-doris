@@ -171,8 +171,13 @@ Status ParallelScannerBuilder::_load() {
     for (auto&& [tablet, version, sub_txn_ids] : _tablets) {
         const auto tablet_id = tablet->tablet_id();
         auto& read_source = _all_read_sources[tablet_id];
-        RETURN_IF_ERROR(tablet->capture_rs_readers({0, version}, &read_source.rs_splits, false));
-        if (!sub_txn_ids.empty()) {
+        if (sub_txn_ids.empty()) {
+            RETURN_IF_ERROR(tablet->capture_rs_readers({0, version}, &read_source.rs_splits, false));
+        } else {
+            if (version > 0) {
+                RETURN_IF_ERROR(
+                        tablet->capture_rs_readers({0, version}, &read_source.rs_splits, false));
+            }
             LOG(INFO) << "capture sub txn rs readers, size=" << sub_txn_ids.size()
                       << ", tablet_id=" << tablet_id << ", version=" << version;
             RETURN_IF_ERROR(tablet->capture_sub_txn_rs_readers(version, sub_txn_ids,

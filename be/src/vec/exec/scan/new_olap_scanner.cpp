@@ -193,10 +193,24 @@ Status NewOlapScanner::init() {
                 ExecEnv::GetInstance()->storage_engine().to_cloud().tablet_hotspot().count(*tablet);
             }
 
-            auto st = tablet->capture_rs_readers(_tablet_reader_params.version,
-                                                 &read_source.rs_splits,
-                                                 _state->skip_missing_version());
-            if (!_sub_txn_ids.empty()) {
+            if (_sub_txn_ids.empty()) {
+                auto st = tablet->capture_rs_readers(_tablet_reader_params.version,
+                                                     &read_source.rs_splits,
+                                                     _state->skip_missing_version());
+                if (!st.ok()) {
+                    LOG(WARNING) << "fail to init reader.res=" << st;
+                    return st;
+                }
+            } else {
+                if (_tablet_reader_params.version.second > 0) {
+                    auto st = tablet->capture_rs_readers(_tablet_reader_params.version,
+                                                         &read_source.rs_splits,
+                                                         _state->skip_missing_version());
+                    if (!st.ok()) {
+                        LOG(WARNING) << "fail to init reader.res=" << st;
+                        return st;
+                    }
+                }
                 LOG(INFO) << "capture sub txn rs readers, size=" << _sub_txn_ids.size()
                           << ", tablet_id=" << tablet->tablet_id()
                           << ", version=" << _tablet_reader_params.version.second;
@@ -204,10 +218,6 @@ Status NewOlapScanner::init() {
                         tablet->capture_sub_txn_rs_readers(_tablet_reader_params.version.second,
                                                            _sub_txn_ids, &read_source.rs_splits));
                 _tablet_reader_params.version.second += _sub_txn_ids.size();
-            }
-            if (!st.ok()) {
-                LOG(WARNING) << "fail to init reader.res=" << st;
-                return st;
             }
             if (!_state->skip_delete_predicate()) {
                 read_source.fill_delete_predicates();

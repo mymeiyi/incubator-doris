@@ -87,11 +87,6 @@ Status CloudTablet::capture_rs_readers(const Version& spec_version,
         LOG_WARNING("CloudTablet.capture_rs_readers.return e-230").tag("tablet_id", tablet_id());
         return Status::Error<false>(-230, "injected error");
     });
-    if (spec_version.second < 0) {
-        LOG(WARNING) << "partition=" << partition_id() << ", tablet=" << tablet_id()
-                     << ", spec_version=" << spec_version << ". Maybe transaction load";
-        return Status::OK();
-    }
     Versions version_path;
     std::shared_lock rlock(_meta_lock);
     auto st = _timestamped_version_tracker.capture_consistent_versions(spec_version, &version_path);
