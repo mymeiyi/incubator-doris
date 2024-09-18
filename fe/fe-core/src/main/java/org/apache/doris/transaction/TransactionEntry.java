@@ -23,8 +23,11 @@ import org.apache.doris.catalog.DatabaseIf;
 import org.apache.doris.catalog.Env;
 import org.apache.doris.catalog.KeysType;
 import org.apache.doris.catalog.OlapTable;
+import org.apache.doris.catalog.Partition;
+import org.apache.doris.catalog.Replica;
 import org.apache.doris.catalog.Table;
 import org.apache.doris.catalog.TableIf;
+import org.apache.doris.catalog.Tablet;
 import org.apache.doris.cloud.transaction.CloudGlobalTransactionMgr;
 import org.apache.doris.common.AnalysisException;
 import org.apache.doris.common.Config;
@@ -243,12 +246,6 @@ public class TransactionEntry {
             if (this.database.getId() != database.getId()) {
                 throw new AnalysisException(
                         "Transaction insert must be in the same database, expect db_id=" + this.database.getId());
-            }
-            // for delete type, make sure there is no insert for the same table
-            if (subTransactionType == SubTransactionType.DELETE && subTransactionStates.stream()
-                    .anyMatch(s -> s.getTable().getId() == table.getId()
-                            && s.getSubTransactionType() == SubTransactionType.INSERT)) {
-                throw new AnalysisException("Can not delete because there is a insert operation for the same table");
             }
             long subTxnId;
             if (Config.isCloudMode()) {
@@ -533,5 +530,74 @@ public class TransactionEntry {
 
     private Set<Long> getTableIds() {
         return subTransactionStates.stream().map(s -> s.getTable().getId()).collect(Collectors.toSet());
+    }
+
+    public List<Long> getPartitionSubTxnIds(long tableId, Partition partition) {
+        List<Long> subTxnIds = new ArrayList<>();
+        for (SubTransactionState subTransactionState : subTransactionStates) {
+            if (subTransactionState.getTable().getId() != tableId) {
+                continue;
+            }
+            for (TTabletCommitInfo tabletCommitInfo : subTransactionState.getTabletCommitInfos()) {
+                // TODO base index
+                if (partition.getBaseIndex().getTablet(tabletCommitInfo.getTabletId()) != null) {
+                    subTxnIds.add(subTransactionState.getSubTransactionId());
+                    break;
+                }
+            }
+        }
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("table_id={}, partition_id={}, sub_txn_ids={}", tableId, partition.getId(), subTxnIds);
+        }
+        return subTxnIds;
+    }
+
+    public List<Long> getTabletSubTxnIds(long tableId, Tablet tablet) {
+        List<Long> subTxnIds = new ArrayList<>();
+        for (SubTransactionState subTransactionState : subTransactionStates) {
+            if (subTransactionState.getTable().getId() != tableId) {
+                continue;
+            }
+            for (TTabletCommitInfo tabletCommitInfo : subTransactionState.getTabletCommitInfos()) {
+                if (tablet.getId() == tabletCommitInfo.getTabletId()) {
+                    subTxnIds.add(subTransactionState.getSubTransactionId());
+                    break;
+                }
+            }
+        }
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("table_id={}, tablet_id={}, sub_txn_ids={}", tableId, tablet.getId(), subTxnIds);
+        }
+        return subTxnIds;
+    }
+
+    public List<Replica> getQueryableReplicas(long tabletId, List<Replica> replicas, List<Long> subTxnIds) {
+        List<Replica> queryableReplicas = new ArrayList<>();
+        for (Long subTxnId : subTxnIds) {
+
+        }
+        return queryableReplicas;
+    }
+
+    private List<Replica> getQueryableReplicas(long tabletId, List<Replica> replicas, long subTxnId) {
+        List<Replica> queryableReplicas = new ArrayList<>();
+        for (SubTransactionState subTransactionState : subTransactionStates) {
+            if (subTxnId != subTransactionState.getSubTransactionId()) {
+                continue;
+            }
+            List<TTabletCommitInfo> tabletCommitInfos = subTransactionState.getTabletCommitInfos();
+            for (TTabletCommitInfo tabletCommitInfo : tabletCommitInfos) {
+                if (tabletCommitInfo.getTabletId() == tabletId) {
+                    for (Replica replica : replicas) {
+                        if (replica.getBackendId() == tabletCommitInfo.getBackendId()) {
+                            queryableReplicas.add(replica);
+                            break;
+                        }
+                    }
+                }
+            }
+            break;
+        }
+        return queryableReplicas;
     }
 }
