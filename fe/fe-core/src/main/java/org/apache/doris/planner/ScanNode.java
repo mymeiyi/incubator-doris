@@ -797,8 +797,8 @@ public abstract class ScanNode extends PlanNode implements SplitGenerator {
                 if (versions.get(i) <= 0) {
                     LOG.warn("partition {} getVisibleVersion error, the visibleVersion is {}",
                             partitions.get(i).getId(), versions.get(i));
-                    throw new UserException("partition " + partitions.get(i).getId()
-                        + " getVisibleVersion error, the visibleVersion is " + versions.get(i));
+                    /*throw new UserException("partition " + partitions.get(i).getId()
+                        + " getVisibleVersion error, the visibleVersion is " + versions.get(i));*/
                 }
             }
         }
