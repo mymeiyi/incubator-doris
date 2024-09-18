@@ -247,6 +247,13 @@ public class TransactionEntry {
                 throw new AnalysisException(
                         "Transaction insert must be in the same database, expect db_id=" + this.database.getId());
             }
+            // TODO for delete type, make sure there is no insert for the same table for mow
+            if (subTransactionType == SubTransactionType.DELETE && subTransactionStates.stream()
+                    .anyMatch(s -> ((OlapTable) s.getTable()).getEnableUniqueKeyMergeOnWrite()
+                            && s.getTable().getId() == table.getId()
+                            && s.getSubTransactionType() == SubTransactionType.INSERT)) {
+                throw new AnalysisException("Can not delete because there is a insert operation for the same table");
+            }
             long subTxnId;
             if (Config.isCloudMode()) {
                 TUniqueId queryId = ConnectContext.get().queryId();
