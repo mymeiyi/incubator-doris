@@ -107,6 +107,45 @@ Status CloudTablet::capture_rs_readers(const Version& spec_version,
     return capture_rs_readers_unlocked(version_path, rs_splits);
 }
 
+Status CloudTablet::capture_sub_txn_rs_readers(int64_t version,
+                                               const std::vector<int64_t>& sub_txn_ids,
+                                               std::vector<RowSetSplits>* rs_splits) {
+    LOG(INFO) << "sout: sub txn id size=" << sub_txn_ids.size() << ", index_id=" << index_id();
+    std::vector<std::shared_ptr<Rowset>> rowsets;
+    RETURN_IF_ERROR(_engine.meta_mgr().get_tmp_rowset(tablet_schema(), index_id(), tablet_id(),
+                                                      sub_txn_ids, rowsets));
+    DCHECK(rowsets.size() == sub_txn_ids.size())
+            << ", sub_txn_id size=" << sub_txn_ids.size() << ", rowset size=" << rowsets.size();
+    LOG(INFO) << "sout: sub txn size=" << sub_txn_ids.size() << ", rowset size=" << rowsets.size();
+    for (int i = 0; i < rowsets.size(); ++i) {
+        auto& rowset = rowsets[i];
+        // for (const auto& rowset : rowsets) {
+        // see CloudMetaMgr::sync_tablet_rowsets, GetRowsetRequest
+        int64_t tmp_version = version + i + 1;
+        LOG(INFO) << "sout: sub_txn_id=" << sub_txn_ids[i] << ", tablet=" << tablet_id()
+                  << ", partition_id=" << partition_id()
+                  << ", rowset is null=" << (rowset == nullptr)
+                  << ", set tmp version=" << tmp_version;
+        // TODO: set it for delete predicate
+        rowset->set_version(Version(tmp_version, tmp_version));
+        if (rowset->rowset_meta()->has_delete_predicate()) {
+            LOG(INFO) << "sout: sub_txn_id=" << sub_txn_ids[i] << ", has delete predicate";
+            rowset->rowset_meta()->mutable_delete_predicate()->set_version(tmp_version);
+        }
+        if (rowset != nullptr) {
+            RowsetReaderSharedPtr rs_reader;
+            auto res = rowset->create_reader(&rs_reader);
+            if (!res.ok()) {
+                return Status::Error<ErrorCode::CAPTURE_ROWSET_READER_ERROR>(
+                        "failed to create reader for rowset:{}",
+                        rowset->rowset_id().to_string());
+            }
+            rs_splits->emplace_back(std::move(rs_reader));
+        }
+    }
+    return Status::OK();
+}
+
 // There are only two tablet_states RUNNING and NOT_READY in cloud mode
 // This function will erase the tablet from `CloudTabletMgr` when it can't find this tablet in MS.
 Status CloudTablet::sync_rowsets(int64_t query_version, bool warmup_delta_data) {

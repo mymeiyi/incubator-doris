@@ -854,6 +854,8 @@ void scan_tmp_rowset(
             }
             // Save keys that will be removed later
             tmp_rowsets_meta->back().first = std::string(k.data(), k.size());
+            LOG(INFO) << "sout: tmp rowset="
+                      << tmp_rowsets_meta->back().second.ShortDebugString();
             ++num_rowsets;
             if (!it->has_next()) rs_tmp_key0 = k;
         }
@@ -1151,6 +1153,7 @@ void commit_txn_immediately(
 
             std::string key = meta_rowset_key({instance_id, tablet_id, i.end_version()});
             std::string val;
+            LOG(INFO) << "sout: save rowset meta=" << i.DebugString();
             if (!i.SerializeToString(&val)) {
                 code = MetaServiceCode::PROTOBUF_SERIALIZE_ERR;
                 ss << "failed to serialize rowset_meta, txn_id=" << txn_id;

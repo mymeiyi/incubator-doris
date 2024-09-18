@@ -105,6 +105,9 @@ void TabletReader::ReadSource::fill_delete_predicates() {
     for (auto&& split : rs_splits) {
         auto& rs_meta = split.rs_reader->rowset()->rowset_meta();
         if (rs_meta->has_delete_predicate()) {
+            LOG(INFO) << "sout: rowset has delete predicate, tablet_id=" << rs_meta->tablet_id()
+                      << ", txn_id=" << rs_meta->txn_id() << ", version=" << rs_meta->version()
+                      << ", rowset_id=" << rs_meta->rowset_id();
             delete_predicates.push_back(rs_meta);
         }
     }
@@ -283,6 +286,7 @@ Status TabletReader::_init_params(const ReaderParams& read_params) {
     read_params.check_validation();
 
     _direct_mode = read_params.direct_mode;
+    // LOG(INFO) << "sout: direct mode: " << _direct_mode;
     _aggregation = read_params.aggregation;
     _reader_type = read_params.reader_type;
     _tablet = read_params.tablet;
@@ -638,6 +642,8 @@ Status TabletReader::_init_delete_condition(const ReaderParams& read_params) {
     auto* runtime_state = read_params.runtime_state;
     bool enable_sub_pred_v2 =
             runtime_state == nullptr ? true : runtime_state->enable_delete_sub_pred_v2();
+    LOG(INFO) << "sout: read tablet=" << read_params.tablet->tablet_id()
+              << ", version=" << read_params.version.second;
     return _delete_handler.init(_tablet_schema, read_params.delete_predicates,
                                 read_params.version.second, enable_sub_pred_v2);
 }
@@ -650,6 +656,8 @@ Status TabletReader::init_reader_params_and_create_block(
     reader_params->reader_type = reader_type;
     reader_params->version =
             Version(input_rowsets.front()->start_version(), input_rowsets.back()->end_version());
+    LOG(INFO) << "sout: TabletReader::init_reader_params_and_create_block, version="
+              << reader_params->version;
 
     ReadSource read_source;
     for (const auto& rowset : input_rowsets) {

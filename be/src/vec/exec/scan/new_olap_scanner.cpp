@@ -73,9 +73,11 @@ NewOlapScanner::NewOlapScanner(pipeline::ScanLocalStateBase* parent,
                                NewOlapScanner::Params&& params)
         : VScanner(params.state, parent, params.limit, params.profile),
           _key_ranges(std::move(params.key_ranges)),
+          _sub_txn_ids(std::move(params.sub_txn_ids)),
           _tablet_reader_params({
                   .tablet = std::move(params.tablet),
                   .tablet_schema {},
+                  // .direct_mode = false,
                   .aggregation = params.aggregation,
                   .version = {0, params.version},
                   .start_key {},
@@ -125,6 +127,7 @@ static std::string read_columns_to_string(TabletSchemaSPtr tablet_schema,
 }
 
 Status NewOlapScanner::init() {
+    // LOG(INFO) << "sout: NewOlapScanner::init";
     _is_init = true;
     auto* local_state = static_cast<pipeline::OlapScanLocalState*>(_local_state);
     auto& tablet = _tablet_reader_params.tablet;
@@ -181,6 +184,7 @@ Status NewOlapScanner::init() {
         }
 
         if (_tablet_reader_params.rs_splits.empty()) {
+            // LOG(INFO) << "sout: NewOlapScanner::init, _tablet_reader_params.rs_splits.empty()";
             // Non-pipeline mode, Tablet : Scanner = 1 : 1
             // acquire tablet rowset readers at the beginning of the scan node
             // to prevent this case: when there are lots of olap scanners to run for example 10000
@@ -195,6 +199,13 @@ Status NewOlapScanner::init() {
             auto st = tablet->capture_rs_readers(_tablet_reader_params.version,
                                                  &read_source.rs_splits,
                                                  _state->skip_missing_version());
+            LOG(INFO) << "sout: in load, version=" << _tablet_reader_params.version
+                      << ", sub txn size=" << _sub_txn_ids.size();
+            if (!_sub_txn_ids.empty()) {
+                RETURN_IF_ERROR(
+                        tablet->capture_sub_txn_rs_readers(_tablet_reader_params.version.second,
+                                                           _sub_txn_ids, &read_source.rs_splits));
+            }
             if (!st.ok()) {
                 LOG(WARNING) << "fail to init reader.res=" << st;
                 return st;
@@ -225,6 +236,7 @@ Status NewOlapScanner::init() {
 }
 
 Status NewOlapScanner::open(RuntimeState* state) {
+    // LOG(INFO) << "sout: NewOlapScanner::open";
     RETURN_IF_ERROR(VScanner::open(state));
     auto* timer = ((pipeline::OlapScanLocalState*)_local_state)->_reader_init_timer;
     SCOPED_TIMER(timer);
@@ -250,6 +262,7 @@ Status NewOlapScanner::_init_tablet_reader_params(
         const pipeline::FilterPredicates& filter_predicates,
         const std::vector<FunctionFilter>& function_filters) {
     // if the table with rowset [0-x] or [0-1] [2-y], and [0-1] is empty
+    // TODO
     const bool single_version = _tablet_reader_params.has_single_version();
 
     if (_state->skip_storage_engine_merge()) {

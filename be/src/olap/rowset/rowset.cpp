@@ -56,6 +56,10 @@ Rowset::Rowset(const TabletSchemaSPtr& schema, RowsetMetaSharedPtr rowset_meta,
     }
     // build schema from RowsetMeta.tablet_schema or Tablet.tablet_schema
     _schema = _rowset_meta->tablet_schema() ? _rowset_meta->tablet_schema() : schema;
+    /*LOG(INFO) << "sout: rowset tablet schema is null=" << (_schema == nullptr)
+              << ", rowset id=" << rowset_id()
+              << ", _rowset_meta->tablet_schema()=" << (_rowset_meta->tablet_schema() == nullptr)
+              << ", schema is null=" << (schema == nullptr);*/
     g_total_rowset_num << 1;
 }
 
