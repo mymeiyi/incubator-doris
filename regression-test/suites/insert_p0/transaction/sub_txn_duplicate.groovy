@@ -134,4 +134,36 @@ suite("sub_txn_duplicate") {
         order_qt_par_72 """ select * from ${prefix}_2; """
         order_qt_par_73 """ select * from ${prefix}_3; """
     }
+    sql """ set enable_insert_strict = true """
+
+    // case 3: delete command
+    table_txn = "sub_txn_dup"
+    table_normal = "sub_txn_dup_n"
+    for (def prefix: [table_normal, table_txn]) {
+        if (prefix == table_txn) {
+            sql """ begin; """
+        }
+
+        sql """ delete from ${prefix}_3 where id > 1; """
+        order_qt_del_1 """ select * from ${prefix}_3; """
+
+        sql """ insert into ${prefix}_2 select * from ${prefix}_3; """
+        order_qt_del_2 """ select * from ${prefix}_2; """
+
+        sql """ insert into ${prefix}_3 select * from ${prefix}_2; """
+        order_qt_del_3 """ select * from ${prefix}_3; """
+
+        sql """ delete from ${prefix}_3 where id < 2; """
+        order_qt_del_4 """ select * from ${prefix}_3; """
+
+        sql """ insert into ${prefix}_2 select * from ${prefix}_3; """
+        order_qt_del_5 """ select * from ${prefix}_2; """
+
+        if (prefix == table_txn) {
+            sql """ commit; """
+        }
+        order_qt_del_61 """ select * from ${prefix}_1; """
+        order_qt_del_62 """ select * from ${prefix}_2; """
+        order_qt_del_63 """ select * from ${prefix}_3; """
+    }
 }
