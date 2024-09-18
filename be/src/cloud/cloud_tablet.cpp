@@ -90,7 +90,7 @@ Status CloudTablet::capture_rs_readers(const Version& spec_version,
     Versions version_path;
     std::shared_lock rlock(_meta_lock);
     auto st = _timestamped_version_tracker.capture_consistent_versions(spec_version, &version_path);
-    if (!st.ok()) {
+    if (!st.ok() && spec_version.second > 0) {
         rlock.unlock(); // avoid logging in lock range
         // Check no missed versions or req version is merged
         auto missed_versions = get_missed_versions(spec_version.second);
