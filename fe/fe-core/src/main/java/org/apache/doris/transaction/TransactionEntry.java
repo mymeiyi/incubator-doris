@@ -538,6 +538,10 @@ public class TransactionEntry {
             if (subTransactionState.getTable().getId() != tableId) {
                 continue;
             }
+            // TODO mow will be supported
+            if (((OlapTable) subTransactionState.getTable()).getEnableUniqueKeyMergeOnWrite()) {
+                continue;
+            }
             for (TTabletCommitInfo tabletCommitInfo : subTransactionState.getTabletCommitInfos()) {
                 // TODO base index
                 if (partition.getBaseIndex().getTablet(tabletCommitInfo.getTabletId()) != null) {
@@ -556,6 +560,10 @@ public class TransactionEntry {
         List<Long> subTxnIds = new ArrayList<>();
         for (SubTransactionState subTransactionState : subTransactionStates) {
             if (subTransactionState.getTable().getId() != tableId) {
+                continue;
+            }
+            // TODO mow will be supported
+            if (((OlapTable) subTransactionState.getTable()).getEnableUniqueKeyMergeOnWrite()) {
                 continue;
             }
             for (TTabletCommitInfo tabletCommitInfo : subTransactionState.getTabletCommitInfos()) {
