@@ -820,7 +820,7 @@ public class OlapScanNode extends ScanNode {
                 LOG.info("table={}, partition={}, tablet={}, replicas={}, queryable replicas={}, sub txn ids={}",
                         olapTable.getId(), partition.getId(), tablet.getId(), replicas, queryableReplicas,
                         paloRange.getSubTxnIds());
-                replicas = queryableReplicas;
+                replicas.retainAll(queryableReplicas);
             }
             if (replicas.isEmpty()) {
                 if (context.getSessionVariable().skipBadTablet) {
