@@ -817,7 +817,7 @@ public class OlapScanNode extends ScanNode {
             if (paloRange.isSetSubTxnIds() && !paloRange.getSubTxnIds().isEmpty()) {
                 List<Replica> queryableReplicas = ConnectContext.get().getTxnEntry()
                         .getQueryableReplicas(tabletId, replicas, paloRange.getSubTxnIds());
-                LOG.info("table={}, partition={}, tablet={}, replicas={}, queryable replicas={}, sub txn ids={}",
+                LOG.info("table={}, partition={}, tablet={}, replicas={}, sub txn filtered replicas={}, sub txn ids={}",
                         olapTable.getId(), partition.getId(), tablet.getId(), replicas, queryableReplicas,
                         paloRange.getSubTxnIds());
                 replicas.retainAll(queryableReplicas);
