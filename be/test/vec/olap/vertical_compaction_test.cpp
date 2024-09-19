@@ -1079,11 +1079,15 @@ TEST_F(VerticalCompactionTest, TestUniqueClusterKeyVerticalMerge) {
     SegmentsOverlapPB overlap = NONOVERLAPPING;
     std::vector<std::vector<std::vector<std::tuple<int64_t, int64_t>>>> input_data;
     generate_input_data(num_input_rowset, num_segments, rows_per_segment, overlap, input_data);
+    int id = 0;
     for (auto rs_id = 0; rs_id < input_data.size(); rs_id++) {
         for (auto s_id = 0; s_id < input_data[rs_id].size(); s_id++) {
             for (auto row_id = 0; row_id < input_data[rs_id][s_id].size(); row_id++) {
-                std::cout << "input data: " << std::get<0>(input_data[rs_id][s_id][row_id]) << " "
-                          << std::get<1>(input_data[rs_id][s_id][row_id]) << std::endl;
+                if (id <= 100) {
+                    std::cout << "input data: " << std::get<0>(input_data[rs_id][s_id][row_id])
+                              << " " << std::get<1>(input_data[rs_id][s_id][row_id]) << std::endl;
+                }
+                id++;
             }
         }
     }
@@ -1160,8 +1164,10 @@ TEST_F(VerticalCompactionTest, TestUniqueClusterKeyVerticalMerge) {
     EXPECT_TRUE(output_rs_reader->get_segment_num_rows(&segment_num_rows).ok());
     // check vertical compaction result
     for (auto id = 0; id < output_data.size(); id++) {
-        std::cout << "output data: " << std::get<0>(output_data[id]) << " "
-                  << std::get<1>(output_data[id]) << std::endl;
+        if (id <= 100) {
+            std::cout << "output data: " << id << " " << std::get<0>(output_data[id]) << " "
+                      << std::get<1>(output_data[id]) << std::endl;
+        }
     }
     int dst_id = 0;
     for (auto s_id = 0; s_id < input_data[0].size(); s_id++) {
