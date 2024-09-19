@@ -1160,8 +1160,8 @@ TEST_F(VerticalCompactionTest, TestUniqueClusterKeyVerticalMerge) {
     EXPECT_TRUE(output_rs_reader->get_segment_num_rows(&segment_num_rows).ok());
     // check vertical compaction result
     for (auto id = 0; id < output_data.size(); id++) {
-        LOG(INFO) << "output data: " << std::get<0>(output_data[id]) << " "
-                  << std::get<1>(output_data[id]);
+        std::cout << "output data: " << std::get<0>(output_data[id]) << " "
+                  << std::get<1>(output_data[id]) << std::endl;
     }
     int dst_id = 0;
     for (auto s_id = 0; s_id < input_data[0].size(); s_id++) {
