@@ -587,9 +587,12 @@ public class TransactionEntry {
     }
 
     public List<Replica> getQueryableReplicas(long tabletId, List<Replica> replicas, List<Long> subTxnIds) {
-        List<Replica> queryableReplicas = new ArrayList<>();
+        List<Replica> queryableReplicas = new ArrayList<>(replicas);
         for (Long subTxnId : subTxnIds) {
-
+            if (queryableReplicas.isEmpty()) {
+                return queryableReplicas;
+            }
+            queryableReplicas = getQueryableReplicas(tabletId, replicas, subTxnId);
         }
         return queryableReplicas;
     }
@@ -606,9 +609,9 @@ public class TransactionEntry {
                     for (Replica replica : replicas) {
                         if (replica.getBackendId() == tabletCommitInfo.getBackendId()) {
                             queryableReplicas.add(replica);
-                            break;
                         }
                     }
+                    break;
                 }
             }
             break;

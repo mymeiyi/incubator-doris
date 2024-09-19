@@ -802,11 +802,10 @@ public class OlapScanNode extends ScanNode {
             paloRange.setVersionHash("");
             paloRange.setTabletId(tabletId);
             if (ConnectContext.get().isTxnModel()) {
-                // TODO multi replica when to choose
                 paloRange.setSubTxnIds(
                         ConnectContext.get().getTxnEntry().getTabletSubTxnIds(olapTable.getId(), tablet));
-                LOG.info("sout: table={}, tablet={}, set sub txn ids={}", olapTable.getId(), tablet.getId(),
-                        paloRange.getSubTxnIds());
+                LOG.info("table={}, partition={}, tablet={}, sub txn ids={}", olapTable.getId(), partition.getId(),
+                        tablet.getId(), paloRange.getSubTxnIds());
             }
 
             // random shuffle List && only collect one copy
@@ -815,6 +814,14 @@ public class OlapScanNode extends ScanNode {
             // for details.
             List<Replica> replicas = tablet.getQueryableReplicas(visibleVersion,
                     backendAlivePathHashs, skipMissingVersion);
+            if (paloRange.isSetSubTxnIds() && !paloRange.getSubTxnIds().isEmpty()) {
+                List<Replica> queryableReplicas = ConnectContext.get().getTxnEntry()
+                        .getQueryableReplicas(tabletId, replicas, paloRange.getSubTxnIds());
+                LOG.info("table={}, partition={}, tablet={}, replicas={}, queryable replicas={}, sub txn ids={}",
+                        olapTable.getId(), partition.getId(), tablet.getId(), replicas, queryableReplicas,
+                        paloRange.getSubTxnIds());
+                replicas = queryableReplicas;
+            }
             if (replicas.isEmpty()) {
                 if (context.getSessionVariable().skipBadTablet) {
                     continue;
@@ -829,10 +836,6 @@ public class OlapScanNode extends ScanNode {
                     LOG.debug(sb.toString());
                 }
                 throw new UserException(sb.toString());
-            }
-            if (paloRange.isSetSubTxnIds() && !paloRange.getSubTxnIds().isEmpty()) {
-                List<Long> subTxnIds = paloRange.getSubTxnIds();
-
             }
 
             if (useFixReplica <= -1) {
