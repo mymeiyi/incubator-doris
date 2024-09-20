@@ -864,6 +864,9 @@ Status VerticalSegmentWriter::_generate_short_key_index(
     // use _key_coders
     _set_min_key(_full_encode_keys(key_columns, 0));
     _set_max_key(_full_encode_keys(key_columns, num_rows - 1));
+    DCHECK(Slice(_max_key.data(), _max_key.size())
+                   .compare(Slice(_min_key.data(), _min_key.size())) >= 0)
+            << "key is not sorted! min key: " << _min_key << ", max key: " << _max_key;
 
     key_columns.resize(_num_short_key_columns);
     std::string last_key;
