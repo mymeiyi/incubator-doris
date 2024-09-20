@@ -67,6 +67,7 @@ void VCollectIterator::init(TabletReader* reader, bool ori_data_overlapping, boo
 
     // when aggregate is enabled or key_type is DUP_KEYS, we don't merge
     // multiple data to aggregate for better performance
+    // TODO
     if (_reader->_reader_type == ReaderType::READER_QUERY &&
         (_reader->_direct_mode || _reader->_tablet->keys_type() == KeysType::DUP_KEYS ||
          (_reader->_tablet->keys_type() == KeysType::UNIQUE_KEYS &&

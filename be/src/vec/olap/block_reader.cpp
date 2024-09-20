@@ -131,6 +131,9 @@ Status BlockReader::_init_collect_iter(const ReaderParams& read_params) {
     }
     // check if rowsets are noneoverlapping
     _is_rowsets_overlapping = _rowsets_overlapping(read_params);
+    LOG(INFO) << "sout: is rowsets overlapping: " << _is_rowsets_overlapping
+              << ", force merge=" << read_params.read_orderby_key
+              << ", is reverse=" << read_params.read_orderby_key_reverse;
     _vcollect_iter.init(this, _is_rowsets_overlapping, read_params.read_orderby_key,
                         read_params.read_orderby_key_reverse);
 
