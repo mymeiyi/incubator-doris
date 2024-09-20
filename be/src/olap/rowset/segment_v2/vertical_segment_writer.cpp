@@ -865,8 +865,13 @@ Status VerticalSegmentWriter::_generate_short_key_index(
     _set_max_key(_full_encode_keys(key_columns, num_rows - 1));
 
     key_columns.resize(_num_short_key_columns);
+    std::string last_key;
     for (const auto pos : short_key_pos) {
-        RETURN_IF_ERROR(_short_key_index_builder->add_item(_encode_keys(key_columns, pos)));
+        std::string key = _encode_keys(key_columns, pos);
+        DCHECK(key.compare(last_key) >= 0)
+                << "key is not sorted! current key: " << key << ", last key: " << last_key;
+        RETURN_IF_ERROR(_short_key_index_builder->add_item(key));
+        last_key = std::move(key);
     }
     return Status::OK();
 }
