@@ -66,6 +66,7 @@ Status Merger::vmerge_rowsets(BaseTabletSPtr tablet, ReaderType reader_type,
     TabletReader::ReaderParams reader_params;
     reader_params.tablet = tablet;
     reader_params.reader_type = reader_type;
+    LOG(INFO) << "sout: reader type=" << static_cast<int>(reader_params.reader_type);
 
     TabletReader::ReadSource read_source;
     read_source.rs_splits.reserve(src_rowset_readers.size());

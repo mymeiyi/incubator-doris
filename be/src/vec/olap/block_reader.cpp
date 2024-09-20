@@ -131,6 +131,9 @@ Status BlockReader::_init_collect_iter(const ReaderParams& read_params) {
     }
     // check if rowsets are noneoverlapping
     _is_rowsets_overlapping = _rowsets_overlapping(read_params);
+    LOG(INFO) << "sout: is rowsets overlapping: " << _is_rowsets_overlapping
+              << ", force merge=" << read_params.read_orderby_key
+              << ", is reverse=" << read_params.read_orderby_key_reverse;
     _vcollect_iter.init(this, _is_rowsets_overlapping, read_params.read_orderby_key,
                         read_params.read_orderby_key_reverse);
 
@@ -246,11 +249,18 @@ Status BlockReader::init(const ReaderParams& read_params) {
     case KeysType::UNIQUE_KEYS:
         if (read_params.reader_type == ReaderType::READER_QUERY &&
             _reader_context.enable_unique_key_merge_on_write) {
+            LOG(INFO) << "sout: _direct_next_block";
             _next_block_func = &BlockReader::_direct_next_block;
         } else {
-            _next_block_func = &BlockReader::_unique_key_next_block;
-            if (_filter_delete) {
-                _delete_filter_column = ColumnUInt8::create();
+            if (tablet()->tablet_meta()->tablet_schema()->cluster_key_idxes().empty()) {
+                LOG(INFO) << "sout: _unique_key_next_block";
+                _next_block_func = &BlockReader::_unique_key_next_block;
+                if (_filter_delete) {
+                    _delete_filter_column = ColumnUInt8::create();
+                }
+            } else {
+                LOG(INFO) << "sout: _direct_next_block";
+                _next_block_func = &BlockReader::_direct_next_block;
             }
         }
         break;

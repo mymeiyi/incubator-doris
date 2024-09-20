@@ -108,7 +108,8 @@ protected:
         ExecEnv::GetInstance()->set_storage_engine(nullptr);
     }
 
-    TabletSchemaSPtr create_schema(KeysType keys_type = DUP_KEYS, bool without_key = false) {
+    TabletSchemaSPtr create_schema(KeysType keys_type = DUP_KEYS, bool without_key = false,
+                                   bool with_cluster_key = false) {
         TabletSchemaSPtr tablet_schema = std::make_shared<TabletSchema>();
         TabletSchemaPB tablet_schema_pb;
         tablet_schema_pb.set_keys_type(keys_type);
@@ -116,6 +117,10 @@ protected:
         tablet_schema_pb.set_num_rows_per_row_block(1024);
         tablet_schema_pb.set_compress_kind(COMPRESS_NONE);
         tablet_schema_pb.set_next_column_unique_id(4);
+        if (with_cluster_key) {
+            tablet_schema_pb.add_cluster_key_idxes(2);
+            tablet_schema_pb.add_cluster_key_idxes(1);
+        }
 
         ColumnPB* column_1 = tablet_schema_pb.add_column();
         column_1->set_unique_id(1);
@@ -325,6 +330,11 @@ protected:
         }
         t_tablet_schema.__set_storage_type(TStorageType::COLUMN);
         t_tablet_schema.__set_columns(cols);
+        if (!tablet_schema.cluster_key_idxes().empty()) {
+            for (const auto& cid : tablet_schema.cluster_key_idxes()) {
+                t_tablet_schema.cluster_key_idxes.push_back(cid);
+            }
+        }
         TabletMetaSharedPtr tablet_meta(
                 new TabletMeta(2, 2, 2, 2, 2, 2, t_tablet_schema, 2, col_ordinal_to_unique_id,
                                UniqueId(1, 2), TTabletType::TABLET_TYPE_DISK,
@@ -1057,6 +1067,113 @@ TEST_F(VerticalCompactionTest, TestAggKeyVerticalMerge) {
             EXPECT_EQ(std::get<0>(input_data[0][s_id][row_id]), std::get<0>(output_data[dst_id]));
             EXPECT_EQ(std::get<1>(input_data[0][s_id][row_id]) * 2,
                       std::get<1>(output_data[dst_id]));
+            dst_id++;
+        }
+    }
+}
+
+TEST_F(VerticalCompactionTest, TestUniqueClusterKeyVerticalMerge) {
+    auto num_input_rowset = 2;
+    auto num_segments = 2;
+    auto rows_per_segment = 2 * 100 * 1024;
+    SegmentsOverlapPB overlap = NONOVERLAPPING;
+    std::vector<std::vector<std::vector<std::tuple<int64_t, int64_t>>>> input_data;
+    generate_input_data(num_input_rowset, num_segments, rows_per_segment, overlap, input_data);
+    int id = 0;
+    for (auto rs_id = 0; rs_id < input_data.size(); rs_id++) {
+        for (auto s_id = 0; s_id < input_data[rs_id].size(); s_id++) {
+            for (auto row_id = 0; row_id < input_data[rs_id][s_id].size(); row_id++) {
+                if (id <= 100) {
+                    std::cout << "input data: " << std::get<0>(input_data[rs_id][s_id][row_id])
+                              << " " << std::get<1>(input_data[rs_id][s_id][row_id]) << std::endl;
+                }
+                id++;
+            }
+        }
+    }
+
+    TabletSchemaSPtr tablet_schema = create_schema(UNIQUE_KEYS, false, true);
+    // create input rowset
+    vector<RowsetSharedPtr> input_rowsets;
+    SegmentsOverlapPB new_overlap = overlap;
+    for (auto i = 0; i < num_input_rowset; i++) {
+        if (overlap == OVERLAP_UNKNOWN) {
+            if (i == 0) {
+                new_overlap = NONOVERLAPPING;
+            } else {
+                new_overlap = OVERLAPPING;
+            }
+        }
+        RowsetSharedPtr rowset = create_rowset(tablet_schema, new_overlap, input_data[i], i);
+        input_rowsets.push_back(rowset);
+    }
+    // create input rowset reader
+    vector<RowsetReaderSharedPtr> input_rs_readers;
+    for (auto& rowset : input_rowsets) {
+        RowsetReaderSharedPtr rs_reader;
+        EXPECT_TRUE(rowset->create_reader(&rs_reader).ok());
+        input_rs_readers.push_back(std::move(rs_reader));
+    }
+
+    // create output rowset writer
+    auto writer_context = create_rowset_writer_context(tablet_schema, NONOVERLAPPING, 3456,
+                                                       {0, input_rowsets.back()->end_version()});
+    std::cout << "cluster key: " << tablet_schema->cluster_key_idxes().size() << std::endl;
+    auto res = RowsetFactory::create_rowset_writer(*engine_ref, writer_context, true);
+    ASSERT_TRUE(res.has_value()) << res.error();
+    auto output_rs_writer = std::move(res).value();
+
+    // merge input rowset
+    TabletSharedPtr tablet = create_tablet(*tablet_schema, false);
+    Merger::Statistics stats;
+    RowIdConversion rowid_conversion;
+    stats.rowid_conversion = &rowid_conversion;
+    auto s = Merger::vertical_merge_rowsets(tablet, ReaderType::READER_BASE_COMPACTION,
+                                            *tablet_schema, input_rs_readers,
+                                            output_rs_writer.get(), 10000, num_segments, &stats);
+    EXPECT_TRUE(s.ok());
+    RowsetSharedPtr out_rowset;
+    EXPECT_EQ(Status::OK(), output_rs_writer->build(out_rowset));
+
+    // create output rowset reader
+    RowsetReaderContext reader_context;
+    reader_context.tablet_schema = tablet_schema;
+    reader_context.need_ordered_result = false;
+    std::vector<uint32_t> return_columns = {0, 1};
+    reader_context.return_columns = &return_columns;
+    RowsetReaderSharedPtr output_rs_reader;
+    LOG(INFO) << "create rowset reader in test";
+    create_and_init_rowset_reader(out_rowset.get(), reader_context, &output_rs_reader);
+
+    // read output rowset data
+    vectorized::Block output_block;
+    std::vector<std::tuple<int64_t, int64_t>> output_data;
+    do {
+        block_create(tablet_schema, &output_block);
+        s = output_rs_reader->next_block(&output_block);
+        auto columns = output_block.get_columns_with_type_and_name();
+        EXPECT_EQ(columns.size(), 2);
+        for (auto i = 0; i < output_block.rows(); i++) {
+            output_data.emplace_back(columns[0].column->get_int(i), columns[1].column->get_int(i));
+        }
+    } while (s == Status::OK());
+    EXPECT_EQ(Status::Error<END_OF_FILE>(""), s);
+    EXPECT_EQ(out_rowset->rowset_meta()->num_rows(), output_data.size());
+    EXPECT_EQ(output_data.size(), num_segments * rows_per_segment);
+    std::vector<uint32_t> segment_num_rows;
+    EXPECT_TRUE(output_rs_reader->get_segment_num_rows(&segment_num_rows).ok());
+    // check vertical compaction result
+    for (auto id = 0; id < output_data.size(); id++) {
+        if (id <= 100) {
+            std::cout << "output data: " << id << " " << std::get<0>(output_data[id]) << " "
+                      << std::get<1>(output_data[id]) << std::endl;
+        }
+    }
+    int dst_id = 0;
+    for (auto s_id = 0; s_id < input_data[0].size(); s_id++) {
+        for (auto row_id = 0; row_id < input_data[0][s_id].size(); row_id++) {
+            EXPECT_EQ(std::get<0>(input_data[0][s_id][row_id]), std::get<0>(output_data[dst_id]));
+            EXPECT_EQ(std::get<1>(input_data[0][s_id][row_id]), std::get<1>(output_data[dst_id]));
             dst_id++;
         }
     }
