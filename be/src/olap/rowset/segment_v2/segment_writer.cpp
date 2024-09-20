@@ -1234,6 +1234,7 @@ Status SegmentWriter::_generate_primary_key_index(
 Status SegmentWriter::_generate_short_key_index(
         std::vector<vectorized::IOlapColumnDataAccessor*>& key_columns, size_t num_rows,
         const std::vector<size_t>& short_key_pos) {
+    LOG(INFO) << "sout: short key size=" << short_key_pos.size();
     // use _key_coders
     set_min_key(_full_encode_keys(key_columns, 0));
     set_max_key(_full_encode_keys(key_columns, num_rows - 1));
