@@ -860,7 +860,6 @@ Status VerticalSegmentWriter::_generate_primary_key_index(
 Status VerticalSegmentWriter::_generate_short_key_index(
         std::vector<vectorized::IOlapColumnDataAccessor*>& key_columns, size_t num_rows,
         const std::vector<size_t>& short_key_pos) {
-    LOG(INFO) << "sout: short key size=" << short_key_pos.size();
     // use _key_coders
     _set_min_key(_full_encode_keys(key_columns, 0));
     _set_max_key(_full_encode_keys(key_columns, num_rows - 1));
