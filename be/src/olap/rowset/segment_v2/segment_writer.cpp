@@ -1220,7 +1220,7 @@ Status SegmentWriter::_generate_primary_key_index(
         // 2. sort primary keys
         std::sort(primary_keys.begin(), primary_keys.end());
         // 3. write primary keys index
-        std::string& last_key;
+        std::string last_key;
         for (const auto& key : primary_keys) {
             DCHECK(key.compare(last_key) > 0)
                     << "found duplicate key or key is not sorted! current key: " << key
