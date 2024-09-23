@@ -88,6 +88,8 @@ Status Merger::vmerge_rowsets(BaseTabletSPtr tablet, ReaderType reader_type,
     reader_params.tablet_schema = merge_tablet_schema;
     if (!tablet->tablet_schema()->cluster_key_idxes().empty()) {
         reader_params.delete_bitmap = &tablet->tablet_meta()->delete_bitmap();
+        // TODO
+        reader_params.key_group_cluster_key_idxes = tablet->tablet_schema()->cluster_key_idxes();
     }
 
     if (stats_output && stats_output->rowid_conversion) {
