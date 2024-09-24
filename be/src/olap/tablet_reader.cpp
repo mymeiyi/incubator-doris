@@ -239,6 +239,11 @@ Status TabletReader::_capture_rs_readers(const ReaderParams& read_params) {
     _reader_context.return_columns = &_return_columns;
     _reader_context.read_orderby_key_columns =
             !_orderby_key_columns.empty() ? &_orderby_key_columns : nullptr;
+    if (_reader_context.read_orderby_key_columns != nullptr) {
+        for (const auto& cid : *(_reader_context.read_orderby_key_columns)) {
+            LOG(INFO) << "sout: id=" << cid;
+        }
+    }
     _reader_context.predicates = &_col_predicates;
     _reader_context.value_predicates = &_value_col_predicates;
     _reader_context.lower_bound_keys = &_keys_param.start_keys;
