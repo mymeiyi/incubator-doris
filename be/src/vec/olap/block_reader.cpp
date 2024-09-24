@@ -228,7 +228,8 @@ Status BlockReader::init(const ReaderParams& read_params) {
             }
         }
     }
-    _reader_context.read_orderby_key_columns = &(read_params.key_group_cluster_key_idxes);
+    _reader_context.read_orderby_key_columns =
+            const_cast<std::vector<uint32_t>*>(&(read_params.key_group_cluster_key_idxes));
 
     auto status = _init_collect_iter(read_params);
     if (!status.ok()) [[unlikely]] {
