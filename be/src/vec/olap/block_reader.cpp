@@ -228,13 +228,13 @@ Status BlockReader::init(const ReaderParams& read_params) {
             }
         }
     }
-    _reader_context.read_orderby_key_columns =
+    /*_reader_context.read_orderby_key_columns =
             const_cast<std::vector<uint32_t>*>(&(read_params.key_group_cluster_key_idxes));
     if (_reader_context.read_orderby_key_columns != nullptr) {
         for (const auto& cid : *(_reader_context.read_orderby_key_columns)) {
             LOG(INFO) << "sout: id=" << cid;
         }
-    }
+    }*/
 
     auto status = _init_collect_iter(read_params);
     if (!status.ok()) [[unlikely]] {
