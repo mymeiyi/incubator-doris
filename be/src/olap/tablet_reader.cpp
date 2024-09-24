@@ -243,6 +243,8 @@ Status TabletReader::_capture_rs_readers(const ReaderParams& read_params) {
         for (const auto& cid : *(_reader_context.read_orderby_key_columns)) {
             LOG(INFO) << "sout: id=" << cid;
         }
+    } else {
+        LOG(INFO) << "sout: read_orderby_key_columns is nullptr";
     }
     _reader_context.predicates = &_col_predicates;
     _reader_context.value_predicates = &_value_col_predicates;
