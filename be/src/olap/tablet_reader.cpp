@@ -495,9 +495,9 @@ Status TabletReader::_init_orderby_keys_param(const ReaderParams& read_params) {
          read_params.reader_type == ReaderType::READER_FULL_COMPACTION ||
          read_params.reader_type == ReaderType::READER_COLD_DATA_COMPACTION)) {
         // segment compaction is not supported
-        for (const auto& id : _tablet_schema->cluster_key_idxes()) {
-            _orderby_key_columns.push_back(id);
-            LOG(INFO) << "sout: push cid=" << id;
+        for (const auto& cid : _tablet_schema->cluster_key_idxes()) {
+            _orderby_key_columns.push_back(_tablet_schema->field_index(cid));
+            LOG(INFO) << "sout: push cid=" << _orderby_key_columns.back();
         }
     }
 
