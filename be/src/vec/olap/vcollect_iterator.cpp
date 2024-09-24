@@ -200,6 +200,8 @@ bool VCollectIterator::LevelIteratorComparator::operator()(LevelIterator* lhs, L
         for (const auto& cid : *(lhs->compare_columns())) {
             LOG(INFO) << "sout: id=" << cid;
         }
+    } else {
+        LOG(INFO) << "sout: compare_columns is nullptr";
     }
 
     int cmp_res = UNLIKELY(lhs->compare_columns())
