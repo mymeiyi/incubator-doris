@@ -155,8 +155,8 @@ Status Merger::vmerge_rowsets(BaseTabletSPtr tablet, ReaderType reader_type,
                   << ", rows_del_by_bitmap=" << stats.rows_del_by_bitmap
                   << ", rows_conditions_filtered=" << stats.rows_conditions_filtered
                   << ", rows_vec_del_cond_filtered=" << stats.rows_vec_del_cond_filtered
-                  << ", rows_vec_cond_filtered" << stats.rows_vec_cond_filtered
-                  << ", rows_short_circuit_cond_filtered" << stats.rows_short_circuit_cond_filtered;
+                  << ", rows_vec_cond_filtered=" << stats.rows_vec_cond_filtered
+                  << ", rows_short_circuit_cond_filtered=" << stats.rows_short_circuit_cond_filtered;
     }
 
     RETURN_NOT_OK_STATUS_WITH_WARN(dst_rowset_writer->flush(),
@@ -347,8 +347,8 @@ Status Merger::vertical_compact_one_group(
                   << ", rows_del_by_bitmap=" << stats.rows_del_by_bitmap
                   << ", rows_conditions_filtered=" << stats.rows_conditions_filtered
                   << ", rows_vec_del_cond_filtered=" << stats.rows_vec_del_cond_filtered
-                  << ", rows_vec_cond_filtered" << stats.rows_vec_cond_filtered
-                  << ", rows_short_circuit_cond_filtered" << stats.rows_short_circuit_cond_filtered;
+                  << ", rows_vec_cond_filtered=" << stats.rows_vec_cond_filtered
+                  << ", rows_short_circuit_cond_filtered=" << stats.rows_short_circuit_cond_filtered;
     }
     RETURN_IF_ERROR(dst_rowset_writer->flush_columns(is_key));
 
