@@ -90,8 +90,8 @@ void VCollectIterator::init(TabletReader* reader, bool ori_data_overlapping, boo
         _merge = false;
         LOG(INFO) << "sout: set merge to false";
     }
-    LOG(INFO) << "sout: _merge=" << _merge << ", tablet_id=" << _reader->_tablet->tablet_id()
-              << ", table_id=" << _reader->_tablet->table_id();
+    /*LOG(INFO) << "sout: _merge=" << _merge << ", tablet_id=" << _reader->_tablet->tablet_id()
+              << ", table_id=" << _reader->_tablet->table_id();*/
     _is_reverse = is_reverse;
 
     // use topn_next opt only for DUP_KEYS and UNIQUE_KEYS with MOW

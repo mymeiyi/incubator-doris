@@ -93,7 +93,7 @@ Status Merger::vmerge_rowsets(BaseTabletSPtr tablet, ReaderType reader_type,
         reader_params.record_rowids = true;
     }
     // TODO
-    reader_params.record_rowids = false;
+    // reader_params.record_rowids = false;
 
     reader_params.return_columns.resize(cur_tablet_schema.num_columns());
     std::iota(reader_params.return_columns.begin(), reader_params.return_columns.end(), 0);
@@ -135,13 +135,6 @@ Status Merger::vmerge_rowsets(BaseTabletSPtr tablet, ReaderType reader_type,
                                        "failed to write block when merging rowsets of tablet " +
                                                std::to_string(tablet->tablet_id()));
 
-        if (reader_params.record_rowids && block.rows() > 0) {
-            std::vector<uint32_t> segment_num_rows;
-            RETURN_IF_ERROR(dst_rowset_writer->get_segment_num_rows(&segment_num_rows));
-            stats_output->rowid_conversion->add(reader.current_block_row_locations(),
-                                                segment_num_rows);
-        }
-
         if (block.rows() > 0) {
             std::vector<uint32_t> segment_num_rows;
             RETURN_IF_ERROR(dst_rowset_writer->get_segment_num_rows(&segment_num_rows));
@@ -152,6 +145,12 @@ Status Merger::vmerge_rowsets(BaseTabletSPtr tablet, ReaderType reader_type,
                 LOG(INFO) << "sout: after convert, rowset_id=" << item.rowset_id
                           << ", segment_id=" << item.segment_id << ", row_id=" << item.row_id;
             }
+        }
+        if (reader_params.record_rowids && block.rows() > 0) {
+            std::vector<uint32_t> segment_num_rows;
+            RETURN_IF_ERROR(dst_rowset_writer->get_segment_num_rows(&segment_num_rows));
+            stats_output->rowid_conversion->add(reader.current_block_row_locations(),
+                                                segment_num_rows);
         }
 
         output_rows += block.rows();
