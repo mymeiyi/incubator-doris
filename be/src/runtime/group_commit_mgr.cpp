@@ -531,12 +531,15 @@ Status GroupCommitTable::_finish_group_commit_load(int64_t db_id, int64_t table_
                     { st = Status::InternalError(""); });
     if (status.ok() && st.ok() &&
         (result_status.ok() || result_status.is<ErrorCode::PUBLISH_TIMEOUT>())) {
-        if (!config::group_commit_wait_replay_wal_finish) {
+        std::string wal_path;
+        RETURN_IF_ERROR(_exec_env->wal_mgr()->get_wal_path(txn_id, wal_path));
+        RETURN_IF_ERROR(_exec_env->wal_mgr()->add_recover_wal(db_id, table_id, txn_id, wal_path));
+        /*if (!config::group_commit_wait_replay_wal_finish) {
             auto delete_st = _exec_env->wal_mgr()->delete_wal(table_id, txn_id);
             if (!delete_st.ok()) {
                 LOG(WARNING) << "fail to delete wal " << txn_id << ", st=" << delete_st.to_string();
             }
-        }
+        }*/
     } else {
         std::string wal_path;
         RETURN_IF_ERROR(_exec_env->wal_mgr()->get_wal_path(txn_id, wal_path));
