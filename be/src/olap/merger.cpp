@@ -147,6 +147,16 @@ Status Merger::vmerge_rowsets(BaseTabletSPtr tablet, ReaderType reader_type,
         stats_output->output_rows = output_rows;
         stats_output->merged_rows = reader.merged_rows();
         stats_output->filtered_rows = reader.filtered_rows();
+        LOG(INFO) << "sout: output_rows=" << stats_output->output_rows
+                  << ", merged_rows=" << stats_output->merged_rows
+                  << ", filtered_rows=" << stats_output->filtered_rows;
+        auto stats = reader.stats();
+        LOG(INFO) << "sout: reader, rows_del_filtered=" << stats.rows_del_filtered
+                  << ", rows_del_by_bitmap=" << stats.rows_del_by_bitmap
+                  << ", rows_conditions_filtered=" << stats.rows_conditions_filtered
+                  << ", rows_vec_del_cond_filtered=" << stats.rows_vec_del_cond_filtered
+                  << ", rows_vec_cond_filtered" << stats.rows_vec_cond_filtered
+                  << ", rows_short_circuit_cond_filtered" << stats.rows_short_circuit_cond_filtered;
     }
 
     RETURN_NOT_OK_STATUS_WITH_WARN(dst_rowset_writer->flush(),
@@ -329,6 +339,16 @@ Status Merger::vertical_compact_one_group(
         stats_output->output_rows = output_rows;
         stats_output->merged_rows = reader.merged_rows();
         stats_output->filtered_rows = reader.filtered_rows();
+        LOG(INFO) << "sout: output_rows=" << stats_output->output_rows
+                  << ", merged_rows=" << stats_output->merged_rows
+                  << ", filtered_rows=" << stats_output->filtered_rows;
+        auto stats = reader.stats();
+        LOG(INFO) << "sout: reader, rows_del_filtered=" << stats.rows_del_filtered
+                  << ", rows_del_by_bitmap=" << stats.rows_del_by_bitmap
+                  << ", rows_conditions_filtered=" << stats.rows_conditions_filtered
+                  << ", rows_vec_del_cond_filtered=" << stats.rows_vec_del_cond_filtered
+                  << ", rows_vec_cond_filtered" << stats.rows_vec_cond_filtered
+                  << ", rows_short_circuit_cond_filtered" << stats.rows_short_circuit_cond_filtered;
     }
     RETURN_IF_ERROR(dst_rowset_writer->flush_columns(is_key));
 
