@@ -92,6 +92,8 @@ Status Merger::vmerge_rowsets(BaseTabletSPtr tablet, ReaderType reader_type,
     if (stats_output && stats_output->rowid_conversion) {
         reader_params.record_rowids = true;
     }
+    // TODO
+    reader_params.record_rowids = false;
 
     reader_params.return_columns.resize(cur_tablet_schema.num_columns());
     std::iota(reader_params.return_columns.begin(), reader_params.return_columns.end(), 0);
