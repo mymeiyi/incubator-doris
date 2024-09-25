@@ -978,7 +978,7 @@ Status CompactionMixin::modify_rowsets() {
                     ss << ", version[0-" << version.second + 1 << "]";
                 }
                 std::string err_msg = fmt::format(
-                        "cumulative compaction: the merged rows({}), filtered rows({})"
+                        "sout: cumulative compaction: the merged rows({}), filtered rows({})"
                         " is not equal to missed rows({}) in rowid conversion,"
                         " tablet_id: {}, table_id:{}",
                         _stats.merged_rows, _stats.filtered_rows, missed_rows_size,
