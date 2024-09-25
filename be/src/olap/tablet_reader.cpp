@@ -490,7 +490,7 @@ Status TabletReader::_init_orderby_keys_param(const ReaderParams& read_params) {
         // segment compaction is not supported
         for (const auto& cid : _tablet_schema->cluster_key_idxes()) {
             _orderby_key_columns.push_back(_tablet_schema->field_index(cid));
-            LOG(INFO) << "sout: table=" << _tablet_schema.table_id() << ", cid=" << cid
+            LOG(INFO) << "sout: table=" << _tablet_schema->table_id() << ", cid=" << cid
                       << ", index=" << _orderby_key_columns.back();
         }
     }
