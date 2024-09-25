@@ -108,6 +108,11 @@ Status Merger::vmerge_rowsets(BaseTabletSPtr tablet, ReaderType reader_type,
             RETURN_IF_ERROR(rs_split.rs_reader->get_segment_num_rows(&segment_num_rows));
             stats_output->rowid_conversion->init_segment_map(
                     rs_split.rs_reader->rowset()->rowset_id(), segment_num_rows);
+            LOG(INFO) << "sout: init segment rowid map, rowset_id="
+                      << rs_split.rs_reader->rowset()->rowset_id();
+            for (const auto& rows : segment_num_rows) {
+                LOG(INFO) << "sout: segment_num_rows=" << rows;
+            }
         }
     }
 
@@ -135,6 +140,18 @@ Status Merger::vmerge_rowsets(BaseTabletSPtr tablet, ReaderType reader_type,
             RETURN_IF_ERROR(dst_rowset_writer->get_segment_num_rows(&segment_num_rows));
             stats_output->rowid_conversion->add(reader.current_block_row_locations(),
                                                 segment_num_rows);
+        }
+
+        if (block.rows() > 0) {
+            std::vector<uint32_t> segment_num_rows;
+            RETURN_IF_ERROR(dst_rowset_writer->get_segment_num_rows(&segment_num_rows));
+            for (const auto& item : segment_num_rows) {
+                LOG(INFO) << "sout: after convert, segment_num_rows=" << item;
+            }
+            for (const auto& item : reader.current_block_row_locations()) {
+                LOG(INFO) << "sout: after convert, rowset_id=" << item.rowset_id
+                          << ", segment_id=" << item.segment_id << ", row_id=" << item.row_id;
+            }
         }
 
         output_rows += block.rows();
