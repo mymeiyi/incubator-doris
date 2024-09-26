@@ -125,6 +125,7 @@ Status VCollectIterator::build_heap(std::vector<RowsetReaderSharedPtr>& rs_reade
     }
 
     DCHECK(rs_readers.size() == _children.size());
+    LOG(INFO) << "sout: build_heap, _children.size()=" << _children.size();
     _skip_same = _reader->_tablet_schema->keys_type() == KeysType::UNIQUE_KEYS;
     if (_children.empty()) {
         _inner_iter.reset(nullptr);
@@ -191,14 +192,18 @@ Status VCollectIterator::build_heap(std::vector<RowsetReaderSharedPtr>& rs_reade
                                                  _skip_same));
         }
     } else {
+        LOG(INFO) << "sout: before build l1";
         auto level1_iter = std::make_unique<Level1Iterator>(std::move(_children), _reader, _merge,
                                                             _is_reverse, _skip_same);
         _children.clear();
         level1_iter->init_level0_iterators_for_union();
         RETURN_IF_ERROR(level1_iter->ensure_first_row_ref());
+        LOG(INFO) << "sout: after build l1";
         _inner_iter = std::move(level1_iter);
     }
+    LOG(INFO) << "sout: before init iter";
     RETURN_IF_NOT_EOF_AND_OK(_inner_iter->init());
+    LOG(INFO) << "sout: after init iter";
     // Clear _children earlier to release any related references
     _children.clear();
     return Status::OK();
