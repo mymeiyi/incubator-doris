@@ -231,10 +231,13 @@ Status BetaRowsetReader::get_segment_iterators(RowsetReaderContext* read_context
 
     // create iterator for each segment
     auto& segments = segment_cache_handle.get_segments();
+    std::stringstream ss;
     _segments_rows.resize(segments.size());
     for (size_t i = 0; i < segments.size(); i++) {
         _segments_rows[i] = segments[i]->num_rows();
+        ss << "[" << i << ", " << segments[i]->num_rows() << "] ";
     }
+    LOG(INFO) << "sout: rowset=" << _rowset->rowset_id() << ", segment rows=" << ss.str();
 
     auto [seg_start, seg_end] = _segment_offsets;
     if (seg_start == seg_end) {
