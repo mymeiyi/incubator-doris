@@ -1065,6 +1065,11 @@ public class CloudGlobalTransactionMgr implements GlobalTransactionMgrIface {
         builder.setCloudUniqueId(Config.cloud_unique_id);
 
         final AbortTxnRequest abortTxnRequest = builder.build();
+        abortTransaction(abortTxnRequest, String.valueOf(transactionId), txnCommitAttachment);
+    }
+
+    private void abortTransaction(AbortTxnRequest abortTxnRequest, String txnIdOrLabel,
+            TxnCommitAttachment txnCommitAttachment) throws UserException {
         AbortTxnResponse abortTxnResponse = null;
         int retryTime = 0;
         try {
@@ -1081,14 +1086,14 @@ public class CloudGlobalTransactionMgr implements GlobalTransactionMgrIface {
                     break;
                 }
                 // sleep random [20, 200] ms, avoid txn conflict
-                LOG.info("abortTxn KV_TXN_CONFLICT, transactionId:{}, retryTime:{}", transactionId, retryTime);
+                LOG.info("abortTxn KV_TXN_CONFLICT, transaction:{}, retryTime:{}", txnIdOrLabel, retryTime);
                 backoff();
                 retryTime++;
             }
             Preconditions.checkNotNull(abortTxnResponse);
             Preconditions.checkNotNull(abortTxnResponse.getStatus());
         } catch (RpcException e) {
-            LOG.warn("abortTxn failed, transactionId:{}, Exception", transactionId, e);
+            LOG.warn("abortTxn failed, transaction:{}, Exception", txnIdOrLabel, e);
             // For routine load, it is necessary to release the write lock when abort transaction fails,
             // otherwise it will cause the lock added in beforeAborted to not be released.
             if (txnCommitAttachment != null && txnCommitAttachment instanceof RLTaskTxnCommitAttachment) {
@@ -1097,11 +1102,6 @@ public class CloudGlobalTransactionMgr implements GlobalTransactionMgrIface {
             }
             throw new UserException("abortTxn failed, errMsg:" + e.getMessage());
         }
-        afterAbortTxnResp(abortTxnResponse, String.valueOf(transactionId), txnCommitAttachment);
-    }
-
-    private void afterAbortTxnResp(AbortTxnResponse abortTxnResponse, String txnIdOrLabel,
-            TxnCommitAttachment txnCommitAttachment) throws UserException {
         if (abortTxnResponse.getStatus().getCode() != MetaServiceCode.OK) {
             LOG.warn("abortTxn failed, transaction:{}, response:{}", txnIdOrLabel, abortTxnResponse);
             // For routine load, it is necessary to release the write lock when abort transaction fails,
@@ -1148,35 +1148,7 @@ public class CloudGlobalTransactionMgr implements GlobalTransactionMgrIface {
         builder.setCloudUniqueId(Config.cloud_unique_id);
 
         final AbortTxnRequest abortTxnRequest = builder.build();
-        AbortTxnResponse abortTxnResponse = null;
-        int retryTime = 0;
-
-        try {
-            while (retryTime < Config.metaServiceRpcRetryTimes()) {
-                if (LOG.isDebugEnabled()) {
-                    LOG.debug("retyTime:{}, abortTxnRequest:{}", retryTime, abortTxnRequest);
-                }
-                abortTxnResponse = MetaServiceProxy
-                        .getInstance().abortTxn(abortTxnRequest);
-                if (LOG.isDebugEnabled()) {
-                    LOG.debug("retryTime:{}, abortTxnResponse:{}", retryTime, abortTxnResponse);
-                }
-                if (abortTxnResponse.getStatus().getCode() != MetaServiceCode.KV_TXN_CONFLICT) {
-                    break;
-                }
-
-                // sleep random [20, 200] ms, avoid txn conflict
-                LOG.info("abortTxn KV_TXN_CONFLICT, dbId:{}, label:{}, retryTime:{}", dbId, label, retryTime);
-                backoff();
-                retryTime++;
-            }
-            Preconditions.checkNotNull(abortTxnResponse);
-            Preconditions.checkNotNull(abortTxnResponse.getStatus());
-        } catch (Exception e) {
-            LOG.warn("abortTxn failed, label:{}, exception:", label, e);
-            throw new UserException("abortTxn failed, errMsg:" + e.getMessage());
-        }
-        afterAbortTxnResp(abortTxnResponse, label, null);
+        abortTransaction(abortTxnRequest, label, null);
     }
 
     @Override
