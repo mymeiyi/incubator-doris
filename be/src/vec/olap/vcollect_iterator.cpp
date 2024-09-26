@@ -703,7 +703,14 @@ Status VCollectIterator::Level1Iterator::ensure_first_row_ref() {
             }
         } else {
             // we get a real row
-            // break;
+            break;
+        }
+    }
+    for (const auto& item : _children) {
+        auto s = item->ensure_first_row_ref();
+        if (!s.ok()) {
+            LOG(INFO) << "sout: ensure_first_row_ref failed, s=" << s;
+            return s;
         }
     }
 
