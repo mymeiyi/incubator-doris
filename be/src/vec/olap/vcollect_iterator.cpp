@@ -495,6 +495,7 @@ void VCollectIterator::Level0Iterator::init_for_union(bool get_data_by_ref) {
 }
 
 Status VCollectIterator::Level0Iterator::ensure_first_row_ref() {
+    LOG(INFO) << "sout: l0 ensure_first_row_ref";
     DCHECK(!_get_data_by_ref);
     auto s = refresh_current_row();
     _ref = {_block, 0, false};
@@ -695,6 +696,7 @@ Status VCollectIterator::Level1Iterator::init(bool get_data_by_ref) {
 
 Status VCollectIterator::Level1Iterator::ensure_first_row_ref() {
     for (auto iter = _children.begin(); iter != _children.end();) {
+        LOG(INFO) << "sout: l1 ensure_first_row_ref";
         auto s = (*iter)->ensure_first_row_ref();
         if (!s.ok()) {
             iter = _children.erase(iter);
@@ -706,13 +708,13 @@ Status VCollectIterator::Level1Iterator::ensure_first_row_ref() {
             break;
         }
     }
-    for (const auto& item : _children) {
+    /*for (const auto& item : _children) {
         auto s = item->ensure_first_row_ref();
         if (!s.ok()) {
             LOG(INFO) << "sout: ensure_first_row_ref failed, s=" << s;
             return s;
         }
-    }
+    }*/
 
     return Status::OK();
 }
