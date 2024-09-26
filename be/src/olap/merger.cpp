@@ -110,7 +110,7 @@ Status Merger::vmerge_rowsets(BaseTabletSPtr tablet, ReaderType reader_type,
                     rs_split.rs_reader->rowset()->rowset_id(), segment_num_rows);
             std::stringstream ss;
             for (int i = 0; i < segment_num_rows.size(); ++i) {
-                ss << "[" << i << ", " << segment_num_rows[i] << "] ";
+                ss << "[" << i << ": " << segment_num_rows[i] << "] ";
             }
             LOG(INFO) << "sout: init segment rowid map, rowset_id="
                       << rs_split.rs_reader->rowset()->rowset_id() << ", segment_rows=" << ss.str();
@@ -136,7 +136,7 @@ Status Merger::vmerge_rowsets(BaseTabletSPtr tablet, ReaderType reader_type,
                                        "failed to write block when merging rowsets of tablet " +
                                                std::to_string(tablet->tablet_id()));
 
-        if (block.rows() > 0) {
+        /*if (block.rows() > 0) {
             std::vector<uint32_t> segment_num_rows;
             RETURN_IF_ERROR(dst_rowset_writer->get_segment_num_rows(&segment_num_rows));
             for (const auto& item : segment_num_rows) {
@@ -146,13 +146,13 @@ Status Merger::vmerge_rowsets(BaseTabletSPtr tablet, ReaderType reader_type,
                 LOG(INFO) << "sout: after convert, rowset_id=" << item.rowset_id
                           << ", segment_id=" << item.segment_id << ", row_id=" << item.row_id;
             }
-        }
+        }*/
         if (reader_params.record_rowids && block.rows() > 0) {
             std::vector<uint32_t> segment_num_rows;
             RETURN_IF_ERROR(dst_rowset_writer->get_segment_num_rows(&segment_num_rows));
             std::stringstream ss;
             for (int i = 0; i < segment_num_rows.size(); i++) {
-                ss << "[" << i << ", " << segment_num_rows[i] << "] ";
+                ss << "[" << i << ": " << segment_num_rows[i] << "] ";
             }
             LOG(INFO) << "sout: dest segment num rows=" << ss.str();
             stats_output->rowid_conversion->add(reader.current_block_row_locations(),
