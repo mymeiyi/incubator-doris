@@ -325,6 +325,12 @@ Status Merger::vertical_compact_one_group(
             RETURN_IF_ERROR(rs_split.rs_reader->get_segment_num_rows(&segment_num_rows));
             stats_output->rowid_conversion->init_segment_map(
                     rs_split.rs_reader->rowset()->rowset_id(), segment_num_rows);
+            std::stringstream ss;
+            for (int i = 0; i < segment_num_rows.size(); ++i) {
+                ss << "[" << i << ": " << segment_num_rows[i] << "] ";
+            }
+            LOG(INFO) << "sout: init segment rowid map, rowset_id="
+                      << rs_split.rs_reader->rowset()->rowset_id() << ", segment_rows=" << ss.str();
         }
     }
 
@@ -350,6 +356,11 @@ Status Merger::vertical_compact_one_group(
         if (is_key && reader_params.record_rowids && block.rows() > 0) {
             std::vector<uint32_t> segment_num_rows;
             RETURN_IF_ERROR(dst_rowset_writer->get_segment_num_rows(&segment_num_rows));
+            std::stringstream ss;
+            for (int i = 0; i < segment_num_rows.size(); i++) {
+                ss << "[" << i << ": " << segment_num_rows[i] << "] ";
+            }
+            LOG(INFO) << "sout: dest segment num rows=" << ss.str();
             stats_output->rowid_conversion->add(reader.current_block_row_locations(),
                                                 segment_num_rows);
         }
