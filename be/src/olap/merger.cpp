@@ -62,7 +62,6 @@ Status Merger::vmerge_rowsets(BaseTabletSPtr tablet, ReaderType reader_type,
                               const TabletSchema& cur_tablet_schema,
                               const std::vector<RowsetReaderSharedPtr>& src_rowset_readers,
                               RowsetWriter* dst_rowset_writer, Statistics* stats_output) {
-    vectorized::BlockReader reader;
     TabletReader::ReaderParams reader_params;
     reader_params.tablet = tablet;
     reader_params.reader_type = reader_type;
@@ -98,6 +97,7 @@ Status Merger::vmerge_rowsets(BaseTabletSPtr tablet, ReaderType reader_type,
     reader_params.return_columns.resize(cur_tablet_schema.num_columns());
     std::iota(reader_params.return_columns.begin(), reader_params.return_columns.end(), 0);
     reader_params.origin_return_columns = &reader_params.return_columns;
+    vectorized::BlockReader reader;
     RETURN_IF_ERROR(reader.init(reader_params));
 
     if (reader_params.record_rowids) {
@@ -108,11 +108,12 @@ Status Merger::vmerge_rowsets(BaseTabletSPtr tablet, ReaderType reader_type,
             RETURN_IF_ERROR(rs_split.rs_reader->get_segment_num_rows(&segment_num_rows));
             stats_output->rowid_conversion->init_segment_map(
                     rs_split.rs_reader->rowset()->rowset_id(), segment_num_rows);
-            LOG(INFO) << "sout: init segment rowid map, rowset_id="
-                      << rs_split.rs_reader->rowset()->rowset_id();
-            for (const auto& rows : segment_num_rows) {
-                LOG(INFO) << "sout: segment_num_rows=" << rows;
+            std::stringstream ss;
+            for (int i = 0; i < segment_num_rows.size(); ++i) {
+                ss << "[" << i << ", " << segment_num_rows[i] << "] ";
             }
+            LOG(INFO) << "sout: init segment rowid map, rowset_id="
+                      << rs_split.rs_reader->rowset()->rowset_id() << ", segment_rows=" << ss.str();
         }
     }
 
@@ -149,6 +150,11 @@ Status Merger::vmerge_rowsets(BaseTabletSPtr tablet, ReaderType reader_type,
         if (reader_params.record_rowids && block.rows() > 0) {
             std::vector<uint32_t> segment_num_rows;
             RETURN_IF_ERROR(dst_rowset_writer->get_segment_num_rows(&segment_num_rows));
+            std::stringstream ss;
+            for (int i = 0; i < segment_num_rows.size(); i++) {
+                ss << "[" << i << ", " << segment_num_rows[i] << "] ";
+            }
+            LOG(INFO) << "sout: dest segment num rows=" << ss.str();
             stats_output->rowid_conversion->add(reader.current_block_row_locations(),
                                                 segment_num_rows);
         }
