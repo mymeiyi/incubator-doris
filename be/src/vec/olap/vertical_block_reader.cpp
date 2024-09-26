@@ -118,8 +118,10 @@ Status VerticalBlockReader::_init_collect_iter(const ReaderParams& read_params,
     std::vector<RowwiseIteratorUPtr> iter_ptr_vector;
 
     if (!segment_iters_ptr) {
+        LOG(INFO) << "sout: before _get_segment_iterators";
         RETURN_IF_ERROR(_get_segment_iterators(read_params, &iter_ptr_vector, &iterator_init_flag,
                                                &rowset_ids));
+        LOG(INFO) << "sout: after _get_segment_iterators";
         CHECK(iter_ptr_vector.size() == iterator_init_flag.size());
         segment_iters_ptr = &iter_ptr_vector;
     } else {
@@ -164,7 +166,9 @@ Status VerticalBlockReader::_init_collect_iter(const ReaderParams& read_params,
     if (read_params.batch_size > 0) {
         opts.block_row_max = read_params.batch_size;
     }
+    LOG(INFO) << "sout: before _vcollect_iter->init";
     RETURN_IF_ERROR(_vcollect_iter->init(opts, sample_info));
+    LOG(INFO) << "sout: after _vcollect_iter->init";
 
     // In agg keys value columns compact, get first row for _init_agg_state
     if (!read_params.is_key_column_group && read_params.tablet->keys_type() == KeysType::AGG_KEYS) {

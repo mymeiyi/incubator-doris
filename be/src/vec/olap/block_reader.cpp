@@ -131,8 +131,10 @@ Status BlockReader::_init_collect_iter(const ReaderParams& read_params) {
     }
     // check if rowsets are noneoverlapping
     _is_rowsets_overlapping = _rowsets_overlapping(read_params);
+    LOG(INFO) << "sout: before _vcollect_iter.init";
     _vcollect_iter.init(this, _is_rowsets_overlapping, read_params.read_orderby_key,
                         read_params.read_orderby_key_reverse);
+    LOG(INFO) << "sout: after _vcollect_iter.init";
 
     std::vector<RowsetReaderSharedPtr> valid_rs_readers;
 
@@ -154,7 +156,9 @@ Status BlockReader::_init_collect_iter(const ReaderParams& read_params) {
         }
     }
 
+    LOG(INFO) << "sout: before _vcollect_iter.build_heap";
     RETURN_IF_ERROR(_vcollect_iter.build_heap(valid_rs_readers));
+    LOG(INFO) << "sout: after _vcollect_iter.build_heap";
     // _vcollect_iter.topn_next() can not use current_row
     if (!_vcollect_iter.use_topn_next()) {
         auto status = _vcollect_iter.current_row(&_next_row);
