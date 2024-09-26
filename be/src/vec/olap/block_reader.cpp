@@ -255,6 +255,9 @@ Status BlockReader::init(const ReaderParams& read_params) {
                 }
             } else {
                 _next_block_func = &BlockReader::_direct_next_block;
+                LOG(INFO) << "sout: tablet=" << tablet()->tablet_id()
+                          << ", table=" << tablet()->table_id()
+                          << " has cluster key, use direct next block";
             }
         }
         break;
