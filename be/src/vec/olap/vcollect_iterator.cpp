@@ -192,13 +192,13 @@ Status VCollectIterator::build_heap(std::vector<RowsetReaderSharedPtr>& rs_reade
                                                  _skip_same));
         }
     } else {
-        LOG(INFO) << "sout: before build l1";
         auto level1_iter = std::make_unique<Level1Iterator>(std::move(_children), _reader, _merge,
                                                             _is_reverse, _skip_same);
         _children.clear();
         level1_iter->init_level0_iterators_for_union();
+        LOG(INFO) << "sout: before build l1, ensure_first_row_ref";
         RETURN_IF_ERROR(level1_iter->ensure_first_row_ref());
-        LOG(INFO) << "sout: after build l1";
+        LOG(INFO) << "sout: after build l1, ensure_first_row_ref";
         _inner_iter = std::move(level1_iter);
     }
     LOG(INFO) << "sout: before init iter";
@@ -703,7 +703,7 @@ Status VCollectIterator::Level1Iterator::ensure_first_row_ref() {
             }
         } else {
             // we get a real row
-            break;
+            // break;
         }
     }
 
