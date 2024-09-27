@@ -88,6 +88,7 @@ void VCollectIterator::init(TabletReader* reader, bool ori_data_overlapping, boo
          _reader->_reader_type == ReaderType::READER_FULL_COMPACTION ||
          _reader->_reader_type == ReaderType::READER_COLD_DATA_COMPACTION)) {
         _merge = false;
+        LOG(INFO) << "sout: set merge to false";
     }
     _is_reverse = is_reverse;
 
@@ -122,6 +123,7 @@ Status VCollectIterator::build_heap(std::vector<RowsetReaderSharedPtr>& rs_reade
     }
 
     DCHECK(rs_readers.size() == _children.size());
+    LOG(INFO) << "sout: build_heap, _children.size()=" << _children.size();
     _skip_same = _reader->_tablet_schema->keys_type() == KeysType::UNIQUE_KEYS;
     if (_children.empty()) {
         _inner_iter.reset(nullptr);
@@ -192,10 +194,14 @@ Status VCollectIterator::build_heap(std::vector<RowsetReaderSharedPtr>& rs_reade
                                                             _is_reverse, _skip_same);
         _children.clear();
         level1_iter->init_level0_iterators_for_union();
+        LOG(INFO) << "sout: before build l1, ensure_first_row_ref";
         RETURN_IF_ERROR(level1_iter->ensure_first_row_ref());
+        LOG(INFO) << "sout: after build l1, ensure_first_row_ref";
         _inner_iter = std::move(level1_iter);
     }
+    LOG(INFO) << "sout: before init iter";
     RETURN_IF_NOT_EOF_AND_OK(_inner_iter->init());
+    LOG(INFO) << "sout: after init iter";
     // Clear _children earlier to release any related references
     _children.clear();
     return Status::OK();
@@ -490,7 +496,7 @@ Status VCollectIterator::Level0Iterator::ensure_first_row_ref() {
     DCHECK(!_get_data_by_ref);
     auto s = refresh_current_row();
     _ref = {_block, 0, false};
-
+    LOG(INFO) << "sout: l0 ensure_first_row_ref, st=" << s.to_string();
     return s;
 }
 
@@ -687,6 +693,7 @@ Status VCollectIterator::Level1Iterator::init(bool get_data_by_ref) {
 
 Status VCollectIterator::Level1Iterator::ensure_first_row_ref() {
     for (auto iter = _children.begin(); iter != _children.end();) {
+        LOG(INFO) << "sout: l1 ensure_first_row_ref";
         auto s = (*iter)->ensure_first_row_ref();
         if (!s.ok()) {
             iter = _children.erase(iter);
@@ -698,6 +705,13 @@ Status VCollectIterator::Level1Iterator::ensure_first_row_ref() {
             break;
         }
     }
+    /*for (const auto& item : _children) {
+        auto s = item->ensure_first_row_ref();
+        if (!s.ok()) {
+            LOG(INFO) << "sout: ensure_first_row_ref failed, s=" << s;
+            return s;
+        }
+    }*/
 
     return Status::OK();
 }

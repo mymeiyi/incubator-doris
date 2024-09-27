@@ -231,10 +231,13 @@ Status BetaRowsetReader::get_segment_iterators(RowsetReaderContext* read_context
 
     // create iterator for each segment
     auto& segments = segment_cache_handle.get_segments();
+    std::stringstream ss;
     _segments_rows.resize(segments.size());
     for (size_t i = 0; i < segments.size(); i++) {
         _segments_rows[i] = segments[i]->num_rows();
+        ss << "[" << i << ": " << segments[i]->num_rows() << "] ";
     }
+    LOG(INFO) << "sout: rowset=" << _rowset->rowset_id() << ", segment rows=" << ss.str();
 
     auto [seg_start, seg_end] = _segment_offsets;
     if (seg_start == seg_end) {
@@ -393,6 +396,17 @@ bool BetaRowsetReader::_should_push_down_value_predicates() const {
 
 Status BetaRowsetReader::get_segment_num_rows(std::vector<uint32_t>* segment_num_rows) {
     segment_num_rows->assign(_segments_rows.cbegin(), _segments_rows.cend());
+    std::stringstream ss;
+    for (size_t i = 0; i < _segments_rows.size(); i++) {
+        _segments_rows[i] = _segments_rows[i];
+        ss << "[" << i << ": " << _segments_rows[i] << "] ";
+    }
+    std::stringstream ss1;
+    for (int i = 0; i < segment_num_rows->size(); i++) {
+        ss1 << "[" << i << ": " << _segments_rows[i] << "] ";
+    }
+    LOG(INFO) << "sout: rowset=" << _rowset->rowset_id() << ", segment rows=" << ss.str()
+            << ", after assign=" << ss1.str();
     return Status::OK();
 }
 
