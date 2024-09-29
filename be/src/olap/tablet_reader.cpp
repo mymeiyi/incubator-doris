@@ -264,23 +264,19 @@ Status TabletReader::_capture_rs_readers(const ReaderParams& read_params) {
     LOG(INFO) << "sout: reader_context: reader_type=" << int(_reader_context.reader_type)
               << ", version=" << _reader_context.version
               << ", need_ordered_result=" << _reader_context.need_ordered_result
-              << ", topn_filter_source_node_ids="
-              << _reader_context.topn_filter_source_node_ids.size()
+              // << ", topn_filter_source_node_ids=" << _reader_context.topn_filter_source_node_ids.size()
               << ", topn_filter_target_node_id=" << _reader_context.topn_filter_target_node_id
               << ", read_orderby_key_reverse=" << _reader_context.read_orderby_key_reverse
               << ", read_orderby_key_limit=" << _reader_context.read_orderby_key_limit
-              << ", filter_block_conjuncts=" << _reader_context.filter_block_conjuncts.size()
-              << ", return_columns=" << _reader_context.return_columns->size()
-              << ", read_orderby_key_columns="
-              << (_reader_context.read_orderby_key_columns
-                          ? _reader_context.read_orderby_key_columns->size()
-                          : 0)
+              // << ", filter_block_conjuncts=" << _reader_context.filter_block_conjuncts.size()
+              // << ", return_columns=" << _reader_context.return_columns->size()
+              // << ", read_orderby_key_columns=" << (_reader_context.read_orderby_key_columns ? _reader_context.read_orderby_key_columns->size() : 0)
               << ", predicates=" << _reader_context.predicates->size()
-              << ", value_predicates=" << _reader_context.value_predicates->size()
-              << ", lower_bound_keys=" << _reader_context.lower_bound_keys->size()
-              << ", is_lower_keys_included=" << _reader_context.is_lower_keys_included.size()
-              << ", upper_bound_keys=" << _reader_context.upper_bound_keys->size()
-              << ", is_upper_keys_included=" << _reader_context.is_upper_keys_included.size()
+              // << ", value_predicates=" << _reader_context.value_predicates->size()
+              // << ", lower_bound_keys=" << _reader_context.lower_bound_keys->size()
+              // << ", is_lower_keys_included=" << _reader_context.is_lower_keys_included.size()
+              // << ", upper_bound_keys=" << _reader_context.upper_bound_keys->size()
+              // << ", is_upper_keys_included=" << _reader_context.is_upper_keys_included.size()
               << ", delete_handler=" << _reader_context.delete_handler
               << ", stats=" << _reader_context.stats
               << ", use_page_cache=" << _reader_context.use_page_cache
@@ -292,9 +288,8 @@ Status TabletReader::_capture_rs_readers(const ReaderParams& read_params) {
               << _reader_context.enable_unique_key_merge_on_write
               << ", record_rowids=" << _reader_context.record_rowids
               << ", is_key_column_group=" << _reader_context.is_key_column_group
-              << ", remaining_conjunct_roots=" << _reader_context.remaining_conjunct_roots.size()
-              << ", common_expr_ctxs_push_down="
-              << _reader_context.common_expr_ctxs_push_down.size()
+              // << ", remaining_conjunct_roots=" << _reader_context.remaining_conjunct_roots.size()
+              // << ", common_expr_ctxs_push_down=" << _reader_context.common_expr_ctxs_push_down.size()
               << ", output_columns=" << _reader_context.output_columns->size();
     return Status::OK();
 }
