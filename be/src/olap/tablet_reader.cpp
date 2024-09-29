@@ -290,7 +290,8 @@ Status TabletReader::_capture_rs_readers(const ReaderParams& read_params) {
               << ", is_key_column_group=" << _reader_context.is_key_column_group
               // << ", remaining_conjunct_roots=" << _reader_context.remaining_conjunct_roots.size()
               // << ", common_expr_ctxs_push_down=" << _reader_context.common_expr_ctxs_push_down.size()
-              << ", output_columns=" << _reader_context.output_columns->size();
+              << ", output_columns=" << _reader_context.output_columns->size()
+              << ", tablet=" << _tablet->tablet_id();
     return Status::OK();
 }
 
