@@ -231,4 +231,11 @@ suite("txn_insert_inject_case", "nonConcurrent") {
         }
         assertEquals(7, rowCount)
     }
+
+    // check the limit of sub transaction num
+    try {
+
+    } finally {
+        sql """ admin set frontend config('max_sub_txn_num' = '100') """
+    }
 }
