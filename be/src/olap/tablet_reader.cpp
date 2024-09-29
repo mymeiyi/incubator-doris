@@ -209,7 +209,7 @@ Status TabletReader::_capture_rs_readers(const ReaderParams& read_params) {
             _tablet->enable_unique_key_merge_on_write()) {
             // unique keys with merge on write, no need to merge sort keys in rowset
             need_ordered_result = false;
-            // need_ordered_result = true;
+            need_ordered_result = true;
         }
         if (_aggregation) {
             // compute engine will aggregate rows with the same key,
