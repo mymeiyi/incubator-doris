@@ -377,7 +377,7 @@ Status NewOlapScanner::_init_tablet_reader_params(
                 }
             }
             if (auto sequence_col_idx = tablet_schema->sequence_col_idx();
-                (has_replace_col || _tablet_reader_params.query_mow_in_mor) &&
+                (has_replace_col || _state->query_mow_in_mor()) &&
                 std::find(_return_columns.begin(), _return_columns.end(), sequence_col_idx) ==
                         _return_columns.end()) {
                 _tablet_reader_params.return_columns.push_back(sequence_col_idx);
