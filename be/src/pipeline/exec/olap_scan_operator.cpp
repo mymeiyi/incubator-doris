@@ -155,11 +155,14 @@ Status OlapScanLocalState::_init_profile() {
 
 Status OlapScanLocalState::_process_conjuncts(RuntimeState* state) {
     SCOPED_TIMER(_process_conjunct_timer);
+    LOG(INFO) << "sout: _conjuncts 0=" << _conjuncts.size();
     RETURN_IF_ERROR(ScanLocalState::_process_conjuncts(state));
+    LOG(INFO) << "sout: _conjuncts 1=" << _conjuncts.size();
     if (ScanLocalState::_eos) {
         return Status::OK();
     }
     RETURN_IF_ERROR(_build_key_ranges_and_filters());
+    LOG(INFO) << "sout: _conjuncts 2=" << _conjuncts.size();
     return Status::OK();
 }
 
