@@ -214,6 +214,7 @@ bool VCollectIterator::LevelIteratorComparator::operator()(LevelIterator* lhs, L
                 lhs_ref.row_pos, rhs_ref.row_pos,
                 *(rhs_ref.block->get_by_position(_sequence).column), -1);
     }
+    LOG(INFO) << "sout: _sequence=" << _sequence;
 
     // if row cursors equal, compare data version.
     // read data from higher version to lower version.
@@ -674,6 +675,7 @@ Status VCollectIterator::Level1Iterator::init(bool get_data_by_ref) {
             }
         }
         _heap = std::make_unique<MergeHeap>(LevelIteratorComparator(sequence_loc, _is_reverse));
+        LOG(INFO) << "sout: sequence_loc=" << sequence_loc;
         for (auto&& child : _children) {
             DCHECK(child != nullptr);
             //DCHECK(child->current_row().ok());
