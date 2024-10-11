@@ -275,6 +275,7 @@ Status ScanLocalState<Derived>::_normalize_predicate(
             PushDownType pdt = PushDownType::UNACCEPTABLE;
             RETURN_IF_ERROR(_eval_const_conjuncts(cur_expr, context, &pdt));
             if (pdt == PushDownType::ACCEPTABLE) {
+                LOG(INFO) << "sout: set output_expr null";
                 output_expr = nullptr;
                 return Status::OK();
             }
@@ -331,17 +332,20 @@ Status ScanLocalState<Derived>::_normalize_predicate(
                 slotref->type().is_variant_type()) {
                 // remaining it in the expr tree, in order to filter by function if the pushdown
                 // predicate is not applied
+                LOG(INFO) << "sout: set output_expr 1";
                 output_expr = conjunct_expr_root; // remaining in conjunct tree
                 return Status::OK();
             }
 
             if (pdt == PushDownType::ACCEPTABLE &&
                 (_is_key_column(slot->col_name()) || _storage_no_merge())) {
+                LOG(INFO) << "sout: set output_expr null 2";
                 output_expr = nullptr;
                 return Status::OK();
             } else {
                 // for PARTIAL_ACCEPTABLE and UNACCEPTABLE, do not remove expr from the tree
                 output_expr = conjunct_expr_root;
+                LOG(INFO) << "sout: set output_expr 2";
                 return Status::OK();
             }
         } else {
@@ -355,6 +359,7 @@ Status ScanLocalState<Derived>::_normalize_predicate(
             if (left_child != nullptr && right_child != nullptr) {
                 conjunct_expr_root->set_children({left_child, right_child});
                 output_expr = conjunct_expr_root;
+                LOG(INFO) << "sout: set output_expr 3";
                 return Status::OK();
             } else {
                 if (left_child == nullptr) {
@@ -372,9 +377,11 @@ Status ScanLocalState<Derived>::_normalize_predicate(
 
             // here do not close VExpr* now
             output_expr = left_child != nullptr ? left_child : right_child;
+            LOG(INFO) << "sout: set output_expr, is_null=" << (output_expr == nullptr);
             return Status::OK();
         }
     }
+    LOG(INFO) << "sout: set output_expr 4";
     output_expr = conjunct_expr_root;
     return Status::OK();
 }
