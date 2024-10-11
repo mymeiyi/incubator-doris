@@ -325,14 +325,19 @@ Status TabletReader::_init_params(const ReaderParams& read_params) {
     }
     if (_tablet_schema->has_sequence_col()) {
         auto sequence_col_idx = _tablet_schema->sequence_col_idx();
+        LOG(INFO) << "sout: get sequence_col_idx=" << sequence_col_idx;
         DCHECK_NE(sequence_col_idx, -1);
         for (auto col : _return_columns) {
+            LOG(INFO) << "sout: _return_column=" << col;
             // query has sequence col
             if (col == sequence_col_idx) {
                 _sequence_col_idx = sequence_col_idx;
+                LOG(INFO) << "sout: set _sequence_col_idx=" << _sequence_col_idx;
                 break;
             }
         }
+    } else {
+        LOG(INFO) << "sout: skip set sequence_col_idx";
     }
 
     return res;
