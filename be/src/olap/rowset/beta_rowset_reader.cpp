@@ -261,12 +261,14 @@ Status BetaRowsetReader::get_segment_iterators(RowsetReaderContext* read_context
                 _read_options.row_ranges.clear();
                 iter = std::make_unique<LazyInitSegmentIterator>(seg_ptr, _input_schema,
                                                                  _read_options);
+                LOG(INFO) << "sout: new LazyInitSegmentIterator 0";
             } else {
                 DCHECK_EQ(seg_end - seg_start, _segment_row_ranges.size());
                 auto local_options = _read_options;
                 local_options.row_ranges = _segment_row_ranges[i - seg_start];
                 iter = std::make_unique<LazyInitSegmentIterator>(seg_ptr, _input_schema,
                                                                  local_options);
+                LOG(INFO) << "sout: new LazyInitSegmentIterator 1";
             }
         } else {
             Status status;
@@ -274,11 +276,13 @@ Status BetaRowsetReader::get_segment_iterators(RowsetReaderContext* read_context
             if (_segment_row_ranges.empty()) {
                 _read_options.row_ranges.clear();
                 status = seg_ptr->new_iterator(_input_schema, _read_options, &iter);
+                LOG(INFO) << "sout: seg_ptr->new_iterator 0";
             } else {
                 DCHECK_EQ(seg_end - seg_start, _segment_row_ranges.size());
                 auto local_options = _read_options;
                 local_options.row_ranges = _segment_row_ranges[i - seg_start];
                 status = seg_ptr->new_iterator(_input_schema, local_options, &iter);
+                LOG(INFO) << "sout: seg_ptr->new_iterator 1";
             }
 
             if (!status.ok()) {
