@@ -48,6 +48,7 @@ Status VScanner::prepare(RuntimeState* state, const VExprContextSPtrs& conjuncts
         for (size_t i = 0; i != conjuncts.size(); ++i) {
             RETURN_IF_ERROR(conjuncts[i]->clone(state, _conjuncts[i]));
         }
+        LOG(INFO) << "sout: prepare _conjuncts=" << _conjuncts.size();
     }
 
     const auto& projections = _local_state->_projections;
@@ -238,7 +239,9 @@ Status VScanner::try_append_late_arrival_runtime_filter() {
     }
     // Notice that the number of runtime filters may be larger than _applied_rf_num.
     // But it is ok because it will be updated at next time.
+    LOG(INFO) << "sout: _conjuncts 0=" << _conjuncts.size();
     RETURN_IF_ERROR(_local_state->clone_conjunct_ctxs(_conjuncts));
+    LOG(INFO) << "sout: _conjuncts 1=" << _conjuncts.size();
     _applied_rf_num = arrived_rf_num;
     return Status::OK();
 }
