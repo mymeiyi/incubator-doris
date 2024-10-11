@@ -48,8 +48,8 @@ Status VScanner::prepare(RuntimeState* state, const VExprContextSPtrs& conjuncts
         for (size_t i = 0; i != conjuncts.size(); ++i) {
             RETURN_IF_ERROR(conjuncts[i]->clone(state, _conjuncts[i]));
         }
-        LOG(INFO) << "sout: prepare _conjuncts=" << _conjuncts.size();
     }
+    LOG(INFO) << "sout: prepare _conjuncts=" << _conjuncts.size();
 
     const auto& projections = _local_state->_projections;
     if (!projections.empty()) {

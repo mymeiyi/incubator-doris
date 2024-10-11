@@ -488,6 +488,7 @@ Status PipelineXLocalState<SharedStateArg>::init(RuntimeState* state, LocalState
 template <typename SharedStateArg>
 Status PipelineXLocalState<SharedStateArg>::open(RuntimeState* state) {
     _conjuncts.resize(_parent->_conjuncts.size());
+    LOG(INFO) << "sout: conjuncts size:" << _conjuncts.size();
     _projections.resize(_parent->_projections.size());
     for (size_t i = 0; i < _conjuncts.size(); i++) {
         RETURN_IF_ERROR(_parent->_conjuncts[i]->clone(state, _conjuncts[i]));
