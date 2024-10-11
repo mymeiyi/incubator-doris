@@ -164,6 +164,7 @@ Status VScanner::_filter_output_block(Block* block) {
         return Status::OK();
     }
     auto old_rows = block->rows();
+    LOG(INFO) << "sout: _conjuncts size=" << _conjuncts.size();
     Status st = VExprContext::filter_block(_conjuncts, block, block->columns());
     _counter.num_rows_unselected += old_rows - block->rows();
     return st;
