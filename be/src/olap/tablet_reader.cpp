@@ -260,7 +260,7 @@ Status TabletReader::_capture_rs_readers(const ReaderParams& read_params) {
     LOG(INFO) << "sout: need_ordered_result=" << need_ordered_result
               << ", query_mow_in_mor=" << read_params.query_mow_in_mor
               << ", tablet=" << _tablet->tablet_id() << ", _aggregation=" << _aggregation
-              << ", _direct_mode=" << _direct_mode;
+              << ", _direct_mode=" << _direct_mode << ", _sequence_col_idx=" << _sequence_col_idx;
     _reader_context.enable_unique_key_merge_on_write = tablet()->enable_unique_key_merge_on_write();
     _reader_context.record_rowids = read_params.record_rowids;
     _reader_context.is_key_column_group = read_params.is_key_column_group;

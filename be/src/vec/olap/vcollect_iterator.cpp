@@ -675,7 +675,8 @@ Status VCollectIterator::Level1Iterator::init(bool get_data_by_ref) {
             }
         }
         _heap = std::make_unique<MergeHeap>(LevelIteratorComparator(sequence_loc, _is_reverse));
-        LOG(INFO) << "sout: sequence_loc=" << sequence_loc;
+        LOG(INFO) << "sout: sequence_loc=" << sequence_loc
+                  << ", _reader->_sequence_col_idx=" << _reader->_sequence_col_idx;
         for (auto&& child : _children) {
             DCHECK(child != nullptr);
             //DCHECK(child->current_row().ok());
