@@ -188,12 +188,15 @@ Status ScanLocalState<Derived>::_normalize_conjuncts(RuntimeState* state) {
 
     RETURN_IF_ERROR(_get_topn_filters(state));
 
+    LOG(INFO) << "sout: begin handle conjuncts=" << _conjuncts.size();
     for (auto it = _conjuncts.begin(); it != _conjuncts.end();) {
         auto& conjunct = *it;
         if (conjunct->root()) {
+            LOG(INFO) << "sout: handle conjuncts 0=" << _conjuncts.size();
             vectorized::VExprSPtr new_root;
             RETURN_IF_ERROR(_normalize_predicate(conjunct->root(), conjunct.get(), new_root));
             if (new_root) {
+                LOG(INFO) << "sout: handle conjuncts 1=" << _conjuncts.size();
                 conjunct->set_root(new_root);
                 if (_should_push_down_common_expr() &&
                     vectorized::VExpr::is_acting_on_a_slot(*(conjunct->root()))) {
@@ -202,6 +205,7 @@ Status ScanLocalState<Derived>::_normalize_conjuncts(RuntimeState* state) {
                     continue;
                 }
             } else { // All conjuncts are pushed down as predicate column
+                LOG(INFO) << "sout: handle conjuncts 2=" << _conjuncts.size();
                 _stale_expr_ctxs.emplace_back(conjunct);
                 it = _conjuncts.erase(it);
                 continue;
@@ -286,6 +290,7 @@ Status ScanLocalState<Derived>::_normalize_predicate(
             }
             if (_is_predicate_acting_on_slot(cur_expr, in_predicate_checker, &slot, &range) ||
                 _is_predicate_acting_on_slot(cur_expr, eq_predicate_checker, &slot, &range)) {
+                LOG(INFO) << "sout: _is_predicate_acting_on_slot";
                 Status status = Status::OK();
                 std::visit(
                         [&](auto& value_range) {
