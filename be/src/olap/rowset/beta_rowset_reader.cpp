@@ -371,6 +371,9 @@ Status BetaRowsetReader::next_block(vectorized::Block* block) {
         if (!s.ok()) {
             if (!s.is<END_OF_FILE>()) {
                 LOG(WARNING) << "failed to read next block: " << s.to_string();
+            } else {
+                LOG(INFO) << "sout: BetaRowsetReader::next_block, END_OF_FILE, rowset_id="
+                          << _rowset->rowset_id();
             }
             return s;
         }
@@ -379,7 +382,8 @@ Status BetaRowsetReader::next_block(vectorized::Block* block) {
             return runtime_state->cancel_reason();
         }
     } while (block->empty());
-    LOG(INFO) << "sout: BetaRowsetReader::next_block=\n" << block->dump_data(0);
+    LOG(INFO) << "sout: BetaRowsetReader::next_block, rowset_id=" << _rowset->rowset_id()
+              << ", block=\n" << block->dump_data(0);
     return Status::OK();
 }
 
