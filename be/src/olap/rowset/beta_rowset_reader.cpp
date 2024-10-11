@@ -266,6 +266,7 @@ Status BetaRowsetReader::get_segment_iterators(RowsetReaderContext* read_context
                 DCHECK_EQ(seg_end - seg_start, _segment_row_ranges.size());
                 auto local_options = _read_options;
                 local_options.row_ranges = _segment_row_ranges[i - seg_start];
+                LOG(INFO) << "sout: row_range=" << local_options.row_ranges.to_string();
                 iter = std::make_unique<LazyInitSegmentIterator>(seg_ptr, _input_schema,
                                                                  local_options);
                 LOG(INFO) << "sout: new LazyInitSegmentIterator 1";

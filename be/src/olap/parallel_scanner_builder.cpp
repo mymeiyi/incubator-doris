@@ -96,6 +96,8 @@ Status ParallelScannerBuilder::_build_scanners_by_rowid(std::list<VScannerSPtr>&
                     // RowRange stands for range: [From, To), From is inclusive, To is exclusive.
                     row_ranges.add({offset_in_segment,
                                     offset_in_segment + static_cast<int64_t>(rows_need)});
+                    LOG(INFO) << "sout: add row_range, from=" << offset_in_segment
+                              << ", to=" << offset_in_segment + rows_need;
                     rows_collected += rows_need;
                     offset_in_segment += rows_need;
 
