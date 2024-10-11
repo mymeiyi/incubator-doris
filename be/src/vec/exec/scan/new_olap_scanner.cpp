@@ -188,7 +188,10 @@ Status NewOlapScanner::init() {
                     tablet_schema->mutable_column(delete_sign_idx)
                             .set_aggregation_method(
                                     FieldAggregationMethod::OLAP_FIELD_AGGREGATION_REPLACE);
-                    LOG(INFO) << "sout: delete sign col idx=" << delete_sign_idx << ", set replace";
+                    LOG(INFO) << "sout: delete sign col idx=" << delete_sign_idx
+                              << ", set replace, is_replace="
+                              << (tablet_schema->column(delete_sign_idx).aggregation() ==
+                                  FieldAggregationMethod::OLAP_FIELD_AGGREGATION_REPLACE);
                 }
             }
         }

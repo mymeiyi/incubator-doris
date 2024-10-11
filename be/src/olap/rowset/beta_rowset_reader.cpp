@@ -189,6 +189,9 @@ Status BetaRowsetReader::get_segment_iterators(RowsetReaderContext* read_context
                           << pred->column_id() << ", predicate=" << pred->debug_string();
             }
         }
+    } else {
+        LOG(INFO) << "sout: not push down value predicates, tablet_id=" << _read_options.tablet_id
+                  << ", size=" << _read_context->value_predicates->size();
     }
     _read_options.use_page_cache = _read_context->use_page_cache;
     _read_options.tablet_schema = _read_context->tablet_schema;
@@ -427,7 +430,7 @@ bool BetaRowsetReader::_should_push_down_value_predicates() const {
            (((_rowset->start_version() == 0 || _rowset->start_version() == 2) &&
              !_rowset->_rowset_meta->is_segments_overlapping() &&
              _read_context->sequence_id_idx == -1) ||
-            _read_context->enable_unique_key_merge_on_write);
+            (_read_context->enable_unique_key_merge_on_write && !_read_context->query_mow_in_mor));
 }
 
 Status BetaRowsetReader::get_segment_num_rows(std::vector<uint32_t>* segment_num_rows) {
