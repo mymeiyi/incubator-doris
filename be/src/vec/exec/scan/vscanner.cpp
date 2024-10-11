@@ -132,6 +132,7 @@ Status VScanner::get_block(RuntimeState* state, Block* block, bool* eof) {
                 auto* timer = _local_state->_filter_timer;
                 SCOPED_TIMER(timer);
                 RETURN_IF_ERROR(_filter_output_block(block));
+                LOG(INFO) << "sout: after filter block=\n" << block->dump_data(0);
             }
             // record rows return (after filter) for _limit check
             _num_rows_return += block->rows();
