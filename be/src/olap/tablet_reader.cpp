@@ -518,6 +518,7 @@ Status TabletReader::_init_conditions_param(const ReaderParams& read_params) {
         predicate_params->marked_by_runtime_filter = condition.marked_by_runtime_filter;
         predicates.push_back(predicate);
     }
+    LOG(INFO) << "sout: predicates 0=" << predicates.size();
 
     // Only key column bloom filter will push down to storage engine
     for (const auto& filter : read_params.bloom_filters) {
@@ -525,18 +526,21 @@ Status TabletReader::_init_conditions_param(const ReaderParams& read_params) {
         predicate->predicate_params()->marked_by_runtime_filter = true;
         predicates.emplace_back(predicate);
     }
+    LOG(INFO) << "sout: predicates 1=" << predicates.size();
 
     for (const auto& filter : read_params.bitmap_filters) {
         ColumnPredicate* predicate = _parse_to_predicate(filter);
         predicate->predicate_params()->marked_by_runtime_filter = true;
         predicates.emplace_back(predicate);
     }
+    LOG(INFO) << "sout: predicates 2=" << predicates.size();
 
     for (const auto& filter : read_params.in_filters) {
         ColumnPredicate* predicate = _parse_to_predicate(filter);
         predicate->predicate_params()->marked_by_runtime_filter = true;
         predicates.emplace_back(predicate);
     }
+    LOG(INFO) << "sout: predicates 3=" << predicates.size();
 
     // Function filter push down to storage engine
     auto is_like_predicate = [](ColumnPredicate* _pred) {
@@ -566,13 +570,16 @@ Status TabletReader::_init_conditions_param(const ReaderParams& read_params) {
             }
         }
     }
+    LOG(INFO) << "sout: predicates 4=" << predicates.size();
 
     for (auto* predicate : predicates) {
         auto column = _tablet_schema->column(predicate->column_id());
         if (column.aggregation() != FieldAggregationMethod::OLAP_FIELD_AGGREGATION_NONE) {
             _value_col_predicates.push_back(predicate);
+            LOG(INFO) << "sout: add a value col predicate=" << predicate->debug_string();
         } else {
             _col_predicates.push_back(predicate);
+            LOG(INFO) << "sout: add a col predicate=" << predicate->debug_string();
         }
     }
 

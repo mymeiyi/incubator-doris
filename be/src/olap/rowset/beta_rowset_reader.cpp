@@ -139,6 +139,8 @@ Status BetaRowsetReader::get_segment_iterators(RowsetReaderContext* read_context
         _read_options.column_predicates.insert(_read_options.column_predicates.end(),
                                                _read_context->predicates->begin(),
                                                _read_context->predicates->end());
+        LOG(INFO) << "sout: predicates, size=" << _read_context->predicates->size()
+                  << ", tablet_id=" << _read_options.tablet_id;
         for (auto pred : *(_read_context->predicates)) {
             if (_read_options.col_id_to_predicates.count(pred->column_id()) < 1) {
                 _read_options.col_id_to_predicates.insert(
