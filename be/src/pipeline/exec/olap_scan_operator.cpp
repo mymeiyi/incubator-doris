@@ -528,6 +528,7 @@ Status OlapScanLocalState::_build_key_ranges_and_filters() {
             _scan_dependency->set_ready();
         }
 
+        LOG(INFO) << "sout: _olap_filters 0=" << _olap_filters.size();
         for (auto& iter : _colname_to_value_range) {
             std::vector<TCondition> filters;
             std::visit([&](auto&& range) { range.to_olap_filter(filters); }, iter.second);
@@ -536,6 +537,7 @@ Status OlapScanLocalState::_build_key_ranges_and_filters() {
                 _olap_filters.push_back(filter);
             }
         }
+        LOG(INFO) << "sout: _olap_filters 1=" << _olap_filters.size();
 
         // Append value ranges in "_not_in_value_ranges"
         for (auto& range : _not_in_value_ranges) {
