@@ -146,6 +146,8 @@ Status BetaRowsetReader::get_segment_iterators(RowsetReaderContext* read_context
             }
             _read_options.col_id_to_predicates[pred->column_id()]->add_column_predicate(
                     SingleColumnBlockPredicate::create_unique(pred));
+            LOG(INFO) << "sout: RowsetReader add_column_predicate, column_id=" << pred->column_id()
+                      << ", predicate=" << pred->debug_string();
         }
     }
 
@@ -181,6 +183,8 @@ Status BetaRowsetReader::get_segment_iterators(RowsetReaderContext* read_context
                 }
                 _read_options.col_id_to_predicates[pred->column_id()]->add_column_predicate(
                         SingleColumnBlockPredicate::create_unique(pred));
+                LOG(INFO) << "sout: RowsetReader add_column_predicate 2, column_id="
+                          << pred->column_id() << ", predicate=" << pred->debug_string();
             }
         }
     }
