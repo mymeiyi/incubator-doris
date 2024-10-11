@@ -339,7 +339,9 @@ Status ScanLocalState<Derived>::_normalize_predicate(
 
             if (pdt == PushDownType::ACCEPTABLE &&
                 (_is_key_column(slot->col_name()) || _storage_no_merge())) {
-                LOG(INFO) << "sout: set output_expr null 2";
+                LOG(INFO) << "sout: set output_expr null 2, is_key="
+                          << _is_key_column(slot->col_name())
+                          << ", storage_no_merge=" << _storage_no_merge();
                 output_expr = nullptr;
                 return Status::OK();
             } else {
