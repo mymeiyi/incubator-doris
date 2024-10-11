@@ -330,12 +330,14 @@ Status BetaRowsetReader::_init_iterator() {
         _iterator = vectorized::new_merge_iterator(
                 std::move(iterators), sequence_loc, _read_context->is_unique,
                 _read_context->read_orderby_key_reverse, _read_context->merged_rows);
+        LOG(INFO) << "sout: new_merge_iterator in BetaRowsetReader";
     } else {
         if (_read_context->read_orderby_key_reverse) {
             // reverse iterators to read backward for ORDER BY key DESC
             std::reverse(iterators.begin(), iterators.end());
         }
         _iterator = vectorized::new_union_iterator(std::move(iterators));
+        LOG(INFO) << "sout: new_union_iterator in BetaRowsetReader";
     }
 
     auto s = _iterator->init(_read_options);
