@@ -151,7 +151,8 @@ Status NewOlapScanner::init() {
         if (olap_scan_node.__isset.schema_version && olap_scan_node.__isset.columns_desc &&
             !olap_scan_node.columns_desc.empty() &&
             olap_scan_node.columns_desc[0].col_unique_id >= 0 &&
-            tablet->tablet_schema()->num_variant_columns() == 0) {
+            tablet->tablet_schema()->num_variant_columns() == 0 &&
+            !(tablet->enable_unique_key_merge_on_write() && _state->query_mow_in_mor())) {
             schema_key =
                     SchemaCache::get_schema_key(tablet->tablet_id(), olap_scan_node.columns_desc,
                                                 olap_scan_node.schema_version);
@@ -159,7 +160,9 @@ Status NewOlapScanner::init() {
         }
         if (cached_schema) {
             tablet_schema = cached_schema;
+            LOG(INFO) << "sout: use cached schema for tablet=" << tablet->tablet_id();
         } else {
+            LOG(INFO) << "sout: copy schema for tablet=" << tablet->tablet_id();
             tablet_schema = std::make_shared<TabletSchema>();
             tablet_schema->copy_from(*tablet->tablet_schema());
             if (olap_scan_node.__isset.columns_desc && !olap_scan_node.columns_desc.empty() &&
@@ -178,6 +181,15 @@ Status NewOlapScanner::init() {
             }
             if (olap_scan_node.__isset.indexes_desc) {
                 tablet_schema->update_indexes_from_thrift(olap_scan_node.indexes_desc);
+            }
+            if (tablet->enable_unique_key_merge_on_write() && _state->query_mow_in_mor()) {
+                auto delete_sign_idx = tablet_schema->delete_sign_idx();
+                if (delete_sign_idx != -1) {
+                    tablet_schema->mutable_column(delete_sign_idx)
+                            .set_aggregation_method(
+                                    FieldAggregationMethod::OLAP_FIELD_AGGREGATION_REPLACE);
+                    LOG(INFO) << "sout: delete sign col idx=" << delete_sign_idx << ", set replace";
+                }
             }
         }
 
