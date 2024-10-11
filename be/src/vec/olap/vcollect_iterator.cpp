@@ -201,6 +201,9 @@ Status VCollectIterator::build_heap(std::vector<RowsetReaderSharedPtr>& rs_reade
 bool VCollectIterator::LevelIteratorComparator::operator()(LevelIterator* lhs, LevelIterator* rhs) {
     const IteratorRowRef& lhs_ref = *lhs->current_row_ref();
     const IteratorRowRef& rhs_ref = *rhs->current_row_ref();
+    // CHECK(lhs->tablet_schema() == nullptr);
+    CHECK(lhs != nullptr);
+    CHECK(rhs != nullptr);
 
     int cmp_res = UNLIKELY(lhs->compare_columns())
                           ? lhs_ref.compare(rhs_ref, lhs->compare_columns())
