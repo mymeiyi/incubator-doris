@@ -219,6 +219,7 @@ Status Segment::new_iterator(SchemaSPtr schema, const StorageReadOptions& read_o
         if (!reader || !reader->has_zone_map()) {
             continue;
         }
+        LOG(INFO) << "sout: column_id: " << column_id << ", has predicate";
         if (read_options.col_id_to_predicates.contains(column_id) &&
             can_apply_predicate_safely(column_id,
                                        read_options.col_id_to_predicates.at(column_id).get(),
