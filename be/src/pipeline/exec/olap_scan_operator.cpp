@@ -228,6 +228,8 @@ Status OlapScanLocalState::_should_push_down_function_filter(vectorized::Vectori
 }
 
 bool OlapScanLocalState::_should_push_down_common_expr() {
+    LOG(INFO) << "sout: enable_common_expr_pushdown()=" << state()->enable_common_expr_pushdown()
+              << ", _storage_no_merge()=" << _storage_no_merge();
     return state()->enable_common_expr_pushdown() && _storage_no_merge();
 }
 
@@ -236,7 +238,7 @@ bool OlapScanLocalState::_storage_no_merge() {
     return (p._olap_scan_node.keyType == TKeysType::DUP_KEYS ||
             (p._olap_scan_node.keyType == TKeysType::UNIQUE_KEYS &&
              p._olap_scan_node.__isset.enable_unique_key_merge_on_write &&
-             p._olap_scan_node.enable_unique_key_merge_on_write));
+             p._olap_scan_node.enable_unique_key_merge_on_write && !state()->query_mow_in_mor()));
 }
 
 Status OlapScanLocalState::_init_scanners(std::list<vectorized::VScannerSPtr>* scanners) {
