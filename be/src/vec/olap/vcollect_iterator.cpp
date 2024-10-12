@@ -202,8 +202,12 @@ bool VCollectIterator::LevelIteratorComparator::operator()(LevelIterator* lhs, L
     const IteratorRowRef& lhs_ref = *lhs->current_row_ref();
     const IteratorRowRef& rhs_ref = *rhs->current_row_ref();
     // CHECK(lhs->tablet_schema() == nullptr);
-    CHECK(lhs != nullptr);
-    CHECK(rhs != nullptr);
+    // CHECK(lhs != nullptr);
+    // CHECK(rhs != nullptr);
+    LOG(INFO) << "sout: compare_columns is null=" << (lhs->compare_columns() == nullptr)
+              << ", left block=\n"
+              << lhs_ref.block->dump_data(0);
+    LOG(INFO) << "sout: right block=\n" << rhs_ref.block->dump_data(0);
 
     int cmp_res = UNLIKELY(lhs->compare_columns())
                           ? lhs_ref.compare(rhs_ref, lhs->compare_columns())
