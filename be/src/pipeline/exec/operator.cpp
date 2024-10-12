@@ -173,11 +173,13 @@ Status OperatorXBase::init(const TPlanNode& tnode, RuntimeState* /*state*/) {
         vectorized::VExprContextSPtr context;
         RETURN_IF_ERROR(vectorized::VExpr::create_expr_tree(tnode.vconjunct, context));
         _conjuncts.emplace_back(context);
+        LOG(INFO) << "sout: add a vconjunct";
     } else if (tnode.__isset.conjuncts) {
         for (auto& conjunct : tnode.conjuncts) {
             vectorized::VExprContextSPtr context;
             RETURN_IF_ERROR(vectorized::VExpr::create_expr_tree(conjunct, context));
             _conjuncts.emplace_back(context);
+            LOG(INFO) << "sout: add a conjunct";
         }
     }
 
@@ -486,6 +488,7 @@ Status PipelineXLocalState<SharedStateArg>::init(RuntimeState* state, LocalState
 template <typename SharedStateArg>
 Status PipelineXLocalState<SharedStateArg>::open(RuntimeState* state) {
     _conjuncts.resize(_parent->_conjuncts.size());
+    LOG(INFO) << "sout: conjuncts size:" << _conjuncts.size();
     _projections.resize(_parent->_projections.size());
     for (size_t i = 0; i < _conjuncts.size(); i++) {
         RETURN_IF_ERROR(_parent->_conjuncts[i]->clone(state, _conjuncts[i]));

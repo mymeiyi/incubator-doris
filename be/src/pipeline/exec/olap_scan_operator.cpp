@@ -155,15 +155,19 @@ Status OlapScanLocalState::_init_profile() {
 
 Status OlapScanLocalState::_process_conjuncts(RuntimeState* state) {
     SCOPED_TIMER(_process_conjunct_timer);
+    LOG(INFO) << "sout: _conjuncts 0=" << _conjuncts.size();
     RETURN_IF_ERROR(ScanLocalState::_process_conjuncts(state));
+    LOG(INFO) << "sout: _conjuncts 1=" << _conjuncts.size();
     if (ScanLocalState::_eos) {
         return Status::OK();
     }
     RETURN_IF_ERROR(_build_key_ranges_and_filters());
+    LOG(INFO) << "sout: _conjuncts 2=" << _conjuncts.size();
     return Status::OK();
 }
 
 bool OlapScanLocalState::_is_key_column(const std::string& key_name) {
+    // TODO
     auto& p = _parent->cast<OlapScanOperatorX>();
     // all column in dup_keys table or unique_keys with merge on write table olap scan node threat
     // as key column
@@ -224,15 +228,20 @@ Status OlapScanLocalState::_should_push_down_function_filter(vectorized::Vectori
 }
 
 bool OlapScanLocalState::_should_push_down_common_expr() {
+    LOG(INFO) << "sout: enable_common_expr_pushdown()=" << state()->enable_common_expr_pushdown()
+              << ", _storage_no_merge()=" << _storage_no_merge();
     return state()->enable_common_expr_pushdown() && _storage_no_merge();
 }
 
 bool OlapScanLocalState::_storage_no_merge() {
     auto& p = _parent->cast<OlapScanOperatorX>();
-    return (p._olap_scan_node.keyType == TKeysType::DUP_KEYS ||
+    auto r = (p._olap_scan_node.keyType == TKeysType::DUP_KEYS ||
             (p._olap_scan_node.keyType == TKeysType::UNIQUE_KEYS &&
              p._olap_scan_node.__isset.enable_unique_key_merge_on_write &&
              p._olap_scan_node.enable_unique_key_merge_on_write && !state()->query_mow_in_mor()));
+    LOG(INFO) << "sout: _storage_no_merge=" << r
+              << ", query_mow_in_mor=" << state()->query_mow_in_mor();
+    return r;
 }
 
 Status OlapScanLocalState::_init_scanners(std::list<vectorized::VScannerSPtr>* scanners) {
@@ -527,6 +536,7 @@ Status OlapScanLocalState::_build_key_ranges_and_filters() {
             _scan_dependency->set_ready();
         }
 
+        LOG(INFO) << "sout: _olap_filters 0=" << _olap_filters.size();
         for (auto& iter : _colname_to_value_range) {
             std::vector<TCondition> filters;
             std::visit([&](auto&& range) { range.to_olap_filter(filters); }, iter.second);
@@ -535,6 +545,7 @@ Status OlapScanLocalState::_build_key_ranges_and_filters() {
                 _olap_filters.push_back(filter);
             }
         }
+        LOG(INFO) << "sout: _olap_filters 1=" << _olap_filters.size();
 
         // Append value ranges in "_not_in_value_ranges"
         for (auto& range : _not_in_value_ranges) {

@@ -49,6 +49,7 @@ Status VScanner::prepare(RuntimeState* state, const VExprContextSPtrs& conjuncts
             RETURN_IF_ERROR(conjuncts[i]->clone(state, _conjuncts[i]));
         }
     }
+    LOG(INFO) << "sout: prepare _conjuncts=" << _conjuncts.size();
 
     const auto& projections = _local_state->_projections;
     if (!projections.empty()) {
@@ -122,6 +123,7 @@ Status VScanner::get_block(RuntimeState* state, Block* block, bool* eof) {
                     block->erase_tmp_columns();
                     break;
                 }
+                LOG(INFO) << "sout: get_block=\n" << block->dump_data(0);
                 _num_rows_read += block->rows();
                 _num_byte_read += block->allocated_bytes();
             }
@@ -131,6 +133,7 @@ Status VScanner::get_block(RuntimeState* state, Block* block, bool* eof) {
                 auto* timer = _local_state->_filter_timer;
                 SCOPED_TIMER(timer);
                 RETURN_IF_ERROR(_filter_output_block(block));
+                LOG(INFO) << "sout: after filter block=\n" << block->dump_data(0);
             }
             // record rows return (after filter) for _limit check
             _num_rows_return += block->rows();
@@ -162,6 +165,7 @@ Status VScanner::_filter_output_block(Block* block) {
         return Status::OK();
     }
     auto old_rows = block->rows();
+    LOG(INFO) << "sout: _conjuncts size=" << _conjuncts.size();
     Status st = VExprContext::filter_block(_conjuncts, block, block->columns());
     _counter.num_rows_unselected += old_rows - block->rows();
     return st;
@@ -235,7 +239,9 @@ Status VScanner::try_append_late_arrival_runtime_filter() {
     }
     // Notice that the number of runtime filters may be larger than _applied_rf_num.
     // But it is ok because it will be updated at next time.
+    LOG(INFO) << "sout: _conjuncts 0=" << _conjuncts.size();
     RETURN_IF_ERROR(_local_state->clone_conjunct_ctxs(_conjuncts));
+    LOG(INFO) << "sout: _conjuncts 1=" << _conjuncts.size();
     _applied_rf_num = arrived_rf_num;
     return Status::OK();
 }

@@ -85,6 +85,7 @@ void VCollectIterator::init(TabletReader* reader, bool ori_data_overlapping, boo
         _merge = true;
     }
     _is_reverse = is_reverse;
+    LOG(INFO) << "sout: _merge=" << _merge << ", tablet=" << reader->tablet()->tablet_id();
 
     // use topn_next opt only for DUP_KEYS and UNIQUE_KEYS with MOW
     if (_reader->_reader_context.read_orderby_key_limit > 0 &&
@@ -200,6 +201,13 @@ Status VCollectIterator::build_heap(std::vector<RowsetReaderSharedPtr>& rs_reade
 bool VCollectIterator::LevelIteratorComparator::operator()(LevelIterator* lhs, LevelIterator* rhs) {
     const IteratorRowRef& lhs_ref = *lhs->current_row_ref();
     const IteratorRowRef& rhs_ref = *rhs->current_row_ref();
+    // CHECK(lhs->tablet_schema() == nullptr);
+    // CHECK(lhs != nullptr);
+    // CHECK(rhs != nullptr);
+    LOG(INFO) << "sout: compare_columns is null=" << (lhs->compare_columns() == nullptr)
+              << ", left block=\n"
+              << lhs_ref.block->dump_data(0);
+    LOG(INFO) << "sout: right block=\n" << rhs_ref.block->dump_data(0);
 
     int cmp_res = UNLIKELY(lhs->compare_columns())
                           ? lhs_ref.compare(rhs_ref, lhs->compare_columns())
@@ -213,6 +221,7 @@ bool VCollectIterator::LevelIteratorComparator::operator()(LevelIterator* lhs, L
                 lhs_ref.row_pos, rhs_ref.row_pos,
                 *(rhs_ref.block->get_by_position(_sequence).column), -1);
     }
+    LOG(INFO) << "sout: _sequence=" << _sequence;
 
     // if row cursors equal, compare data version.
     // read data from higher version to lower version.
@@ -555,6 +564,7 @@ Status VCollectIterator::Level0Iterator::next(Block* block) {
     if (_ref.row_pos <= 0 && _ref.block != nullptr && UNLIKELY(_ref.block->rows() > 0)) {
         block->swap(*_ref.block);
         _ref.reset();
+        LOG(INFO) << "sout: l0 read block 0=\n" << block->dump_data(0);
         return Status::OK();
     } else {
         if (_rs_reader == nullptr) {
@@ -570,6 +580,7 @@ Status VCollectIterator::Level0Iterator::next(Block* block) {
         if (UNLIKELY(_reader->_reader_context.record_rowids)) {
             RETURN_IF_ERROR(_rs_reader->current_block_row_locations(&_block_row_locations));
         }
+        LOG(INFO) << "sout: l0 read block 1=\n" << block->dump_data(0);
         return Status::OK();
     }
 }
@@ -671,6 +682,8 @@ Status VCollectIterator::Level1Iterator::init(bool get_data_by_ref) {
             }
         }
         _heap = std::make_unique<MergeHeap>(LevelIteratorComparator(sequence_loc, _is_reverse));
+        LOG(INFO) << "sout: sequence_loc=" << sequence_loc
+                  << ", _reader->_sequence_col_idx=" << _reader->_sequence_col_idx;
         for (auto&& child : _children) {
             DCHECK(child != nullptr);
             //DCHECK(child->current_row().ok());
@@ -788,6 +801,7 @@ Status VCollectIterator::Level1Iterator::_merge_next(Block* block) {
     SCOPED_RAW_TIMER(&_reader->_stats.collect_iterator_merge_next_timer);
     int target_block_row = 0;
     auto target_columns = block->mutate_columns();
+    LOG(INFO) << "sout: block column size=" << target_columns.size();
     size_t column_count = target_columns.size();
     IteratorRowRef cur_row = _ref;
     IteratorRowRef pre_row_ref = _ref;
@@ -828,6 +842,7 @@ Status VCollectIterator::Level1Iterator::_merge_next(Block* block) {
                 _block_row_locations.resize(target_block_row);
             }
             block->set_columns(std::move(target_columns));
+            LOG(INFO) << "sout: l1 read block 0=\n" << block->dump_data(0);
             return res;
         }
 
@@ -845,6 +860,7 @@ Status VCollectIterator::Level1Iterator::_merge_next(Block* block) {
                 }
             }
             block->set_columns(std::move(target_columns));
+            LOG(INFO) << "sout: l1 read block 1=\n" << block->dump_data(0);
             return Status::OK();
         }
         if (continuous_row_in_block == 0) {

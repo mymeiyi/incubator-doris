@@ -219,6 +219,7 @@ Status Segment::new_iterator(SchemaSPtr schema, const StorageReadOptions& read_o
         if (!reader || !reader->has_zone_map()) {
             continue;
         }
+        LOG(INFO) << "sout: column_id: " << column_id << ", has predicate";
         if (read_options.col_id_to_predicates.contains(column_id) &&
             can_apply_predicate_safely(column_id,
                                        read_options.col_id_to_predicates.at(column_id).get(),
@@ -226,6 +227,7 @@ Status Segment::new_iterator(SchemaSPtr schema, const StorageReadOptions& read_o
             !reader->match_condition(entry.second.get())) {
             // any condition not satisfied, return.
             iter->reset(new EmptySegmentIterator(*schema));
+            LOG(INFO) << "sout: new EmptySegmentIterator";
             read_options.stats->filtered_segment_number++;
             return Status::OK();
         }
@@ -248,6 +250,7 @@ Status Segment::new_iterator(SchemaSPtr schema, const StorageReadOptions& read_o
                 !_column_readers.at(uid)->match_condition(&and_predicate)) {
                 // any condition not satisfied, return.
                 *iter = std::make_unique<EmptySegmentIterator>(*schema);
+                LOG(INFO) << "sout: new EmptySegmentIterator 1";
                 read_options.stats->filtered_segment_number++;
                 return Status::OK();
             }
@@ -259,8 +262,10 @@ Status Segment::new_iterator(SchemaSPtr schema, const StorageReadOptions& read_o
         read_options.push_down_agg_type_opt != TPushAggOp::NONE &&
         read_options.push_down_agg_type_opt != TPushAggOp::COUNT_ON_INDEX) {
         iter->reset(vectorized::new_vstatistics_iterator(this->shared_from_this(), *schema));
+        LOG(INFO) << "sout: new_vstatistics_iterator";
     } else {
         *iter = std::make_unique<SegmentIterator>(this->shared_from_this(), schema);
+        LOG(INFO) << "sout: new SegmentIterator";
     }
 
     if (config::ignore_always_true_predicate_for_segment &&

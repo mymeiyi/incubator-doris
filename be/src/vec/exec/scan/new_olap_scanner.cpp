@@ -160,7 +160,9 @@ Status NewOlapScanner::init() {
         }
         if (cached_schema) {
             tablet_schema = cached_schema;
+            LOG(INFO) << "sout: use cached schema for tablet=" << tablet->tablet_id();
         } else {
+            LOG(INFO) << "sout: copy schema for tablet=" << tablet->tablet_id();
             tablet_schema = std::make_shared<TabletSchema>();
             tablet_schema->copy_from(*tablet->tablet_schema());
             if (olap_scan_node.__isset.columns_desc && !olap_scan_node.columns_desc.empty() &&
@@ -186,6 +188,10 @@ Status NewOlapScanner::init() {
                     tablet_schema->mutable_column(delete_sign_idx)
                             .set_aggregation_method(
                                     FieldAggregationMethod::OLAP_FIELD_AGGREGATION_REPLACE);
+                    LOG(INFO) << "sout: delete sign col idx=" << delete_sign_idx
+                              << ", set replace, is_replace="
+                              << (tablet_schema->column(delete_sign_idx).aggregation() ==
+                                  FieldAggregationMethod::OLAP_FIELD_AGGREGATION_REPLACE);
                 }
             }
         }
@@ -362,6 +368,8 @@ Status NewOlapScanner::_init_tablet_reader_params(
 
     if (_tablet_reader_params.direct_mode) {
         _tablet_reader_params.return_columns = _return_columns;
+        LOG(INFO) << "sout: set return_columns 0="
+                  << read_columns_to_string(tablet_schema, _return_columns);
     } else {
         // we need to fetch all key columns to do the right aggregation on storage engine side.
         for (size_t i = 0; i < tablet_schema->num_key_columns(); ++i) {
@@ -390,6 +398,8 @@ Status NewOlapScanner::_init_tablet_reader_params(
                 _tablet_reader_params.return_columns.push_back(sequence_col_idx);
             }
         }
+        LOG(INFO) << "sout: set return_columns 1="
+                  << read_columns_to_string(tablet_schema, _tablet_reader_params.return_columns);
     }
 
     _tablet_reader_params.use_page_cache = _state->enable_page_cache();
@@ -398,6 +408,9 @@ Status NewOlapScanner::_init_tablet_reader_params(
         _tablet_reader_params.query_mow_in_mor = _state->query_mow_in_mor();
         if (!(_state->skip_delete_bitmap() || _state->query_mow_in_mor())) {
             _tablet_reader_params.delete_bitmap = &tablet->tablet_meta()->delete_bitmap();
+            LOG(INFO) << "sout: set delete bitmap, tablet=" << tablet->tablet_id();
+        } else {
+            LOG(INFO) << "sout: skip set delete bitmap, tablet=" << tablet->tablet_id();
         }
     }
 

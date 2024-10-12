@@ -257,6 +257,10 @@ Status TabletReader::_capture_rs_readers(const ReaderParams& read_params) {
     _reader_context.merged_rows = &_merged_rows;
     _reader_context.delete_bitmap = read_params.delete_bitmap;
     _reader_context.query_mow_in_mor = read_params.query_mow_in_mor;
+    LOG(INFO) << "sout: need_ordered_result=" << need_ordered_result
+              << ", query_mow_in_mor=" << read_params.query_mow_in_mor
+              << ", tablet=" << _tablet->tablet_id() << ", _aggregation=" << _aggregation
+              << ", _direct_mode=" << _direct_mode << ", _sequence_col_idx=" << _sequence_col_idx;
     _reader_context.enable_unique_key_merge_on_write = tablet()->enable_unique_key_merge_on_write();
     _reader_context.record_rowids = read_params.record_rowids;
     _reader_context.is_key_column_group = read_params.is_key_column_group;
@@ -321,14 +325,19 @@ Status TabletReader::_init_params(const ReaderParams& read_params) {
     }
     if (_tablet_schema->has_sequence_col()) {
         auto sequence_col_idx = _tablet_schema->sequence_col_idx();
+        LOG(INFO) << "sout: get sequence_col_idx=" << sequence_col_idx;
         DCHECK_NE(sequence_col_idx, -1);
         for (auto col : _return_columns) {
+            LOG(INFO) << "sout: _return_column=" << col;
             // query has sequence col
             if (col == sequence_col_idx) {
                 _sequence_col_idx = sequence_col_idx;
+                LOG(INFO) << "sout: set _sequence_col_idx=" << _sequence_col_idx;
                 break;
             }
         }
+    } else {
+        LOG(INFO) << "sout: skip set sequence_col_idx";
     }
 
     return res;
@@ -509,6 +518,7 @@ Status TabletReader::_init_conditions_param(const ReaderParams& read_params) {
         predicate_params->marked_by_runtime_filter = condition.marked_by_runtime_filter;
         predicates.push_back(predicate);
     }
+    LOG(INFO) << "sout: predicates 0=" << predicates.size();
 
     // Only key column bloom filter will push down to storage engine
     for (const auto& filter : read_params.bloom_filters) {
@@ -516,18 +526,21 @@ Status TabletReader::_init_conditions_param(const ReaderParams& read_params) {
         predicate->predicate_params()->marked_by_runtime_filter = true;
         predicates.emplace_back(predicate);
     }
+    LOG(INFO) << "sout: predicates 1=" << predicates.size();
 
     for (const auto& filter : read_params.bitmap_filters) {
         ColumnPredicate* predicate = _parse_to_predicate(filter);
         predicate->predicate_params()->marked_by_runtime_filter = true;
         predicates.emplace_back(predicate);
     }
+    LOG(INFO) << "sout: predicates 2=" << predicates.size();
 
     for (const auto& filter : read_params.in_filters) {
         ColumnPredicate* predicate = _parse_to_predicate(filter);
         predicate->predicate_params()->marked_by_runtime_filter = true;
         predicates.emplace_back(predicate);
     }
+    LOG(INFO) << "sout: predicates 3=" << predicates.size();
 
     // Function filter push down to storage engine
     auto is_like_predicate = [](ColumnPredicate* _pred) {
@@ -557,13 +570,16 @@ Status TabletReader::_init_conditions_param(const ReaderParams& read_params) {
             }
         }
     }
+    LOG(INFO) << "sout: predicates 4=" << predicates.size();
 
     for (auto* predicate : predicates) {
         auto column = _tablet_schema->column(predicate->column_id());
         if (column.aggregation() != FieldAggregationMethod::OLAP_FIELD_AGGREGATION_NONE) {
             _value_col_predicates.push_back(predicate);
+            LOG(INFO) << "sout: add a value col predicate=" << predicate->debug_string();
         } else {
             _col_predicates.push_back(predicate);
+            LOG(INFO) << "sout: add a col predicate=" << predicate->debug_string();
         }
     }
 

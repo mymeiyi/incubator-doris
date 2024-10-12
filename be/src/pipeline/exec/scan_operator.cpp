@@ -188,12 +188,15 @@ Status ScanLocalState<Derived>::_normalize_conjuncts(RuntimeState* state) {
 
     RETURN_IF_ERROR(_get_topn_filters(state));
 
+    LOG(INFO) << "sout: begin handle conjuncts=" << _conjuncts.size();
     for (auto it = _conjuncts.begin(); it != _conjuncts.end();) {
         auto& conjunct = *it;
         if (conjunct->root()) {
+            LOG(INFO) << "sout: handle conjuncts 0=" << _conjuncts.size();
             vectorized::VExprSPtr new_root;
             RETURN_IF_ERROR(_normalize_predicate(conjunct->root(), conjunct.get(), new_root));
             if (new_root) {
+                LOG(INFO) << "sout: handle conjuncts 1=" << _conjuncts.size();
                 conjunct->set_root(new_root);
                 if (_should_push_down_common_expr() &&
                     vectorized::VExpr::is_acting_on_a_slot(*(conjunct->root()))) {
@@ -202,6 +205,7 @@ Status ScanLocalState<Derived>::_normalize_conjuncts(RuntimeState* state) {
                     continue;
                 }
             } else { // All conjuncts are pushed down as predicate column
+                LOG(INFO) << "sout: handle conjuncts 2=" << _conjuncts.size();
                 _stale_expr_ctxs.emplace_back(conjunct);
                 it = _conjuncts.erase(it);
                 continue;
@@ -271,6 +275,7 @@ Status ScanLocalState<Derived>::_normalize_predicate(
             PushDownType pdt = PushDownType::UNACCEPTABLE;
             RETURN_IF_ERROR(_eval_const_conjuncts(cur_expr, context, &pdt));
             if (pdt == PushDownType::ACCEPTABLE) {
+                LOG(INFO) << "sout: set output_expr null";
                 output_expr = nullptr;
                 return Status::OK();
             }
@@ -286,6 +291,7 @@ Status ScanLocalState<Derived>::_normalize_predicate(
             }
             if (_is_predicate_acting_on_slot(cur_expr, in_predicate_checker, &slot, &range) ||
                 _is_predicate_acting_on_slot(cur_expr, eq_predicate_checker, &slot, &range)) {
+                LOG(INFO) << "sout: _is_predicate_acting_on_slot";
                 Status status = Status::OK();
                 std::visit(
                         [&](auto& value_range) {
@@ -326,17 +332,22 @@ Status ScanLocalState<Derived>::_normalize_predicate(
                 slotref->type().is_variant_type()) {
                 // remaining it in the expr tree, in order to filter by function if the pushdown
                 // predicate is not applied
+                LOG(INFO) << "sout: set output_expr 1";
                 output_expr = conjunct_expr_root; // remaining in conjunct tree
                 return Status::OK();
             }
 
             if (pdt == PushDownType::ACCEPTABLE &&
                 (_is_key_column(slot->col_name()) || _storage_no_merge())) {
+                LOG(INFO) << "sout: set output_expr null 2, is_key="
+                          << _is_key_column(slot->col_name())
+                          << ", storage_no_merge=" << _storage_no_merge();
                 output_expr = nullptr;
                 return Status::OK();
             } else {
                 // for PARTIAL_ACCEPTABLE and UNACCEPTABLE, do not remove expr from the tree
                 output_expr = conjunct_expr_root;
+                LOG(INFO) << "sout: set output_expr 2";
                 return Status::OK();
             }
         } else {
@@ -350,6 +361,7 @@ Status ScanLocalState<Derived>::_normalize_predicate(
             if (left_child != nullptr && right_child != nullptr) {
                 conjunct_expr_root->set_children({left_child, right_child});
                 output_expr = conjunct_expr_root;
+                LOG(INFO) << "sout: set output_expr 3";
                 return Status::OK();
             } else {
                 if (left_child == nullptr) {
@@ -367,9 +379,11 @@ Status ScanLocalState<Derived>::_normalize_predicate(
 
             // here do not close VExpr* now
             output_expr = left_child != nullptr ? left_child : right_child;
+            LOG(INFO) << "sout: set output_expr, is_null=" << (output_expr == nullptr);
             return Status::OK();
         }
     }
+    LOG(INFO) << "sout: set output_expr 4";
     output_expr = conjunct_expr_root;
     return Status::OK();
 }

@@ -139,6 +139,8 @@ Status BetaRowsetReader::get_segment_iterators(RowsetReaderContext* read_context
         _read_options.column_predicates.insert(_read_options.column_predicates.end(),
                                                _read_context->predicates->begin(),
                                                _read_context->predicates->end());
+        LOG(INFO) << "sout: predicates, size=" << _read_context->predicates->size()
+                  << ", tablet_id=" << _read_options.tablet_id;
         for (auto pred : *(_read_context->predicates)) {
             if (_read_options.col_id_to_predicates.count(pred->column_id()) < 1) {
                 _read_options.col_id_to_predicates.insert(
@@ -146,6 +148,8 @@ Status BetaRowsetReader::get_segment_iterators(RowsetReaderContext* read_context
             }
             _read_options.col_id_to_predicates[pred->column_id()]->add_column_predicate(
                     SingleColumnBlockPredicate::create_unique(pred));
+            LOG(INFO) << "sout: RowsetReader add_column_predicate, column_id=" << pred->column_id()
+                      << ", predicate=" << pred->debug_string();
         }
     }
 
@@ -168,6 +172,9 @@ Status BetaRowsetReader::get_segment_iterators(RowsetReaderContext* read_context
 
     if (_should_push_down_value_predicates()) {
         if (_read_context->value_predicates != nullptr) {
+            LOG(INFO) << "sout: push down value predicates, size="
+                      << _read_context->value_predicates->size()
+                      << ", tablet_id=" << _read_options.tablet_id;
             _read_options.column_predicates.insert(_read_options.column_predicates.end(),
                                                    _read_context->value_predicates->begin(),
                                                    _read_context->value_predicates->end());
@@ -178,8 +185,13 @@ Status BetaRowsetReader::get_segment_iterators(RowsetReaderContext* read_context
                 }
                 _read_options.col_id_to_predicates[pred->column_id()]->add_column_predicate(
                         SingleColumnBlockPredicate::create_unique(pred));
+                LOG(INFO) << "sout: RowsetReader add_column_predicate 2, column_id="
+                          << pred->column_id() << ", predicate=" << pred->debug_string();
             }
         }
+    } else {
+        LOG(INFO) << "sout: not push down value predicates, tablet_id=" << _read_options.tablet_id
+                  << ", size=" << _read_context->value_predicates->size();
     }
     _read_options.use_page_cache = _read_context->use_page_cache;
     _read_options.tablet_schema = _read_context->tablet_schema;
@@ -258,12 +270,15 @@ Status BetaRowsetReader::get_segment_iterators(RowsetReaderContext* read_context
                 _read_options.row_ranges.clear();
                 iter = std::make_unique<LazyInitSegmentIterator>(seg_ptr, _input_schema,
                                                                  _read_options);
+                LOG(INFO) << "sout: new LazyInitSegmentIterator 0";
             } else {
                 DCHECK_EQ(seg_end - seg_start, _segment_row_ranges.size());
                 auto local_options = _read_options;
                 local_options.row_ranges = _segment_row_ranges[i - seg_start];
+                LOG(INFO) << "sout: row_range=" << local_options.row_ranges.to_string();
                 iter = std::make_unique<LazyInitSegmentIterator>(seg_ptr, _input_schema,
                                                                  local_options);
+                LOG(INFO) << "sout: new LazyInitSegmentIterator 1";
             }
         } else {
             Status status;
@@ -271,11 +286,13 @@ Status BetaRowsetReader::get_segment_iterators(RowsetReaderContext* read_context
             if (_segment_row_ranges.empty()) {
                 _read_options.row_ranges.clear();
                 status = seg_ptr->new_iterator(_input_schema, _read_options, &iter);
+                LOG(INFO) << "sout: seg_ptr->new_iterator 0";
             } else {
                 DCHECK_EQ(seg_end - seg_start, _segment_row_ranges.size());
                 auto local_options = _read_options;
                 local_options.row_ranges = _segment_row_ranges[i - seg_start];
                 status = seg_ptr->new_iterator(_input_schema, local_options, &iter);
+                LOG(INFO) << "sout: seg_ptr->new_iterator 1";
             }
 
             if (!status.ok()) {
@@ -327,12 +344,14 @@ Status BetaRowsetReader::_init_iterator() {
         _iterator = vectorized::new_merge_iterator(
                 std::move(iterators), sequence_loc, _read_context->is_unique,
                 _read_context->read_orderby_key_reverse, _read_context->merged_rows);
+        LOG(INFO) << "sout: new_merge_iterator in BetaRowsetReader";
     } else {
         if (_read_context->read_orderby_key_reverse) {
             // reverse iterators to read backward for ORDER BY key DESC
             std::reverse(iterators.begin(), iterators.end());
         }
         _iterator = vectorized::new_union_iterator(std::move(iterators));
+        LOG(INFO) << "sout: new_union_iterator in BetaRowsetReader";
     }
 
     auto s = _iterator->init(_read_options);
@@ -361,6 +380,9 @@ Status BetaRowsetReader::next_block(vectorized::Block* block) {
         if (!s.ok()) {
             if (!s.is<END_OF_FILE>()) {
                 LOG(WARNING) << "failed to read next block: " << s.to_string();
+            } else {
+                LOG(INFO) << "sout: BetaRowsetReader::next_block, END_OF_FILE, rowset_id="
+                          << _rowset->rowset_id();
             }
             return s;
         }
@@ -369,7 +391,8 @@ Status BetaRowsetReader::next_block(vectorized::Block* block) {
             return runtime_state->cancel_reason();
         }
     } while (block->empty());
-
+    LOG(INFO) << "sout: BetaRowsetReader::next_block, rowset_id=" << _rowset->rowset_id()
+              << ", block=\n" << block->dump_data(0);
     return Status::OK();
 }
 
@@ -395,7 +418,7 @@ Status BetaRowsetReader::next_block_view(vectorized::BlockView* block_view) {
             return runtime_state->cancel_reason();
         }
     } while (block_view->empty());
-
+    LOG(INFO) << "sout: BetaRowsetReader::next_block_view";
     return Status::OK();
 }
 
