@@ -75,7 +75,7 @@ Status CloudEngineCalcDeleteBitmapTask::execute() {
         for (size_t i = 0; i < partition.tablet_ids.size(); i++) {
             auto tablet_id = partition.tablet_ids[i];
             auto tablet_calc_delete_bitmap_ptr = std::make_shared<CloudTabletCalcDeleteBitmapTask>(
-                    _engine, this, tablet_id, transaction_id, version);
+                    _engine, this, tablet_id, transaction_id, version, partition.sub_txn_ids);
             if (has_compaction_stats) {
                 tablet_calc_delete_bitmap_ptr->set_compaction_stats(
                         partition.base_compaction_cnts[i], partition.cumulative_compaction_cnts[i],
@@ -107,12 +107,13 @@ Status CloudEngineCalcDeleteBitmapTask::execute() {
 
 CloudTabletCalcDeleteBitmapTask::CloudTabletCalcDeleteBitmapTask(
         CloudStorageEngine& engine, CloudEngineCalcDeleteBitmapTask* engine_task, int64_t tablet_id,
-        int64_t transaction_id, int64_t version)
+        int64_t transaction_id, int64_t version, const std::vector<int64_t>& sub_txn_ids)
         : _engine(engine),
           _engine_calc_delete_bitmap_task(engine_task),
           _tablet_id(tablet_id),
           _transaction_id(transaction_id),
-          _version(version) {
+          _version(version),
+          _sub_txn_ids(sub_txn_ids) {
     _mem_tracker = MemTrackerLimiter::create_shared(
             MemTrackerLimiter::Type::OTHER,
             fmt::format("CloudTabletCalcDeleteBitmapTask#_transaction_id={}", _transaction_id));
@@ -189,6 +190,17 @@ Status CloudTabletCalcDeleteBitmapTask::handle() const {
         return error_st;
     }
 
+    Status status = _handle_one(tablet);
+    LOG(INFO) << "calculate delete bitmap successfully on tablet"
+              << ", table_id=" << tablet->table_id() << ", transaction_id=" << _transaction_id
+              << ", tablet_id=" << tablet->tablet_id()
+              << ", get_tablet_time_us=" << get_tablet_time_us
+              << ", sync_rowset_time_us=" << sync_rowset_time_us
+              << ", res=" << status;
+    return status;
+}
+
+Status CloudTabletCalcDeleteBitmapTask::_handle_one(std::shared_ptr<CloudTablet> tablet) const {
     RowsetSharedPtr rowset;
     DeleteBitmapPtr delete_bitmap;
     RowsetIdUnorderedSet rowset_ids;
@@ -246,8 +258,6 @@ Status CloudTabletCalcDeleteBitmapTask::handle() const {
     LOG(INFO) << "calculate delete bitmap successfully on tablet"
               << ", table_id=" << tablet->table_id() << ", transaction_id=" << _transaction_id
               << ", tablet_id=" << tablet->tablet_id() << ", num_rows=" << rowset->num_rows()
-              << ", get_tablet_time_us=" << get_tablet_time_us
-              << ", sync_rowset_time_us=" << sync_rowset_time_us
               << ", update_delete_bitmap_time_us=" << update_delete_bitmap_time_us
               << ", res=" << status;
     return status;
