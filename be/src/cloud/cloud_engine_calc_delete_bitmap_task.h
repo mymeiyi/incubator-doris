@@ -44,8 +44,8 @@ public:
     Status handle() const;
 
 private:
-    Status _handle_one(std::shared_ptr<CloudTablet> tablet, int64_t txn_id,
-                       int64_t sub_txn_id, int64_t version) const;
+    Status _handle_one(std::shared_ptr<CloudTablet> tablet, int64_t txn_id, int64_t sub_txn_id,
+                       int64_t version, std::vector<RowsetSharedPtr>& previous_rowsets) const;
 
     CloudStorageEngine& _engine;
     CloudEngineCalcDeleteBitmapTask* _engine_calc_delete_bitmap_task;
