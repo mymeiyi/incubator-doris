@@ -509,12 +509,17 @@ public class CloudGlobalTransactionMgr implements GlobalTransactionMgrIface {
         }
 
         final CommitTxnRequest commitTxnRequest = builder.build();
+        executeCommitTxnRequest(commitTxnRequest, transactionId, is2PC, txnCommitAttachment);
+    }
+
+    private void executeCommitTxnRequest(CommitTxnRequest commitTxnRequest, long transactionId, boolean is2PC,
+            TxnCommitAttachment txnCommitAttachment) throws UserException {
         boolean txnOperated = false;
         TransactionState txnState = null;
         TxnStateChangeCallback cb = null;
         long callbackId = 0L;
         try {
-            txnState = commitTxn(commitTxnRequest, transactionId, is2PC, dbId, tableList);
+            txnState = commitTxn(commitTxnRequest, transactionId, is2PC);
             txnOperated = true;
         } finally {
             if (txnCommitAttachment != null && txnCommitAttachment instanceof RLTaskTxnCommitAttachment) {
@@ -534,8 +539,7 @@ public class CloudGlobalTransactionMgr implements GlobalTransactionMgrIface {
         }
     }
 
-    private TransactionState commitTxn(CommitTxnRequest commitTxnRequest, long transactionId, boolean is2PC, long dbId,
-            List<Table> tableList) throws UserException {
+    private TransactionState commitTxn(CommitTxnRequest commitTxnRequest, long transactionId, boolean is2PC) throws UserException {
         CommitTxnResponse commitTxnResponse = null;
         TransactionState txnState = null;
         int retryTime = 0;
@@ -986,14 +990,44 @@ public class CloudGlobalTransactionMgr implements GlobalTransactionMgrIface {
                     "disable_load_job is set to true, all load jobs are not allowed");
         }
         LOG.info("try to commit transaction, txnId: {}, subTxnStates: {}", transactionId, subTransactionStates);
+
+        Preconditions.checkState(db instanceof Database);
+        List<Long> tableIdList = subTransactionStates.stream().map(s -> s.getTable().getId()).distinct()
+                .collect(Collectors.toList());
+        List<Table> tableList = ((Database) db).getTablesOnIdOrderOrThrowException(tableIdList);
+        beforeCommitTransaction(tableList, transactionId, timeoutMillis);
+        try {
+            commitTransaction(db.getId(), tableList, transactionId, subTransactionStates);
+        } finally {
+            decreaseWaitingLockCount(tableList);
+            MetaLockUtils.commitUnlockTables(tableList);
+        }
+        return true;
+    }
+
+    private void commitTransaction(long dbId, List<Table> tableList, long transactionId,
+            List<SubTransactionState> subTransactionStates) throws UserException {
+        List<OlapTable> mowTableList = getMowTableList(tableList);
+        if (/*tabletCommitInfos != null && !tabletCommitInfos.isEmpty() && */!mowTableList.isEmpty()) {
+            // TODO
+            // calcDeleteBitmapForMow(dbId, mowTableList, transactionId, subTransactionStates);
+        }
+
         cleanSubTransactions(transactionId);
         CommitTxnRequest.Builder builder = CommitTxnRequest.newBuilder();
-        builder.setDbId(db.getId())
+        builder.setDbId(dbId)
                 .setTxnId(transactionId)
                 .setIs2Pc(false)
                 .setCloudUniqueId(Config.cloud_unique_id)
                 .setIsTxnLoad(true)
                 .setEnableTxnLazyCommit(Config.enable_cloud_txn_lazy_commit);
+        // if tablet commit info is empty, no need to pass mowTableList to meta service.
+        // if (tabletCommitInfos != null && !tabletCommitInfos.isEmpty()) {
+        // TODO if table related commit info is empty, does ms hold lock?
+            for (OlapTable olapTable : mowTableList) {
+                builder.addMowTableIds(olapTable.getId());
+            }
+        // }
         // add sub txn infos
         for (SubTransactionState subTransactionState : subTransactionStates) {
             builder.addSubTxnInfos(SubTxnInfo.newBuilder().setSubTxnId(subTransactionState.getSubTransactionId())
@@ -1007,31 +1041,12 @@ public class CloudGlobalTransactionMgr implements GlobalTransactionMgrIface {
         }
 
         final CommitTxnRequest commitTxnRequest = builder.build();
-        TransactionState txnState = null;
-        boolean txnOperated = false;
-        try {
-            txnState = commitTxn(commitTxnRequest, transactionId, false, db.getId(),
-                    subTransactionStates.stream().map(SubTransactionState::getTable)
-                        .collect(Collectors.toList()));
-            txnOperated = true;
-        } finally {
-            if (txnState != null) {
-                TxnStateChangeCallback cb = callbackFactory.getCallback(txnState.getCallbackId());
-                if (cb != null) {
-                    LOG.info("commitTxn, run txn callback, transactionId:{} callbackId:{}, txnState:{}",
-                            txnState.getTransactionId(), txnState.getCallbackId(), txnState);
-                    cb.afterCommitted(txnState, txnOperated);
-                    cb.afterVisible(txnState, txnOperated);
-                }
-            }
-        }
-        return true;
+        executeCommitTxnRequest(commitTxnRequest, transactionId, false, null);
     }
 
-    @Override
-    public boolean commitAndPublishTransaction(DatabaseIf db, List<Table> tableList, long transactionId,
-                                               List<TabletCommitInfo> tabletCommitInfos, long timeoutMillis,
-                                               TxnCommitAttachment txnCommitAttachment) throws UserException {
+    // add some log and get commit lock, mainly used for mow tables
+    private void beforeCommitTransaction(List<Table> tableList, long transactionId, long timeoutMillis)
+            throws UserException {
         for (int i = 0; i < tableList.size(); i++) {
             long tableId = tableList.get(i).getId();
             LOG.info("start commit txn=" + transactionId + ",table=" + tableId);
@@ -1050,6 +1065,13 @@ public class CloudGlobalTransactionMgr implements GlobalTransactionMgrIface {
                     "get table cloud commit lock timeout, tableList=("
                             + StringUtils.join(tableList, ",") + ")");
         }
+    }
+
+    @Override
+    public boolean commitAndPublishTransaction(DatabaseIf db, List<Table> tableList, long transactionId,
+                                               List<TabletCommitInfo> tabletCommitInfos, long timeoutMillis,
+                                               TxnCommitAttachment txnCommitAttachment) throws UserException {
+        beforeCommitTransaction(tableList, transactionId, timeoutMillis);
         try {
             commitTransaction(db.getId(), tableList, transactionId, tabletCommitInfos, txnCommitAttachment);
         } finally {
