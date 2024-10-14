@@ -97,6 +97,7 @@ import org.apache.doris.task.CalcDeleteBitmapTask;
 import org.apache.doris.thrift.TCalcDeleteBitmapPartitionInfo;
 import org.apache.doris.thrift.TStatus;
 import org.apache.doris.thrift.TStatusCode;
+import org.apache.doris.thrift.TTabletCommitInfo;
 import org.apache.doris.thrift.TTaskType;
 import org.apache.doris.thrift.TUniqueId;
 import org.apache.doris.thrift.TWaitingTxnStatusRequest;
@@ -472,7 +473,7 @@ public class CloudGlobalTransactionMgr implements GlobalTransactionMgrIface {
 
         List<OlapTable> mowTableList = getMowTableList(tableList, tabletCommitInfos);
         if (!mowTableList.isEmpty()) {
-            calcDeleteBitmapForMow(dbId, mowTableList, transactionId, tabletCommitInfos);
+            calcDeleteBitmapForMow(dbId, mowTableList, transactionId, tabletCommitInfos, null);
         }
 
         CommitTxnRequest.Builder builder = CommitTxnRequest.newBuilder();
@@ -509,12 +510,17 @@ public class CloudGlobalTransactionMgr implements GlobalTransactionMgrIface {
         }
 
         final CommitTxnRequest commitTxnRequest = builder.build();
+        executeCommitTxnRequest(commitTxnRequest, transactionId, is2PC, txnCommitAttachment);
+    }
+
+    private void executeCommitTxnRequest(CommitTxnRequest commitTxnRequest, long transactionId, boolean is2PC,
+            TxnCommitAttachment txnCommitAttachment) throws UserException {
         boolean txnOperated = false;
         TransactionState txnState = null;
         TxnStateChangeCallback cb = null;
         long callbackId = 0L;
         try {
-            txnState = commitTxn(commitTxnRequest, transactionId, is2PC, dbId, tableList);
+            txnState = commitTxn(commitTxnRequest, transactionId, is2PC);
             txnOperated = true;
         } finally {
             if (txnCommitAttachment != null && txnCommitAttachment instanceof RLTaskTxnCommitAttachment) {
@@ -534,8 +540,7 @@ public class CloudGlobalTransactionMgr implements GlobalTransactionMgrIface {
         }
     }
 
-    private TransactionState commitTxn(CommitTxnRequest commitTxnRequest, long transactionId, boolean is2PC, long dbId,
-            List<Table> tableList) throws UserException {
+    private TransactionState commitTxn(CommitTxnRequest commitTxnRequest, long transactionId, boolean is2PC) throws UserException {
         CommitTxnResponse commitTxnResponse = null;
         TransactionState txnState = null;
         int retryTime = 0;
@@ -624,7 +629,7 @@ public class CloudGlobalTransactionMgr implements GlobalTransactionMgrIface {
     }
 
     private void calcDeleteBitmapForMow(long dbId, List<OlapTable> tableList, long transactionId,
-            List<TabletCommitInfo> tabletCommitInfos)
+            List<TabletCommitInfo> tabletCommitInfos, List<SubTransactionState> subTransactionStates)
             throws UserException {
         Map<Long, Map<Long, List<Long>>> backendToPartitionTablets = Maps.newHashMap();
         Map<Long, Partition> partitions = Maps.newHashMap();
@@ -637,6 +642,25 @@ public class CloudGlobalTransactionMgr implements GlobalTransactionMgrIface {
             throw new UserException("The partition info is empty, table may be dropped, txnid=" + transactionId);
         }
 
+        Map<Long, List<Long>> partitionToSubTxnIds = null;
+        if (subTransactionStates != null) {
+            partitionToSubTxnIds = Maps.newHashMap();
+            for (SubTransactionState subTransactionState : subTransactionStates) {
+                if (!tableToTabletList.containsKey(subTransactionState.getTable().getId())) {
+                    // skip non mow table
+                    continue;
+                }
+                for (TTabletCommitInfo ci : subTransactionState.getTabletCommitInfos()) {
+                    TabletMeta tabletMeta = tabletToTabletMeta.get(ci.getTabletId());
+                    long partitionId = tabletMeta.getPartitionId();
+                    List<Long> subTxnIds = partitionToSubTxnIds.computeIfAbsent(partitionId, k -> Lists.newArrayList());
+                    if (!subTxnIds.contains(subTransactionState.getSubTransactionId())) {
+                        subTxnIds.add(subTransactionState.getSubTransactionId());
+                    }
+                }
+            }
+        }
+
         Map<Long, Long> baseCompactionCnts = Maps.newHashMap();
         Map<Long, Long> cumulativeCompactionCnts = Maps.newHashMap();
         Map<Long, Long> cumulativePoints = Maps.newHashMap();
@@ -646,7 +670,7 @@ public class CloudGlobalTransactionMgr implements GlobalTransactionMgrIface {
 
         Map<Long, List<TCalcDeleteBitmapPartitionInfo>> backendToPartitionInfos = getCalcDeleteBitmapInfo(
                 backendToPartitionTablets, partitionVersions, baseCompactionCnts, cumulativeCompactionCnts,
-                        cumulativePoints);
+                        cumulativePoints, partitionToSubTxnIds);
         sendCalcDeleteBitmaptask(dbId, transactionId, backendToPartitionInfos);
     }
 
@@ -713,7 +737,7 @@ public class CloudGlobalTransactionMgr implements GlobalTransactionMgrIface {
     private Map<Long, List<TCalcDeleteBitmapPartitionInfo>> getCalcDeleteBitmapInfo(
             Map<Long, Map<Long, List<Long>>> backendToPartitionTablets, Map<Long, Long> partitionVersions,
                     Map<Long, Long> baseCompactionCnts, Map<Long, Long> cumulativeCompactionCnts,
-                            Map<Long, Long> cumulativePoints) {
+                            Map<Long, Long> cumulativePoints, Map<Long, List<Long>> partitionToSubTxnIds) {
         Map<Long, List<TCalcDeleteBitmapPartitionInfo>> backendToPartitionInfos = Maps.newHashMap();
         for (Map.Entry<Long, Map<Long, List<Long>>> entry : backendToPartitionTablets.entrySet()) {
             List<TCalcDeleteBitmapPartitionInfo> partitionInfos = Lists.newArrayList();
@@ -736,6 +760,13 @@ public class CloudGlobalTransactionMgr implements GlobalTransactionMgrIface {
                     partitionInfo.setBaseCompactionCnts(reqBaseCompactionCnts);
                     partitionInfo.setCumulativeCompactionCnts(reqCumulativeCompactionCnts);
                     partitionInfo.setCumulativePoints(reqCumulativePoints);
+                    if (partitionToSubTxnIds != null) {
+                        List<Long> subTxnIds = partitionToSubTxnIds.get(partitionId);
+                        if (subTxnIds != null && !subTxnIds.isEmpty()) {
+                            partitionInfo.setSubTxnIds(subTxnIds);
+                            LOG.debug("partitionId: {}, subTxnIds: {}", partitionId, subTxnIds);
+                        }
+                    }
                 }
                 partitionInfos.add(partitionInfo);
             }
@@ -986,14 +1017,42 @@ public class CloudGlobalTransactionMgr implements GlobalTransactionMgrIface {
                     "disable_load_job is set to true, all load jobs are not allowed");
         }
         LOG.info("try to commit transaction, txnId: {}, subTxnStates: {}", transactionId, subTransactionStates);
+
+        Preconditions.checkState(db instanceof Database);
+        List<Long> tableIdList = subTransactionStates.stream().map(s -> s.getTable().getId()).distinct()
+                .collect(Collectors.toList());
+        List<Table> tableList = ((Database) db).getTablesOnIdOrderOrThrowException(tableIdList);
+        beforeCommitTransaction(tableList, transactionId, timeoutMillis);
+        try {
+            commitTransactionWithSubTxns(db.getId(), tableList, transactionId, subTransactionStates);
+        } finally {
+            decreaseWaitingLockCount(tableList);
+            MetaLockUtils.commitUnlockTables(tableList);
+        }
+        return true;
+    }
+
+    private void commitTransactionWithSubTxns(long dbId, List<Table> tableList, long transactionId,
+            List<SubTransactionState> subTransactionStates) throws UserException {
+        List<TabletCommitInfo> tabletCommitInfos = subTransactionStates.stream().map(
+                        SubTransactionState::getTabletCommitInfos).flatMap(Collection::stream)
+                .map(c -> new TabletCommitInfo(c.getTabletId(), c.getBackendId())).collect(Collectors.toList());
+        List<OlapTable> mowTableList = getMowTableList(tableList, tabletCommitInfos);
+        if (!mowTableList.isEmpty()) {
+            calcDeleteBitmapForMow(dbId, mowTableList, transactionId, tabletCommitInfos, subTransactionStates);
+        }
+
         cleanSubTransactions(transactionId);
         CommitTxnRequest.Builder builder = CommitTxnRequest.newBuilder();
-        builder.setDbId(db.getId())
+        builder.setDbId(dbId)
                 .setTxnId(transactionId)
                 .setIs2Pc(false)
                 .setCloudUniqueId(Config.cloud_unique_id)
                 .setIsTxnLoad(true)
                 .setEnableTxnLazyCommit(Config.enable_cloud_txn_lazy_commit);
+        for (OlapTable olapTable : mowTableList) {
+            builder.addMowTableIds(olapTable.getId());
+        }
         // add sub txn infos
         for (SubTransactionState subTransactionState : subTransactionStates) {
             builder.addSubTxnInfos(SubTxnInfo.newBuilder().setSubTxnId(subTransactionState.getSubTransactionId())
@@ -1007,31 +1066,12 @@ public class CloudGlobalTransactionMgr implements GlobalTransactionMgrIface {
         }
 
         final CommitTxnRequest commitTxnRequest = builder.build();
-        TransactionState txnState = null;
-        boolean txnOperated = false;
-        try {
-            txnState = commitTxn(commitTxnRequest, transactionId, false, db.getId(),
-                    subTransactionStates.stream().map(SubTransactionState::getTable)
-                        .collect(Collectors.toList()));
-            txnOperated = true;
-        } finally {
-            if (txnState != null) {
-                TxnStateChangeCallback cb = callbackFactory.getCallback(txnState.getCallbackId());
-                if (cb != null) {
-                    LOG.info("commitTxn, run txn callback, transactionId:{} callbackId:{}, txnState:{}",
-                            txnState.getTransactionId(), txnState.getCallbackId(), txnState);
-                    cb.afterCommitted(txnState, txnOperated);
-                    cb.afterVisible(txnState, txnOperated);
-                }
-            }
-        }
-        return true;
+        executeCommitTxnRequest(commitTxnRequest, transactionId, false, null);
     }
 
-    @Override
-    public boolean commitAndPublishTransaction(DatabaseIf db, List<Table> tableList, long transactionId,
-                                               List<TabletCommitInfo> tabletCommitInfos, long timeoutMillis,
-                                               TxnCommitAttachment txnCommitAttachment) throws UserException {
+    // add some log and get commit lock, mainly used for mow tables
+    private void beforeCommitTransaction(List<Table> tableList, long transactionId, long timeoutMillis)
+            throws UserException {
         for (int i = 0; i < tableList.size(); i++) {
             long tableId = tableList.get(i).getId();
             LOG.info("start commit txn=" + transactionId + ",table=" + tableId);
@@ -1050,6 +1090,13 @@ public class CloudGlobalTransactionMgr implements GlobalTransactionMgrIface {
                     "get table cloud commit lock timeout, tableList=("
                             + StringUtils.join(tableList, ",") + ")");
         }
+    }
+
+    @Override
+    public boolean commitAndPublishTransaction(DatabaseIf db, List<Table> tableList, long transactionId,
+                                               List<TabletCommitInfo> tabletCommitInfos, long timeoutMillis,
+                                               TxnCommitAttachment txnCommitAttachment) throws UserException {
+        beforeCommitTransaction(tableList, transactionId, timeoutMillis);
         try {
             commitTransaction(db.getId(), tableList, transactionId, tabletCommitInfos, txnCommitAttachment);
         } finally {
