@@ -997,7 +997,7 @@ public class CloudGlobalTransactionMgr implements GlobalTransactionMgrIface {
         List<Table> tableList = ((Database) db).getTablesOnIdOrderOrThrowException(tableIdList);
         beforeCommitTransaction(tableList, transactionId, timeoutMillis);
         try {
-            commitTransaction(db.getId(), tableList, transactionId, subTransactionStates);
+            commitTransactionWithSubTxns(db.getId(), tableList, transactionId, subTransactionStates);
         } finally {
             decreaseWaitingLockCount(tableList);
             MetaLockUtils.commitUnlockTables(tableList);
@@ -1005,7 +1005,7 @@ public class CloudGlobalTransactionMgr implements GlobalTransactionMgrIface {
         return true;
     }
 
-    private void commitTransaction(long dbId, List<Table> tableList, long transactionId,
+    private void commitTransactionWithSubTxns(long dbId, List<Table> tableList, long transactionId,
             List<SubTransactionState> subTransactionStates) throws UserException {
         List<OlapTable> mowTableList = getMowTableList(tableList);
         if (/*tabletCommitInfos != null && !tabletCommitInfos.isEmpty() && */!mowTableList.isEmpty()) {
