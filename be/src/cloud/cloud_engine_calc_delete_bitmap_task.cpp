@@ -271,7 +271,7 @@ Status CloudTabletCalcDeleteBitmapTask::_handle_one(
         LOG(INFO) << "sout: start update_delete_bitmap on tablet=" << _tablet_id << ", " << txn_str
                   << ", start version=" << _version << ", version=" << version;
         status = CloudTablet::update_delete_bitmap(tablet, &txn_info, transaction_id, _version,
-                                                   previous_rowsets, txn_expiration);
+                                                   previous_rowsets, txn_expiration, txn_id);
         update_delete_bitmap_time_us = MonotonicMicros() - t3;
     }
     if (status != Status::OK()) {

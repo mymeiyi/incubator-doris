@@ -1346,7 +1346,7 @@ Status BaseTablet::check_delete_bitmap_correctness(DeleteBitmapPtr delete_bitmap
 Status BaseTablet::update_delete_bitmap(const BaseTabletSPtr& self, TabletTxnInfo* txn_info,
                                         int64_t txn_id, int64_t start_version,
                                         std::vector<RowsetSharedPtr>& sub_txn_rowsets,
-                                        int64_t txn_expiration) {
+                                        int64_t txn_expiration, int64_t base_txn_id) {
     SCOPED_BVAR_LATENCY(g_tablet_update_delete_bitmap_latency);
     RowsetIdUnorderedSet cur_rowset_ids;
     RowsetIdUnorderedSet rowset_ids_to_add;
@@ -1509,8 +1509,14 @@ Status BaseTablet::update_delete_bitmap(const BaseTabletSPtr& self, TabletTxnInf
             segments.begin(), segments.end(), 0,
             [](size_t sum, const segment_v2::SegmentSharedPtr& s) { return sum += s->num_rows(); });
     auto t5 = watch.get_elapse_time_us();
-    RETURN_IF_ERROR(self->save_delete_bitmap(txn_info, txn_id, delete_bitmap,
-                                             transient_rs_writer.get(), cur_rowset_ids));
+    if (base_txn_id == -1) {
+        RETURN_IF_ERROR(self->save_delete_bitmap(txn_info, txn_id, delete_bitmap,
+                                                 transient_rs_writer.get(), cur_rowset_ids));
+    } else {
+        RETURN_IF_ERROR(self->save_delete_bitmap(txn_info, txn_id, delete_bitmap,
+                                                 transient_rs_writer.get(), cur_rowset_ids,
+                                                 base_txn_id));
+    }
     LOG(INFO) << "[Publish] construct delete bitmap tablet: " << self->tablet_id()
               << ", rowset_ids to add: " << rowset_ids_to_add.size()
               << ", rowset_ids to del: " << rowset_ids_to_del.size()

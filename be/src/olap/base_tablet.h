@@ -239,11 +239,12 @@ public:
     static Status update_delete_bitmap(const BaseTabletSPtr& self, TabletTxnInfo* txn_info,
                                        int64_t txn_id, int64_t start_version,
                                        std::vector<RowsetSharedPtr>& sub_txn_rowsets,
-                                       int64_t txn_expiration = 0);
+                                       int64_t txn_expiration = 0, , int64_t base_txn_id = -1);
 
     virtual Status save_delete_bitmap(const TabletTxnInfo* txn_info, int64_t txn_id,
                                       DeleteBitmapPtr delete_bitmap, RowsetWriter* rowset_writer,
-                                      const RowsetIdUnorderedSet& cur_rowset_ids) = 0;
+                                      const RowsetIdUnorderedSet& cur_rowset_ids,
+                                      int64_t lock_id = -1) = 0;
     virtual CalcDeleteBitmapExecutor* calc_delete_bitmap_executor() = 0;
 
     void calc_compaction_output_rowset_delete_bitmap(
