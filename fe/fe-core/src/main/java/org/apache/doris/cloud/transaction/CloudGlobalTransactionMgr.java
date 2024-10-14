@@ -1007,8 +1007,8 @@ public class CloudGlobalTransactionMgr implements GlobalTransactionMgrIface {
 
     private void commitTransactionWithSubTxns(long dbId, List<Table> tableList, long transactionId,
             List<SubTransactionState> subTransactionStates) throws UserException {
-        List<OlapTable> mowTableList = getMowTableList(tableList);
-        if (/*tabletCommitInfos != null && !tabletCommitInfos.isEmpty() && */!mowTableList.isEmpty()) {
+        List<OlapTable> mowTableList = getMowTableList(tableList, null);
+        if (!mowTableList.isEmpty()) {
             // TODO
             // calcDeleteBitmapForMow(dbId, mowTableList, transactionId, subTransactionStates);
         }
@@ -1021,13 +1021,9 @@ public class CloudGlobalTransactionMgr implements GlobalTransactionMgrIface {
                 .setCloudUniqueId(Config.cloud_unique_id)
                 .setIsTxnLoad(true)
                 .setEnableTxnLazyCommit(Config.enable_cloud_txn_lazy_commit);
-        // if tablet commit info is empty, no need to pass mowTableList to meta service.
-        // if (tabletCommitInfos != null && !tabletCommitInfos.isEmpty()) {
-        // TODO if table related commit info is empty, does ms hold lock?
-            for (OlapTable olapTable : mowTableList) {
-                builder.addMowTableIds(olapTable.getId());
-            }
-        // }
+        for (OlapTable olapTable : mowTableList) {
+            builder.addMowTableIds(olapTable.getId());
+        }
         // add sub txn infos
         for (SubTransactionState subTransactionState : subTransactionStates) {
             builder.addSubTxnInfos(SubTxnInfo.newBuilder().setSubTxnId(subTransactionState.getSubTransactionId())
