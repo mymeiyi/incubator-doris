@@ -190,7 +190,26 @@ Status CloudTabletCalcDeleteBitmapTask::handle() const {
         return error_st;
     }
 
-    Status status = _handle_one(tablet);
+    Status status;
+    if (_sub_txn_ids.empty()) {
+        status = _handle_one(tablet, _transaction_id, -1, _version);
+    } else {
+        for (int i = 0; i < _sub_txn_ids.size(); ++i) {
+            int64_t sub_txn_id = _sub_txn_ids[i];
+            int64_t version = _version + i;
+            status = _handle_one(tablet, _transaction_id, sub_txn_id, version);
+            if (!status.ok()) {
+                LOG(INFO) << "failed to calculate delete bitmap on tablet"
+                          << ", table_id=" << tablet->table_id()
+                          << ", transaction_id=" << _transaction_id << ", sub_txn_id=" << sub_txn_id
+                          << ", tablet_id=" << tablet->tablet_id()
+                          << ", start version=" << _version
+                          << ", version=" << version
+                          << ", status=" << status;
+                return status;
+            }
+        }
+    }
     LOG(INFO) << "calculate delete bitmap successfully on tablet"
               << ", table_id=" << tablet->table_id() << ", transaction_id=" << _transaction_id
               << ", tablet_id=" << tablet->tablet_id()
@@ -200,7 +219,12 @@ Status CloudTabletCalcDeleteBitmapTask::handle() const {
     return status;
 }
 
-Status CloudTabletCalcDeleteBitmapTask::_handle_one(std::shared_ptr<CloudTablet> tablet) const {
+Status CloudTabletCalcDeleteBitmapTask::_handle_one(std::shared_ptr<CloudTablet> tablet,
+                                                    int64_t txn_id, int64_t sub_txn_id,
+                                                    int64_t version) const {
+    int64_t transaction_id = sub_txn_id == -1 ? txn_id : sub_txn_id;
+    std::string txn_str = "txn_id=" + std::to_string(txn_id) +
+                          (sub_txn_id != -1 ? ", sub_txn_id=" + std::to_string(sub_txn_id) : "");
     RowsetSharedPtr rowset;
     DeleteBitmapPtr delete_bitmap;
     RowsetIdUnorderedSet rowset_ids;
@@ -209,46 +233,48 @@ Status CloudTabletCalcDeleteBitmapTask::_handle_one(std::shared_ptr<CloudTablet>
     int64_t txn_expiration;
     TxnPublishInfo previous_publish_info;
     Status status = _engine.txn_delete_bitmap_cache().get_tablet_txn_info(
-            _transaction_id, _tablet_id, &rowset, &delete_bitmap, &rowset_ids, &txn_expiration,
+            transaction_id, _tablet_id, &rowset, &delete_bitmap, &rowset_ids, &txn_expiration,
             &partial_update_info, &publish_status, &previous_publish_info);
     if (status != Status::OK()) {
         LOG(WARNING) << "failed to get tablet txn info. tablet_id=" << _tablet_id
-                     << ", txn_id=" << _transaction_id << ", status=" << status;
+                     << ", " << txn_str << ", status=" << status;
         _engine_calc_delete_bitmap_task->add_error_tablet_id(_tablet_id, status);
         return status;
     }
 
     int64_t t3 = MonotonicMicros();
-    rowset->set_version(Version(_version, _version));
+    rowset->set_version(Version(version, version)); // TODO
     TabletTxnInfo txn_info;
     txn_info.rowset = rowset;
     txn_info.delete_bitmap = delete_bitmap;
     txn_info.rowset_ids = rowset_ids;
     txn_info.partial_update_info = partial_update_info;
     txn_info.publish_status = publish_status;
-    txn_info.publish_info = {.publish_version = _version,
+    txn_info.publish_info = {.publish_version = version,
                              .base_compaction_cnt = _ms_base_compaction_cnt,
                              .cumulative_compaction_cnt = _ms_cumulative_compaction_cnt,
                              .cumulative_point = _ms_cumulative_point};
     auto update_delete_bitmap_time_us = 0;
     if (txn_info.publish_status && (*(txn_info.publish_status) == PublishStatus::SUCCEED) &&
-        _version == previous_publish_info.publish_version &&
+        version == previous_publish_info.publish_version &&
         _ms_base_compaction_cnt == previous_publish_info.base_compaction_cnt &&
         _ms_cumulative_compaction_cnt == previous_publish_info.cumulative_compaction_cnt &&
         _ms_cumulative_point == previous_publish_info.cumulative_point) {
         // if version or compaction stats can't match, it means that this is a retry and there are
         // compaction or other loads finished successfully on the same tablet. So the previous publish
         // is stale and we should re-calculate the delete bitmap
-        LOG(INFO) << "tablet=" << _tablet_id << ",txn=" << _transaction_id
+        LOG(INFO) << "tablet=" << _tablet_id << ", " << txn_str
                   << ",publish_status=SUCCEED,not need to recalculate and update delete_bitmap.";
     } else {
+        LOG(INFO) << "sout: start update_delete_bitmap on tablet=" << _tablet_id << ", " << txn_str
+                  << ", start version=" << _version << ", version=" << version;
         status = CloudTablet::update_delete_bitmap(tablet, &txn_info, _transaction_id,
                                                    txn_expiration);
         update_delete_bitmap_time_us = MonotonicMicros() - t3;
     }
     if (status != Status::OK()) {
         LOG(WARNING) << "failed to calculate delete bitmap. rowset_id=" << rowset->rowset_id()
-                     << ", tablet_id=" << _tablet_id << ", txn_id=" << _transaction_id
+                     << ", tablet_id=" << _tablet_id << ", " << txn_str
                      << ", status=" << status;
         _engine_calc_delete_bitmap_task->add_error_tablet_id(_tablet_id, status);
         return status;
@@ -256,7 +282,7 @@ Status CloudTabletCalcDeleteBitmapTask::_handle_one(std::shared_ptr<CloudTablet>
 
     _engine_calc_delete_bitmap_task->add_succ_tablet_id(_tablet_id);
     LOG(INFO) << "calculate delete bitmap successfully on tablet"
-              << ", table_id=" << tablet->table_id() << ", transaction_id=" << _transaction_id
+              << ", table_id=" << tablet->table_id() << ", " << txn_str
               << ", tablet_id=" << tablet->tablet_id() << ", num_rows=" << rowset->num_rows()
               << ", update_delete_bitmap_time_us=" << update_delete_bitmap_time_us
               << ", res=" << status;
