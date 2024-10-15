@@ -305,7 +305,7 @@ Status CloudTabletCalcDeleteBitmapTask::_handle_one(std::shared_ptr<CloudTablet>
                   << ", sub_txn_id=" << sub_txn_id
                   << ", rowset=" << rowset->rowset_id()
                   << ", delete_bitmap=" << delete_bitmap->delete_bitmap.size()
-                  << ", mergerd delete_bitmap=" << merged_delete_bitmap->delete_bitmap.size();
+                  << ", merged delete_bitmap=" << merged_delete_bitmap->delete_bitmap.size();
     }
     return status;
 }

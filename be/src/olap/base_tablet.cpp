@@ -1559,7 +1559,8 @@ Status BaseTablet::update_delete_bitmap(const BaseTabletSPtr& self, TabletTxnInf
               << ", rowset_ids to del: " << rowset_ids_to_del.size()
               << ", cur version: " << cur_version << ", transaction_id: " << txn_id << ","
               << ss.str() << " , total rows: " << total_rows
-              << ", update delete_bitmap cost: " << watch.get_elapse_time_us() - t5 << "(us)";
+              << ", update delete_bitmap cost: " << watch.get_elapse_time_us() - t5 << "(us)"
+              << ", delete bitmap size: " << delete_bitmap->delete_bitmap.size();
     return Status::OK();
 }
 
