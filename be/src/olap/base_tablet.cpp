@@ -1391,7 +1391,8 @@ Status BaseTablet::update_delete_bitmap(const BaseTabletSPtr& self, TabletTxnInf
             for (auto it = dm.begin(); it != dm.end(); ++it) {
                 auto& key = it->first;
                 ss << "[rowset=" << std::get<0>(key) << ", seg=" << std::get<1>(key)
-                   << ", version=" << std::get<2>(key) << "], ";
+                   << ", version=" << std::get<2>(key) << ", row0=" << it->second.contains(0)
+                   << "], ";
             }
             LOG(INFO) << "sout: partial update: rowset=" << rowset->rowset_id()
                       << ", txn_id=" << txn_id
