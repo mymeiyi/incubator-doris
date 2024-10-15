@@ -492,6 +492,14 @@ Status BaseTablet::lookup_row_key(const Slice& encoded_key, TabletSchema* latest
         auto dm = _tablet_meta->delete_bitmap();
         if (delete_bitmap) {
             dm.delete_bitmap.merge(delete_bitmap->delete_bitmap);
+            std::stringstream ss;
+            for (auto it = dm.delete_bitmap.begin(); it != dm.delete_bitmap.end(); ++it) {
+                auto& key = it->first;
+                ss << "[rowset=" << std::get<0>(key) << ", seg=" << std::get<1>(key)
+                   << ", version=" << std::get<2>(key) << ", row0=" << it->second.contains(0)
+                   << "], ";
+            }
+            LOG(INFO) << "sout: before lookup, delete_bitmap: " << ss.str();
         }
         for (auto id : picked_segments) {
             Status s = segments[id]->lookup_row_key(encoded_key, schema, with_seq_col, with_rowid,
