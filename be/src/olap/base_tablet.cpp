@@ -1443,6 +1443,7 @@ Status BaseTablet::update_delete_bitmap(const BaseTabletSPtr& self, TabletTxnInf
     });
 
     if (!rowsets_skip_alignment.empty()) {
+        LOG(INFO) << "sout: calc_delete_bitmap 0, rowset=" << rowset->rowset_id();
         auto token = self->calc_delete_bitmap_executor()->create_token();
         // set rowset_writer to nullptr to skip the alignment process
         RETURN_IF_ERROR(calc_delete_bitmap(self, rowset, segments, rowsets_skip_alignment,
@@ -1453,10 +1454,12 @@ Status BaseTablet::update_delete_bitmap(const BaseTabletSPtr& self, TabletTxnInf
     // When there is only one segment, it will be calculated in the current thread.
     // Otherwise, it will be submitted to the thread pool for calculation.
     if (segments.size() <= 1) {
+        LOG(INFO) << "sout: calc_delete_bitmap 1, rowset=" << rowset->rowset_id();
         RETURN_IF_ERROR(calc_delete_bitmap(self, rowset, segments, specified_rowsets, delete_bitmap,
                                            cur_version - 1, nullptr, transient_rs_writer.get()));
 
     } else {
+        LOG(INFO) << "sout: calc_delete_bitmap 2, rowset=" << rowset->rowset_id();
         auto token = self->calc_delete_bitmap_executor()->create_token();
         RETURN_IF_ERROR(calc_delete_bitmap(self, rowset, segments, specified_rowsets, delete_bitmap,
                                            cur_version - 1, token.get(),
