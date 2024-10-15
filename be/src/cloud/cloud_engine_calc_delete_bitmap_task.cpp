@@ -192,17 +192,20 @@ Status CloudTabletCalcDeleteBitmapTask::handle() const {
 
     Status status;
     std::vector<RowsetSharedPtr> previous_rowsets;
-    DeleteBitmapPtr merged_delete_bitmap = std::make_shared<DeleteBitmap>(_tablet_id);
+    DeleteBitmapPtr merged_delete_bitmap = nullptr;
     if (_sub_txn_ids.empty()) {
-        status = _handle_one(tablet, _transaction_id, -1, _version, previous_rowsets);
+        status = _handle_one(tablet, _transaction_id, -1, _version, previous_rowsets,
+                             merged_delete_bitmap);
     } else {
+        merged_delete_bitmap = std::make_shared<DeleteBitmap>(_tablet_id);
         for (int i = 0; i < _sub_txn_ids.size(); ++i) {
             int64_t sub_txn_id = _sub_txn_ids[i];
             int64_t version = _version + i;
             LOG(INFO) << "sout: start calc delete bitmap for txn_id=" << _transaction_id
                       << ", sub_txn_id=" << sub_txn_id << ", start_version=" << _version
                       << ", cur_version=" << version;
-            status = _handle_one(tablet, _transaction_id, sub_txn_id, version, previous_rowsets);
+            status = _handle_one(tablet, _transaction_id, sub_txn_id, version, previous_rowsets,
+                                 merged_delete_bitmap);
             if (!status.ok()) {
                 LOG(INFO) << "failed to calculate delete bitmap on tablet"
                           << ", table_id=" << tablet->table_id()
