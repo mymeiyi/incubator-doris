@@ -169,7 +169,8 @@ public:
                                      const std::vector<RowsetSharedPtr>& specified_rowsets,
                                      DeleteBitmapPtr delete_bitmap, int64_t version,
                                      CalcDeleteBitmapToken* token,
-                                     RowsetWriter* rowset_writer = nullptr);
+                                     RowsetWriter* rowset_writer = nullptr,
+                                     DeleteBitmapPtr merged_delete_bitmap = nullptr);
 
     Status calc_segment_delete_bitmap(RowsetSharedPtr rowset,
                                       const segment_v2::SegmentSharedPtr& seg,

@@ -534,7 +534,8 @@ Status BaseTablet::calc_delete_bitmap(const BaseTabletSPtr& tablet, RowsetShared
                                       const std::vector<segment_v2::SegmentSharedPtr>& segments,
                                       const std::vector<RowsetSharedPtr>& specified_rowsets,
                                       DeleteBitmapPtr delete_bitmap, int64_t end_version,
-                                      CalcDeleteBitmapToken* token, RowsetWriter* rowset_writer) {
+                                      CalcDeleteBitmapToken* token, RowsetWriter* rowset_writer,
+                                      DeleteBitmapPtr merged_delete_bitmap) {
     auto rowset_id = rowset->rowset_id();
     if (specified_rowsets.empty() || segments.empty()) {
         LOG(INFO) << "skip to construct delete bitmap tablet: " << tablet->tablet_id()
@@ -546,9 +547,11 @@ Status BaseTablet::calc_delete_bitmap(const BaseTabletSPtr& tablet, RowsetShared
     for (const auto& segment : segments) {
         const auto& seg = segment;
         if (token != nullptr) {
+            LOG(INFO) << "sout: calc_delete_bitmap 0";
             RETURN_IF_ERROR(token->submit(tablet, rowset, seg, specified_rowsets, end_version,
                                           delete_bitmap, rowset_writer));
         } else {
+            LOG(INFO) << "sout: calc_delete_bitmap 1";
             RETURN_IF_ERROR(tablet->calc_segment_delete_bitmap(
                     rowset, segment, specified_rowsets, delete_bitmap, end_version, rowset_writer));
         }
