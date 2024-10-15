@@ -677,6 +677,9 @@ Status BaseTablet::calc_segment_delete_bitmap(RowsetSharedPtr rowset,
             RowsetSharedPtr rowset_find;
             auto st = lookup_row_key(key, rowset_schema.get(), true, specified_rowsets, &loc,
                                      dummy_version.first - 1, segment_caches, &rowset_find);
+            LOG(INFO) << "sout: lookup_row_key for rowset: " << rowset_id
+                      << ", row_id: " << row_id << ", key: " << key.to_string()
+                      << ", status: " << st.to_string();
             bool expected_st = st.ok() || st.is<KEY_NOT_FOUND>() || st.is<KEY_ALREADY_EXISTS>();
             // It's a defensive DCHECK, we need to exclude some common errors to avoid core-dump
             // while stress test
@@ -748,14 +751,23 @@ Status BaseTablet::calc_segment_delete_bitmap(RowsetSharedPtr rowset,
                 delete_bitmap->add(
                         {loc.rowset_id, loc.segment_id, DeleteBitmap::TEMP_VERSION_COMMON},
                         loc.row_id);
+                LOG(INFO) << "sout: add to delete_bitmap for rowset 1: " << loc.rowset_id
+                          << ", seg_id: " << loc.segment_id << ", row_id: " << loc.row_id
+                          << ", version=" << DeleteBitmap::TEMP_VERSION_COMMON;
                 delete_bitmap->add({rowset_id, seg->id(), DeleteBitmap::TEMP_VERSION_COMMON},
                                    row_id);
+                LOG(INFO) << "sout: add to delete_bitmap for rowset 2: " << rowset_id
+                          << ", seg_id: " << seg->id() << ", row_id: " << row_id
+                          << ", version=" << DeleteBitmap::TEMP_VERSION_COMMON;
                 ++new_generated_rows;
                 continue;
             }
             // when st = ok
             delete_bitmap->add({loc.rowset_id, loc.segment_id, DeleteBitmap::TEMP_VERSION_COMMON},
                                loc.row_id);
+            LOG(INFO) << "sout: add to delete_bitmap for rowset 3: " << loc.rowset_id
+                      << ", seg_id: " << loc.segment_id << ", row_id: " << loc.row_id
+                      << ", version=" << DeleteBitmap::TEMP_VERSION_COMMON;
         }
         remaining -= num_read;
     }
