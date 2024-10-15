@@ -299,7 +299,9 @@ Status CloudTabletCalcDeleteBitmapTask::_handle_one(std::shared_ptr<CloudTablet>
               << ", update_delete_bitmap_time_us=" << update_delete_bitmap_time_us
               << ", res=" << status;
     previous_rowsets.push_back(rowset);
-    merged_delete_bitmap->merge(*delete_bitmap);
+    if (merged_delete_bitmap != nullptr) {
+        merged_delete_bitmap->merge(*delete_bitmap);
+    }
     return status;
 }
 
