@@ -1496,8 +1496,8 @@ Status BaseTablet::update_delete_bitmap(const BaseTabletSPtr& self, TabletTxnInf
         auto old_segments = rowset->num_segments();
         rowset->merge_rowset_meta(*transient_rowset->rowset_meta());
         auto new_segments = rowset->num_segments();
-        ss << ", " << txn_info->partial_update_info->partial_update_mode_str()
-           << " flush rowset (old segment num: " << old_segments
+        ss << ", " << txn_info->partial_update_info->partial_update_mode_str() << " flush rowset "
+           << txn_info->rowset->rowset_id() << " (old segment num: " << old_segments
            << ", new segment num: " << new_segments << ")"
            << ", cost:" << watch.get_elapse_time_us() - t4 << "(us)";
 

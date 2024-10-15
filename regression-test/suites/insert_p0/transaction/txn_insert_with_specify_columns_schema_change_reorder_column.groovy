@@ -22,7 +22,6 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
 suite("txn_insert_with_specify_columns_schema_change_reorder_column", "nonConcurrent") {
-    if(!isCloudMode()){
         def table = "txn_insert_with_specify_columns_schema_change_reorder_column"
 
         def dbName = "regression_test_insert_p0_transaction"
@@ -125,5 +124,4 @@ suite("txn_insert_with_specify_columns_schema_change_reorder_column", "nonConcur
         } finally {
             GetDebugPoint().clearDebugPointsForAllBEs()
         }
-    }
 }
