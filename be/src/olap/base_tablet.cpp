@@ -1528,6 +1528,13 @@ Status BaseTablet::update_delete_bitmap(const BaseTabletSPtr& self, TabletTxnInf
             segments.begin(), segments.end(), 0,
             [](size_t sum, const segment_v2::SegmentSharedPtr& s) { return sum += s->num_rows(); });
     auto t5 = watch.get_elapse_time_us();
+    auto& dm = delete_bitmap->delete_bitmap;
+    for (auto it = dm.begin(); it != dm.end(); ++it) {
+        auto& key = it->first;
+        LOG(INFO) << "sout: delete_bitmap for txn=" << txn_id  << ": rowset_id=" << std::get<0>(key)
+                  << ", segment_id=" << std::get<1>(key) << ", version=" << std::get<2>(key)
+                  << ", contains 0=" << it->second.contains(0);
+    }
     RETURN_IF_ERROR(self->save_delete_bitmap(txn_info, txn_id, delete_bitmap,
                                              transient_rs_writer.get(), cur_rowset_ids,
                                              base_txn_id /* lock_id */));

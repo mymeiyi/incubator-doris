@@ -688,6 +688,13 @@ Status CloudTablet::save_delete_bitmap(const TabletTxnInfo* txn_info, int64_t tx
                     iter->second);
         }
     }
+    auto& dm = new_delete_bitmap->delete_bitmap;
+    for (auto it = dm.begin(); it != dm.end(); ++it) {
+        auto& key = it->first;
+        LOG(INFO) << "sout: after merge delete_bitmap for txn=" << txn_id
+                  << ": rowset_id=" << std::get<0>(key) << ", segment_id=" << std::get<1>(key)
+                  << ", version=" << std::get<2>(key) << ", contains 0=" << it->second.contains(0);
+    }
 
     RETURN_IF_ERROR(_engine.meta_mgr().update_delete_bitmap(*this, lock_id == -1 ? txn_id : lock_id,
                                                             COMPACTION_DELETE_BITMAP_LOCK_ID,
