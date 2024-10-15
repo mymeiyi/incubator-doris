@@ -678,7 +678,7 @@ Status BaseTablet::calc_segment_delete_bitmap(RowsetSharedPtr rowset,
             auto st = lookup_row_key(key, rowset_schema.get(), true, specified_rowsets, &loc,
                                      dummy_version.first - 1, segment_caches, &rowset_find);
             LOG(INFO) << "sout: lookup_row_key for rowset: " << rowset_id
-                      << ", row_id: " << row_id << ", key: " << key.to_string()
+                      << ", row_id: " << row_id /*<< ", key: " << key.to_string()*/
                       << ", status: " << st.to_string();
             bool expected_st = st.ok() || st.is<KEY_NOT_FOUND>() || st.is<KEY_ALREADY_EXISTS>();
             // It's a defensive DCHECK, we need to exclude some common errors to avoid core-dump
@@ -1381,6 +1381,17 @@ Status BaseTablet::update_delete_bitmap(const BaseTabletSPtr& self, TabletTxnInf
         // duplicate key of the original segment should not remain in `txn_info->delete_bitmap`,
         // so we need to make a copy of `txn_info->delete_bitmap` and make changes on it.
         delete_bitmap = std::make_shared<DeleteBitmap>(*(txn_info->delete_bitmap));
+        if (cur_version == 5) {
+            std::stringstream ss;
+            auto& dm = delete_bitmap->delete_bitmap;
+            for (auto it = dm.begin(); it != dm.end(); ++it) {
+                auto& key = it->first;
+                ss << "[rowset=" << std::get<0>(key) << ", seg=" << std::get<1>(key)
+                   << ", version=" << std::get<2>(key) << "], ";
+            }
+            LOG(INFO) << "sout: partial update: rowset=" << rowset->rowset_id()
+                      << ", delete bitmap keys=" << ss.str();
+        }
     }
 
     OlapStopWatch watch;
