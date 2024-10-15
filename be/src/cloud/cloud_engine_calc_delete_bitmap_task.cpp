@@ -198,6 +198,9 @@ Status CloudTabletCalcDeleteBitmapTask::handle() const {
         for (int i = 0; i < _sub_txn_ids.size(); ++i) {
             int64_t sub_txn_id = _sub_txn_ids[i];
             int64_t version = _version + i;
+            LOG(INFO) << "sout: start calc delete bitmap for txn_id=" << _transaction_id
+                      << ", sub_txn_id=" << sub_txn_id << ", start_version=" << _version
+                      << ", cur_version=" << version;
             status = _handle_one(tablet, _transaction_id, sub_txn_id, version, previous_rowsets);
             if (!status.ok()) {
                 LOG(INFO) << "failed to calculate delete bitmap on tablet"
