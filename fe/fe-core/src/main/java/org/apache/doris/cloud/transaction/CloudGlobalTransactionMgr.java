@@ -631,7 +631,7 @@ public class CloudGlobalTransactionMgr implements GlobalTransactionMgrIface {
     private void calcDeleteBitmapForMow(long dbId, List<OlapTable> tableList, long transactionId,
             List<TabletCommitInfo> tabletCommitInfos, List<SubTransactionState> subTransactionStates)
             throws UserException {
-        Map<Long, Map<Long, List<Long>>> backendToPartitionTablets = Maps.newHashMap();
+        Map<Long, Map<Long, Set<Long>>> backendToPartitionTablets = Maps.newHashMap();
         Map<Long, Partition> partitions = Maps.newHashMap();
         Map<Long, Set<Long>> tableToPartitions = Maps.newHashMap();
         Map<Long, List<Long>> tableToTabletList = Maps.newHashMap();
@@ -678,7 +678,7 @@ public class CloudGlobalTransactionMgr implements GlobalTransactionMgrIface {
             List<TabletCommitInfo> tabletCommitInfos,
             Map<Long, Set<Long>> tableToParttions,
             Map<Long, Partition> partitions,
-            Map<Long, Map<Long, List<Long>>> backendToPartitionTablets,
+            Map<Long, Map<Long, Set<Long>>> backendToPartitionTablets,
             Map<Long, List<Long>> tableToTabletList,
             Map<Long, TabletMeta> tabletToTabletMeta) {
         Map<Long, OlapTable> tableMap = Maps.newHashMap();
@@ -715,9 +715,9 @@ public class CloudGlobalTransactionMgr implements GlobalTransactionMgrIface {
             if (!backendToPartitionTablets.containsKey(backendId)) {
                 backendToPartitionTablets.put(backendId, Maps.newHashMap());
             }
-            Map<Long, List<Long>> partitionToTablets = backendToPartitionTablets.get(backendId);
+            Map<Long, Set<Long>> partitionToTablets = backendToPartitionTablets.get(backendId);
             if (!partitionToTablets.containsKey(partitionId)) {
-                partitionToTablets.put(partitionId, Lists.newArrayList());
+                partitionToTablets.put(partitionId, Sets.newHashSet());
             }
             partitionToTablets.get(partitionId).add(tabletIds.get(i));
             partitions.putIfAbsent(partitionId, tableMap.get(tableId).getPartition(partitionId));
@@ -735,18 +735,18 @@ public class CloudGlobalTransactionMgr implements GlobalTransactionMgrIface {
     }
 
     private Map<Long, List<TCalcDeleteBitmapPartitionInfo>> getCalcDeleteBitmapInfo(
-            Map<Long, Map<Long, List<Long>>> backendToPartitionTablets, Map<Long, Long> partitionVersions,
+            Map<Long, Map<Long, Set<Long>>> backendToPartitionTablets, Map<Long, Long> partitionVersions,
                     Map<Long, Long> baseCompactionCnts, Map<Long, Long> cumulativeCompactionCnts,
                             Map<Long, Long> cumulativePoints, Map<Long, List<Long>> partitionToSubTxnIds) {
         Map<Long, List<TCalcDeleteBitmapPartitionInfo>> backendToPartitionInfos = Maps.newHashMap();
-        for (Map.Entry<Long, Map<Long, List<Long>>> entry : backendToPartitionTablets.entrySet()) {
+        for (Map.Entry<Long, Map<Long, Set<Long>>> entry : backendToPartitionTablets.entrySet()) {
             List<TCalcDeleteBitmapPartitionInfo> partitionInfos = Lists.newArrayList();
-            for (Map.Entry<Long, List<Long>> partitionToTablets : entry.getValue().entrySet()) {
+            for (Map.Entry<Long, Set<Long>> partitionToTablets : entry.getValue().entrySet()) {
                 Long partitionId = partitionToTablets.getKey();
-                List<Long> tabletList = partitionToTablets.getValue();
+                Set<Long> tabletList = partitionToTablets.getValue();
                 TCalcDeleteBitmapPartitionInfo partitionInfo = new TCalcDeleteBitmapPartitionInfo(partitionId,
                         partitionVersions.get(partitionId),
-                        tabletList);
+                        Lists.newArrayList(tabletList));
                 if (!baseCompactionCnts.isEmpty() && !cumulativeCompactionCnts.isEmpty()
                         && !cumulativePoints.isEmpty()) {
                     List<Long> reqBaseCompactionCnts = Lists.newArrayList();
