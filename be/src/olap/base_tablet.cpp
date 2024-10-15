@@ -560,6 +560,8 @@ Status BaseTablet::calc_segment_delete_bitmap(RowsetSharedPtr rowset,
                                               const std::vector<RowsetSharedPtr>& specified_rowsets,
                                               DeleteBitmapPtr delete_bitmap, int64_t end_version,
                                               RowsetWriter* rowset_writer) {
+    LOG(INFO) << "sout: specified_rowsets.size()=" << specified_rowsets.size()
+              << ", rowset=" << rowset->rowset_id();
     OlapStopWatch watch;
     auto rowset_id = rowset->rowset_id();
     Version dummy_version(end_version + 1, end_version + 1);
