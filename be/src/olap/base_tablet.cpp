@@ -489,8 +489,10 @@ Status BaseTablet::lookup_row_key(const Slice& encoded_key, TabletSchema* latest
         auto& segments = segment_caches[i]->get_segments();
         DCHECK_EQ(segments.size(), num_segments);
 
-        auto dm = (delete_bitmap == nullptr) ? _tablet_meta->delete_bitmap()
-                                             : *delete_bitmap;
+        auto dm = _tablet_meta->delete_bitmap();
+        if (delete_bitmap) {
+            dm.delete_bitmap.merge(delete_bitmap->delete_bitmap);
+        }
         for (auto id : picked_segments) {
             Status s = segments[id]->lookup_row_key(encoded_key, schema, with_seq_col, with_rowid,
                                                     &loc, encoded_seq_value);
@@ -681,7 +683,8 @@ Status BaseTablet::calc_segment_delete_bitmap(RowsetSharedPtr rowset,
 
             RowsetSharedPtr rowset_find;
             auto st = lookup_row_key(key, rowset_schema.get(), true, specified_rowsets, &loc,
-                                     dummy_version.first - 1, segment_caches, &rowset_find);
+                                     dummy_version.first - 1, segment_caches, &rowset_find, true,
+                                     nullptr, delete_bitmap);
             LOG(INFO) << "sout: lookup_row_key for rowset: " << rowset_id
                       << ", row_id: " << row_id /*<< ", key: " << key.to_string()*/
                       << ", status: " << st.to_string();
