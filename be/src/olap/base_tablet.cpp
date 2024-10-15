@@ -490,7 +490,7 @@ Status BaseTablet::lookup_row_key(const Slice& encoded_key, TabletSchema* latest
         DCHECK_EQ(segments.size(), num_segments);
 
         auto dm = (delete_bitmap == nullptr) ? _tablet_meta->delete_bitmap()
-                                             : delete_bitmap->delete_bitmap;
+                                             : *delete_bitmap;
         for (auto id : picked_segments) {
             Status s = segments[id]->lookup_row_key(encoded_key, schema, with_seq_col, with_rowid,
                                                     &loc, encoded_seq_value);
