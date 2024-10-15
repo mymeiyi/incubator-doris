@@ -300,7 +300,16 @@ Status CloudTabletCalcDeleteBitmapTask::_handle_one(std::shared_ptr<CloudTablet>
               << ", res=" << status;
     previous_rowsets.push_back(rowset);
     if (merged_delete_bitmap != nullptr) {
-        merged_delete_bitmap->merge(*(txn_info.delete_bitmap));
+        auto& dm = txn_info.delete_bitmap->delete_bitmap;
+        for (auto iter = dm.begin(); iter != dm.end(); ++iter) {
+            // skip sentinel mark, which is used for delete bitmap correctness check
+            if (std::get<1>(iter->first) != DeleteBitmap::INVALID_SEGMENT_ID) {
+                merged_delete_bitmap->merge(
+                        {std::get<0>(iter->first), std::get<1>(iter->first), version},
+                        iter->second);
+            }
+        }
+        // merged_delete_bitmap->merge(*(txn_info.delete_bitmap));
         LOG(INFO) << "sout: txn_id="<< txn_id
                   << ", sub_txn_id=" << sub_txn_id
                   << ", rowset=" << rowset->rowset_id()
