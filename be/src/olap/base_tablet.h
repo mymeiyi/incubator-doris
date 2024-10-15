@@ -238,6 +238,7 @@ public:
     static Status update_delete_bitmap(const BaseTabletSPtr& self, TabletTxnInfo* txn_info,
                                        int64_t txn_id, int64_t next_visible_version,
                                        std::vector<RowsetSharedPtr>* non_visible_rowsets = nullptr,
+                                       DeleteBitmapPtr merged_delete_bitmap = nullptr,
                                        int64_t base_txn_id = -1,
                                        int64_t txn_expiration = 0);
 

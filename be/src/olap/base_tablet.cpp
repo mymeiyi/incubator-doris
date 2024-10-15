@@ -1360,6 +1360,7 @@ Status BaseTablet::check_delete_bitmap_correctness(DeleteBitmapPtr delete_bitmap
 Status BaseTablet::update_delete_bitmap(const BaseTabletSPtr& self, TabletTxnInfo* txn_info,
                                         int64_t txn_id, int64_t next_visible_version,
                                         std::vector<RowsetSharedPtr>* non_visible_rowsets,
+                                        DeleteBitmapPtr merged_delete_bitmap,
                                         int64_t base_txn_id, int64_t txn_expiration) {
     SCOPED_BVAR_LATENCY(g_tablet_update_delete_bitmap_latency);
     RowsetIdUnorderedSet cur_rowset_ids;
@@ -1381,6 +1382,9 @@ Status BaseTablet::update_delete_bitmap(const BaseTabletSPtr& self, TabletTxnInf
         // duplicate key of the original segment should not remain in `txn_info->delete_bitmap`,
         // so we need to make a copy of `txn_info->delete_bitmap` and make changes on it.
         delete_bitmap = std::make_shared<DeleteBitmap>(*(txn_info->delete_bitmap));
+        if (merged_delete_bitmap != nullptr) {
+            delete_bitmap->merge(*merged_delete_bitmap);
+        }
         if (cur_version == 5) {
             std::stringstream ss;
             auto& dm = delete_bitmap->delete_bitmap;
@@ -1390,6 +1394,7 @@ Status BaseTablet::update_delete_bitmap(const BaseTabletSPtr& self, TabletTxnInf
                    << ", version=" << std::get<2>(key) << "], ";
             }
             LOG(INFO) << "sout: partial update: rowset=" << rowset->rowset_id()
+                      << ", txn_id=" << txn_id
                       << ", delete bitmap keys=" << ss.str();
         }
     }
