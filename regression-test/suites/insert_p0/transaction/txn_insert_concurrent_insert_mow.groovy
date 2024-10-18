@@ -24,7 +24,7 @@ import java.util.concurrent.CompletableFuture
 suite("txn_insert_concurrent_insert_mow") {
     def tableName = "txn_insert_concurrent_insert_mow"
 
-    for (int i = 0; i < 1; i++) {
+    for (int i = 0; i < 3; i++) {
         def table_name = "${tableName}_${i}"
         sql """ drop table if exists ${table_name} """
         sql """
