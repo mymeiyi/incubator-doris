@@ -313,7 +313,6 @@ Status CloudTabletCalcDeleteBitmapTask::_handle_rowset(
         // see CloudTablet::save_delete_bitmap
         auto dm = txn_info.delete_bitmap->delete_bitmap;
         for (auto it = dm.begin(); it != dm.end(); ++it) {
-            auto& key = it->first;
             if (std::get<1>(it->first) != DeleteBitmap::INVALID_SEGMENT_ID) {
                 tablet_delete_bitmap->merge(
                         {std::get<0>(it->first), std::get<1>(it->first), version},
