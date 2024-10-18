@@ -51,16 +51,16 @@ suite("sub_txn_mow") {
         }
 
         sql """ insert into ${prefix}_3 select * from ${prefix}_2; """
-        order_qt_select_1 """ select * from ${prefix}_3; """
+        order_qt_select_1 """ select * from ${prefix}_3; """ // t3
 
         sql """ insert into ${prefix}_3 select * from ${prefix}_1; """
-        order_qt_select_2 """ select * from ${prefix}_3; """
+        order_qt_select_2 """ select * from ${prefix}_3; """ // t3
 
-        sql """ insert into ${prefix}_2 select * from ${prefix}_3; """
-        order_qt_select_3 """ select * from ${prefix}_2; """
+        sql """ insert into ${prefix}_2 select * from ${prefix}_3; """ // t3
+        order_qt_select_3 """ select * from ${prefix}_2; """ // t2
 
-        sql """ insert into ${prefix}_1 select * from ${prefix}_2; """
-        order_qt_select_4 """ select * from ${prefix}_1; """
+        sql """ insert into ${prefix}_1 select * from ${prefix}_2; """ // t2
+        order_qt_select_4 """ select * from ${prefix}_1; """ // t1
 
         sql """ insert into ${prefix}_2 select * from ${prefix}_1; """
         order_qt_select_5 """ select * from ${prefix}_2; """
