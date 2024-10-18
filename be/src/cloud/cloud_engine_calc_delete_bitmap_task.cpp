@@ -156,7 +156,9 @@ Status CloudTabletCalcDeleteBitmapTask::handle() const {
                _ms_cumulative_compaction_cnt > tablet->cumulative_compaction_cnt() ||
                _ms_cumulative_point > tablet->cumulative_layer_point();
     };
+    LOG(INFO) << "sout: _version=" << _version << ", max_version=" << max_version;
     if (_version != max_version + 1 || should_sync_rowsets_produced_by_compaction()) {
+        LOG(INFO) << "sout: sync_rowsets";
         auto sync_st = tablet->sync_rowsets();
         if (!sync_st.ok()) {
             LOG(WARNING) << "failed to sync rowsets. tablet_id=" << _tablet_id
@@ -311,13 +313,40 @@ Status CloudTabletCalcDeleteBitmapTask::_handle_rowset(
     if (non_visible_rowsets != nullptr) {
         non_visible_rowsets->push_back(rowset);
         // see CloudTablet::save_delete_bitmap
-        auto dm = txn_info.delete_bitmap->delete_bitmap;
+        LOG(INFO) << "sout: ----";
+        auto dm = tablet->tablet_meta()->delete_bitmap().delete_bitmap;
         for (auto it = dm.begin(); it != dm.end(); ++it) {
+            auto& key = it->first;
+            LOG(INFO) << "sout: print tablet delete_bitmap after sub_txn_id=" << sub_txn_id
+                      << ", rowset_id=" << std::get<0>(key) << ", segment_id=" << std::get<1>(key)
+                      << ", version=" << std::get<2>(key)
+                      << ", contains 0=" << it->second.contains(0);
+        }
+
+        LOG(INFO) << "sout: ----";
+        dm = txn_info.delete_bitmap->delete_bitmap;
+        for (auto it = dm.begin(); it != dm.end(); ++it) {
+            auto& key = it->first;
+            LOG(INFO) << "sout: print delete_bitmap after sub_txn_id=" << sub_txn_id
+                      << ", rowset_id=" << std::get<0>(key) << ", segment_id=" << std::get<1>(key)
+                      << ", version=" << std::get<2>(key)
+                      << ", contains 0=" << it->second.contains(0);
             if (std::get<1>(it->first) != DeleteBitmap::INVALID_SEGMENT_ID) {
                 tablet_delete_bitmap->merge(
                         {std::get<0>(it->first), std::get<1>(it->first), version}, it->second);
             }
         }
+
+        LOG(INFO) << "sout: ----";
+        dm = tablet_delete_bitmap->delete_bitmap;
+        for (auto it = dm.begin(); it != dm.end(); ++it) {
+            auto& key = it->first;
+            LOG(INFO) << "sout: print merged delete_bitmap after sub_txn_id=" << sub_txn_id
+                      << ", rowset_id=" << std::get<0>(key) << ", segment_id=" << std::get<1>(key)
+                      << ", version=" << std::get<2>(key)
+                      << ", contains 0=" << it->second.contains(0);
+        }
+        LOG(INFO) << "sout: ----";
     }
     return status;
 }
