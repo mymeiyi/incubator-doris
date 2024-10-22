@@ -237,7 +237,7 @@ Status NewOlapScanner::init() {
                         }
                     }
                     DeleteBitmapPtr tablet_delete_bitmap =
-                            std::make_shared<DeleteBitmap>(*(_tablet_reader_params.delete_bitmap));
+                            std::make_shared<DeleteBitmap>(tablet->tablet_meta()->delete_bitmap());
                     for (auto i = 0; i < tablet_txn_infos.size(); ++i) {
                         auto& tablet_txn_info = tablet_txn_infos[i];
                         auto sub_txn_id = _sub_txn_ids[i];
