@@ -73,7 +73,7 @@ struct RowsetReaderContext {
     uint64_t* merged_rows = nullptr;
     // for unique key merge on write
     bool enable_unique_key_merge_on_write = false;
-    const DeleteBitmap* delete_bitmap = nullptr;
+    const DeleteBitmapPtr delete_bitmap = nullptr;
     bool record_rowids = false;
     bool is_vertical_compaction = false;
     bool is_key_column_group = false;
