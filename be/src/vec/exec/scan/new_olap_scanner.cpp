@@ -237,6 +237,9 @@ Status NewOlapScanner::init() {
                             non_visible_rowsets.push_back(rowset);
                         }
                     }
+                    LOG(INFO) << "sout: visible rowset size=" << visible_rowsets.size()
+                              << ", non visible rowset size=" << non_visible_rowsets.size()
+                              << ", start version=" << start_version;
                     DeleteBitmapPtr tablet_delete_bitmap =
                             std::make_shared<DeleteBitmap>(tablet->tablet_meta()->delete_bitmap());
                     for (auto i = 0; i < tablet_txn_infos.size(); ++i) {
@@ -247,14 +250,18 @@ Status NewOlapScanner::init() {
                                 non_visible_rowsets, tablet_delete_bitmap);
                         auto& dm = tablet_txn_info->delete_bitmap->delete_bitmap;
                         int64_t tmp_version = start_version + i + 1;
+                        // merge delete bitmap of sub txn rowsets
                         for (auto it = dm.begin(); it != dm.end(); ++it) {
                             if (std::get<1>(it->first) != DeleteBitmap::INVALID_SEGMENT_ID) {
                                 tablet_delete_bitmap->merge({std::get<0>(it->first),
                                                              std::get<1>(it->first), tmp_version},
                                                             it->second);
+                                auto& key = it->first;
+                                LOG(INFO) << "sout: print delete_bitmap after sub_txn_id=" << sub_txn_id
+                                          << ", rowset_id=" << std::get<0>(key) << ", segment_id=" << std::get<1>(key)
+                                          << ", version=" << std::get<2>(key);
                             }
                         }
-                        // merge delete bitmap of sub txn rowsets
                     }
                     _tablet_reader_params.delete_bitmap = tablet_delete_bitmap;
                 }
