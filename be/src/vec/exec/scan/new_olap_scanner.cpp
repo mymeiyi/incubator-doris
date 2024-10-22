@@ -237,7 +237,8 @@ Status NewOlapScanner::init() {
                             non_visible_rowsets.push_back(rowset);
                         }
                     }
-                    LOG(INFO) << "sout: visible rowset size=" << visible_rowsets.size()
+                    LOG(INFO) << "sout: tablet_id=" << tablet->tablet_id()
+                              << ", visible rowset size=" << visible_rowsets.size()
                               << ", non visible rowset size=" << non_visible_rowsets.size()
                               << ", start version=" << start_version;
                     DeleteBitmapPtr tablet_delete_bitmap =
@@ -257,9 +258,12 @@ Status NewOlapScanner::init() {
                                                              std::get<1>(it->first), tmp_version},
                                                             it->second);
                                 auto& key = it->first;
-                                LOG(INFO) << "sout: print delete_bitmap after sub_txn_id=" << sub_txn_id
-                                          << ", rowset_id=" << std::get<0>(key) << ", segment_id=" << std::get<1>(key)
-                                          << ", version=" << std::get<2>(key);
+                                LOG(INFO) << "sout: tablet_id=" << tablet->tablet_id()
+                                          << ", print delete_bitmap after sub_txn_id=" << sub_txn_id
+                                          << ", rowset_id=" << std::get<0>(key)
+                                          << ", segment_id=" << std::get<1>(key)
+                                          << ", version=" << tmp_version
+                                          << ", delete_bitmap=" << it->second.cardinality();
                             }
                         }
                     }
