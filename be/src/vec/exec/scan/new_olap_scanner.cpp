@@ -228,24 +228,34 @@ Status NewOlapScanner::init() {
                 if (tablet->enable_unique_key_merge_on_write()) {
                     // calculate delete bitmap of sub txn rowsets
                     std::vector<RowsetSharedPtr> visible_rowsets;
-                    std::vector<RowsetSharedPtr> non_visible_rowsets;
                     for (auto i = 0; i < read_source.rs_splits.size(); ++i) {
                         auto rowset = read_source.rs_splits[i].rs_reader->rowset();
                         if (i < visible_rowset_num) {
                             visible_rowsets.push_back(rowset);
-                        } else {
-                            non_visible_rowsets.push_back(rowset);
                         }
                     }
                     LOG(INFO) << "sout: tablet_id=" << tablet->tablet_id()
                               << ", visible rowset size=" << visible_rowsets.size()
-                              << ", non visible rowset size=" << non_visible_rowsets.size()
+                              << ", non visible rowset size="
+                              << (tablet_txn_infos.size() - visible_rowset_num)
                               << ", start version=" << start_version;
                     DeleteBitmapPtr tablet_delete_bitmap =
                             std::make_shared<DeleteBitmap>(tablet->tablet_meta()->delete_bitmap());
                     for (auto i = 0; i < tablet_txn_infos.size(); ++i) {
+                        std::vector<RowsetSharedPtr> non_visible_rowsets;
+                        for (auto j = visible_rowset_num; j < i; ++j) {
+                            auto rowset = read_source.rs_splits[j].rs_reader->rowset();
+                            if (rowset->version().second == start_version + i + 1) {
+                                visible_rowsets.push_back(rowset);
+                            }
+                        }
                         auto& tablet_txn_info = tablet_txn_infos[i];
                         auto sub_txn_id = _sub_txn_ids[i];
+                        LOG(INFO) << "sout: cal dm for tablet_id=" << tablet->tablet_id()
+                                  << ", i=" << i << ", sub_txn_id=" << sub_txn_id
+                                  << ", visible rowset size=" << visible_rowsets.size()
+                                  << ", non visible rowset size=" << non_visible_rowsets.size()
+                                  << ", start version=" << start_version;
                         auto st = tablet->update_delete_bitmap2(
                                 tablet, tablet_txn_info.get(), sub_txn_id, -1, visible_rowsets,
                                 non_visible_rowsets, tablet_delete_bitmap);
