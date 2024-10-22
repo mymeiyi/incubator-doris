@@ -1634,11 +1634,11 @@ Status BaseTablet::update_delete_bitmap2(const BaseTabletSPtr& self, TabletTxnIn
     }*/
 
     std::vector<RowsetSharedPtr> specified_rowsets(visible_rowsets);
-    if (non_visible_rowsets != nullptr) {
-        for (auto non_visible_rowset : *non_visible_rowsets) {
+    // if (non_visible_rowsets != nullptr) {
+        for (auto non_visible_rowset : non_visible_rowsets) {
             specified_rowsets.emplace_back(non_visible_rowset);
         }
-    }
+    //}
     auto t3 = watch.get_elapse_time_us();
 
     // If a rowset is produced by compaction before the commit phase of the partial update load
