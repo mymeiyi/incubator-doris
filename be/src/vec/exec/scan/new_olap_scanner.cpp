@@ -130,6 +130,8 @@ Status NewOlapScanner::init() {
     auto* local_state = static_cast<pipeline::OlapScanLocalState*>(_local_state);
     auto& tablet = _tablet_reader_params.tablet;
     auto& tablet_schema = _tablet_reader_params.tablet_schema;
+    LOG(INFO) << "sout: NewOlapScanner::init, table=" << tablet->table_id()
+              << ", tablet=" << tablet->tablet_id();
     for (auto& ctx : local_state->_common_expr_ctxs_push_down) {
         VExprContextSPtr context;
         RETURN_IF_ERROR(ctx->clone(_state, context));
@@ -214,10 +216,37 @@ Status NewOlapScanner::init() {
                 LOG(INFO) << "capture sub txn rs readers, size=" << _sub_txn_ids.size()
                           << ", tablet_id=" << tablet->tablet_id()
                           << ", version=" << _tablet_reader_params.version.second;
-                RETURN_IF_ERROR(
-                        tablet->capture_sub_txn_rs_readers(_tablet_reader_params.version.second,
-                                                           _sub_txn_ids, &read_source.rs_splits));
+                auto visible_rowset_num = read_source.rs_splits.size();
+
+                std::vector<std::shared_ptr<TabletTxnInfo>> tablet_txn_infos;
+                RETURN_IF_ERROR(tablet->capture_sub_txn_rs_readers(
+                        _tablet_reader_params.version.second, _sub_txn_ids, &read_source.rs_splits,
+                        &tablet_txn_infos));
                 _tablet_reader_params.version.second += _sub_txn_ids.size();
+
+                if (tablet->enable_unique_key_merge_on_write()) {
+                    // calculate delete bitmap of sub txn rowsets
+                    std::vector<RowsetSharedPtr> visible_rowsets;
+                    std::vector<RowsetSharedPtr> non_visible_rowsets;
+                    for (auto i = 0; i < read_source.rs_splits.size(); ++i) {
+                        auto rowset = read_source.rs_splits[i].rs_reader->rowset();
+                        if (i < visible_rowset_num) {
+                            visible_rowsets.push_back(rowset);
+                        } else {
+                            non_visible_rowsets.push_back(rowset);
+                        }
+                    }
+                    DeleteBitmapPtr tablet_delete_bitmap =
+                            std::make_shared<DeleteBitmap>(*(_tablet_reader_params.delete_bitmap));
+                    for (auto i = 0; i < tablet_txn_infos.size(); ++i) {
+                        auto& tablet_txn_info = tablet_txn_infos[i];
+                        auto sub_txn_id = _sub_txn_ids[i];
+                        auto st = tablet->update_delete_bitmap2(
+                                tablet, tablet_txn_info.get(), sub_txn_id, -1, visible_rowsets,
+                                non_visible_rowsets, tablet_delete_bitmap);
+                        // merge delete bitmap of sub txn rowsets
+                    }
+                }
             }
             if (!_state->skip_delete_predicate()) {
                 read_source.fill_delete_predicates();
