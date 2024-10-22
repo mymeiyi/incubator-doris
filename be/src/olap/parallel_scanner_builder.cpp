@@ -181,8 +181,9 @@ Status ParallelScannerBuilder::_load() {
             }
             LOG(INFO) << "capture sub txn rs readers, size=" << sub_txn_ids.size()
                       << ", tablet_id=" << tablet_id << ", version=" << version;
-            RETURN_IF_ERROR(tablet->capture_sub_txn_rs_readers(version, sub_txn_ids,
-                                                               &read_source.rs_splits));
+            std::vector<std::shared_ptr<TabletTxnInfo>> tablet_txn_infos;
+            RETURN_IF_ERROR(tablet->capture_sub_txn_rs_readers(
+                    version, sub_txn_ids, &read_source.rs_splits, &tablet_txn_infos));
             // calculate mow delete bitmap
 
         }
