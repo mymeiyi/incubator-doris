@@ -245,9 +245,7 @@ Status NewOlapScanner::init() {
                         std::vector<RowsetSharedPtr> non_visible_rowsets;
                         for (auto j = visible_rowset_num; j < i; ++j) {
                             auto rowset = read_source.rs_splits[j].rs_reader->rowset();
-                            if (rowset->version().second == start_version + i + 1) {
-                                visible_rowsets.push_back(rowset);
-                            }
+                            non_visible_rowsets.push_back(rowset);
                         }
                         auto& tablet_txn_info = tablet_txn_infos[i];
                         auto sub_txn_id = _sub_txn_ids[i];
