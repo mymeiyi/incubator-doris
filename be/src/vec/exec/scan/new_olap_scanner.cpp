@@ -219,6 +219,7 @@ Status NewOlapScanner::init() {
                 auto visible_rowset_num = read_source.rs_splits.size();
 
                 std::vector<std::shared_ptr<TabletTxnInfo>> tablet_txn_infos;
+                int64_t start_version = _tablet_reader_params.version.second;
                 RETURN_IF_ERROR(tablet->capture_sub_txn_rs_readers(
                         _tablet_reader_params.version.second, _sub_txn_ids, &read_source.rs_splits,
                         &tablet_txn_infos));
@@ -244,8 +245,18 @@ Status NewOlapScanner::init() {
                         auto st = tablet->update_delete_bitmap2(
                                 tablet, tablet_txn_info.get(), sub_txn_id, -1, visible_rowsets,
                                 non_visible_rowsets, tablet_delete_bitmap);
+                        auto& dm = tablet_txn_info->delete_bitmap->delete_bitmap;
+                        int64_t tmp_version = start_version + i + 1;
+                        for (auto it = dm.begin(); it != dm.end(); ++it) {
+                            if (std::get<1>(it->first) != DeleteBitmap::INVALID_SEGMENT_ID) {
+                                tablet_delete_bitmap->merge({std::get<0>(it->first),
+                                                             std::get<1>(it->first), tmp_version},
+                                                            it->second);
+                            }
+                        }
                         // merge delete bitmap of sub txn rowsets
                     }
+                    _tablet_reader_params.delete_bitmap = tablet_delete_bitmap;
                 }
             }
             if (!_state->skip_delete_predicate()) {
@@ -414,7 +425,7 @@ Status NewOlapScanner::_init_tablet_reader_params(
     _tablet_reader_params.use_page_cache = _state->enable_page_cache();
 
     if (tablet->enable_unique_key_merge_on_write() && !_state->skip_delete_bitmap()) {
-        _tablet_reader_params.delete_bitmap = &tablet->tablet_meta()->delete_bitmap();
+        _tablet_reader_params.delete_bitmap = tablet->tablet_meta()->delete_bitmap_ptr();
     }
 
     if (!_state->skip_storage_engine_merge()) {
