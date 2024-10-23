@@ -75,7 +75,7 @@ struct TabletTxnInfo {
     RowsetSharedPtr rowset;
     PendingRowsetGuard pending_rs_guard;
     bool unique_key_merge_on_write {false};
-    DeleteBitmapPtr delete_bitmap;
+    DeleteBitmapPtr delete_bitmap = nullptr;
     // records rowsets calc in commit txn
     RowsetIdUnorderedSet rowset_ids;
     int64_t creation_time;

@@ -250,12 +250,24 @@ Status NewOlapScanner::init() {
                         }
                         auto& tablet_txn_info = tablet_txn_infos[i];
                         auto sub_txn_id = _sub_txn_ids[i];
+                        if (tablet_txn_info->delete_bitmap == nullptr) {
+                            LOG(INFO) << "sout: skip cal dm for tablet_id=" << tablet->tablet_id()
+                                      << ", i=" << i << ", sub_txn_id=" << sub_txn_id
+                                      << ", rowset_id=" << tablet_txn_info->rowset->rowset_id()
+                                      << ", visible rowset size=" << visible_rowsets.size()
+                                      << ", non visible rowset size=" << non_visible_rowsets.size()
+                                      << ", start version=" << start_version << ", is delete="
+                                      << tablet_txn_info->rowset->rowset_meta()
+                                                 ->has_delete_predicate();
+                            continue;
+                        }
                         LOG(INFO) << "sout: cal dm for tablet_id=" << tablet->tablet_id()
                                   << ", i=" << i << ", sub_txn_id=" << sub_txn_id
                                   << ", rowset_id=" << tablet_txn_info->rowset->rowset_id()
                                   << ", visible rowset size=" << visible_rowsets.size()
                                   << ", non visible rowset size=" << non_visible_rowsets.size()
-                                  << ", start version=" << start_version;
+                                  << ", start version=" << start_version << ", is delete="
+                                  << tablet_txn_info->rowset->rowset_meta()->has_delete_predicate();
                         auto st = tablet->update_delete_bitmap2(
                                 tablet, tablet_txn_info.get(), sub_txn_id, -1, visible_rowsets,
                                 non_visible_rowsets, tablet_delete_bitmap);
