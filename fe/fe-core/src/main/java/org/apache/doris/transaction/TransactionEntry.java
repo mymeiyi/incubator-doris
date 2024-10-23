@@ -455,7 +455,7 @@ public class TransactionEntry {
             resetByTxnInfo(txnLoadInfo);
             this.transactionState = Env.getCurrentGlobalTransactionMgr().getTransactionState(dbId, transactionId);
             Preconditions.checkNotNull(this.transactionState,
-                    "db_id" + dbId + " txn_id=" + transactionId + " not found");
+                    "db_id=" + dbId + ", txn_id=" + transactionId + " not found");
             Preconditions.checkState(this.label.equals(this.transactionState.getLabel()), "expected label="
                     + this.label + ", real label=" + this.transactionState.getLabel());
             this.isTransactionBegan = true;

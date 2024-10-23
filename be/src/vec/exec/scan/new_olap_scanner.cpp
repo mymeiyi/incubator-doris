@@ -204,7 +204,7 @@ Status NewOlapScanner::init() {
                     return st;
                 }
             } else {
-                if (_tablet_reader_params.version.second > 0) {
+                if (_tablet_reader_params.version.second > 1) {
                     auto st = tablet->capture_rs_readers(_tablet_reader_params.version,
                                                          &read_source.rs_splits,
                                                          _state->skip_missing_version());
@@ -213,10 +213,11 @@ Status NewOlapScanner::init() {
                         return st;
                     }
                 }
+                auto visible_rowset_num = read_source.rs_splits.size();
                 LOG(INFO) << "capture sub txn rs readers, size=" << _sub_txn_ids.size()
                           << ", tablet_id=" << tablet->tablet_id()
-                          << ", version=" << _tablet_reader_params.version.second;
-                auto visible_rowset_num = read_source.rs_splits.size();
+                          << ", version=" << _tablet_reader_params.version.second
+                          << ", visible_rowset_num=" << visible_rowset_num;
 
                 std::vector<std::shared_ptr<TabletTxnInfo>> tablet_txn_infos;
                 int64_t start_version = _tablet_reader_params.version.second;
