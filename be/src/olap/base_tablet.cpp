@@ -1460,11 +1460,16 @@ Status BaseTablet::update_delete_bitmap(const BaseTabletSPtr& self, TabletTxnInf
         std::shared_lock meta_rlock(self->_meta_lock);
         specified_rowsets = self->get_rowset_by_ids(&rowset_ids_to_add);
     }
-    std::stringstream ss1;
-    for (const auto& r : specified_rowsets) {
-        ss1 << "[id=" << r->rowset_id() << ", version=" << r->version() << "], ";
+    {
+        std::vector<RowsetSharedPtr> specified_rowsets1;
+        std::shared_lock meta_rlock(self->_meta_lock);
+        specified_rowsets1 = self->get_rowset_by_ids(&cur_rowset_ids);
+        std::stringstream ss1;
+        for (const auto& r : specified_rowsets1) {
+            ss1 << "[id=" << r->rowset_id() << ", version=" << r->version() << "], ";
+        }
+        LOG(INFO) << "sout: specified_rowsets: " << ss1.str() << ", txn_id: " << txn_id;
     }
-    LOG(INFO) << "sout: specified_rowsets: " << ss1.str() << ", txn_id: " << txn_id;
     if (non_visible_rowsets != nullptr) {
         for (auto non_visible_rowset : *non_visible_rowsets) {
             specified_rowsets.emplace_back(non_visible_rowset);
