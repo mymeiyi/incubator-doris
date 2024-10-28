@@ -283,6 +283,7 @@ Status NewOlapScanner::init() {
                                   << tablet_txn_info->rowset->rowset_meta()->has_delete_predicate();
                         auto& dm = tablet_txn_info->delete_bitmap->delete_bitmap;
                         dm.clear();
+                        tablet_txn_info->rowset_ids.clear();
                         int64_t tmp_version = start_version + i + 1;
                         int64_t previous_tmp_version = tablet_txn_info->tmp_version;
                         /*auto& dm = tablet_txn_info->delete_bitmap->delete_bitmap;
