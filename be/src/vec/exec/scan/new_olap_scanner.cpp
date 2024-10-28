@@ -282,8 +282,10 @@ Status NewOlapScanner::init() {
                                   << ", start version=" << start_version << ", is delete="
                                   << tablet_txn_info->rowset->rowset_meta()->has_delete_predicate();
                         auto& dm = tablet_txn_info->delete_bitmap->delete_bitmap;
+                        dm.clear();
                         int64_t tmp_version = start_version + i + 1;
                         int64_t previous_tmp_version = tablet_txn_info->tmp_version;
+                        /*auto& dm = tablet_txn_info->delete_bitmap->delete_bitmap;
                         if (previous_tmp_version != tmp_version) {
 
                         }
@@ -294,7 +296,7 @@ Status NewOlapScanner::init() {
                                          previous_tmp_version},
                                         {std::get<0>(it->first), UINT32_MAX, previous_tmp_version});
                             }
-                        }
+                        }*/
                         RETURN_IF_ERROR(tablet->update_delete_bitmap2(
                                 tablet, tablet_txn_info.get(), sub_txn_id, -1, visible_rowsets,
                                 non_visible_rowsets, tablet_delete_bitmap));
