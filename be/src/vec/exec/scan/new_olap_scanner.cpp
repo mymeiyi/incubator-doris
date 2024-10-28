@@ -369,6 +369,9 @@ Status NewOlapScanner::init() {
                                 tablet_delete_bitmap->merge({std::get<0>(it->first),
                                                              std::get<1>(it->first), tmp_version},
                                                             it->second);
+                                LOG(INFO) << "sout: merge rowset_id=" << std::get<0>(it->first)
+                                          << ", segment_id=" << std::get<1>(it->first)
+                                          << ", version=" << std::get<2>(it->first);
                             }
                         }
                         LOG(INFO) << "sout: 4 cal dm for tablet_id=" << tablet->tablet_id()
