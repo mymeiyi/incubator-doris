@@ -287,7 +287,7 @@ Status NewOlapScanner::init() {
                         tablet_txn_info->rowset_ids.clear();*/
                         int64_t tmp_version = start_version + i + 1;
                         int64_t previous_tmp_version = tablet_txn_info->tmp_version;
-                        LOG(INFO) << "sout: 0 cal dm for tablet_id=" << tablet->tablet_id()
+                        LOG(INFO) << "sout: 1 cal dm for tablet_id=" << tablet->tablet_id()
                                   << ", sub_txn_num=" << _sub_txn_ids.size()
                                   << ", visible rowset size=" << visible_rowsets.size()
                                   << ", start version=" << start_version
@@ -305,15 +305,15 @@ Status NewOlapScanner::init() {
                                   << ", tablet dm=" << print_delete_bitmap(tablet_delete_bitmap);
                         if (previous_tmp_version != tmp_version) {
                         }
-                        for (auto it = dm.begin(); it != dm.end(); ++it) {
+                        /*for (auto it = dm.begin(); it != dm.end(); ++it) {
                             if (std::get<1>(it->first) != DeleteBitmap::INVALID_SEGMENT_ID) {
                                 tablet_delete_bitmap->remove(
                                         {std::get<0>(it->first), std::get<1>(it->first),
                                          previous_tmp_version},
                                         {std::get<0>(it->first), UINT32_MAX, previous_tmp_version});
                             }
-                        }
-                        LOG(INFO) << "sout: 1 cal dm for tablet_id=" << tablet->tablet_id()
+                        }*/
+                        LOG(INFO) << "sout: 2 cal dm for tablet_id=" << tablet->tablet_id()
                                   << ", sub_txn_num=" << _sub_txn_ids.size()
                                   << ", visible rowset size=" << visible_rowsets.size()
                                   << ", start version=" << start_version
@@ -333,7 +333,7 @@ Status NewOlapScanner::init() {
                                 tablet, tablet_txn_info.get(), sub_txn_id, -1, visible_rowsets,
                                 non_visible_rowsets, tablet_delete_bitmap));
                         tablet_txn_info->tmp_version = tmp_version;
-                        LOG(INFO) << "sout: 2 cal dm for tablet_id=" << tablet->tablet_id()
+                        LOG(INFO) << "sout: 3 cal dm for tablet_id=" << tablet->tablet_id()
                                   << ", sub_txn_num=" << _sub_txn_ids.size()
                                   << ", visible rowset size=" << visible_rowsets.size()
                                   << ", start version=" << start_version
@@ -371,7 +371,7 @@ Status NewOlapScanner::init() {
                                                             it->second);
                             }
                         }
-                        LOG(INFO) << "sout: 3 cal dm for tablet_id=" << tablet->tablet_id()
+                        LOG(INFO) << "sout: 4 cal dm for tablet_id=" << tablet->tablet_id()
                                   << ", sub_txn_num=" << _sub_txn_ids.size()
                                   << ", visible rowset size=" << visible_rowsets.size()
                                   << ", start version=" << start_version
