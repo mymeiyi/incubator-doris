@@ -140,7 +140,7 @@ static std::string print_rowset_ids(RowsetIdUnorderedSet& rowset_ids) {
     std::stringstream ss;
     ss << "[";
     for (auto it = rowset_ids.begin(); it != rowset_ids.end(); ++it) {
-        ss << it->version << ": " << it->to_string() << ", ";
+        ss << it->to_string() << ", ";
     }
     ss << "]";
     return ss.str();
