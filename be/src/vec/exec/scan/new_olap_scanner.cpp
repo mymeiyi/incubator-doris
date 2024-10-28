@@ -282,8 +282,8 @@ Status NewOlapScanner::init() {
                             auto rowset = read_source.rs_splits[j].rs_reader->rowset();
                             non_visible_rowsets.push_back(rowset);
                         }
-                        /*dm.clear();
-                        tablet_txn_info->rowset_ids.clear();*/
+                        tablet_txn_info->delete_bitmap->delete_bitmap.clear();
+                        tablet_txn_info->rowset_ids.clear();
                         int64_t tmp_version = start_version + i + 1;
                         int64_t previous_tmp_version = tablet_txn_info->tmp_version;
                         LOG(INFO) << "sout: 1 cal dm for tablet_id=" << tablet->tablet_id()
