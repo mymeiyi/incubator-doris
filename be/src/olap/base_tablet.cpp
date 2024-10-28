@@ -538,18 +538,18 @@ Status BaseTablet::lookup_row_key(const Slice& encoded_key, TabletSchema* latest
         for (auto id : picked_segments) {
             Status s = segments[id]->lookup_row_key(encoded_key, schema, with_seq_col, with_rowid,
                                                     &loc, encoded_seq_value);
-            if (s.is<KEY_NOT_FOUND>()) {
-                continue;
-            }
-            if (!s.ok() && !s.is<KEY_ALREADY_EXISTS>()) {
-                return s;
-            }
             LOG(INFO) << "sout: lookup rowkey for rowset=" << rs->rowset_id()
                       << ", find rowset=" << loc.rowset_id << ", segment=" << loc.segment_id
                       << ", row=" << loc.row_id << ", st=" << s.to_string()
                       << ", version=" << version << ", is already deleted="
                       << tablet_delete_bitmap.contains_agg_without_cache(
                                  {loc.rowset_id, loc.segment_id, version}, loc.row_id);
+            if (s.is<KEY_NOT_FOUND>()) {
+                continue;
+            }
+            if (!s.ok() && !s.is<KEY_ALREADY_EXISTS>()) {
+                return s;
+            }
             if (s.ok() && tablet_delete_bitmap.contains_agg_without_cache(
                                   {loc.rowset_id, loc.segment_id, version}, loc.row_id)) {
                 // if has sequence col, we continue to compare the sequence_id of
