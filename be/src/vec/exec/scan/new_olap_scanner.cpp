@@ -278,8 +278,9 @@ Status NewOlapScanner::init() {
                             continue;
                         }
                         std::vector<RowsetSharedPtr> non_visible_rowsets;
-                        for (auto j = visible_rowset_num; j < i; ++j) {
-                            auto rowset = read_source.rs_splits[j].rs_reader->rowset();
+                        for (auto j = 0; j < i; ++j) {
+                            auto rowset = read_source.rs_splits[j + visible_rowset_num]
+                                                  .rs_reader->rowset();
                             non_visible_rowsets.push_back(rowset);
                         }
                         tablet_txn_info->delete_bitmap->delete_bitmap.clear();
