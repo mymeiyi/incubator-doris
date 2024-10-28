@@ -1655,9 +1655,6 @@ Status BaseTablet::update_delete_bitmap2(const BaseTabletSPtr& self, TabletTxnIn
     // TODO where set txn_info->rowset_ids?
     _rowset_ids_difference(cur_rowset_ids, txn_info->rowset_ids, &rowset_ids_to_add,
                            &rowset_ids_to_del);
-    LOG(INFO) << "sout: txn_info->rowset_ids=" << txn_info->rowset_ids.size()
-              << ", rowset_ids_to_add=" << rowset_ids_to_add.size()
-              << ", rowset_ids_to_delete=" << rowset_ids_to_del.size();
     /*for (const auto& to_del : rowset_ids_to_del) {
         delete_bitmap->remove({to_del, 0, 0}, {to_del, UINT32_MAX, INT64_MAX});
     }*/
@@ -1677,6 +1674,14 @@ Status BaseTablet::update_delete_bitmap2(const BaseTabletSPtr& self, TabletTxnIn
               [](RowsetSharedPtr& lhs, RowsetSharedPtr& rhs) {
                   return lhs->end_version() > rhs->end_version();
               });
+    LOG(INFO) << "sout: txn_info->rowset_ids=" << txn_info->rowset_ids.size()
+              << ", rowset_ids_to_add=" << rowset_ids_to_add.size()
+              << ", rowset_ids_to_delete=" << rowset_ids_to_del.size()
+              << ", specified_rowsets=" << specified_rowsets.size();
+    for (const auto& r : specified_rowsets) {
+        LOG(INFO) << "sout: specified_rowsets: " << r->rowset_id()
+                  << ", version=" << r->end_version();
+    }
     auto t3 = watch.get_elapse_time_us();
 
     // If a rowset is produced by compaction before the commit phase of the partial update load
