@@ -282,7 +282,6 @@ Status NewOlapScanner::init() {
                             auto rowset = read_source.rs_splits[j].rs_reader->rowset();
                             non_visible_rowsets.push_back(rowset);
                         }
-                        auto& dm = tablet_txn_info->delete_bitmap->delete_bitmap;
                         /*dm.clear();
                         tablet_txn_info->rowset_ids.clear();*/
                         int64_t tmp_version = start_version + i + 1;
@@ -360,6 +359,7 @@ Status NewOlapScanner::init() {
                                   << print_delete_bitmap(tablet_txn_info->delete_bitmap)
                                   << ", merged tablet dm="
                                   << print_delete_bitmap(tablet_delete_bitmap);*/
+                        auto& dm = tablet_txn_info->delete_bitmap->delete_bitmap;
                         for (auto it = dm.begin(); it != dm.end(); ++it) {
                             if (std::get<1>(it->first) != DeleteBitmap::INVALID_SEGMENT_ID) {
                                 /*tablet_delete_bitmap->remove(
