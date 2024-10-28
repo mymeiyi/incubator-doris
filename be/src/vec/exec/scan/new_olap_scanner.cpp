@@ -140,7 +140,7 @@ static std::string print_rowset_ids(RowsetIdUnorderedSet& rowset_ids) {
     std::stringstream ss;
     ss << "[";
     for (auto it = rowset_ids.begin(); it != rowset_ids.end(); ++it) {
-        ss << it->to_string() << ", ";
+        ss << it->version << ": " << it->to_string() << ", ";
     }
     ss << "]";
     return ss.str();
@@ -220,11 +220,11 @@ Status NewOlapScanner::init() {
                 auto st = tablet->capture_rs_readers(_tablet_reader_params.version,
                                                      &read_source.rs_splits,
                                                      _state->skip_missing_version());
-                if (_tablet_reader_params.version.second == 1) {
+                /*if (_tablet_reader_params.version.second == 1) {
                     LOG(INFO) << "sout: after init reader, tablet_id=" << tablet->tablet_id()
                               << ", version=" << _tablet_reader_params.version.second
                               << ", size=" << read_source.rs_splits.size();
-                }
+                }*/
                 if (!st.ok()) {
                     LOG(WARNING) << "fail to init reader.res=" << st;
                     return st;
