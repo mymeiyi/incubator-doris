@@ -125,7 +125,7 @@ static std::string read_columns_to_string(TabletSchemaSPtr tablet_schema,
     return read_columns_string;
 }
 
-static std::string print_delete_bitmap(DeleteBitmapPtr delete_bitmap) {
+/*static std::string print_delete_bitmap(DeleteBitmapPtr delete_bitmap) {
     std::stringstream ss;
     auto& dm = delete_bitmap->delete_bitmap;
     for (auto it = dm.begin(); it != dm.end(); ++it) {
@@ -144,7 +144,7 @@ static std::string print_rowset_ids(RowsetIdUnorderedSet& rowset_ids) {
     }
     ss << "]";
     return ss.str();
-}
+}*/
 
 Status NewOlapScanner::init() {
     _is_init = true;
