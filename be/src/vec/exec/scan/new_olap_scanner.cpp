@@ -261,9 +261,23 @@ Status NewOlapScanner::init() {
                               << ", non visible rowset size="
                               << (tablet_txn_infos.size() - visible_rowset_num)
                               << ", start version=" << start_version;
+                    std::vector<RowsetSharedPtr> non_visible_rowsets;
+                    for (auto i = visible_rowset_num; i < read_source.rs_splits.size(); ++i) {
+                        auto rowset = read_source.rs_splits[i].rs_reader->rowset();
+                        non_visible_rowsets.push_back(rowset);
+                        LOG(INFO) << "sout: non visible rowset=" << rowset->rowset_id()
+                                  << ", version=" << rowset->version();
+                    }
                     DeleteBitmapPtr tablet_delete_bitmap =
                             std::make_shared<DeleteBitmap>(tablet->tablet_meta()->delete_bitmap());
-                    for (auto i = 0; i < tablet_txn_infos.size(); ++i) {
+
+
+                    RETURN_IF_ERROR(tablet->txn_load_update_delete_bitmap0(
+                            tablet, visible_rowsets, non_visible_rowsets, start_version,
+                            _sub_txn_ids, tablet_txn_infos, tablet_delete_bitmap));
+                    _tablet_reader_params.delete_bitmap = tablet_delete_bitmap;
+
+                    /*for (auto i = 0; i < tablet_txn_infos.size(); ++i) {
                         auto& tablet_txn_info = tablet_txn_infos[i];
                         auto sub_txn_id = _sub_txn_ids[i];
                         if (tablet_txn_info->rowset->rowset_meta()->has_delete_predicate()) {
@@ -305,14 +319,14 @@ Status NewOlapScanner::init() {
                                   << ", tablet dm=" << print_delete_bitmap(tablet_delete_bitmap);
                         if (previous_tmp_version != tmp_version) {
                         }
-                        /*for (auto it = dm.begin(); it != dm.end(); ++it) {
+                        *//*for (auto it = dm.begin(); it != dm.end(); ++it) {
                             if (std::get<1>(it->first) != DeleteBitmap::INVALID_SEGMENT_ID) {
                                 tablet_delete_bitmap->remove(
                                         {std::get<0>(it->first), std::get<1>(it->first),
                                          previous_tmp_version},
                                         {std::get<0>(it->first), UINT32_MAX, previous_tmp_version});
                             }
-                        }*/
+                        }*//*
                         LOG(INFO) << "sout: 2 cal dm for tablet_id=" << tablet->tablet_id()
                                   << ", sub_txn_num=" << _sub_txn_ids.size()
                                   << ", visible rowset size=" << visible_rowsets.size()
@@ -329,7 +343,7 @@ Status NewOlapScanner::init() {
                                   << ", rowset_ids="
                                   << print_rowset_ids(tablet_txn_info->rowset_ids)
                                   << ", tablet dm=" << print_delete_bitmap(tablet_delete_bitmap);
-                        RETURN_IF_ERROR(tablet->update_delete_bitmap2(
+                        RETURN_IF_ERROR(tablet->txn_load_update_delete_bitmap(
                                 tablet, tablet_txn_info.get(), sub_txn_id, -1, visible_rowsets,
                                 non_visible_rowsets, tablet_delete_bitmap));
                         tablet_txn_info->tmp_version = tmp_version;
@@ -350,7 +364,7 @@ Status NewOlapScanner::init() {
                                   << print_rowset_ids(tablet_txn_info->rowset_ids)
                                   << ", tablet dm=" << print_delete_bitmap(tablet_delete_bitmap);
                         // merge delete bitmap of sub txn rowsets
-                        /*LOG(INFO) << "sout: tablet_id=" << tablet->tablet_id()
+                        *//*LOG(INFO) << "sout: tablet_id=" << tablet->tablet_id()
                                   << ", sub_txn_num=" << _sub_txn_ids.size()
                                   << ", before sub_txn_id=" << sub_txn_id
                                   << ", tmp_version=" << tmp_version
@@ -359,14 +373,14 @@ Status NewOlapScanner::init() {
                                   << ", txn load info dm="
                                   << print_delete_bitmap(tablet_txn_info->delete_bitmap)
                                   << ", merged tablet dm="
-                                  << print_delete_bitmap(tablet_delete_bitmap);*/
+                                  << print_delete_bitmap(tablet_delete_bitmap);*//*
                         auto& dm = tablet_txn_info->delete_bitmap->delete_bitmap;
                         for (auto it = dm.begin(); it != dm.end(); ++it) {
                             if (std::get<1>(it->first) != DeleteBitmap::INVALID_SEGMENT_ID) {
-                                /*tablet_delete_bitmap->remove(
+                                *//*tablet_delete_bitmap->remove(
                                         {std::get<0>(it->first), std::get<1>(it->first),
                                          previous_tmp_version},
-                                        {std::get<0>(it->first), UINT32_MAX, previous_tmp_version});*/
+                                        {std::get<0>(it->first), UINT32_MAX, previous_tmp_version});*//*
                                 tablet_delete_bitmap->merge({std::get<0>(it->first),
                                                              std::get<1>(it->first), tmp_version},
                                                             it->second);
@@ -391,8 +405,8 @@ Status NewOlapScanner::init() {
                                   << ", rowset_ids="
                                   << print_rowset_ids(tablet_txn_info->rowset_ids)
                                   << ", tablet dm=" << print_delete_bitmap(tablet_delete_bitmap);
-                    }
-                    _tablet_reader_params.delete_bitmap = tablet_delete_bitmap;
+                    }*/
+                    // _tablet_reader_params.delete_bitmap = tablet_delete_bitmap;
                 }
             }
             if (!_state->skip_delete_predicate()) {
