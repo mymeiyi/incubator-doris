@@ -1631,24 +1631,15 @@ Status BaseTablet::txn_load_update_delete_bitmap(
         const BaseTabletSPtr& self,
         const std::vector<RowsetSharedPtr>& visible_rowsets,
         const std::vector<RowsetSharedPtr>& all_non_visible_rowsets,
-        int64_t start_version/* rename to visible version or next visible version*/,
+        int64_t visible_version,
         const std::vector<int64_t>& sub_txn_ids,
         std::vector<std::shared_ptr<TabletTxnInfo>>& tablet_txn_infos,
-        DeleteBitmapPtr tablet_delete_bitmap/* ptr */) {
+        DeleteBitmapPtr tablet_delete_bitmap) {
     // calculate delete bitmap of sub txn rowsets
-    /*std::vector<RowsetSharedPtr> visible_rowsets;
-    for (auto i = 0; i < visible_rowset_num; ++i) {
-        auto rowset = read_source.rs_splits[i].rs_reader->rowset();
-        visible_rowsets.push_back(rowset);
-        LOG(INFO) << "sout: visible rowset=" << rowset->rowset_id()
-                  << ", version=" << rowset->version();
-    }*/
     LOG(INFO) << "sout: tablet_id=" << self->tablet_id()
               << ", visible rowset size=" << visible_rowsets.size()
               << ", non visible rowset size=" << tablet_txn_infos.size()
-              << ", start version=" << start_version;
-    /*tablet_delete_bitmap =
-            std::make_shared<DeleteBitmap>(self->tablet_meta()->delete_bitmap());*/
+              << ", visible version=" << visible_version;
     for (auto i = 0; i < tablet_txn_infos.size(); ++i) {
         auto& tablet_txn_info = tablet_txn_infos[i];
         auto sub_txn_id = sub_txn_ids[i];
@@ -1658,26 +1649,25 @@ Status BaseTablet::txn_load_update_delete_bitmap(
                       << ", sub_txn_id=" << sub_txn_id
                       << ", rowset_id=" << tablet_txn_info->rowset->rowset_id()
                       << ", visible rowset size=" << visible_rowsets.size()
-                      << ", start version=" << start_version << ", is delete="
+                      << ", visible version=" << visible_version << ", is delete="
                       << tablet_txn_info->rowset->rowset_meta()
                                  ->has_delete_predicate();
             continue;
         }
         std::vector<RowsetSharedPtr> non_visible_rowsets;
         for (auto j = 0; j < i; ++j) {
-            /*auto rowset = read_source.rs_splits[j + visible_rowset_num]
-                                  .rs_reader->rowset();*/
             auto rowset = all_non_visible_rowsets[j];
             non_visible_rowsets.push_back(rowset);
         }
         tablet_txn_info->delete_bitmap->delete_bitmap.clear();
         tablet_txn_info->rowset_ids.clear();
-        int64_t tmp_version = start_version + i + 1;
+        // TODO the version is set when capture?
+        int64_t tmp_version = visible_version + i + 1;
         int64_t previous_tmp_version = tablet_txn_info->tmp_version;
         LOG(INFO) << "sout: 1 cal dm for tablet_id=" << self->tablet_id()
                   << ", sub_txn_num=" << sub_txn_ids.size()
                   << ", visible rowset size=" << visible_rowsets.size()
-                  << ", start version=" << start_version
+                  << ", visible version=" << visible_version
                   << "; i=" << i
                   << ", sub_txn_id=" << sub_txn_id
                   << ", non visible rowset size=" << non_visible_rowsets.size()
@@ -1703,7 +1693,7 @@ Status BaseTablet::txn_load_update_delete_bitmap(
         LOG(INFO) << "sout: 2 cal dm for tablet_id=" << self->tablet_id()
                   << ", sub_txn_num=" << sub_txn_ids.size()
                   << ", visible rowset size=" << visible_rowsets.size()
-                  << ", start version=" << start_version
+                  << ", visible version=" << visible_version
                   << "; i=" << i
                   << ", sub_txn_id=" << sub_txn_id
                   << ", non visible rowset size=" << non_visible_rowsets.size()
@@ -1723,7 +1713,7 @@ Status BaseTablet::txn_load_update_delete_bitmap(
         LOG(INFO) << "sout: 3 cal dm for tablet_id=" << self->tablet_id()
                   << ", sub_txn_num=" << sub_txn_ids.size()
                   << ", visible rowset size=" << visible_rowsets.size()
-                  << ", start version=" << start_version
+                  << ", visible version=" << visible_version
                   << "; i=" << i
                   << ", sub_txn_id=" << sub_txn_id
                   << ", non visible rowset size=" << non_visible_rowsets.size()
@@ -1765,7 +1755,7 @@ Status BaseTablet::txn_load_update_delete_bitmap(
         LOG(INFO) << "sout: 4 cal dm for tablet_id=" << self->tablet_id()
                   << ", sub_txn_num=" << sub_txn_ids.size()
                   << ", visible rowset size=" << visible_rowsets.size()
-                  << ", start version=" << start_version
+                  << ", visible version=" << visible_version
                   << "; i=" << i
                   << ", sub_txn_id=" << sub_txn_id
                   << ", non visible rowset size=" << non_visible_rowsets.size()
