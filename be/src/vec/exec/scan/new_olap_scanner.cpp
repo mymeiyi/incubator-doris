@@ -250,163 +250,26 @@ Status NewOlapScanner::init() {
                 if (tablet->enable_unique_key_merge_on_write()) {
                     // calculate delete bitmap of sub txn rowsets
                     std::vector<RowsetSharedPtr> visible_rowsets;
-                    for (auto i = 0; i < visible_rowset_num; ++i) {
+                    std::vector<RowsetSharedPtr> non_visible_rowsets;
+                    for (auto i = 0; i < read_source.rs_splits.size(); ++i) {
                         auto rowset = read_source.rs_splits[i].rs_reader->rowset();
-                        visible_rowsets.push_back(rowset);
-                        LOG(INFO) << "sout: visible rowset=" << rowset->rowset_id()
-                                  << ", version=" << rowset->version();
+                        if (i < visible_rowset_num) {
+                            visible_rowsets.push_back(rowset);
+                        } else {
+                            non_visible_rowsets.push_back(rowset);
+                        }
                     }
                     LOG(INFO) << "sout: tablet_id=" << tablet->tablet_id()
                               << ", visible rowset size=" << visible_rowsets.size()
                               << ", non visible rowset size="
                               << (tablet_txn_infos.size() - visible_rowset_num)
                               << ", start version=" << start_version;
-                    std::vector<RowsetSharedPtr> non_visible_rowsets;
-                    for (auto i = visible_rowset_num; i < read_source.rs_splits.size(); ++i) {
-                        auto rowset = read_source.rs_splits[i].rs_reader->rowset();
-                        non_visible_rowsets.push_back(rowset);
-                        LOG(INFO) << "sout: non visible rowset=" << rowset->rowset_id()
-                                  << ", version=" << rowset->version();
-                    }
                     DeleteBitmapPtr tablet_delete_bitmap =
                             std::make_shared<DeleteBitmap>(tablet->tablet_meta()->delete_bitmap());
-
-
-                    RETURN_IF_ERROR(tablet->txn_load_update_delete_bitmap0(
+                    RETURN_IF_ERROR(tablet->txn_load_update_delete_bitmap(
                             tablet, visible_rowsets, non_visible_rowsets, start_version,
                             _sub_txn_ids, tablet_txn_infos, tablet_delete_bitmap));
                     _tablet_reader_params.delete_bitmap = tablet_delete_bitmap;
-
-                    /*for (auto i = 0; i < tablet_txn_infos.size(); ++i) {
-                        auto& tablet_txn_info = tablet_txn_infos[i];
-                        auto sub_txn_id = _sub_txn_ids[i];
-                        if (tablet_txn_info->rowset->rowset_meta()->has_delete_predicate()) {
-                            LOG(INFO) << "sout: skip cal dm for tablet_id=" << tablet->tablet_id()
-                                      << ", sub_txn_num=" << _sub_txn_ids.size() << ", i=" << i
-                                      << ", sub_txn_id=" << sub_txn_id
-                                      << ", rowset_id=" << tablet_txn_info->rowset->rowset_id()
-                                      << ", visible rowset size=" << visible_rowsets.size()
-                                      << ", start version=" << start_version << ", is delete="
-                                      << tablet_txn_info->rowset->rowset_meta()
-                                                 ->has_delete_predicate();
-                            continue;
-                        }
-                        std::vector<RowsetSharedPtr> non_visible_rowsets;
-                        for (auto j = 0; j < i; ++j) {
-                            auto rowset = read_source.rs_splits[j + visible_rowset_num]
-                                                  .rs_reader->rowset();
-                            non_visible_rowsets.push_back(rowset);
-                        }
-                        tablet_txn_info->delete_bitmap->delete_bitmap.clear();
-                        tablet_txn_info->rowset_ids.clear();
-                        int64_t tmp_version = start_version + i + 1;
-                        int64_t previous_tmp_version = tablet_txn_info->tmp_version;
-                        LOG(INFO) << "sout: 1 cal dm for tablet_id=" << tablet->tablet_id()
-                                  << ", sub_txn_num=" << _sub_txn_ids.size()
-                                  << ", visible rowset size=" << visible_rowsets.size()
-                                  << ", start version=" << start_version
-                                  << "; i=" << i
-                                  << ", sub_txn_id=" << sub_txn_id
-                                  << ", non visible rowset size=" << non_visible_rowsets.size()
-                                  << ", tmp_version=" << tmp_version
-                                  << ", previous_tmp_version=" << previous_tmp_version
-                                  << ", rowset_id=" << tablet_txn_info->rowset->rowset_id()
-                                  << ", is delete="
-                                  << tablet_txn_info->rowset->rowset_meta()->has_delete_predicate()
-                                  << ", rowset dm=" << print_delete_bitmap(tablet_txn_info->delete_bitmap)
-                                  << ", rowset_ids="
-                                  << print_rowset_ids(tablet_txn_info->rowset_ids)
-                                  << ", tablet dm=" << print_delete_bitmap(tablet_delete_bitmap);
-                        if (previous_tmp_version != tmp_version) {
-                        }
-                        *//*for (auto it = dm.begin(); it != dm.end(); ++it) {
-                            if (std::get<1>(it->first) != DeleteBitmap::INVALID_SEGMENT_ID) {
-                                tablet_delete_bitmap->remove(
-                                        {std::get<0>(it->first), std::get<1>(it->first),
-                                         previous_tmp_version},
-                                        {std::get<0>(it->first), UINT32_MAX, previous_tmp_version});
-                            }
-                        }*//*
-                        LOG(INFO) << "sout: 2 cal dm for tablet_id=" << tablet->tablet_id()
-                                  << ", sub_txn_num=" << _sub_txn_ids.size()
-                                  << ", visible rowset size=" << visible_rowsets.size()
-                                  << ", start version=" << start_version
-                                  << "; i=" << i
-                                  << ", sub_txn_id=" << sub_txn_id
-                                  << ", non visible rowset size=" << non_visible_rowsets.size()
-                                  << ", tmp_version=" << tmp_version
-                                  << ", previous_tmp_version=" << previous_tmp_version
-                                  << ", rowset_id=" << tablet_txn_info->rowset->rowset_id()
-                                  << ", is delete="
-                                  << tablet_txn_info->rowset->rowset_meta()->has_delete_predicate()
-                                  << ", rowset dm=" << print_delete_bitmap(tablet_txn_info->delete_bitmap)
-                                  << ", rowset_ids="
-                                  << print_rowset_ids(tablet_txn_info->rowset_ids)
-                                  << ", tablet dm=" << print_delete_bitmap(tablet_delete_bitmap);
-                        RETURN_IF_ERROR(tablet->txn_load_update_delete_bitmap(
-                                tablet, tablet_txn_info.get(), sub_txn_id, -1, visible_rowsets,
-                                non_visible_rowsets, tablet_delete_bitmap));
-                        tablet_txn_info->tmp_version = tmp_version;
-                        LOG(INFO) << "sout: 3 cal dm for tablet_id=" << tablet->tablet_id()
-                                  << ", sub_txn_num=" << _sub_txn_ids.size()
-                                  << ", visible rowset size=" << visible_rowsets.size()
-                                  << ", start version=" << start_version
-                                  << "; i=" << i
-                                  << ", sub_txn_id=" << sub_txn_id
-                                  << ", non visible rowset size=" << non_visible_rowsets.size()
-                                  << ", tmp_version=" << tmp_version
-                                  << ", previous_tmp_version=" << previous_tmp_version
-                                  << ", rowset_id=" << tablet_txn_info->rowset->rowset_id()
-                                  << ", is delete="
-                                  << tablet_txn_info->rowset->rowset_meta()->has_delete_predicate()
-                                  << ", rowset dm=" << print_delete_bitmap(tablet_txn_info->delete_bitmap)
-                                  << ", rowset_ids="
-                                  << print_rowset_ids(tablet_txn_info->rowset_ids)
-                                  << ", tablet dm=" << print_delete_bitmap(tablet_delete_bitmap);
-                        // merge delete bitmap of sub txn rowsets
-                        *//*LOG(INFO) << "sout: tablet_id=" << tablet->tablet_id()
-                                  << ", sub_txn_num=" << _sub_txn_ids.size()
-                                  << ", before sub_txn_id=" << sub_txn_id
-                                  << ", tmp_version=" << tmp_version
-                                  << ", previous_tmp_version=" << previous_tmp_version
-                                  << ", txn info tmp version=" << tablet_txn_info->tmp_version
-                                  << ", txn load info dm="
-                                  << print_delete_bitmap(tablet_txn_info->delete_bitmap)
-                                  << ", merged tablet dm="
-                                  << print_delete_bitmap(tablet_delete_bitmap);*//*
-                        auto& dm = tablet_txn_info->delete_bitmap->delete_bitmap;
-                        for (auto it = dm.begin(); it != dm.end(); ++it) {
-                            if (std::get<1>(it->first) != DeleteBitmap::INVALID_SEGMENT_ID) {
-                                *//*tablet_delete_bitmap->remove(
-                                        {std::get<0>(it->first), std::get<1>(it->first),
-                                         previous_tmp_version},
-                                        {std::get<0>(it->first), UINT32_MAX, previous_tmp_version});*//*
-                                tablet_delete_bitmap->merge({std::get<0>(it->first),
-                                                             std::get<1>(it->first), tmp_version},
-                                                            it->second);
-                                LOG(INFO) << "sout: merge rowset_id=" << std::get<0>(it->first)
-                                          << ", segment_id=" << std::get<1>(it->first)
-                                          << ", version=" << std::get<2>(it->first);
-                            }
-                        }
-                        LOG(INFO) << "sout: 4 cal dm for tablet_id=" << tablet->tablet_id()
-                                  << ", sub_txn_num=" << _sub_txn_ids.size()
-                                  << ", visible rowset size=" << visible_rowsets.size()
-                                  << ", start version=" << start_version
-                                  << "; i=" << i
-                                  << ", sub_txn_id=" << sub_txn_id
-                                  << ", non visible rowset size=" << non_visible_rowsets.size()
-                                  << ", tmp_version=" << tmp_version
-                                  << ", previous_tmp_version=" << previous_tmp_version
-                                  << ", rowset_id=" << tablet_txn_info->rowset->rowset_id()
-                                  << ", is delete="
-                                  << tablet_txn_info->rowset->rowset_meta()->has_delete_predicate()
-                                  << ", rowset dm=" << print_delete_bitmap(tablet_txn_info->delete_bitmap)
-                                  << ", rowset_ids="
-                                  << print_rowset_ids(tablet_txn_info->rowset_ids)
-                                  << ", tablet dm=" << print_delete_bitmap(tablet_delete_bitmap);
-                    }*/
-                    // _tablet_reader_params.delete_bitmap = tablet_delete_bitmap;
                 }
             }
             if (!_state->skip_delete_predicate()) {

@@ -259,7 +259,7 @@ public:
                                        std::vector<RowsetSharedPtr>* non_visible_rowsets,
                                        int64_t base_txn_id, int64_t next_visible_version,
                                        DeleteBitmapPtr tablet_delete_bitmap);
-    static Status txn_load_update_delete_bitmap0(
+    static Status txn_load_update_delete_bitmap(
             const BaseTabletSPtr& self, const std::vector<RowsetSharedPtr>& visible_rowsets,
             const std::vector<RowsetSharedPtr>& all_non_visible_rowsets,
             int64_t start_version /* rename to visible version or next visible version*/,

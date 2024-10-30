@@ -1627,7 +1627,7 @@ static std::string print_rowset_ids(RowsetIdUnorderedSet& rowset_ids) {
     return ss.str();
 }
 
-Status BaseTablet::txn_load_update_delete_bitmap0(
+Status BaseTablet::txn_load_update_delete_bitmap(
         const BaseTabletSPtr& self,
         const std::vector<RowsetSharedPtr>& visible_rowsets,
         const std::vector<RowsetSharedPtr>& all_non_visible_rowsets,
