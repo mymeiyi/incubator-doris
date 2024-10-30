@@ -261,11 +261,10 @@ public:
                                        DeleteBitmapPtr tablet_delete_bitmap);
     static Status txn_load_update_delete_bitmap(
             const BaseTabletSPtr& self, const std::vector<RowsetSharedPtr>& visible_rowsets,
-            const std::vector<RowsetSharedPtr>& all_non_visible_rowsets,
-            int64_t start_version /* rename to visible version or next visible version*/,
+            const std::vector<RowsetSharedPtr>& all_non_visible_rowsets, int64_t visible_version,
             const std::vector<int64_t>& sub_txn_ids,
             std::vector<std::shared_ptr<TabletTxnInfo>>& tablet_txn_infos,
-            DeleteBitmapPtr tablet_delete_bitmap /* ptr */);
+            DeleteBitmapPtr tablet_delete_bitmap);
     static Status txn_load_update_delete_bitmap(
             const BaseTabletSPtr& self, TabletTxnInfo* txn_info, int64_t txn_id,
             int64_t txn_expiration, const std::vector<RowsetSharedPtr>& visible_rowsets,
