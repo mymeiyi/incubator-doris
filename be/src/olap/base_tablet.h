@@ -259,11 +259,18 @@ public:
                                        std::vector<RowsetSharedPtr>* non_visible_rowsets,
                                        int64_t base_txn_id, int64_t next_visible_version,
                                        DeleteBitmapPtr tablet_delete_bitmap);
-    static Status update_delete_bitmap2(const BaseTabletSPtr& self, TabletTxnInfo* txn_info,
-                                        int64_t txn_id, int64_t txn_expiration,
-                                        const std::vector<RowsetSharedPtr>& visible_rowsets,
-                                        const std::vector<RowsetSharedPtr>& non_visible_rowsets,
-                                        DeleteBitmapPtr tablet_delete_bitmap);
+    static Status txn_load_update_delete_bitmap0(
+            const BaseTabletSPtr& self, const std::vector<RowsetSharedPtr>& visible_rowsets,
+            const std::vector<RowsetSharedPtr>& all_non_visible_rowsets,
+            int64_t start_version /* rename to visible version or next visible version*/,
+            const std::vector<int64_t>& sub_txn_ids,
+            std::vector<std::shared_ptr<TabletTxnInfo>>& tablet_txn_infos,
+            DeleteBitmapPtr tablet_delete_bitmap /* ptr */);
+    static Status txn_load_update_delete_bitmap(
+            const BaseTabletSPtr& self, TabletTxnInfo* txn_info, int64_t txn_id,
+            int64_t txn_expiration, const std::vector<RowsetSharedPtr>& visible_rowsets,
+            const std::vector<RowsetSharedPtr>& non_visible_rowsets,
+            DeleteBitmapPtr tablet_delete_bitmap);
     virtual Status save_delete_bitmap(const TabletTxnInfo* txn_info, int64_t txn_id,
                                       DeleteBitmapPtr delete_bitmap, RowsetWriter* rowset_writer,
                                       const RowsetIdUnorderedSet& cur_rowset_ids,
