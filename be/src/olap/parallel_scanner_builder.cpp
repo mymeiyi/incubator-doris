@@ -207,7 +207,7 @@ Status ParallelScannerBuilder::_load() {
                 RETURN_IF_ERROR(tablet->txn_load_update_delete_bitmap(
                         tablet, visible_rowsets, non_visible_rowsets, start_version,
                         sub_txn_ids, tablet_txn_infos, tablet_delete_bitmap));
-                read_source.delete_predicates = tablet_delete_bitmap;
+                // tablet_delete_bitmap;
             }
         }
         if (!_state->skip_delete_predicate()) {

@@ -150,6 +150,7 @@ Status NewOlapScanner::init() {
     _is_init = true;
     auto* local_state = static_cast<pipeline::OlapScanLocalState*>(_local_state);
     auto& tablet = _tablet_reader_params.tablet;
+    LOG(INFO) << "sout: NewOlapScanner::init, tablet=" << tablet->tablet_id();
     auto& tablet_schema = _tablet_reader_params.tablet_schema;
     /*LOG(INFO) << "sout: NewOlapScanner::init, table=" << tablet->table_id()
               << ", tablet=" << tablet->tablet_id();*/
