@@ -1647,7 +1647,7 @@ Status BaseTablet::txn_load_update_delete_bitmap(
         }
         std::vector<RowsetSharedPtr> non_visible_rowsets;
         for (auto j = 0; j < i; ++j) {
-            auto rowset = all_non_visible_rowsets[j];
+            auto rowset = all_invisible_rowsets[j];
             non_visible_rowsets.push_back(rowset);
         }
         tablet_txn_info->delete_bitmap->delete_bitmap.clear();
