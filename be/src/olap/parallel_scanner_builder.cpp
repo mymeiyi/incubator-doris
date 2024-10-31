@@ -173,15 +173,41 @@ Status ParallelScannerBuilder::_load() {
     for (auto&& [tablet, version, sub_txn_ids] : _tablets) {
         const auto tablet_id = tablet->tablet_id();
         auto& read_source = _all_read_sources[tablet_id];
-        if (sub_txn_ids.empty() || version > 0) {
+        if (sub_txn_ids.empty() || version > 1) {
             RETURN_IF_ERROR(
                     tablet->capture_rs_readers({0, version}, &read_source.rs_splits, false));
         }
         if (!sub_txn_ids.empty()) {
+            auto visible_rowset_num = read_source.rs_splits.size();
+            int64_t start_version = version;
             LOG(INFO) << "capture sub txn rs readers, size=" << sub_txn_ids.size()
                       << ", tablet_id=" << tablet_id << ", version=" << version;
-            RETURN_IF_ERROR(tablet->capture_sub_txn_rs_readers(version, sub_txn_ids,
-                                                               &read_source.rs_splits));
+            std::vector<std::shared_ptr<TabletTxnInfo>> tablet_txn_infos;
+            RETURN_IF_ERROR(tablet->capture_sub_txn_rs_readers(
+                    version, sub_txn_ids, &read_source.rs_splits, &tablet_txn_infos));
+            if (tablet->enable_unique_key_merge_on_write()) {
+                // calculate delete bitmap of sub txn rowsets
+                std::vector<RowsetSharedPtr> visible_rowsets;
+                std::vector<RowsetSharedPtr> non_visible_rowsets;
+                for (auto i = 0; i < read_source.rs_splits.size(); ++i) {
+                    auto rowset = read_source.rs_splits[i].rs_reader->rowset();
+                    if (i < visible_rowset_num) {
+                        visible_rowsets.push_back(rowset);
+                    } else {
+                        non_visible_rowsets.push_back(rowset);
+                    }
+                }
+                LOG(INFO) << "sout: tablet_id=" << tablet->tablet_id()
+                          << ", visible rowset size=" << visible_rowsets.size()
+                          << ", non visible rowset size="
+                          << (read_source.rs_splits.size() - visible_rowset_num)
+                          << ", start version=" << start_version;
+                tablet_delete_bitmap =
+                        std::make_shared<DeleteBitmap>(tablet->tablet_meta()->delete_bitmap());
+                RETURN_IF_ERROR(tablet->txn_load_update_delete_bitmap(
+                        tablet, visible_rowsets, non_visible_rowsets, start_version,
+                        sub_txn_ids, tablet_txn_infos, tablet_delete_bitmap));
+            }
         }
         if (!_state->skip_delete_predicate()) {
             read_source.fill_delete_predicates();
@@ -199,6 +225,9 @@ Status ParallelScannerBuilder::_load() {
             RETURN_IF_ERROR(SegmentLoader::instance()->load_segments(
                     std::dynamic_pointer_cast<BetaRowset>(rowset), &segment_cache_handle,
                     enable_segment_cache, false));
+            // TODO after recalculate delete bitmap, is rowset meta updated?
+            LOG(INFO) << "sout: tablet=" << rowset->rowset_meta()->tablet_id()
+                      << ", rowset=" << rowset->rowset_id() << ", rows=" << rowset->num_rows();
             _total_rows += rowset->num_rows();
         }
     }
@@ -215,7 +244,7 @@ std::shared_ptr<NewOlapScanner> ParallelScannerBuilder::_build_scanner(
     NewOlapScanner::Params params {
             _state,     _scanner_profile.get(), key_ranges, std::move(tablet),
             version,    std::move(read_source), _limit,     _is_preaggregation,
-            sub_txn_ids};
+            sub_txn_ids, tablet_delete_bitmap};
     return NewOlapScanner::create_shared(_parent, std::move(params));
 }
 
