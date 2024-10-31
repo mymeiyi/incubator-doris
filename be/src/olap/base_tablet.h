@@ -249,14 +249,14 @@ public:
 
     static Status update_delete_bitmap(const BaseTabletSPtr& self, TabletTxnInfo* txn_info,
                                        int64_t txn_id, int64_t txn_expiration = 0);
-    // The {non_visible_rowsets} and {base_txn_id} is set in transaction load. In transaction load:
+    // The {invisible_rowsets} and {base_txn_id} is set in transaction load. In transaction load:
     // * the {txn_id} is sub_txn_id
-    // * the {non_visible_rowsets} is used to calculate delete bitmap
+    // * the {invisible_rowsets} is used to calculate delete bitmap
     // * the {base_txn_id} is used as lock id in cloud mode
     // * the {next_visible_version} is the next version of the partition visible version
     static Status update_delete_bitmap(const BaseTabletSPtr& self, TabletTxnInfo* txn_info,
                                        int64_t txn_id, int64_t txn_expiration,
-                                       std::vector<RowsetSharedPtr>* non_visible_rowsets,
+                                       std::vector<RowsetSharedPtr>* invisible_rowsets,
                                        int64_t base_txn_id, int64_t next_visible_version,
                                        DeleteBitmapPtr tablet_delete_bitmap);
     static Status txn_load_update_delete_bitmap(

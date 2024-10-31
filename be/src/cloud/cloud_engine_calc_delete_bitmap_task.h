@@ -46,7 +46,7 @@ public:
 private:
     Status _handle_rowset(std::shared_ptr<CloudTablet> tablet, int64_t version,
                           int64_t sub_txn_id = -1,
-                          std::vector<RowsetSharedPtr>* non_visible_rowsets = nullptr,
+                          std::vector<RowsetSharedPtr>* invisible_rowsets = nullptr,
                           DeleteBitmapPtr tablet_delete_bitmap = nullptr) const;
 
     CloudStorageEngine& _engine;

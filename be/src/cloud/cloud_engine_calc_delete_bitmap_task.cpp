@@ -203,7 +203,7 @@ Status CloudTabletCalcDeleteBitmapTask::handle() const {
                   << ss.str() << "], table_id=" << tablet->table_id()
                   << ", partition_id=" << tablet->partition_id() << ", tablet_id=" << _tablet_id
                   << ", start_version=" << _version;
-        std::vector<RowsetSharedPtr> non_visible_rowsets;
+        std::vector<RowsetSharedPtr> invisible_rowsets;
         DeleteBitmapPtr tablet_delete_bitmap =
                 std::make_shared<DeleteBitmap>(tablet->tablet_meta()->delete_bitmap());
         for (int i = 0; i < _sub_txn_ids.size(); ++i) {
@@ -213,7 +213,7 @@ Status CloudTabletCalcDeleteBitmapTask::handle() const {
                       << ", sub_txn_id=" << sub_txn_id << ", table_id=" << tablet->table_id()
                       << ", partition_id=" << tablet->partition_id() << ", tablet_id=" << _tablet_id
                       << ", start_version=" << _version << ", cur_version=" << version;
-            status = _handle_rowset(tablet, version, sub_txn_id, &non_visible_rowsets,
+            status = _handle_rowset(tablet, version, sub_txn_id, &invisible_rowsets,
                                     tablet_delete_bitmap);
             if (!status.ok()) {
                 LOG(INFO) << "failed to calculate delete bitmap on tablet"
@@ -223,7 +223,7 @@ Status CloudTabletCalcDeleteBitmapTask::handle() const {
                           << ", cur_version=" << version << ", status=" << status;
                 return status;
             }
-            DCHECK(non_visible_rowsets.size() == i + 1);
+            DCHECK(invisible_rowsets.size() == i + 1);
         }
     }
     auto total_update_delete_bitmap_time_us = MonotonicMicros() - t3;
@@ -239,7 +239,7 @@ Status CloudTabletCalcDeleteBitmapTask::handle() const {
 
 Status CloudTabletCalcDeleteBitmapTask::_handle_rowset(
         std::shared_ptr<CloudTablet> tablet, int64_t version, int64_t sub_txn_id,
-        std::vector<RowsetSharedPtr>* non_visible_rowsets,
+        std::vector<RowsetSharedPtr>* invisible_rowsets,
         DeleteBitmapPtr tablet_delete_bitmap) const {
     int64_t transaction_id = sub_txn_id == -1 ? _transaction_id : sub_txn_id;
     std::string txn_str = "txn_id=" + std::to_string(_transaction_id) +
@@ -285,12 +285,12 @@ Status CloudTabletCalcDeleteBitmapTask::_handle_rowset(
         LOG(INFO) << "tablet=" << _tablet_id << ", " << txn_str
                   << ",publish_status=SUCCEED,not need to recalculate and update delete_bitmap.";
     } else {
-        if (non_visible_rowsets == nullptr) {
+        if (invisible_rowsets == nullptr) {
             status = CloudTablet::update_delete_bitmap(tablet, &txn_info, transaction_id,
                                                        txn_expiration);
         } else {
             status = CloudTablet::update_delete_bitmap(
-                    tablet, &txn_info, transaction_id, txn_expiration, non_visible_rowsets,
+                    tablet, &txn_info, transaction_id, txn_expiration, invisible_rowsets,
                     _transaction_id, _version, tablet_delete_bitmap);
         }
         update_delete_bitmap_time_us = MonotonicMicros() - t3;
@@ -308,8 +308,8 @@ Status CloudTabletCalcDeleteBitmapTask::_handle_rowset(
               << ", tablet_id=" << tablet->tablet_id() << ", num_rows=" << rowset->num_rows()
               << ", update_delete_bitmap_time_us=" << update_delete_bitmap_time_us
               << ", res=" << status;
-    if (non_visible_rowsets != nullptr) {
-        non_visible_rowsets->push_back(rowset);
+    if (invisible_rowsets != nullptr) {
+        invisible_rowsets->push_back(rowset);
         // see CloudTablet::save_delete_bitmap
         auto dm = txn_info.delete_bitmap->delete_bitmap;
         for (auto it = dm.begin(); it != dm.end(); ++it) {
