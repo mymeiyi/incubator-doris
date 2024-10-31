@@ -197,6 +197,11 @@ Status ParallelScannerBuilder::_load() {
                         non_visible_rowsets.push_back(rowset);
                     }
                 }
+                LOG(INFO) << "sout: tablet_id=" << tablet->tablet_id()
+                          << ", visible rowset size=" << visible_rowsets.size()
+                          << ", non visible rowset size="
+                          << (read_source.rs_splits.size() - visible_rowset_num)
+                          << ", start version=" << start_version;
                 tablet_delete_bitmap =
                         std::make_shared<DeleteBitmap>(tablet->tablet_meta()->delete_bitmap());
                 RETURN_IF_ERROR(tablet->txn_load_update_delete_bitmap(
@@ -221,6 +226,8 @@ Status ParallelScannerBuilder::_load() {
                     std::dynamic_pointer_cast<BetaRowset>(rowset), &segment_cache_handle,
                     enable_segment_cache, false));
             // TODO after recalculate delete bitmap, is rowset meta updated?
+            LOG(INFO) << "sout: tablet=" << rowset->rowset_meta()->tablet_id()
+                      << ", rowset=" << rowset->rowset_id() << ", rows=" << rowset->num_rows();
             _total_rows += rowset->num_rows();
         }
     }

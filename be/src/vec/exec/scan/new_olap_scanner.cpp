@@ -208,6 +208,11 @@ Status NewOlapScanner::init() {
             if (!_sub_txn_ids.empty()) {
                 auto visible_rowset_num = read_source.rs_splits.size();
                 int64_t start_version = _tablet_reader_params.version.second;
+                LOG(INFO) << "sout: capture sub txn rs readers, size=" << _sub_txn_ids.size()
+                          << ", tablet_id=" << tablet->tablet_id()
+                          << ", version=" << _tablet_reader_params.version.second
+                          << ", visible_rowset_num=" << visible_rowset_num;
+
                 LOG(INFO) << "capture sub txn rs readers, size=" << _sub_txn_ids.size()
                           << ", tablet_id=" << tablet->tablet_id()
                           << ", version=" << _tablet_reader_params.version.second;
@@ -229,6 +234,11 @@ Status NewOlapScanner::init() {
                             non_visible_rowsets.push_back(rowset);
                         }
                     }
+                    LOG(INFO) << "sout: tablet_id=" << tablet->tablet_id()
+                              << ", visible rowset size=" << visible_rowsets.size()
+                              << ", non visible rowset size="
+                              << (read_source.rs_splits.size() - visible_rowset_num)
+                              << ", start version=" << start_version;
                     DeleteBitmapPtr tablet_delete_bitmap =
                             std::make_shared<DeleteBitmap>(tablet->tablet_meta()->delete_bitmap());
                     RETURN_IF_ERROR(tablet->txn_load_update_delete_bitmap(
