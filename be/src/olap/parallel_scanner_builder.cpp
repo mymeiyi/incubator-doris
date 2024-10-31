@@ -200,7 +200,7 @@ Status ParallelScannerBuilder::_load() {
                 LOG(INFO) << "sout: tablet_id=" << tablet->tablet_id()
                           << ", visible rowset size=" << visible_rowsets.size()
                           << ", non visible rowset size="
-                          << (tablet_txn_infos.size() - visible_rowset_num)
+                          << (read_source.rs_splits.size() - visible_rowset_num)
                           << ", start version=" << start_version;
                 DeleteBitmapPtr tablet_delete_bitmap =
                         std::make_shared<DeleteBitmap>(tablet->tablet_meta()->delete_bitmap());

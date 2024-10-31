@@ -263,7 +263,7 @@ Status NewOlapScanner::init() {
                     LOG(INFO) << "sout: tablet_id=" << tablet->tablet_id()
                               << ", visible rowset size=" << visible_rowsets.size()
                               << ", non visible rowset size="
-                              << (tablet_txn_infos.size() - visible_rowset_num)
+                              << (read_source.rs_splits.size() - visible_rowset_num)
                               << ", start version=" << start_version;
                     DeleteBitmapPtr tablet_delete_bitmap =
                             std::make_shared<DeleteBitmap>(tablet->tablet_meta()->delete_bitmap());
@@ -440,6 +440,7 @@ Status NewOlapScanner::_init_tablet_reader_params(
     if (_tablet_reader_params.delete_bitmap == nullptr &&
         tablet->enable_unique_key_merge_on_write() && !_state->skip_delete_bitmap()) {
         _tablet_reader_params.delete_bitmap = tablet->tablet_meta()->delete_bitmap_ptr();
+        LOG(INFO) << "sout: set delete bitmap for tablet=" << tablet->tablet_id();
     }
 
     if (!_state->skip_storage_engine_merge()) {
