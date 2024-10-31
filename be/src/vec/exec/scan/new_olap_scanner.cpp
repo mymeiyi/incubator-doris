@@ -98,6 +98,9 @@ NewOlapScanner::NewOlapScanner(pipeline::ScanLocalStateBase* parent,
                   .key_group_cluster_key_idxes {},
           }) {
     _tablet_reader_params.set_read_source(std::move(params.read_source));
+    if (params.tablet_delete_bitmap != nullptr) {
+        _tablet_reader_params.delete_bitmap = params.tablet_delete_bitmap;
+    }
     _is_init = false;
 }
 

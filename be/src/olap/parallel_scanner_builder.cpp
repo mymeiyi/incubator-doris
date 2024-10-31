@@ -202,12 +202,11 @@ Status ParallelScannerBuilder::_load() {
                           << ", non visible rowset size="
                           << (read_source.rs_splits.size() - visible_rowset_num)
                           << ", start version=" << start_version;
-                DeleteBitmapPtr tablet_delete_bitmap =
+                tablet_delete_bitmap =
                         std::make_shared<DeleteBitmap>(tablet->tablet_meta()->delete_bitmap());
                 RETURN_IF_ERROR(tablet->txn_load_update_delete_bitmap(
                         tablet, visible_rowsets, non_visible_rowsets, start_version,
                         sub_txn_ids, tablet_txn_infos, tablet_delete_bitmap));
-                // tablet_delete_bitmap;
             }
         }
         if (!_state->skip_delete_predicate()) {
@@ -245,7 +244,7 @@ std::shared_ptr<NewOlapScanner> ParallelScannerBuilder::_build_scanner(
     NewOlapScanner::Params params {
             _state,     _scanner_profile.get(), key_ranges, std::move(tablet),
             version,    std::move(read_source), _limit,     _is_preaggregation,
-            sub_txn_ids};
+            sub_txn_ids, tablet_delete_bitmap};
     return NewOlapScanner::create_shared(_parent, std::move(params));
 }
 
