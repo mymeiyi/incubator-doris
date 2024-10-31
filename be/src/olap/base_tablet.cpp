@@ -56,6 +56,8 @@ bvar::Adder<uint64_t> g_tablet_pk_not_found("doris_pk", "lookup_not_found");
 bvar::PerSecond<bvar::Adder<uint64_t>> g_tablet_pk_not_found_per_second(
         "doris_pk", "lookup_not_found_per_second", &g_tablet_pk_not_found, 60);
 bvar::LatencyRecorder g_tablet_update_delete_bitmap_latency("doris_pk", "update_delete_bitmap");
+bvar::LatencyRecorder g_tablet_txn_load_update_delete_bitmap_latency(
+        "doris_pk", "txn_load_update_delete_bitmap");
 
 static bvar::Adder<size_t> g_total_tablet_num("doris_total_tablet_num");
 
@@ -1619,15 +1621,16 @@ static std::string print_rowset_ids(RowsetIdUnorderedSet& rowset_ids) {
 
 Status BaseTablet::txn_load_update_delete_bitmap(
         const BaseTabletSPtr& self, const std::vector<RowsetSharedPtr>& visible_rowsets,
-        const std::vector<RowsetSharedPtr>& all_non_visible_rowsets, int64_t visible_version,
+        const std::vector<RowsetSharedPtr>& all_invisible_rowsets, int64_t visible_version,
         const std::vector<int64_t>& sub_txn_ids,
         std::vector<std::shared_ptr<TabletTxnInfo>>& tablet_txn_infos,
         DeleteBitmapPtr tablet_delete_bitmap) {
+    DCHECK(tablet_txn_infos.size() == sub_txn_ids.size());
     // calculate delete bitmap of sub txn rowsets
-    LOG(INFO) << "sout: tablet_id=" << self->tablet_id()
+    LOG(INFO) << "txn_load_update_delete_bitmap for tablet_id=" << self->tablet_id()
+              << ", visible version=" << visible_version
               << ", visible rowset size=" << visible_rowsets.size()
-              << ", non visible rowset size=" << tablet_txn_infos.size()
-              << ", visible version=" << visible_version;
+              << ", non visible rowset size=" << tablet_txn_infos.size();
     for (auto i = 0; i < tablet_txn_infos.size(); ++i) {
         auto& tablet_txn_info = tablet_txn_infos[i];
         auto sub_txn_id = sub_txn_ids[i];
@@ -1747,7 +1750,7 @@ Status BaseTablet::txn_load_update_delete_bitmap(
         const std::vector<RowsetSharedPtr>& visible_rowsets,
         const std::vector<RowsetSharedPtr>& non_visible_rowsets,
         DeleteBitmapPtr tablet_delete_bitmap) {
-    SCOPED_BVAR_LATENCY(g_tablet_update_delete_bitmap_latency); // TODO
+    SCOPED_BVAR_LATENCY(g_tablet_txn_load_update_delete_bitmap_latency);
     RowsetIdUnorderedSet cur_rowset_ids;
     RowsetIdUnorderedSet rowset_ids_to_add;
     RowsetIdUnorderedSet rowset_ids_to_del;

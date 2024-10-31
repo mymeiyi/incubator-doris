@@ -188,24 +188,24 @@ Status ParallelScannerBuilder::_load() {
             if (tablet->enable_unique_key_merge_on_write()) {
                 // calculate delete bitmap of sub txn rowsets
                 std::vector<RowsetSharedPtr> visible_rowsets;
-                std::vector<RowsetSharedPtr> non_visible_rowsets;
+                std::vector<RowsetSharedPtr> invisible_rowsets;
                 for (auto i = 0; i < read_source.rs_splits.size(); ++i) {
                     auto rowset = read_source.rs_splits[i].rs_reader->rowset();
                     if (i < visible_rowset_num) {
                         visible_rowsets.push_back(rowset);
                     } else {
-                        non_visible_rowsets.push_back(rowset);
+                        invisible_rowsets.push_back(rowset);
                     }
                 }
                 LOG(INFO) << "sout: tablet_id=" << tablet->tablet_id()
                           << ", visible rowset size=" << visible_rowsets.size()
-                          << ", non visible rowset size="
+                          << ", invisible rowset size="
                           << (read_source.rs_splits.size() - visible_rowset_num)
                           << ", start version=" << start_version;
                 tablet_delete_bitmap =
                         std::make_shared<DeleteBitmap>(tablet->tablet_meta()->delete_bitmap());
                 RETURN_IF_ERROR(tablet->txn_load_update_delete_bitmap(
-                        tablet, visible_rowsets, non_visible_rowsets, start_version, sub_txn_ids,
+                        tablet, visible_rowsets, invisible_rowsets, start_version, sub_txn_ids,
                         tablet_txn_infos, tablet_delete_bitmap));
             }
         }
