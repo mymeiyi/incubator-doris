@@ -51,6 +51,7 @@ public class PruneEmptyPartition extends OneRewriteRuleFactory {
         }).toRule(RuleType.PRUNE_EMPTY_PARTITION);
     }
 
+    // 
     private void addPartitionsForTxnLoad(List<Long> selectedPartitions, List<Long> nonEmptyPartitions,
             OlapTable table, long indexId) {
         if (!ConnectContext.get().isTxnModel()) {
