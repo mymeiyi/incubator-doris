@@ -66,7 +66,9 @@ Status CloudTxnDeleteBitmapCache::get_tablet_txn_info(
         }
         tablet_txn_info = std::make_shared<TabletTxnInfo>();
         tablet_txn_info->rowset = iter->second.rowset;
-        tablet_txn_info->rowset_ids = *rowset_ids;
+        if (rowset_ids) {
+            tablet_txn_info->rowset_ids = *rowset_ids;
+        }
         // tablet_txn_info->txn_expiration = iter->second.txn_expiration;
         tablet_txn_info->partial_update_info = iter->second.partial_update_info;
         tablet_txn_info->publish_status = iter->second.publish_status;
