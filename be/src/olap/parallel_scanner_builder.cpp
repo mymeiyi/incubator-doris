@@ -178,14 +178,36 @@ Status ParallelScannerBuilder::_load() {
                     tablet->capture_rs_readers({0, version}, &read_source.rs_splits, false));
         }
         if (!sub_txn_ids.empty()) {
+            auto visible_rowset_num = read_source.rs_splits.size();
+            int64_t start_version = version;
             LOG(INFO) << "capture sub txn rs readers, size=" << sub_txn_ids.size()
                       << ", tablet_id=" << tablet_id << ", version=" << version;
             std::vector<std::shared_ptr<TabletTxnInfo>> tablet_txn_infos;
             RETURN_IF_ERROR(tablet->capture_sub_txn_rs_readers(
                     version, sub_txn_ids, &read_source.rs_splits, &tablet_txn_infos));
-            // calculate mow delete bitmap
             if (tablet->enable_unique_key_merge_on_write()) {
-
+                // calculate delete bitmap of sub txn rowsets
+                std::vector<RowsetSharedPtr> visible_rowsets;
+                std::vector<RowsetSharedPtr> non_visible_rowsets;
+                for (auto i = 0; i < read_source.rs_splits.size(); ++i) {
+                    auto rowset = read_source.rs_splits[i].rs_reader->rowset();
+                    if (i < visible_rowset_num) {
+                        visible_rowsets.push_back(rowset);
+                    } else {
+                        non_visible_rowsets.push_back(rowset);
+                    }
+                }
+                LOG(INFO) << "sout: tablet_id=" << tablet->tablet_id()
+                          << ", visible rowset size=" << visible_rowsets.size()
+                          << ", non visible rowset size="
+                          << (tablet_txn_infos.size() - visible_rowset_num)
+                          << ", start version=" << start_version;
+                DeleteBitmapPtr tablet_delete_bitmap =
+                        std::make_shared<DeleteBitmap>(tablet->tablet_meta()->delete_bitmap());
+                RETURN_IF_ERROR(tablet->txn_load_update_delete_bitmap(
+                        tablet, visible_rowsets, non_visible_rowsets, start_version,
+                        sub_txn_ids, tablet_txn_infos, tablet_delete_bitmap));
+                read_source.delete_predicates = tablet_delete_bitmap;
             }
         }
         if (!_state->skip_delete_predicate()) {

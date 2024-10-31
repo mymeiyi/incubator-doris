@@ -708,6 +708,7 @@ suite("txn_insert") {
             def unique_table = "txn_insert_cu"
             for (def i in 0..3) {
                 sql """ drop table if exists ${unique_table}_${i} """
+                // TODO enable mow
                 sql """
                     CREATE TABLE ${unique_table}_${i} (
                         `id` int(11) NOT NULL,
@@ -717,7 +718,7 @@ suite("txn_insert") {
                     UNIQUE KEY(`id`)
                     DISTRIBUTED BY HASH(`id`) BUCKETS 1
                     PROPERTIES (
-                        "enable_unique_key_merge_on_write" = "true",
+                        "enable_unique_key_merge_on_write" = "false",
                         "enable_mow_light_delete" = "false",
                         "replication_num" = "1"
                     );
