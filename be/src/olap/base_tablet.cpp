@@ -1778,7 +1778,7 @@ Status BaseTablet::txn_load_update_delete_bitmap(
         const std::vector<RowsetSharedPtr>& visible_rowsets,
         const std::vector<RowsetSharedPtr>& non_visible_rowsets,
         DeleteBitmapPtr tablet_delete_bitmap) {
-    SCOPED_BVAR_LATENCY(g_tablet_update_delete_bitmap_latency);
+    SCOPED_BVAR_LATENCY(g_tablet_update_delete_bitmap_latency); // TODO
     RowsetIdUnorderedSet cur_rowset_ids;
     RowsetIdUnorderedSet rowset_ids_to_add;
     RowsetIdUnorderedSet rowset_ids_to_del;
@@ -1850,7 +1850,7 @@ Status BaseTablet::txn_load_update_delete_bitmap(
     // because data remains the same before and after compaction. But we still need to calculate the
     // the delete bitmap for that rowset.
     std::vector<RowsetSharedPtr> rowsets_skip_alignment;
-    /*if (is_partial_update) {
+    if (is_partial_update) {
         int64_t max_version_in_flush_phase =
                 txn_info->partial_update_info->max_version_in_flush_phase;
         DCHECK(max_version_in_flush_phase != -1);
@@ -1866,7 +1866,7 @@ Status BaseTablet::txn_load_update_delete_bitmap(
         if (!rowsets_skip_alignment.empty()) {
             specified_rowsets = std::move(remained_rowsets);
         }
-    }*/
+    }
 
     if (!rowsets_skip_alignment.empty()) {
         auto token = self->calc_delete_bitmap_executor()->create_token();
