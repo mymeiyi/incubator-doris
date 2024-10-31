@@ -153,10 +153,7 @@ Status NewOlapScanner::init() {
     _is_init = true;
     auto* local_state = static_cast<pipeline::OlapScanLocalState*>(_local_state);
     auto& tablet = _tablet_reader_params.tablet;
-    LOG(INFO) << "sout: NewOlapScanner::init, tablet=" << tablet->tablet_id();
     auto& tablet_schema = _tablet_reader_params.tablet_schema;
-    /*LOG(INFO) << "sout: NewOlapScanner::init, table=" << tablet->table_id()
-              << ", tablet=" << tablet->tablet_id();*/
     for (auto& ctx : local_state->_common_expr_ctxs_push_down) {
         VExprContextSPtr context;
         RETURN_IF_ERROR(ctx->clone(_state, context));
@@ -443,7 +440,6 @@ Status NewOlapScanner::_init_tablet_reader_params(
     if (_tablet_reader_params.delete_bitmap == nullptr &&
         tablet->enable_unique_key_merge_on_write() && !_state->skip_delete_bitmap()) {
         _tablet_reader_params.delete_bitmap = tablet->tablet_meta()->delete_bitmap_ptr();
-        LOG(INFO) << "sout: set delete bitmap for tablet=" << tablet->tablet_id();
     }
 
     if (!_state->skip_storage_engine_merge()) {
