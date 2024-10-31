@@ -75,13 +75,12 @@ Status CloudTxnDeleteBitmapCache::get_tablet_txn_info(
         tablet_txn_info->publish_info = iter->second.publish_info;
     }
 
-    DeleteBitmapPtr delete_bitmap = nullptr;
-    auto st = get_delete_bitmap(transaction_id, tablet_id, &delete_bitmap, rowset_ids, nullptr);
+    auto st = get_delete_bitmap(transaction_id, tablet_id, &tablet_txn_info->delete_bitmap,
+                                rowset_ids, nullptr);
     if (st.is<ErrorCode::NOT_FOUND>()) {
         // Because of the rowset_ids become empty, all delete bitmap
         // will be recalculate in CalcDeleteBitmapTask
-        delete_bitmap = std::make_shared<DeleteBitmap>(tablet_id);
-        tablet_txn_info->delete_bitmap = delete_bitmap;
+        tablet_txn_info->delete_bitmap = std::make_shared<DeleteBitmap>(tablet_id);
         return Status::OK();
     }
     return st;
