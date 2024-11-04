@@ -463,7 +463,7 @@ Status BaseTablet::lookup_row_key(const Slice& encoded_key, TabletSchema* latest
     RowLocation loc;
 
     auto tablet_delete_bitmap =
-            delete_bitmap == nullptr ? _tablet_meta->delete_bitmap() : *delete_bitmap;
+            delete_bitmap == nullptr ? _tablet_meta->delete_bitmap_ptr() : delete_bitmap;
     for (size_t i = 0; i < specified_rowsets.size(); i++) {
         auto& rs = specified_rowsets[i];
         auto& segments_key_bounds = rs->rowset_meta()->get_segments_key_bounds();
@@ -498,7 +498,7 @@ Status BaseTablet::lookup_row_key(const Slice& encoded_key, TabletSchema* latest
             if (!s.ok() && !s.is<KEY_ALREADY_EXISTS>()) {
                 return s;
             }
-            if (s.ok() && tablet_delete_bitmap.contains_agg_without_cache(
+            if (s.ok() && tablet_delete_bitmap->contains_agg_without_cache(
                                   {loc.rowset_id, loc.segment_id, version}, loc.row_id)) {
                 // if has sequence col, we continue to compare the sequence_id of
                 // all rowsets, util we find an existing key.
