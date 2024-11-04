@@ -77,7 +77,7 @@ bool VOlapTablePartKeyComparator::operator()(const BlockRowWithIndicator& lhs,
     bool l_use_new = std::get<2>(lhs);
     bool r_use_new = std::get<2>(rhs);
 
-    VLOG_TRACE << '\n' << l_block->dump_data() << '\n' << r_block->dump_data();
+    // VLOG_TRACE << '\n' << l_block->dump_data() << '\n' << r_block->dump_data();
 
     if (l_row == -1) {
         return false;
