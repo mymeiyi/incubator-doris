@@ -156,8 +156,8 @@ bool OlapMeta::key_may_exist(const int column_family_index, const std::string& k
 Status OlapMeta::put(const int column_family_index, const std::string& key,
                      const std::string& value) {
     // log all params
-    VLOG_DEBUG << "column_family_index: " << column_family_index << ", key: " << key
-               << ", value: " << value;
+    /*VLOG_DEBUG << "column_family_index: " << column_family_index << ", key: " << key
+               << ", value: " << value;*/
 
     auto& handle = _handles[column_family_index];
     rocksdb::Status s;
