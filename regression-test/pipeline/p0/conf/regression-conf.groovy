@@ -72,7 +72,32 @@ excludeSuites = "000_the_start_sentinel_do_not_touch," + // keep this line as th
     "test_stream_stub_fault_injection," +
     "test_index_compaction_failure_injection," +
     "test_full_compaction_run_status," +
-    "test_topn_fault_injection," + 
+    "test_topn_fault_injection," +
+    "test_table_properties," +
+    "test_default_hll," +
+    "test_default_pi," +
+    "test_full_compaction," +
+    "test_full_compaction_by_table_id," +
+    "test_create_table," +
+    "txn_insert," +
+    "test_update_mow," +
+    "test_new_update," +
+    "test_update_unique," +
+    "test_partial_update_generated_column," +
+    "nereids_partial_update_native_insert_stmt," +
+    "partial_update," +
+    "nereids_update_on_current_timestamp," +
+    "update_on_current_timestamp," +
+    "test_default_bitmap_empty," +
+    "nereids_delete_mow_partial_update," +
+    "delete_mow_partial_update," +
+    "partial_update_seq_col," +
+    "nereids_partial_update_native_insert_stmt_complex," +
+    "regression_test_variant_delete_and_update," +
+    "test_unique_table_auto_inc_partial_update_correct_stream_load," +
+    "test_unique_table_auto_inc," +
+    "test_unique_table_auto_inc_partial_update_correct_insert," +
+    "test_update_schema_change," +
     "zzz_the_end_sentinel_do_not_touch" // keep this line as the last line
 
 // this directories will not be executed
@@ -81,6 +106,9 @@ excludeDirectories = "000_the_start_sentinel_do_not_touch," + // keep this line 
     "cloud_p0," +
     "nereids_rules_p0/subquery," +
     "workload_manager_p1," +
+    "unique_with_mow_p0/flexible," +
+    "unique_with_mow_p0/partial_update," +
+    "unique_with_mow_c_p0/partial_update," +
     "zzz_the_end_sentinel_do_not_touch"// keep this line as the last line
 
 customConf1 = "test_custom_conf_value"
