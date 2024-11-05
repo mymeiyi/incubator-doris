@@ -982,6 +982,8 @@ Status Segment::lookup_row_key(const Slice& key, const TabletSchema* latest_sche
     row_location->row_id = index_iterator->get_current_ordinal();
     row_location->segment_id = _segment_id;
     row_location->rowset_id = _rowset_id;
+    LOG(INFO) << "sout: lookup rowkey in segment, rowset=" << _rowset_id.to_string()
+              << ", seg=" << _segment_id << ", row_id=" << row_location->row_id;
 
     size_t num_to_read = 1;
     auto index_type = vectorized::DataTypeFactory::instance().create_data_type(
@@ -1036,6 +1038,7 @@ Status Segment::lookup_row_key(const Slice& key, const TabletSchema* latest_sche
         const auto* rowid_coder = get_key_coder(type_info->type());
         RETURN_IF_ERROR(rowid_coder->decode_ascending(&rowid_slice, rowid_length,
                                                       (uint8_t*)&row_location->row_id));
+        LOG(INFO) << "sout: modify row id=" << row_location->row_id;
     }
 
     if (encoded_seq_value) {

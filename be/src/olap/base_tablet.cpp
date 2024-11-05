@@ -499,6 +499,9 @@ Status BaseTablet::lookup_row_key(const Slice& encoded_key, TabletSchema* latest
             LOG(INFO) << "sout: lookup row key for tablet=" << tablet_id()
                       << ", st=" << s.to_string()
                       << ", segment_num=" << num_segments
+                      << ", with_seq=" << with_seq_col
+                      << ", with_rowid=" << with_rowid
+                      << ", id=" << id
                       << ". find rowset_id=" << loc.rowset_id.to_string()
                       << ", segment_id=" << loc.segment_id << ", row_id=" << loc.row_id;
             if (s.is<KEY_NOT_FOUND>()) {
