@@ -479,7 +479,9 @@ Status BaseTablet::lookup_row_key(const Slice& encoded_key, TabletSchema* latest
         if (picked_segments.empty()) {
             LOG(INFO) << "sout: skip lookup " << i << " for tablet=" << tablet_id()
                       << " for rowset_id=" << rs->rowset_id().to_string()
-                      << ", version=" << rs->version().to_string() << ", pick 0 segments";
+                      << ", version=" << rs->version().to_string()
+                      << ", segment_num=" << num_segments
+                      << ", pick 0 segments";
             continue;
         }
 
@@ -496,6 +498,7 @@ Status BaseTablet::lookup_row_key(const Slice& encoded_key, TabletSchema* latest
                                                     &loc, encoded_seq_value);
             LOG(INFO) << "sout: lookup row key for tablet=" << tablet_id()
                       << ", st=" << s.to_string()
+                      << ", segment_num=" << num_segments
                       << ". find rowset_id=" << loc.rowset_id.to_string()
                       << ", segment_id=" << loc.segment_id << ", row_id=" << loc.row_id;
             if (s.is<KEY_NOT_FOUND>()) {

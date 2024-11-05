@@ -432,7 +432,8 @@ Status Merger::vertical_merge_rowsets(BaseTabletSPtr tablet, ReaderType reader_t
                                       const std::vector<RowsetReaderSharedPtr>& src_rowset_readers,
                                       RowsetWriter* dst_rowset_writer, int64_t max_rows_per_segment,
                                       int64_t merge_way_num, Statistics* stats_output) {
-    LOG(INFO) << "Start to do vertical compaction, tablet_id: " << tablet->tablet_id();
+    LOG(INFO) << "Start to do vertical compaction, tablet_id: " << tablet->tablet_id()
+              << ", cluster key size=" << tablet_schema.cluster_key_idxes().size();
     std::vector<std::vector<uint32_t>> column_groups;
     std::vector<uint32_t> key_group_cluster_key_idxes;
     vertical_split_columns(tablet_schema, &column_groups, &key_group_cluster_key_idxes);
