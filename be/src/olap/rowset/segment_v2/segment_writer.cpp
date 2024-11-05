@@ -915,8 +915,10 @@ Status SegmentWriter::append_row(const RowType& row) {
         return Status::InternalError(
                 "SegmentWriter::append_row does not support mow tables with cluster key");
     } else if (_is_mow()) {
+        LOG(INFO) << "sout: add primary key for mow";
         RETURN_IF_ERROR(_primary_key_index_builder->add_item(full_encoded_key));
     } else {
+        LOG(INFO) << "sout: add primary key";
         // At the beginning of one block, so add a short key index entry
         if ((_num_rows_written % _opts.num_rows_per_block) == 0) {
             std::string encoded_key;
@@ -1196,6 +1198,7 @@ Status SegmentWriter::_generate_primary_key_index(
         vectorized::IOlapColumnDataAccessor* seq_column, size_t num_rows, bool need_sort) {
     if (!need_sort) { // mow table without cluster key
         std::string last_key;
+        LOG(INFO) << "sout: add primary key 0";
         for (size_t pos = 0; pos < num_rows; pos++) {
             // use _key_coders
             std::string key = _full_encode_keys(primary_key_columns, pos);
@@ -1212,6 +1215,7 @@ Status SegmentWriter::_generate_primary_key_index(
     } else { // mow table with cluster key
         // 1. generate primary keys in memory
         std::vector<std::string> primary_keys;
+        LOG(INFO) << "sout: add primary key 1(ck)";
         for (uint32_t pos = 0; pos < num_rows; pos++) {
             std::string key = _full_encode_keys(primary_key_coders, primary_key_columns, pos);
             _maybe_invalid_row_cache(key);
