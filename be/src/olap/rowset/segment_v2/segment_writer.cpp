@@ -756,6 +756,7 @@ Status SegmentWriter::append_block(const vectorized::Block* block, size_t row_po
             // for now we don't need to query short key index for CLUSTER BY feature,
             // but we still write the index for future usage.
             // 1. generate primary key index, the key_columns is primary_key_columns
+            LOG(INFO) << "sout: call _generate_primary_key_index";
             RETURN_IF_ERROR(_generate_primary_key_index(_primary_key_coders, key_columns,
                                                         seq_column, num_rows, true));
             // 2. generate short key index (use cluster key)
@@ -1215,13 +1216,15 @@ Status SegmentWriter::_generate_primary_key_index(
     } else { // mow table with cluster key
         // 1. generate primary keys in memory
         std::vector<std::string> primary_keys;
-        LOG(INFO) << "sout: add primary key 1(ck)";
+        LOG(INFO) << "sout: add primary key 1(ck), segment=" << _segment_id;
         for (uint32_t pos = 0; pos < num_rows; pos++) {
             std::string key = _full_encode_keys(primary_key_coders, primary_key_columns, pos);
             _maybe_invalid_row_cache(key);
             if (_tablet_schema->has_sequence_col()) {
                 _encode_seq_column(seq_column, pos, &key);
             }
+            // uint32_t row_id = ;
+            LOG(INFO) << "sout: row pos=" << pos << ", seg_id=" << _segment_id;
             _encode_rowid(pos, &key);
             primary_keys.emplace_back(std::move(key));
         }
