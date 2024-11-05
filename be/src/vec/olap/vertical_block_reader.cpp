@@ -261,6 +261,7 @@ Status VerticalBlockReader::init(const ReaderParams& read_params,
 
 Status VerticalBlockReader::_direct_next_block(Block* block, bool* eof) {
     auto res = _vcollect_iter->next_batch(block);
+    LOG(INFO) << "sout: read block rows: " << block->rows() << ", st=" << res.to_string();
     if (UNLIKELY(!res.ok() && !res.is<END_OF_FILE>())) {
         return res;
     }
