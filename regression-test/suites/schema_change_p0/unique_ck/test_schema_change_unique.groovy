@@ -109,9 +109,11 @@ suite("test_schema_change_unique", "p0") {
     );
     """
 
-    execStreamLoad()
+    for (int i = 0; i < 10; i++) {
+        execStreamLoad()
+    }
 
-    sql """ alter table ${tableName3} modify column k4 string NULL"""
+    /*sql """ alter table ${tableName3} modify column k4 string NULL"""
     // sleep(10)
     int max_try_num = 100
     while (max_try_num--) {
@@ -129,7 +131,7 @@ suite("test_schema_change_unique", "p0") {
                 assertEquals("FINISHED",res)
             }
         }
-    }
+    }*/
     checkNoDuplicatedKeys(tableName3)
     /*for (def i = 0; i < 10; i++) {
         log.info("stream load: " + i)

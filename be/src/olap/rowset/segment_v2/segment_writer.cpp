@@ -1120,6 +1120,8 @@ Status SegmentWriter::_write_short_key_index() {
 }
 
 Status SegmentWriter::_write_primary_key_index() {
+    LOG(INFO) << "sout: _write_primary_key_index, row count=" << _row_count
+              << ", index rows=" << _primary_key_index_builder->num_rows();
     CHECK_EQ(_primary_key_index_builder->num_rows(), _row_count);
     return _primary_key_index_builder->finalize(_footer.mutable_primary_key_index_meta());
 }
