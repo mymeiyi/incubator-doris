@@ -69,6 +69,7 @@ Status VerticalBetaRowsetWriter<T>::add_columns(const vectorized::Block* block,
         RETURN_IF_ERROR(_create_segment_writer(col_ids, is_key, &writer));
         _segment_writers.emplace_back(std::move(writer));
         _cur_writer_idx = 0;
+        LOG(INFO) << "sout: append key block 0 to seg=" << _cur_writer_idx << ", rows=" << num_rows;
         RETURN_IF_ERROR(_segment_writers[_cur_writer_idx]->append_block(block, 0, num_rows));
     } else if (is_key) {
         if (_segment_writers[_cur_writer_idx]->num_rows_written() > max_rows_per_segment) {
@@ -80,6 +81,7 @@ Status VerticalBetaRowsetWriter<T>::add_columns(const vectorized::Block* block,
             _segment_writers.emplace_back(std::move(writer));
             ++_cur_writer_idx;
         }
+        LOG(INFO) << "sout: append key block 1 to seg=" << _cur_writer_idx << ", rows=" << num_rows;
         RETURN_IF_ERROR(_segment_writers[_cur_writer_idx]->append_block(block, 0, num_rows));
     } else {
         // value columns
@@ -99,6 +101,8 @@ Status VerticalBetaRowsetWriter<T>::add_columns(const vectorized::Block* block,
             int64_t to_write = num_rows_written + left >= num_rows_key_group
                                        ? num_rows_key_group - num_rows_written
                                        : left;
+            LOG(INFO) << "sout: append value block to seg=" << _cur_writer_idx
+                      << ", start_pos=" << (num_rows - left) << ", rows=" << to_write;
             RETURN_IF_ERROR(_segment_writers[_cur_writer_idx]->append_block(block, num_rows - left,
                                                                             to_write));
             left -= to_write;

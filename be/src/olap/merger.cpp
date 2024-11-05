@@ -290,6 +290,7 @@ Status Merger::vertical_compact_one_group(
                                        "failed to read next block when merging rowsets of tablet " +
                                                std::to_string(tablet->tablet_id()));
         LOG(INFO) << "sout: tablet=" << tablet->tablet_id()
+                  << ", block rows=" << block.rows()
                   << ", write columns=" << block.dump_data(0, 10);
         RETURN_NOT_OK_STATUS_WITH_WARN(
                 dst_rowset_writer->add_columns(&block, column_group, is_key, max_rows_per_segment),
