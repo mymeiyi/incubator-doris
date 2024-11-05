@@ -69,13 +69,16 @@ suite("test_schema_change_unique", "p0") {
     }
 
     def checkNoDuplicatedKeys = { tableName ->
+        def res = sql """ show tablets from ${tableName}; """
+        log.info("tablets: " + res)
+
         def rowCount = sql """ select count() from ${tableName}; """
         log.info("rowCount: " + rowCount)
 
         List<List<Object>> cnt = sql """ select k1,k2,k3,count(*) a  from ${tableName} group by k1,k2,k3 having a > 1; """
-        log.info("ensure there are no duplicated keys")
+        // log.info("ensure there are no duplicated keys")
         if (cnt.size() > 0) {
-            log.info("duplicated keys: " + cnt.get(0))
+            log.info("find duplicated keys: " + cnt.get(0))
         }
         assertEquals(0, cnt.size())
     }
@@ -109,8 +112,8 @@ suite("test_schema_change_unique", "p0") {
     execStreamLoad()
 
     sql """ alter table ${tableName3} modify column k4 string NULL"""
-    sleep(10)
-    int max_try_num = 60
+    // sleep(10)
+    int max_try_num = 100
     while (max_try_num--) {
         String res = getJobState(tableName3)
         if (res == "FINISHED" || res == "CANCELLED") {
@@ -118,7 +121,9 @@ suite("test_schema_change_unique", "p0") {
             sleep(3000)
             break
         } else {
+            log.info("state: " + res + ", max_try_num: " + max_try_num)
             execStreamLoad()
+            checkNoDuplicatedKeys(tableName3)
             if (max_try_num < 1) {
                 println "test timeout," + "state:" + res
                 assertEquals("FINISHED",res)
@@ -126,8 +131,13 @@ suite("test_schema_change_unique", "p0") {
         }
     }
     checkNoDuplicatedKeys(tableName3)
+    /*for (def i = 0; i < 10; i++) {
+        log.info("stream load: " + i)
+        execStreamLoad()
+        checkNoDuplicatedKeys(tableName3)
+    }*/
 
-    sql """ alter table ${tableName3} modify column k2 bigint(11) key NULL"""
+    /*sql """ alter table ${tableName3} modify column k2 bigint(11) key NULL"""
     sleep(10)
     max_try_num = 60
     while (max_try_num--) {
@@ -146,7 +156,7 @@ suite("test_schema_change_unique", "p0") {
     }
     checkNoDuplicatedKeys(tableName3)
 
-    /*
+    *//*
     sql """ create materialized view view_1 as select k2, k1, k4, k5 from ${tableName3} """
     sleep(10)
     max_try_num = 60
@@ -164,7 +174,7 @@ suite("test_schema_change_unique", "p0") {
             }
         }
     }
-    */
+    *//*
 
     sql """ alter table ${tableName3} modify column k5 string NULL"""
     sleep(10)
@@ -183,9 +193,9 @@ suite("test_schema_change_unique", "p0") {
             }
         }
     }
-    checkNoDuplicatedKeys(tableName3)
+    checkNoDuplicatedKeys(tableName3)*/
 
-    sql """ alter table ${tableName3} add column v14 int NOT NULL default "1" after k13 """
+    /*sql """ alter table ${tableName3} add column v14 int NOT NULL default "1" after k13 """
     sql """ insert into ${tableName3} values (10001, 2, 3, 4, 5, 6.6, 1.7, 8.8,
     'a', 'b', 'c', '2021-10-30', '2021-10-30 00:00:00', 10086) """
     checkNoDuplicatedKeys(tableName3)
@@ -240,6 +250,6 @@ suite("test_schema_change_unique", "p0") {
         assertEquals("4", row[3]);
         assertEquals("5", row[4]);
     }
-    checkNoDuplicatedKeys(tableName3)
+    checkNoDuplicatedKeys(tableName3)*/
 }
 

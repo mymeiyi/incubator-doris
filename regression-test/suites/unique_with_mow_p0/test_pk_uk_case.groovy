@@ -31,8 +31,8 @@ suite("test_pk_uk_case") {
     def tableNameUk = "unique_key_pk_uk"
 
     onFinish {
-        try_sql("DROP TABLE IF EXISTS ${tableNamePk}")
-        try_sql("DROP TABLE IF EXISTS ${tableNameUk}")
+        // try_sql("DROP TABLE IF EXISTS ${tableNamePk}")
+        // try_sql("DROP TABLE IF EXISTS ${tableNameUk}")
     }
 
     sql """ DROP TABLE IF EXISTS ${tableNamePk} """
@@ -56,6 +56,7 @@ suite("test_pk_uk_case") {
         L_COMMENT      VARCHAR(60) NOT NULL
         )
         UNIQUE KEY(L_ORDERKEY, L_PARTKEY, L_SUPPKEY, L_LINENUMBER)
+        CLUSTER BY(L_LINESTATUS, L_SHIPMODE, L_TAX, L_EXTENDEDPRICE, L_LINENUMBER, L_SHIPINSTRUCT, L_ORDERKEY, L_PARTKEY, L_QUANTITY, L_SUPPKEY, L_DISCOUNT, L_SHIPDATE, L_COMMENT)
         DISTRIBUTED BY HASH(L_ORDERKEY) BUCKETS 1
         PROPERTIES (
         "replication_num" = "1",
@@ -100,7 +101,7 @@ suite("test_pk_uk_case") {
     def city = RandomStringUtils.randomAlphabetic(10)
     def name = UUID.randomUUID().toString()
     def date = DateTimeFormatter.ofPattern("yyyy-MM-dd").format(LocalDateTime.now())
-    for (int idx = 0; idx < 10; idx++) {
+    for (int idx = 0; idx < 500; idx++) {
         order_key = rd.nextInt(10)
         part_key = rd.nextInt(10)
         city = RandomStringUtils.randomAlphabetic(10)

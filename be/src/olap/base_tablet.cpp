@@ -469,11 +469,17 @@ Status BaseTablet::lookup_row_key(const Slice& encoded_key, TabletSchema* latest
         for (int i = num_segments - 1; i >= 0; i--) {
             if (key_without_seq.compare(segments_key_bounds[i].max_key()) > 0 ||
                 key_without_seq.compare(segments_key_bounds[i].min_key()) < 0) {
+                LOG(INFO) << "sout: skip lookup " << i << " for tablet=" << tablet_id()
+                          << " for rowset_id=" << rs->rowset_id().to_string()
+                          << ", version=" << rs->version().to_string() << ", segment_id=" << i;
                 continue;
             }
             picked_segments.emplace_back(i);
         }
         if (picked_segments.empty()) {
+            LOG(INFO) << "sout: skip lookup " << i << " for tablet=" << tablet_id()
+                      << " for rowset_id=" << rs->rowset_id().to_string()
+                      << ", version=" << rs->version().to_string() << ", pick 0 segments";
             continue;
         }
 
@@ -488,6 +494,10 @@ Status BaseTablet::lookup_row_key(const Slice& encoded_key, TabletSchema* latest
         for (auto id : picked_segments) {
             Status s = segments[id]->lookup_row_key(encoded_key, schema, with_seq_col, with_rowid,
                                                     &loc, encoded_seq_value);
+            LOG(INFO) << "sout: lookup row key for tablet=" << tablet_id()
+                      << ", st=" << s.to_string()
+                      << ". find rowset_id=" << loc.rowset_id.to_string()
+                      << ", segment_id=" << loc.segment_id << ", row_id=" << loc.row_id;
             if (s.is<KEY_NOT_FOUND>()) {
                 continue;
             }
@@ -671,6 +681,9 @@ Status BaseTablet::calc_segment_delete_bitmap(RowsetSharedPtr rowset,
             RowsetSharedPtr rowset_find;
             auto st = lookup_row_key(key, rowset_schema.get(), true, specified_rowsets, &loc,
                                      dummy_version.first - 1, segment_caches, &rowset_find);
+            LOG(INFO) << "sout: lookup in cal dm. tablet=" << tablet_id() << ", st=" << st.to_string()
+                      << ". find rowset_id=" << loc.rowset_id.to_string()
+                      << ", segment_id=" << loc.segment_id << ", row_id=" << loc.row_id;
             bool expected_st = st.ok() || st.is<KEY_NOT_FOUND>() || st.is<KEY_ALREADY_EXISTS>();
             // It's a defensive DCHECK, we need to exclude some common errors to avoid core-dump
             // while stress test
@@ -1532,20 +1545,19 @@ void BaseTablet::calc_compaction_output_rowset_delete_bitmap(
                 for (auto index = iter->second.begin(); index != iter->second.end(); ++index) {
                     src.row_id = *index;
                     if (rowid_conversion.get(src, &dst) != 0) {
-                        VLOG_CRITICAL << "Can't find rowid, may be deleted by the delete_handler, "
-                                      << " src loaction: |" << src.rowset_id << "|"
-                                      << src.segment_id << "|" << src.row_id
-                                      << " version: " << cur_version;
+                        LOG(INFO) << "Can't find rowid, may be deleted by the delete_handler, "
+                                  << " src loaction: |" << src.rowset_id << "|" << src.segment_id
+                                  << "|" << src.row_id << " version: " << cur_version;
                         if (missed_rows) {
                             missed_rows->insert(src);
                         }
                         continue;
                     }
-                    VLOG_DEBUG << "calc_compaction_output_rowset_delete_bitmap dst location: |"
-                               << dst.rowset_id << "|" << dst.segment_id << "|" << dst.row_id
-                               << " src location: |" << src.rowset_id << "|" << src.segment_id
-                               << "|" << src.row_id << " start version: " << start_version
-                               << "end version" << end_version;
+                    LOG(INFO) << "calc_compaction_output_rowset_delete_bitmap dst location: |"
+                              << dst.rowset_id << "|" << dst.segment_id << "|" << dst.row_id
+                              << " src location: |" << src.rowset_id << "|" << src.segment_id << "|"
+                              << src.row_id << " start version: " << start_version << "end version"
+                              << end_version;
                     if (location_map) {
                         (*location_map)[rowset].emplace_back(src, dst);
                     }

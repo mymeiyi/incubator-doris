@@ -1177,7 +1177,7 @@ void StorageEngine::_cooldown_tasks_producer_callback() {
                    _running_cooldown_tablets.end();
         };
         _tablet_manager->get_cooldown_tablets(&tablets, &rowsets, std::move(skip_tablet));
-        LOG(INFO) << "cooldown producer get tablet num: " << tablets.size();
+        // LOG(INFO) << "cooldown producer get tablet num: " << tablets.size();
         int max_priority = tablets.size();
         int index = 0;
         for (const auto& tablet : tablets) {
