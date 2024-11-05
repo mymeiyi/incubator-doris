@@ -260,8 +260,10 @@ Status Merger::vertical_compact_one_group(
     }
 
     reader_params.tablet_schema = merge_tablet_schema;
+    bool has_cluster_key = false;
     if (!tablet->tablet_schema()->cluster_key_idxes().empty()) {
         reader_params.delete_bitmap = &tablet->tablet_meta()->delete_bitmap();
+        has_cluster_key = true;
     }
 
     if (is_key && stats_output && stats_output->rowid_conversion) {
@@ -293,7 +295,8 @@ Status Merger::vertical_compact_one_group(
                   << ", block rows=" << block.rows()
                   << ", write columns=" << block.dump_data(0, 10);
         RETURN_NOT_OK_STATUS_WITH_WARN(
-                dst_rowset_writer->add_columns(&block, column_group, is_key, max_rows_per_segment),
+                dst_rowset_writer->add_columns(&block, column_group, is_key, max_rows_per_segment,
+                                               has_cluster_key),
                 "failed to write block when merging rowsets of tablet " +
                         std::to_string(tablet->tablet_id()));
 
