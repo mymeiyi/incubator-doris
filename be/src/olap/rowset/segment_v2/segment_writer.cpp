@@ -1255,6 +1255,7 @@ Status SegmentWriter::_generate_primary_key_index(
             DCHECK(key.compare(last_key) > 0)
                     << "found duplicate key or key is not sorted! current key: " << key
                     << ", last key: " << last_key;
+            // LOG(INFO) << "sout: last key=" << last_key << ", key=" << key;
             RETURN_IF_ERROR(_primary_key_index_builder->add_item(key));
             last_key = key;
         }

@@ -901,6 +901,7 @@ Status CompactionMixin::modify_rowsets() {
         }
 
         if (location_map) {
+            LOG(INFO) << "sout: start check_rowid_conversion for tablet=" << _tablet->tablet_id();
             RETURN_IF_ERROR(tablet()->check_rowid_conversion(_output_rowset, *location_map));
             location_map->clear();
         }
@@ -963,6 +964,8 @@ Status CompactionMixin::modify_rowsets() {
             }
 
             if (location_map) {
+                LOG(INFO) << "sout: start check_rowid_conversion for tablet="
+                          << _tablet->tablet_id();
                 RETURN_IF_ERROR(tablet()->check_rowid_conversion(_output_rowset, *location_map));
             }
 

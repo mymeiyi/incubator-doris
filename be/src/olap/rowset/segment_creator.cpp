@@ -358,6 +358,7 @@ Status SegmentCreator::add_block(const vectorized::Block* block) {
     size_t row_avg_size_in_bytes = std::max((size_t)1, block_size_in_bytes / block_row_num);
     size_t row_offset = 0;
     if (_segment_flusher.need_buffering()) {
+        LOG(INFO) << "sout: need buffering";
         RETURN_IF_ERROR(_buffer_block.merge(*block));
         if (_buffer_block.allocated_bytes() > config::write_buffer_size) {
             LOG(INFO) << "directly flush a single block " << _buffer_block.rows() << " rows"
@@ -370,6 +371,7 @@ Status SegmentCreator::add_block(const vectorized::Block* block) {
         return Status::OK();
     }
 
+    LOG(INFO) << "sout: no need buffering";
     if (_flush_writer == nullptr) {
         RETURN_IF_ERROR(_segment_flusher.create_writer(_flush_writer, allocate_segment_id()));
     }

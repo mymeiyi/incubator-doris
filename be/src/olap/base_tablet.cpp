@@ -1533,7 +1533,7 @@ void BaseTablet::calc_compaction_output_rowset_delete_bitmap(
                 for (auto index = iter->second.begin(); index != iter->second.end(); ++index) {
                     src.row_id = *index;
                     if (rowid_conversion.get(src, &dst) != 0) {
-                        VLOG_CRITICAL << "Can't find rowid, may be deleted by the delete_handler, "
+                        LOG(INFO) << "Can't find rowid, may be deleted by the delete_handler, "
                                       << " src loaction: |" << src.rowset_id << "|"
                                       << src.segment_id << "|" << src.row_id
                                       << " version: " << cur_version;
@@ -1542,11 +1542,11 @@ void BaseTablet::calc_compaction_output_rowset_delete_bitmap(
                         }
                         continue;
                     }
-                    VLOG_DEBUG << "calc_compaction_output_rowset_delete_bitmap dst location: |"
+                    LOG(INFO) << "calc_compaction_output_rowset_delete_bitmap dst location: |"
                                << dst.rowset_id << "|" << dst.segment_id << "|" << dst.row_id
                                << " src location: |" << src.rowset_id << "|" << src.segment_id
                                << "|" << src.row_id << " start version: " << start_version
-                               << "end version" << end_version;
+                               << " end version: " << end_version;
                     if (location_map) {
                         (*location_map)[rowset].emplace_back(src, dst);
                     }
@@ -1563,7 +1563,7 @@ Status BaseTablet::check_rowid_conversion(
         const std::map<RowsetSharedPtr, std::list<std::pair<RowLocation, RowLocation>>>&
                 location_map) {
     if (location_map.empty()) {
-        VLOG_DEBUG << "check_rowid_conversion, location_map is empty";
+        LOG(INFO) << "check_rowid_conversion, location_map is empty";
         return Status::OK();
     }
     std::vector<segment_v2::SegmentSharedPtr> dst_segments;
@@ -1572,7 +1572,7 @@ Status BaseTablet::check_rowid_conversion(
             std::dynamic_pointer_cast<BetaRowset>(dst_rowset)->load_segments(&dst_segments));
     std::unordered_map<RowsetId, std::vector<segment_v2::SegmentSharedPtr>> input_rowsets_segment;
 
-    VLOG_DEBUG << "check_rowid_conversion, dst_segments size: " << dst_segments.size();
+    LOG(INFO) << "check_rowid_conversion, dst_segments size: " << dst_segments.size();
     for (auto [src_rowset, locations] : location_map) {
         std::vector<segment_v2::SegmentSharedPtr>& segments =
                 input_rowsets_segment[src_rowset->rowset_id()];
