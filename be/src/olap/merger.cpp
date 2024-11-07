@@ -301,8 +301,8 @@ Status Merger::vertical_compact_one_group(
             std::vector<uint32_t> segment_num_rows;
             RETURN_IF_ERROR(dst_rowset_writer->get_segment_num_rows(&segment_num_rows));
             std::stringstream ss;
-            ss << "sout: dst rows=" << dst_rowset_writer->num_rows()
-               << ". reader location size=" << reader.current_block_row_locations().size()
+            ss << "sout: add rowid_conversion. block_rows=" << block.rows()
+               << ", reader location size=" << reader.current_block_row_locations().size()
                << ", segment_num_rows_size=" << segment_num_rows.size() << ". segment_num_rows=[";
             for (const auto& item : segment_num_rows) {
                 ss << item << ", ";
