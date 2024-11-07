@@ -1530,7 +1530,7 @@ void BaseTablet::calc_compaction_output_rowset_delete_bitmap(
             for (auto iter = subset_map.delete_bitmap.begin();
                  iter != subset_map.delete_bitmap.end(); ++iter) {
                 auto cur_version = std::get<2>(iter->first);
-                auto& dm = iter->second;
+                // auto& dm = iter->second;
                 for (auto index = iter->second.begin(); index != iter->second.end(); ++index) {
                     src.row_id = *index;
                     if (rowid_conversion.get(src, &dst) != 0) {
