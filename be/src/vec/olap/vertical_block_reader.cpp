@@ -271,6 +271,7 @@ Status VerticalBlockReader::_direct_next_block(Block* block, bool* eof) {
         if (UNLIKELY(!res.ok() && res != Status::Error<END_OF_FILE>(""))) {
             return res;
         }
+        LOG(INFO) << "sout: block_row_location size=" << _block_row_locations.size();
         DCHECK_EQ(_block_row_locations.size(), block->rows());
     }
     return Status::OK();
