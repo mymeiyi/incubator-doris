@@ -1606,6 +1606,7 @@ Status BaseTablet::check_rowid_conversion(
                         src_key, _max_version_schema.get(), with_seq_col, with_rowid, &row_location,
                         &src_key);
                 LOG(INFO) << "sout: lookup rowkey, i=" << i << ", st=" << st.to_string()
+                          << ", key=" << src_key
                           << ", rowset=" << row_location.rowset_id
                           << ", seg=" << row_location.segment_id
                           << ", row_id=" << row_location.row_id
