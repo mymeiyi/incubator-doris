@@ -1599,7 +1599,7 @@ Status BaseTablet::check_rowid_conversion(
 
             // lookup
             bool with_seq_col = false;
-            bool with_rowid = true;
+            bool with_rowid = false;
             for (auto i = 0; i < dst_segments.size(); ++i) {
                 RowLocation row_location;
                 Status st = dst_segments[i]->lookup_row_key(
