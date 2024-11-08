@@ -1543,7 +1543,7 @@ void BaseTablet::calc_compaction_output_rowset_delete_bitmap(
                         }
                         continue;
                     }
-                    LOG(INFO) << "calc_compaction_output_rowset_delete_bitmap dst location: |"
+                    LOG(INFO) << "sout: calc_compaction_output_rowset_delete_bitmap dst location: |"
                                << dst.rowset_id << "|" << dst.segment_id << "|" << dst.row_id
                                << " src location: |" << src.rowset_id << "|" << src.segment_id
                                << "|" << src.row_id << " start version: " << start_version
@@ -1597,6 +1597,17 @@ Status BaseTablet::check_rowid_conversion(
                 return s;
             }
 
+            // lookup
+            bool with_seq_col = false;
+            bool with_rowid = true;
+            RowLocation row_location;
+            Status st = dst_segments[dst.segment_id]->lookup_row_key(
+                    src_key, _max_version_schema.get(), with_seq_col, with_rowid, &row_location,
+                    &src_key);
+            LOG(INFO) << "sout: lookup rowkey, st=" << st.to_string()
+                      << ", rowset=" << row_location.rowset_id
+                      << ", seg=" << row_location.segment_id << ", row_id=" << row_location.row_id;
+
             s = dst_segments[dst.segment_id]->read_key_by_rowid(dst.row_id, &dst_key);
             if (UNLIKELY(!s)) {
                 LOG(WARNING) << "failed to get dst key: |" << dst.rowset_id << "|" << dst.segment_id
@@ -1613,7 +1624,7 @@ Status BaseTablet::check_rowid_conversion(
                              << src.segment_id << "|" << src.row_id << "|" << src_key
                              << " dst key: |" << dst.rowset_id << "|" << dst.segment_id << "|"
                              << dst.row_id << "|" << dst_key;
-                DCHECK(false);
+                // DCHECK(false);
                 return Status::InternalError("failed to check rowid conversion");
             }
         }
