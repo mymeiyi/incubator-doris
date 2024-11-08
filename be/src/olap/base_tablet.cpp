@@ -1600,15 +1600,18 @@ Status BaseTablet::check_rowid_conversion(
             // lookup
             bool with_seq_col = false;
             bool with_rowid = true;
-            RowLocation row_location;
-            Status st = dst_segments[dst.segment_id]->lookup_row_key(
-                    src_key, _max_version_schema.get(), with_seq_col, with_rowid, &row_location,
-                    &src_key);
-            LOG(INFO) << "sout: lookup rowkey, st=" << st.to_string()
-                      << ", rowset=" << row_location.rowset_id
-                      << ", seg=" << row_location.segment_id << ", row_id=" << row_location.row_id
-                      << "| in convert map, rowset=" << dst.rowset_id << ", seg=" << dst.segment_id
-                      << ", row_id=" << dst.row_id;
+            for (auto i = 0; i < dst_segments.size(); ++i) {
+                RowLocation row_location;
+                Status st = dst_segments[i]->lookup_row_key(
+                        src_key, _max_version_schema.get(), with_seq_col, with_rowid, &row_location,
+                        &src_key);
+                LOG(INFO) << "sout: lookup rowkey, i=" << i << ", st=" << st.to_string()
+                          << ", rowset=" << row_location.rowset_id
+                          << ", seg=" << row_location.segment_id
+                          << ", row_id=" << row_location.row_id
+                          << "| in convert map, rowset=" << dst.rowset_id
+                          << ", seg=" << dst.segment_id << ", row_id=" << dst.row_id;
+            }
 
             s = dst_segments[dst.segment_id]->read_key_by_rowid(dst.row_id, &dst_key);
             if (UNLIKELY(!s)) {
