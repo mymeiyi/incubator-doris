@@ -1035,8 +1035,10 @@ Status Segment::lookup_row_key(const Slice& key, const TabletSchema* latest_sche
                                   rowid_length - 1);
         const auto* type_info = get_scalar_type_info<FieldType::OLAP_FIELD_TYPE_UNSIGNED_INT>();
         const auto* rowid_coder = get_key_coder(type_info->type());
+        LOG(INFO) << "sout: original row id=" << row_location->row_id;
         RETURN_IF_ERROR(rowid_coder->decode_ascending(&rowid_slice, rowid_length,
                                                       (uint8_t*)&row_location->row_id));
+        LOG(INFO) << "sout: new row id=" << row_location->row_id;
     }
 
     if (encoded_seq_value) {
