@@ -74,6 +74,9 @@ public:
             }
             _segments_rowid_map[id][item.row_id] =
                     std::pair<uint32_t, uint32_t> {_cur_dst_segment_id, _cur_dst_segment_rowid++};
+            LOG(INFO) << "sout: rowid convert: src: " << item.rowset_id << ", " << item.segment_id
+                      << ", " << item.row_id << " -> dst: " << _dst_rowst_id << ", "
+                      << _cur_dst_segment_id << ", " << _cur_dst_segment_rowid - 1;
         }
     }
 

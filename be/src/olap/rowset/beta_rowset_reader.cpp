@@ -417,6 +417,15 @@ bool BetaRowsetReader::_should_push_down_value_predicates() const {
 }
 
 Status BetaRowsetReader::get_segment_num_rows(std::vector<uint32_t>* segment_num_rows) {
+    /*std::stringstream ss;
+    ss << "sout: read rowset_id=" << _rowset->rowset_id()
+       << ", version=" << _rowset->version().to_string()
+       << ", segment_rows_size=" << _segments_rows.size() << ": [";
+    for (const auto& item : _segments_rows) {
+        ss << item << ", ";
+    }
+    ss << "]";
+    LOG(INFO) << ss.str();*/
     segment_num_rows->assign(_segments_rows.cbegin(), _segments_rows.cend());
     return Status::OK();
 }

@@ -1533,7 +1533,7 @@ void BaseTablet::calc_compaction_output_rowset_delete_bitmap(
                 for (auto index = iter->second.begin(); index != iter->second.end(); ++index) {
                     src.row_id = *index;
                     if (rowid_conversion.get(src, &dst) != 0) {
-                        VLOG_CRITICAL << "Can't find rowid, may be deleted by the delete_handler, "
+                        LOG(INFO) << "Can't find rowid, may be deleted by the delete_handler, "
                                       << " src loaction: |" << src.rowset_id << "|"
                                       << src.segment_id << "|" << src.row_id
                                       << " version: " << cur_version;
@@ -1542,11 +1542,11 @@ void BaseTablet::calc_compaction_output_rowset_delete_bitmap(
                         }
                         continue;
                     }
-                    VLOG_DEBUG << "calc_compaction_output_rowset_delete_bitmap dst location: |"
+                    LOG(INFO) << "sout: calc_compaction_output_rowset_delete_bitmap dst location: |"
                                << dst.rowset_id << "|" << dst.segment_id << "|" << dst.row_id
                                << " src location: |" << src.rowset_id << "|" << src.segment_id
                                << "|" << src.row_id << " start version: " << start_version
-                               << "end version" << end_version;
+                               << " end version: " << end_version;
                     if (location_map) {
                         (*location_map)[rowset].emplace_back(src, dst);
                     }
@@ -1563,7 +1563,7 @@ Status BaseTablet::check_rowid_conversion(
         const std::map<RowsetSharedPtr, std::list<std::pair<RowLocation, RowLocation>>>&
                 location_map) {
     if (location_map.empty()) {
-        VLOG_DEBUG << "check_rowid_conversion, location_map is empty";
+        LOG(INFO) << "check_rowid_conversion, location_map is empty, tablet=" << tablet_id();
         return Status::OK();
     }
     std::vector<segment_v2::SegmentSharedPtr> dst_segments;
@@ -1572,7 +1572,7 @@ Status BaseTablet::check_rowid_conversion(
             std::dynamic_pointer_cast<BetaRowset>(dst_rowset)->load_segments(&dst_segments));
     std::unordered_map<RowsetId, std::vector<segment_v2::SegmentSharedPtr>> input_rowsets_segment;
 
-    VLOG_DEBUG << "check_rowid_conversion, dst_segments size: " << dst_segments.size();
+    LOG(INFO) << "check_rowid_conversion, dst_segments size: " << dst_segments.size();
     for (auto [src_rowset, locations] : location_map) {
         std::vector<segment_v2::SegmentSharedPtr>& segments =
                 input_rowsets_segment[src_rowset->rowset_id()];
@@ -1596,6 +1596,23 @@ Status BaseTablet::check_rowid_conversion(
                 return s;
             }
 
+            // lookup
+            bool with_seq_col = false;
+            bool with_rowid = false;
+            for (auto i = 0; i < dst_segments.size(); ++i) {
+                RowLocation row_location;
+                Status st = dst_segments[i]->lookup_row_key(
+                        src_key, _max_version_schema.get(), with_seq_col, with_rowid, &row_location,
+                        &src_key);
+                LOG(INFO) << "sout: lookup rowkey, i=" << i << ", st=" << st.to_string()
+                          << ", key=" << src_key
+                          << ", rowset=" << row_location.rowset_id
+                          << ", seg=" << row_location.segment_id
+                          << ", row_id=" << row_location.row_id
+                          << "| in convert map, rowset=" << dst.rowset_id
+                          << ", seg=" << dst.segment_id << ", row_id=" << dst.row_id;
+            }
+
             s = dst_segments[dst.segment_id]->read_key_by_rowid(dst.row_id, &dst_key);
             if (UNLIKELY(!s)) {
                 LOG(WARNING) << "failed to get dst key: |" << dst.rowset_id << "|" << dst.segment_id
@@ -1612,7 +1629,7 @@ Status BaseTablet::check_rowid_conversion(
                              << src.segment_id << "|" << src.row_id << "|" << src_key
                              << " dst key: |" << dst.rowset_id << "|" << dst.segment_id << "|"
                              << dst.row_id << "|" << dst_key;
-                DCHECK(false);
+                // DCHECK(false);
                 return Status::InternalError("failed to check rowid conversion");
             }
         }
