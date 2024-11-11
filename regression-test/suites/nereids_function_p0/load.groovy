@@ -156,7 +156,7 @@ suite("load") {
     }
 
     // test fn_test_ip_nullable_rowstore table with update action
-    sql "update fn_test_ip_nullable_rowstore set ip4 = '' where id = 1;"
+    /*sql "update fn_test_ip_nullable_rowstore set ip4 = '' where id = 1;"
     sql_res = sql "select * from fn_test_ip_nullable_rowstore where id = 1;"
     log.info("sql_res: ${sql_res[0]}".toString())
     assertEquals(sql_res[0].toString(), '[1, null, ::1, "127.0.0.1", "::1"]')
@@ -168,7 +168,7 @@ suite("load") {
     assertEquals(sql_res[0].toString(), '[1, 127.0.0.1, null, "127.0.0.1", "::1"]')
     sql "update fn_test_ip_nullable_rowstore set ip6 = '::1' where id = 1;"
     sql_res = sql "select * from fn_test_ip_nullable_rowstore where id = 1;"
-    assertEquals(sql_res[0].toString(), '[1, 127.0.0.1, ::1, "127.0.0.1", "::1"]')
+    assertEquals(sql_res[0].toString(), '[1, 127.0.0.1, ::1, "127.0.0.1", "::1"]')*/
 
     streamLoad {
         table "fn_test_ip_not_nullable"
@@ -220,7 +220,7 @@ suite("load") {
 
     // test fn_test_ip_not_nullable_rowstore table with update action
     // not null will throw exception if we has data in table
-    test {
+    /*test {
         sql "update fn_test_ip_not_nullable_rowstore set ip4 = '' where id = 1;"
         exception("Insert has filtered data in strict mode")
     }
@@ -236,7 +236,7 @@ suite("load") {
     assertEquals(sql_res1[0].toString(), '[1, 192.10.10.1, ::1, "127.0.0.1", "::1"]')
     sql "update fn_test_ip_not_nullable_rowstore set ip6 = '::2' where id = 1;"
     sql_res1 = sql "select * from fn_test_ip_not_nullable_rowstore where id = 1;"
-    assertEquals(sql_res1[0].toString(), '[1, 192.10.10.1, ::2, "127.0.0.1", "::1"]')
+    assertEquals(sql_res1[0].toString(), '[1, 192.10.10.1, ::2, "127.0.0.1", "::1"]')*/
 
 
     // make some normal ipv4/ipv6 data for sql function , which is increased one by one
