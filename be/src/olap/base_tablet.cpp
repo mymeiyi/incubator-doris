@@ -690,7 +690,7 @@ Status BaseTablet::calc_segment_delete_bitmap(RowsetSharedPtr rowset,
             } else {
                 st = lookup_row_key(key, rowset_schema.get(), true, specified_rowsets, &loc,
                                     cast_set<uint32_t>(dummy_version.first - 1), segment_caches,
-                                    &rowset_find, true, nullptr, tablet_delete_bitmap);
+                                    &rowset_find, true, nullptr, nullptr, tablet_delete_bitmap);
             }
             bool expected_st = st.ok() || st.is<KEY_NOT_FOUND>() || st.is<KEY_ALREADY_EXISTS>();
             // It's a defensive DCHECK, we need to exclude some common errors to avoid core-dump
