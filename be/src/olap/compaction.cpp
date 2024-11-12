@@ -906,6 +906,36 @@ Status CompactionMixin::modify_rowsets() {
                 _input_rowsets, *_rowid_conversion, 0, version.second + 1, missed_rows.get(),
                 location_map.get(), _tablet->tablet_meta()->delete_bitmap(),
                 &output_rowset_delete_bitmap);
+        LOG(INFO) << "sout: after calc_compaction_output_rowset_delete_bitmap for tablet="
+                  << _tablet->tablet_id() << ", location_map size=" << location_map->size();
+        if (location_map) {
+            if (location_map->empty()) {
+                for (const auto& input_rowset : _input_rowsets) {
+                    RowLocation src;
+                    src.rowset_id = input_rowset->rowset_id();
+                    for (int seg_id = 0; seg_id < input_rowset->num_segments(); ++seg_id) {
+                        src.segment_id = seg_id;
+                        for (int row_id = 0; row_id < 4; row_id++) {
+                            src.row_id = row_id;
+                            RowLocation dst;
+                            if (_rowid_conversion->get(src, &dst) != 0) {
+                                LOG(INFO) << "Can't find rowid, may be deleted by the delete_handler, "
+                                          << " src loaction: |" << src.rowset_id << "|"
+                                          << src.segment_id << "|" << src.row_id
+                                          << " version: " << input_rowset->version().to_string();
+                                continue;
+                            }
+                            (*location_map)[input_rowset].emplace_back(src, dst);
+                            LOG(INFO)
+                                    << "sout: add a convert. dst location: |" << dst.rowset_id
+                                    << "|" << dst.segment_id << "|" << dst.row_id
+                                    << ", src location: |" << src.rowset_id << "|" << src.segment_id
+                                    << "|" << src.row_id << " version: " << input_rowset->version();
+                        }
+                    }
+                }
+            }
+        }
         if (missed_rows) {
             missed_rows_size = missed_rows->size();
             std::size_t merged_missed_rows_size = _stats.merged_rows;
