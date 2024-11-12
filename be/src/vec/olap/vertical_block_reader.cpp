@@ -148,6 +148,7 @@ Status VerticalBlockReader::_init_collect_iter(const ReaderParams& read_params,
                     ori_return_col_size, read_params.tablet->keys_type(), seq_col_idx,
                     _row_sources_buffer);
         } else {
+            LOG(INFO) << "sout: use new_vertical_heap_merge_iterator";
             _vcollect_iter = new_vertical_heap_merge_iterator(
                     std::move(*segment_iters_ptr), iterator_init_flag, rowset_ids,
                     ori_return_col_size, read_params.tablet->keys_type(), seq_col_idx,
@@ -271,6 +272,7 @@ Status VerticalBlockReader::_direct_next_block(Block* block, bool* eof) {
         if (UNLIKELY(!res.ok() && res != Status::Error<END_OF_FILE>(""))) {
             return res;
         }
+        LOG(INFO) << "sout: block_row_location size=" << _block_row_locations.size();
         DCHECK_EQ(_block_row_locations.size(), block->rows());
     }
     return Status::OK();
