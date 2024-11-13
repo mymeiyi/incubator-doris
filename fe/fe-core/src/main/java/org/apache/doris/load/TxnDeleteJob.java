@@ -20,7 +20,6 @@ package org.apache.doris.load;
 import org.apache.doris.nereids.exceptions.AnalysisException;
 import org.apache.doris.qe.ConnectContext;
 import org.apache.doris.thrift.TTabletCommitInfo;
-import org.apache.doris.transaction.SubTransactionState.SubTransactionType;
 import org.apache.doris.transaction.TabletCommitInfo;
 import org.apache.doris.transaction.TransactionEntry;
 import org.apache.doris.transaction.TransactionState;
