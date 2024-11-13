@@ -75,8 +75,7 @@ public class OlapTxnInsertExecutor extends OlapInsertExecutor {
         if (ctx.getState().getStateType() == MysqlStateType.ERR) {
             cleanTransaction();
         } else {
-            txnEntry.addTabletCommitInfos(txnId, (Table) table, coordinator.getCommitInfos(),
-                    SubTransactionType.INSERT);
+            txnEntry.addTabletCommitInfos(txnId, (Table) table, coordinator.getCommitInfos());
         }
     }
 
