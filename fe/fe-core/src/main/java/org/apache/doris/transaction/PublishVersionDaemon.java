@@ -140,6 +140,10 @@ public class PublishVersionDaemon extends MasterDaemon {
         if (transactionState.getSubTxnIds() != null) {
             for (Entry<Long, TableCommitInfo> entry : transactionState.getSubTxnIdToTableCommitInfo().entrySet()) {
                 long subTxnId = entry.getKey();
+                /*if (DebugPointUtil.isEnable("PublishVersionDaemon.genPublishTask.publishOneSubTxn")
+                        && subTxnId != transactionState.getTransactionId()) {
+                    break;
+                }*/
                 List<TPartitionVersionInfo> partitionVersionInfos = generatePartitionVersionInfos(entry.getValue(),
                         transactionState, beIdToBaseTabletIds);
                 LOG.debug("add publish task, txnId={}, subTxnId={}, backends={}, partitionVersionInfos={}",

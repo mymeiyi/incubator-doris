@@ -176,17 +176,17 @@ public class ReportHandler extends Daemon {
             reportType = ReportType.DISK;
         }
 
-        LOG.info("sout: tablet report request={}", request);
+        // LOG.info("sout: tablet report request={}", request);
         if (request.isSetTablets()) {
             tablets = request.getTablets();
-            LOG.info("sout: tablets 1={}", tablets);
+            // LOG.info("sout: tablets 1={}", tablets);
             reportVersion = request.getReportVersion();
             reportType = ReportType.TABLET;
             Env.getCurrentSystemInfo().updateBackendReportVersion(beId, reportVersion, -1L, -1L, false);
         } else if (request.isSetTabletList()) {
             // the 'tablets' member will be deprecated in future.
             tablets = buildTabletMap(request.getTabletList());
-            LOG.info("sout: tablets 2={}", tablets);
+            // LOG.info("sout: tablets 2={}", tablets);
             reportVersion = request.getReportVersion();
             reportType = ReportType.TABLET;
             Env.getCurrentSystemInfo().updateBackendReportVersion(beId, reportVersion, -1L, -1L, false);
