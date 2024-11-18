@@ -2851,10 +2851,12 @@ public class DatabaseTransactionMgr {
 
     protected void addSubTransaction(long transactionId, long subTransactionId) {
         subTxnIdToTxnId.put(subTransactionId, transactionId);
+        LOG.info("sout: after addSubTransaction, subTxnIdToTxnId={}", subTxnIdToTxnId);
     }
 
     protected void removeSubTransaction(long subTransactionId) {
         subTxnIdToTxnId.remove(subTransactionId);
+        LOG.info("sout: after removeSubTransaction, subTxnIdToTxnId={}", subTxnIdToTxnId);
     }
 
     private void cleanSubTransactions(long transactionId) {
@@ -2865,5 +2867,6 @@ public class DatabaseTransactionMgr {
                 iterator.remove();
             }
         }
+        LOG.info("sout: after cleanSubTransactions, subTxnIdToTxnId={}", subTxnIdToTxnId);
     }
 }
