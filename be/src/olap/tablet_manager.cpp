@@ -1054,12 +1054,12 @@ Status TabletManager::report_tablet_info(TTabletInfo* tablet_info) {
 
 void TabletManager::build_all_report_tablets_info(std::map<TTabletId, TTablet>* tablets_info) {
     DCHECK(tablets_info != nullptr);
-    VLOG_NOTICE << "begin to build all report tablets info";
+    LOG(INFO) << "sout: begin to build all report tablets info";
 
     // build the expired txn map first, outside the tablet map lock
     std::map<TabletInfo, std::vector<int64_t>> expire_txn_map;
     _engine.txn_manager()->build_expire_txn_map(&expire_txn_map);
-    LOG(INFO) << "find expired transactions for " << expire_txn_map.size() << " tablets";
+    LOG(INFO) << "sout: find expired transactions for " << expire_txn_map.size() << " tablets";
 
     HistogramStat tablet_version_num_hist;
     auto local_cache = std::make_shared<std::vector<TTabletStat>>();

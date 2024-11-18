@@ -255,6 +255,8 @@ public class TabletInvertedIndex {
                             }
 
                             // check if should clear transactions
+                            LOG.info("sout: report transactionIds={}, tabletId={}",
+                                    backendTabletInfo.getTransactionIds(), tabletId);
                             if (backendTabletInfo.isSetTransactionIds()) {
                                 handleBackendTransactions(backendId, backendTabletInfo.getTransactionIds(), tabletId,
                                         tabletMeta, transactionsToPublish, transactionsToClear);
@@ -324,6 +326,8 @@ public class TabletInvertedIndex {
                 synchronized (transactionsToClear) {
                     transactionsToClear.put(transactionId, tabletMeta.getPartitionId());
                 }
+                LOG.info("sout: transaction id [{}] is not valid any more, clear it from backend [{}]",
+                        transactionId, backendId);
                 if (LOG.isDebugEnabled()) {
                     LOG.debug("transaction id [{}] is not valid any more, clear it from backend [{}]",
                             transactionId, backendId);
