@@ -952,6 +952,7 @@ Status VerticalSegmentWriter::batch_block(const vectorized::Block* block, size_t
         _opts.rowset_ctx->partial_update_info->is_partial_update() &&
         _opts.write_type == DataWriteType::TYPE_DIRECT &&
         !_opts.rowset_ctx->is_transient_rowset_writer) {
+        LOG(INFO) << "sout: partial update block=" << block->dump_data(0);
         if (_opts.rowset_ctx->partial_update_info->is_flexible_partial_update()) {
             if (block->columns() != _tablet_schema->num_columns()) {
                 return Status::InvalidArgument(
