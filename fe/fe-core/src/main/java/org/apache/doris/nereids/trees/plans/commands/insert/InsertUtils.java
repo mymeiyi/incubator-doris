@@ -284,7 +284,7 @@ public class InsertUtils {
                     // only unique table with MOW (and without cluster keys)
                     // insert with target columns can consider be a partial update,
                     // and unique table without MOW, insert will be like a normal insert.
-                    // ((UnboundTableSink<? extends Plan>) unboundLogicalSink).setPartialUpdate(false);
+                    ((UnboundTableSink<? extends Plan>) unboundLogicalSink).setPartialUpdate(false);
                 } else {
                     if (unboundLogicalSink.getDMLCommandType() == DMLCommandType.INSERT) {
                         if (unboundLogicalSink.getColNames().isEmpty()) {
