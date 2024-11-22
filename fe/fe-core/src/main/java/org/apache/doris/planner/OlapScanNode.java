@@ -1522,6 +1522,7 @@ public class OlapScanNode extends ScanNode {
         }
 
         msg.node_type = TPlanNodeType.OLAP_SCAN_NODE;
+        // TODO
         if (olapTable.getBaseSchema().stream().anyMatch(Column::isClusterKey)) {
             keyColumnNames.clear();
             keyColumnTypes.clear();

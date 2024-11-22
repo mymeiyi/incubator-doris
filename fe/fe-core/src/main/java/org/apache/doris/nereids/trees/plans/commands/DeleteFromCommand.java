@@ -414,6 +414,7 @@ public class DeleteFromCommand extends Command implements ForwardWithSync, Expla
             } else if (!isMow && (!column.isVisible() || (!column.isAllowNull() && !column.hasDefaultValue()))) {
                 expr = new UnboundSlot(tableName, column.getName());
             } else if (hasClusterKey || hasSyncMaterializedView) {
+                // TODO
                 expr = new UnboundSlot(tableName, column.getName());
             } else {
                 continue;

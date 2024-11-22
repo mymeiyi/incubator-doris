@@ -87,6 +87,9 @@ public class TupleDescriptor {
     }
 
     public void addSlot(SlotDescriptor desc) {
+        if (table != null && table.getName() != null && table.getName().contains("t1_cte")) {
+            LOG.info("sout: {} add slot: {}, size={}", System.identityHashCode(this), desc.debugString(), slots.size());
+        }
         desc.setSlotOffset(slots.size());
         slots.add(desc);
     }
