@@ -22,6 +22,7 @@ import org.apache.doris.analysis.ModifyColumnClause;
 import org.apache.doris.datasource.hive.HMSExternalTable;
 import org.apache.doris.statistics.StatisticConstants;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import mockit.Mock;
 import mockit.MockUp;
@@ -57,7 +58,7 @@ class InternalSchemaInitializerTest {
         schema.add(key5);
         schema.add(value1);
         schema.add(value2);
-        table.fullSchema = schema;
+        table.fullSchema = ImmutableList.copyOf(schema);
         List<AlterClause> modifyColumnClauses = initializer.getModifyColumnClauses(table);
         Assertions.assertEquals(2, modifyColumnClauses.size());
         ModifyColumnClause clause1 = (ModifyColumnClause) modifyColumnClauses.get(0);
