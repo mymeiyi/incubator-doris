@@ -55,6 +55,7 @@ import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -112,7 +113,7 @@ public abstract class Table extends MetaObject implements Writable, TableIf, Gso
      * If you want to get the mv columns, you should call getIndexToSchema in Subclass OlapTable.
      */
     @SerializedName(value = "fullSchema")
-    protected List<Column> fullSchema;
+    protected ImmutableList<Column> fullSchema;
     // tree map for case-insensitive lookup.
     /**
      * The nameToColumn of OlapTable includes the base columns and the SHADOW_NAME_PREFIX columns.
@@ -133,7 +134,7 @@ public abstract class Table extends MetaObject implements Writable, TableIf, Gso
 
     public Table(TableType type) {
         this.type = type;
-        this.fullSchema = Lists.newArrayList();
+        this.fullSchema = ImmutableList.of();
         this.nameToColumn = Maps.newTreeMap(String.CASE_INSENSITIVE_ORDER);
         this.rwLock = new MonitoredReentrantReadWriteLock(true);
         if (Config.check_table_lock_leaky) {
@@ -148,7 +149,7 @@ public abstract class Table extends MetaObject implements Writable, TableIf, Gso
         this.type = type;
         // must copy the list, it should not be the same object as in indexIdToSchema
         if (fullSchema != null) {
-            this.fullSchema = Lists.newArrayList(fullSchema);
+            this.fullSchema = ImmutableList.copyOf(fullSchema);
         }
         this.nameToColumn = Maps.newTreeMap(String.CASE_INSENSITIVE_ORDER);
         if (this.fullSchema != null) {
@@ -394,7 +395,7 @@ public abstract class Table extends MetaObject implements Writable, TableIf, Gso
     }
 
     public List<Column> getFullSchema() {
-        return ImmutableList.copyOf(fullSchema);
+        return fullSchema;
     }
 
     // should override in subclass if necessary
@@ -411,7 +412,7 @@ public abstract class Table extends MetaObject implements Writable, TableIf, Gso
     }
 
     public void setNewFullSchema(List<Column> newSchema) {
-        this.fullSchema = newSchema;
+        this.fullSchema = ImmutableList.copyOf(newSchema);
         this.nameToColumn.clear();
         for (Column col : fullSchema) {
             nameToColumn.put(col.getName(), col);
@@ -520,14 +521,16 @@ public abstract class Table extends MetaObject implements Writable, TableIf, Gso
         List<Column> keys = Lists.newArrayList();
         // base schema
         int columnCount = in.readInt();
+        List<Column> columns = new ArrayList<>();
         for (int i = 0; i < columnCount; i++) {
             Column column = Column.read(in);
             if (column.isKey()) {
                 keys.add(column);
             }
-            this.fullSchema.add(column);
+            columns.add(column);
             this.nameToColumn.put(column.getName(), column);
         }
+        this.fullSchema = ImmutableList.copyOf(columns);
         if (keys.size() > 1) {
             keys.forEach(key -> key.setCompoundKey(true));
             hasCompoundKey = true;
