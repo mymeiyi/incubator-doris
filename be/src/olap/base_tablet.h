@@ -239,15 +239,8 @@ public:
 
     static Status update_delete_bitmap(const BaseTabletSPtr& self, TabletTxnInfo* txn_info,
                                        int64_t txn_id, int64_t txn_expiration = 0);
-    // The {invisible_rowsets} is set in transaction load. In transaction load:
-    // * the {txn_id} is sub_txn_id
-    // * the {invisible_rowsets} is used to calculate delete bitmap
-    // * the {lock_id} is base_txn_id
-    // * the {next_visible_version} is the next version of the partition visible version
     static Status update_delete_bitmap(const BaseTabletSPtr& self, TabletTxnInfo* txn_info,
                                        int64_t txn_id, int64_t txn_expiration,
-                                       std::vector<RowsetSharedPtr>* invisible_rowsets,
-                                       int64_t lock_id, int64_t next_visible_version,
                                        DeleteBitmapPtr tablet_delete_bitmap);
 
     virtual Status save_delete_bitmap(const TabletTxnInfo* txn_info, int64_t txn_id,
