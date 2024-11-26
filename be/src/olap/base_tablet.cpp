@@ -1550,11 +1550,6 @@ Status BaseTablet::update_delete_bitmap(const BaseTabletSPtr& self, TabletTxnInf
     return Status::OK();
 }
 
-Status BaseTablet::update_delete_bitmap(const BaseTabletSPtr& self, TabletTxnInfo* txn_info,
-                                        int64_t txn_id, int64_t txn_expiration) {
-    return update_delete_bitmap(self, txn_info, txn_id, txn_expiration, nullptr);
-}
-
 void BaseTablet::calc_compaction_output_rowset_delete_bitmap(
         const std::vector<RowsetSharedPtr>& input_rowsets, const RowIdConversion& rowid_conversion,
         uint64_t start_version, uint64_t end_version, std::set<RowLocation>* missed_rows,
