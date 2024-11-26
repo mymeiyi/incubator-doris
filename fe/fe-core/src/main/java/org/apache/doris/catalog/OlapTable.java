@@ -87,6 +87,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Range;
@@ -459,22 +460,23 @@ public class OlapTable extends Table implements MTMVRelatedTableIf, GsonPostProc
     // rebuild the full schema of table
     // the order of columns in fullSchema is meaningless
     public void rebuildFullSchema() {
-        fullSchema.clear();
+        List<Column> columns = new ArrayList<>();
         nameToColumn.clear();
         for (Column baseColumn : indexIdToMeta.get(baseIndexId).getSchema()) {
-            fullSchema.add(baseColumn);
+            columns.add(baseColumn);
             nameToColumn.put(baseColumn.getName(), baseColumn);
         }
         for (MaterializedIndexMeta indexMeta : indexIdToMeta.values()) {
             for (Column column : indexMeta.getSchema()) {
                 if (!nameToColumn.containsKey(column.getDefineName())) {
-                    fullSchema.add(column);
+                    columns.add(column);
                     nameToColumn.put(column.getDefineName(), column);
                 }
             }
             // Column maybe renamed, rebuild the column name map
             indexMeta.initColumnNameMap();
         }
+        fullSchema = ImmutableList.copyOf(columns);
         if (LOG.isDebugEnabled()) {
             LOG.debug("after rebuild full schema. table {}, schema size: {}", id, fullSchema.size());
         }
@@ -1457,7 +1459,9 @@ public class OlapTable extends Table implements MTMVRelatedTableIf, GsonPostProc
             sequenceCol.setDefaultValueInfo(refColumn);
         }
         // add sequence column at last
-        fullSchema.add(sequenceCol);
+        List<Column> columns = new ArrayList<>(fullSchema);
+        columns.add(sequenceCol);
+        fullSchema = ImmutableList.copyOf(columns);
         nameToColumn.put(Column.SEQUENCE_COL, sequenceCol);
         for (MaterializedIndexMeta indexMeta : indexIdToMeta.values()) {
             List<Column> schema = indexMeta.getSchema();
