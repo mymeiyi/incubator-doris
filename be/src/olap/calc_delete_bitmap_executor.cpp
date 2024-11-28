@@ -44,6 +44,7 @@ Status CalcDeleteBitmapToken::submit(BaseTabletSPtr tablet, RowsetSharedPtr cur_
 
     return _thread_token->submit_func([=, this]() {
         SCOPED_ATTACH_TASK(_query_thread_context);
+        LOG(INFO) << "sout: calc_segment_delete_bitmap";
         auto st = tablet->calc_segment_delete_bitmap(cur_rowset, cur_segment, target_rowsets,
                                                      delete_bitmap, end_version, rowset_writer,
                                                      tablet_delete_bitmap);
