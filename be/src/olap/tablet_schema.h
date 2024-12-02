@@ -550,6 +550,7 @@ private:
     size_t _num_columns = 0;
     size_t _num_variant_columns = 0;
     size_t _num_key_columns = 0;
+    // cluster key column unique ids
     std::vector<uint32_t> _cluster_key_idxes;
     size_t _num_null_columns = 0;
     size_t _num_short_key_columns = 0;
