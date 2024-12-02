@@ -2704,9 +2704,9 @@ public class PhysicalPlanTranslator extends DefaultPlanVisitor<PlanFragment, Pla
                 }
             }
             if (!clusterKeyMap.isEmpty()) {
-                return false;
-                /*sortKeyColumns.clear();
-                sortKeyColumns.addAll(clusterKeyMap.values());*/
+                // return false;
+                sortKeyColumns.clear();
+                sortKeyColumns.addAll(clusterKeyMap.values());
             }
         }
         for (int i = 0; i < sortExprs.size(); i++) {
