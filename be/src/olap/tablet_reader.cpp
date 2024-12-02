@@ -475,12 +475,23 @@ Status TabletReader::_init_orderby_keys_param(const ReaderParams& read_params) {
                 }
             }
         }
-        if (read_params.read_orderby_key_num_prefix_columns != _orderby_key_columns.size()) {
+        {
             std::stringstream ss;
             for (uint32_t idx = 0; idx < _return_columns.size(); idx++) {
                 ss << "[" << idx << " : " << _return_columns[idx] << "], ";
             }
             LOG(INFO) << "sout: tablet_id=" << _tablet->tablet_id()
+                      << ", read_orderby_key_num_prefix_columns="
+                      << read_params.read_orderby_key_num_prefix_columns
+                      << ", _return_columns.size()=" << _return_columns.size()
+                      << ", return columns: " << ss.str();
+        }
+        if (read_params.read_orderby_key_num_prefix_columns != _orderby_key_columns.size()) {
+            std::stringstream ss;
+            for (uint32_t idx = 0; idx < _return_columns.size(); idx++) {
+                ss << "[" << idx << " : " << _return_columns[idx] << "], ";
+            }
+            LOG(INFO) << "sout: error tablet_id=" << _tablet->tablet_id()
                       << ", read_orderby_key_num_prefix_columns="
                       << read_params.read_orderby_key_num_prefix_columns
                       << ", _return_columns.size()=" << _return_columns.size()
