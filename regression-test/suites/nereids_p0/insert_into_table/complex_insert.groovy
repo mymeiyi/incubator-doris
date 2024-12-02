@@ -23,6 +23,7 @@ suite('complex_insert') {
     sql 'set enable_nereids_dml=true'
     sql 'set enable_strict_consistency_dml=true'
 
+    sql 'create database if not exists nereids_insert_into_table_test'
     sql 'use nereids_insert_into_table_test'
 
     sql 'drop table if exists dup_comp_t'
