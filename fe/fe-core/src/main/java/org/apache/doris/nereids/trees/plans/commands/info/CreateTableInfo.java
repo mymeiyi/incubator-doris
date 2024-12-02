@@ -440,16 +440,23 @@ public class CreateTableInfo {
                                 || type.isMapType()
                                 || type.isStructType());
                     }).collect(Collectors.toList());
-                    if (clusterKeysCandidates.size() > 0) {
-                        clusterKeysColumnNames = new ArrayList<>();
-                        Random random = new Random();
-                        int randomClusterKeysCount = random.nextInt(clusterKeysCandidates.size()) + 1;
-                        Collections.shuffle(clusterKeysCandidates);
-                        for (int i = 0; i < randomClusterKeysCount; i++) {
-                            clusterKeysColumnNames.add(clusterKeysCandidates.get(i).getName());
+                    if (clusterKeysCandidates.size() > 1 || (clusterKeysCandidates.size() == 1
+                            && !clusterKeysCandidates.get(0).equals(columns.get(0)))) {
+                        for (int j = 0; j < 10; j++) {
+                            clusterKeysColumnNames = new ArrayList<>();
+                            Random random = new Random();
+                            int randomClusterKeysCount = random.nextInt(clusterKeysCandidates.size()) + 1;
+                            Collections.shuffle(clusterKeysCandidates);
+                            if (clusterKeysCandidates.get(0).equals(columns.get(0))) {
+                                continue;
+                            }
+                            for (int i = 0; i < randomClusterKeysCount; i++) {
+                                clusterKeysColumnNames.add(clusterKeysCandidates.get(i).getName());
+                            }
+                            LOG.info("Randomly add cluster keys for table {}.{}: {}",
+                                    dbName, tableName, clusterKeysColumnNames);
+                            break;
                         }
-                        LOG.info("Randomly add cluster keys for table {}.{}: {}",
-                                dbName, tableName, clusterKeysColumnNames);
                     }
                 }
             } catch (Exception e) {

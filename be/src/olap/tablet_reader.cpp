@@ -463,7 +463,8 @@ Status TabletReader::_init_keys_param(const ReaderParams& read_params) {
 Status TabletReader::_init_orderby_keys_param(const ReaderParams& read_params) {
     // UNIQUE_KEYS will compare all keys as before
     if (_tablet_schema->keys_type() == DUP_KEYS || (_tablet_schema->keys_type() == UNIQUE_KEYS &&
-                                                    _tablet->enable_unique_key_merge_on_write())) {
+                                                    _tablet->enable_unique_key_merge_on_write() /*&&
+                                                    _tablet_schema->cluster_key_idxes().empty()*/)) {
         // find index in vector _return_columns
         //   for the read_orderby_key_num_prefix_columns orderby keys
         for (uint32_t i = 0; i < read_params.read_orderby_key_num_prefix_columns; i++) {
@@ -475,6 +476,15 @@ Status TabletReader::_init_orderby_keys_param(const ReaderParams& read_params) {
             }
         }
         if (read_params.read_orderby_key_num_prefix_columns != _orderby_key_columns.size()) {
+            std::stringstream ss;
+            for (uint32_t idx = 0; idx < _return_columns.size(); idx++) {
+                ss << "[" << idx << " : " << _return_columns[idx] << "], ";
+            }
+            LOG(INFO) << "sout: tablet_id=" << _tablet->tablet_id()
+                      << ", read_orderby_key_num_prefix_columns="
+                      << read_params.read_orderby_key_num_prefix_columns
+                      << ", _return_columns.size()=" << _return_columns.size()
+                      << ", return columns: " << ss.str();
             return Status::Error<ErrorCode::INTERNAL_ERROR>(
                     "read_orderby_key_num_prefix_columns != _orderby_key_columns.size, "
                     "read_params.read_orderby_key_num_prefix_columns={}, "
