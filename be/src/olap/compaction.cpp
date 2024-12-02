@@ -879,30 +879,29 @@ void Compaction::construct_index_compaction_columns(RowsetWriterContext& ctx) {
 Status Compaction::_update_delete_bitmap() {
     // for mow with cluster keys, compaction read data with delete bitmap
     // if tablet is not ready(such as schema change), we need to update delete bitmap
-    bool is_tablet_notready = false;
     {
         std::shared_lock meta_rlock(_tablet->get_header_lock());
-        is_tablet_notready = _tablet->tablet_state() == TABLET_NOTREADY;
-    }
-    if (is_tablet_notready) {
-        std::vector<RowsetSharedPtr> rowsets;
-        for (const auto& rowset : _input_rowsets) {
-            Status st;
-            if (config::is_cloud_mode()) {
-                st = _tablet->update_delete_bitmap_without_lock(_tablet, rowset, &rowsets);
-            } else {
-                std::lock_guard rwlock(
-                        (std::dynamic_pointer_cast<Tablet>(_tablet)->get_rowset_update_lock()));
-                std::shared_lock rlock(_tablet->get_header_lock());
-                st = _tablet->update_delete_bitmap_without_lock(_tablet, rowset, &rowsets);
-            }
-            if (!st.ok()) {
-                LOG(INFO) << "failed update_delete_bitmap_without_lock for tablet_id="
-                          << _tablet->tablet_id() << ", st=" << st.to_string();
-                return st;
-            }
-            rowsets.push_back(rowset);
+        if (_tablet->tablet_state() != TABLET_NOTREADY) {
+            return Status::OK();
         }
+    }
+    std::vector<RowsetSharedPtr> rowsets;
+    for (const auto& rowset : _input_rowsets) {
+        Status st;
+        if (config::is_cloud_mode()) {
+            st = _tablet->update_delete_bitmap_without_lock(_tablet, rowset, &rowsets);
+        } else {
+            std::lock_guard rwlock(
+                    (std::dynamic_pointer_cast<Tablet>(_tablet)->get_rowset_update_lock()));
+            std::shared_lock rlock(_tablet->get_header_lock());
+            st = _tablet->update_delete_bitmap_without_lock(_tablet, rowset, &rowsets);
+        }
+        if (!st.ok()) {
+            LOG(INFO) << "failed update_delete_bitmap_without_lock for tablet_id="
+                      << _tablet->tablet_id() << ", st=" << st.to_string();
+            return st;
+        }
+        rowsets.push_back(rowset);
     }
     return Status::OK();
 }
