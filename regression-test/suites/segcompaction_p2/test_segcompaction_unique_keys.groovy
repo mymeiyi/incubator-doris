@@ -90,7 +90,10 @@ suite("test_segcompaction_unique_keys") {
 
         String[][] tablets = sql """ show tablets from ${tableName}; """
 
+        def result = sql """ select col_0, count(*) a from ${tableName} group by col_0 having a > 1; """
+        logger.info("result: " + result)
+        assertTrue(result.size() == 0, "There are duplicate keys in the table")
     } finally {
-        try_sql("DROP TABLE IF EXISTS ${tableName}")
+        // try_sql("DROP TABLE IF EXISTS ${tableName}")
     }
 }
