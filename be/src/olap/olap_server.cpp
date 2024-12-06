@@ -983,7 +983,6 @@ std::vector<TabletSharedPtr> StorageEngine::_generate_compaction_tasks(
     // Copy _tablet_submitted_xxx_compaction map so that we don't need to hold _tablet_submitted_compaction_mutex
     // when traversing the data dir
     auto compaction_registry_snapshot = _compaction_submit_registry.create_snapshot();
-    compaction_registry_snapshot;
     for (auto* data_dir : data_dirs) {
         bool need_pick_tablet = true;
         uint32_t executing_task_num =
