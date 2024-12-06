@@ -1113,6 +1113,7 @@ Status TabletManager::start_trash_sweep() {
                           << ", replica_id=" << (*last_it)->replica_id()
                           << ", path=" << (*last_it)->data_dir()->path()
                           << ", use_count=" << last_it->use_count();
+                find_tablet((*last_it)->tablet_id());
                 last_it++;
             } else {
                 batch_tablets.push_back(*last_it);
@@ -1726,4 +1727,10 @@ bool TabletManager::update_tablet_partition_id(::doris::TPartitionId partition_i
     return true;
 }
 
+void TabletManager::find_tablet(int64_t tablet_id) {
+    bool exist = check_tablet_id_exist(tablet_id);
+    if (exist) {
+        LOG(INFO) << "tablet_id: " << tablet_id << ", exist=" << exist;
+    }
+}
 } // end namespace doris

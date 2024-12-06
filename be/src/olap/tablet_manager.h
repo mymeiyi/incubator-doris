@@ -178,6 +178,7 @@ public:
     bool update_tablet_partition_id(::doris::TPartitionId partition_id,
                                     ::doris::TTabletId tablet_id);
 
+    void find_tablet(int64_t tablet_id);
 private:
     // Add a tablet pointer to StorageEngine
     // If force, drop the existing tablet add this new one

@@ -395,7 +395,7 @@ Status TxnManager::commit_txn(OlapMeta* meta, TPartitionId partition_id,
         }
     }
 
-    TabletSharedPtr tablet;
+    TabletSharedPtr tablet = nullptr;
     std::shared_ptr<PartialUpdateInfo> decoded_partial_update_info {nullptr};
     if (is_recovery) {
         tablet = _engine.tablet_manager()->get_tablet(tablet_id, tablet_uid);
