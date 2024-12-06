@@ -112,6 +112,22 @@ CompactionSubmitRegistry CompactionSubmitRegistry::create_snapshot() {
     CompactionSubmitRegistry registry;
     registry._tablet_submitted_base_compaction = _tablet_submitted_base_compaction;
     registry._tablet_submitted_cumu_compaction = _tablet_submitted_cumu_compaction;
+    std::stringstream ss;
+    ss << "_tablet_submitted_base_compaction=";
+    for (const auto& item : registry._tablet_submitted_base_compaction) {
+        for (const auto& tablet : item.second) {
+            ss << "[tablet_id: " << tablet->tablet_id() << ", replica_id=" << tablet->replica_id()
+               << "], ";
+        }
+    }
+    ss << "; _tablet_submitted_cumu_compaction=";
+    for (const auto& item : registry._tablet_submitted_cumu_compaction) {
+        for (const auto& tablet : item.second) {
+            ss << "[tablet_id: " << tablet->tablet_id() << ", replica_id=" << tablet->replica_id()
+               << "], ";
+        }
+    }
+    LOG(INFO) << ss.str();
     return registry;
 }
 
@@ -967,6 +983,7 @@ std::vector<TabletSharedPtr> StorageEngine::_generate_compaction_tasks(
     // Copy _tablet_submitted_xxx_compaction map so that we don't need to hold _tablet_submitted_compaction_mutex
     // when traversing the data dir
     auto compaction_registry_snapshot = _compaction_submit_registry.create_snapshot();
+    compaction_registry_snapshot;
     for (auto* data_dir : data_dirs) {
         bool need_pick_tablet = true;
         uint32_t executing_task_num =
@@ -1071,7 +1088,8 @@ Status StorageEngine::_submit_compaction_task(TabletSharedPtr tablet,
             if (!tablet->can_do_compaction(tablet->data_dir()->path_hash(), compaction_type)) {
                 LOG(INFO) << "Tablet state has been changed, no need to begin this compaction "
                              "task, tablet_id="
-                          << tablet->tablet_id() << "tablet_state=" << tablet->tablet_state();
+                          << tablet->tablet_id() << ", tablet_state=" << tablet->tablet_state()
+                          << ", use_count=" << tablet.use_count();
                 return;
             }
             tablet->compaction_stage = CompactionStage::EXECUTING;
