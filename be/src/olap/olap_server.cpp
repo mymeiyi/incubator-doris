@@ -117,14 +117,14 @@ CompactionSubmitRegistry CompactionSubmitRegistry::create_snapshot() {
     for (const auto& item : registry._tablet_submitted_base_compaction) {
         for (const auto& tablet : item.second) {
             ss << "[tablet_id: " << tablet->tablet_id() << ", replica_id=" << tablet->replica_id()
-               << "], ";
+               << ", use_count=" << tablet.use_count() << "], ";
         }
     }
     ss << "; _tablet_submitted_cumu_compaction=";
     for (const auto& item : registry._tablet_submitted_cumu_compaction) {
         for (const auto& tablet : item.second) {
             ss << "[tablet_id: " << tablet->tablet_id() << ", replica_id=" << tablet->replica_id()
-               << "], ";
+               << ", use_count=" << tablet.use_count() << "], ";
         }
     }
     LOG(INFO) << ss.str();
