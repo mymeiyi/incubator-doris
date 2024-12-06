@@ -162,6 +162,8 @@ Status EngineCloneTask::execute() {
     if (tablet) {
         LOG(INFO) << "before clone tablet_id: " << _clone_req.tablet_id
                   << ", use_count: " << tablet.use_count();
+    } else {
+        LOG(INFO) << "tablet is nullptr before clone tablet_id: " << _clone_req.tablet_id;
     }
     // register the tablet to avoid it is deleted by gc thread during clone process
     Status st = _do_clone();
