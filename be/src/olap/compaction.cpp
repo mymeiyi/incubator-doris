@@ -473,7 +473,7 @@ Status CompactionMixin::execute_compact_impl(int64_t permits) {
 
     auto* cumu_policy = tablet()->cumulative_compaction_policy();
     DCHECK(cumu_policy);
-    LOG(INFO) << "succeed to do " << compaction_name() << " is_vertical=" << _is_vertical
+    LOG(INFO) << "succeed to do " << compaction_name() << ", is_vertical=" << _is_vertical
               << ". tablet=" << _tablet->tablet_id() << ", output_version=" << _output_version
               << ", current_max_version=" << tablet()->max_version().second
               << ", disk=" << tablet()->data_dir()->path() << ", segments=" << _input_num_segments
@@ -485,7 +485,8 @@ Status CompactionMixin::execute_compact_impl(int64_t permits) {
               << ", merged_row_num=" << _stats.merged_rows
               << ". elapsed time=" << watch.get_elapse_second()
               << "s. cumulative_compaction_policy=" << cumu_policy->name()
-              << ", compact_row_per_second=" << int(_input_row_num / watch.get_elapse_second());
+              << ", compact_row_per_second=" << int(_input_row_num / watch.get_elapse_second())
+              << ", use_count=" << _tablet.use_count();
 
     _state = CompactionState::SUCCESS;
 

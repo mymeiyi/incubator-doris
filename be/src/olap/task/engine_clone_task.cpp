@@ -159,14 +159,18 @@ EngineCloneTask::EngineCloneTask(StorageEngine& engine, const TCloneReq& clone_r
 
 Status EngineCloneTask::execute() {
     TabletSharedPtr tablet = _engine.tablet_manager()->get_tablet(_clone_req.tablet_id);
-    LOG(INFO) << "before clone tablet_id: " << _clone_req.tablet_id
-              << ", use_count: " << tablet.use_count();
+    if (tablet) {
+        LOG(INFO) << "before clone tablet_id: " << _clone_req.tablet_id
+                  << ", use_count: " << tablet.use_count();
+    }
     // register the tablet to avoid it is deleted by gc thread during clone process
     Status st = _do_clone();
     _engine.tablet_manager()->update_partitions_visible_version(
             {{_clone_req.partition_id, _clone_req.version}});
-    LOG(INFO) << "after clone tablet_id: " << _clone_req.tablet_id
-              << ", use_count: " << tablet.use_count();
+    if (tablet) {
+        LOG(INFO) << "after clone tablet_id: " << _clone_req.tablet_id
+                  << ", use_count: " << tablet.use_count();
+    }
     return st;
 }
 
