@@ -1089,6 +1089,7 @@ Status StorageEngine::_submit_compaction_task(TabletSharedPtr tablet,
                              "task, tablet_id="
                           << tablet->tablet_id() << ", tablet_state=" << tablet->tablet_state()
                           << ", use_count=" << tablet.use_count();
+                _pop_tablet_from_submitted_compaction(tablet, compaction_type);
                 return;
             }
             tablet->compaction_stage = CompactionStage::EXECUTING;
