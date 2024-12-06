@@ -1104,10 +1104,16 @@ Status TabletManager::start_trash_sweep() {
     auto get_batch_tablets = [this, &last_it](int limit) {
         std::vector<TabletSharedPtr> batch_tablets;
         std::lock_guard<std::shared_mutex> wrdlock(_shutdown_tablets_lock);
+        LOG(INFO) << "_shutdown_tablets size: " << _shutdown_tablets.size();
         while (last_it != _shutdown_tablets.end() && batch_tablets.size() < limit) {
             // it means current tablet is referenced by other thread
             if (last_it->use_count() > 1) {
                 last_it++;
+                LOG(INFO) << "tablet is referenced by other thread, skip sweep trash"
+                          << ". tablet_id=" << (*last_it)->tablet_id()
+                          << ", replica_id=" << (*last_it)->replica_id()
+                          << ", path=" << (*last_it)->data_dir()->path()
+                          << ", use_count=" << last_it->use_count();
             } else {
                 batch_tablets.push_back(*last_it);
                 last_it = _shutdown_tablets.erase(last_it);
