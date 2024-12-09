@@ -1739,6 +1739,7 @@ void VTabletWriter::_generate_index_channels_payloads(
 }
 
 Status VTabletWriter::write(RuntimeState* state, doris::vectorized::Block& input_block) {
+    LOG(INFO) << "sout: write block=\n" << input_block.dump_data(0);
     SCOPED_CONSUME_MEM_TRACKER(_mem_tracker.get());
     Status status = Status::OK();
 
