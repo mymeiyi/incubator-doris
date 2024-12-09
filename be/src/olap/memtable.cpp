@@ -591,9 +591,10 @@ void MemTable::shrink_memtable_by_agg() {
 
 bool MemTable::need_flush() const {
     DBUG_EXECUTE_IF("MemTable.need_flush", {
-        if (_input_mutable_block.rows() > dp->param<int64_t>("row_count", 4096)) {
+        return true;
+        /*if (_input_mutable_block.rows() > dp->param<int64_t>("row_count", 4096)) {
             return true;
-        }
+        }*/
     });
     auto max_size = config::write_buffer_size;
     if (_partial_update_mode == UniqueKeyUpdateModePB::UPDATE_FIXED_COLUMNS) {

@@ -385,6 +385,7 @@ Status PipelineTask::execute(bool* eos) {
             // return error status with EOF, it is special, could not return directly.
             auto sink_function = [&]() -> Status {
                 Status internal_st;
+                LOG(INFO) << "sout: sink block=\n" << block->dump_data(0);
                 internal_st = _sink->sink(_state, block, *eos);
                 return internal_st;
             };
