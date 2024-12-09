@@ -551,6 +551,8 @@ Status VNodeChannel::add_block(vectorized::Block* block, const Payload* payload)
         _cur_add_block_request->add_tablet_ids(tablet_id);
     }
 
+    LOG(INFO) << "sout: cur block=\n"
+              << _cur_mutable_block->dump_data(0) << ", batch size=" << _batch_size;
     if (_cur_mutable_block->rows() >= _batch_size ||
         _cur_mutable_block->bytes() > config::doris_scanner_row_bytes) {
         {
