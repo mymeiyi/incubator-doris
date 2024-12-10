@@ -1050,7 +1050,7 @@ Status SegmentWriter::finalize_columns_index(uint64_t* index_size) {
             // 2. write primary keys index
             std::string last_key;
             for (const auto& key : _primary_keys) {
-                DCHECK(key.compare(last_key) > 0)
+                CHECK(key.compare(last_key) > 0)
                         << "found duplicate key or key is not sorted! current key: " << key
                         << ", last key: " << last_key;
                 RETURN_IF_ERROR(_primary_key_index_builder->add_item(key));
@@ -1270,7 +1270,7 @@ Status SegmentWriter::_generate_primary_key_index(
             if (_tablet_schema->has_sequence_col()) {
                 _encode_seq_column(seq_column, pos, &key);
             }
-            DCHECK(key.compare(last_key) > 0)
+            CHECK(key.compare(last_key) > 0)
                     << "found duplicate key or key is not sorted! current key: " << key
                     << ", last key: " << last_key;
             RETURN_IF_ERROR(_primary_key_index_builder->add_item(key));
@@ -1298,7 +1298,7 @@ Status SegmentWriter::_generate_short_key_index(
     // use _key_coders
     set_min_key(_full_encode_keys(key_columns, 0));
     set_max_key(_full_encode_keys(key_columns, num_rows - 1));
-    DCHECK(Slice(_max_key.data(), _max_key.size())
+    CHECK(Slice(_max_key.data(), _max_key.size())
                    .compare(Slice(_min_key.data(), _min_key.size())) >= 0)
             << "key is not sorted! min key: " << _min_key << ", max key: " << _max_key;
 
@@ -1306,7 +1306,7 @@ Status SegmentWriter::_generate_short_key_index(
     std::string last_key;
     for (const auto pos : short_key_pos) {
         std::string key = _encode_keys(key_columns, pos);
-        DCHECK(key.compare(last_key) >= 0)
+        CHECK(key.compare(last_key) >= 0)
                 << "key is not sorted! current key: " << key << ", last key: " << last_key;
         RETURN_IF_ERROR(_short_key_index_builder->add_item(key));
         last_key = std::move(key);
