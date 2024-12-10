@@ -1369,12 +1369,12 @@ Status SchemaChangeJob::parse_request(const SchemaChangeParams& sc_params,
         if (base_tablet_schema->cluster_key_uids().empty()) {
             *sc_directly = true;
             return Status::OK();
-        } else {
+        } /*else {
             // For mow table with cluster keys, the data in segments of one rowset is sorted by
             // cluster keys, the short key index may be overlapped.
             *sc_sorting = true;
             return Status::OK();
-        }
+        }*/
     }
 
     if (base_tablet_schema->num_short_key_columns() != new_tablet_schema->num_short_key_columns()) {

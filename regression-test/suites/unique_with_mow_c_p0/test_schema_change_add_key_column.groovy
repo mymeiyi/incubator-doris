@@ -30,8 +30,25 @@ suite("test_schema_change_add_key_column", "nonConcurrent") {
         return true
     }
 
-    sql """ DROP TABLE IF EXISTS ${tableName} """
+    def getTabletStatus = {
+        def tablets = sql_return_maparray """ show tablets from ${tableName}; """
+        logger.info("tablets: ${tablets}")
+        assertEquals(1, tablets.size())
+        String compactionUrl = ""
+        for (Map<String, String> tablet : tablets) {
+            compactionUrl = tablet["CompactionStatus"]
+        }
+        def (code, out, err) = curl("GET", compactionUrl)
+        logger.info("Show tablets status: code=" + code + ", out=" + out + ", err=" + err)
+        assertEquals(code, 0)
+        def tabletJson = parseJson(out.trim())
+        assert tabletJson.rowsets instanceof List
+        assertEquals(2, tabletJson.rowsets.size())
+        def rowset1 = tabletJson.rowsets.get(1)
+        logger.info("rowset1: ${rowset1}")
+    }
 
+    sql """ DROP TABLE IF EXISTS ${tableName} """
     sql """
         CREATE TABLE IF NOT EXISTS ${tableName} (
             `k1` int(11) NULL, 
@@ -46,12 +63,15 @@ suite("test_schema_change_add_key_column", "nonConcurrent") {
         );
     """
 
-
+    // batch_size is 4164 in csv_reader.cpp
+    // _batch_size is 8192 in vtablet_writer.cpp
+    def backendId_to_params = get_be_param("doris_scanner_row_bytes")
     onFinish {
         GetDebugPoint().disableDebugPointForAllBEs("MemTable.need_flush")
+        set_original_be_param("doris_scanner_row_bytes", backendId_to_params)
     }
-
     GetDebugPoint().enableDebugPointForAllBEs("MemTable.need_flush")
+    set_be_param.call("doris_scanner_row_bytes", "1")
 
     streamLoad {
         table "${tableName}"
@@ -66,17 +86,38 @@ suite("test_schema_change_add_key_column", "nonConcurrent") {
             log.info("Stream load result: ${result}".toString())
             def json = parseJson(result)
             assertEquals("success", json.Status.toLowerCase())
-            // assertEquals(2500, json.NumberTotalRows)
-            // assertEquals(0, json.NumberFilteredRows)
+            assertEquals(8192, json.NumberTotalRows)
+            assertEquals(0, json.NumberFilteredRows)
         }
     }
 
-    // check segment num is 2
-    // do schema change
-    /*sql """
-        ALTER TABLE ${tableName} ADD COLUMN `k3` int(11) key
-    """*/
+    // check generate 3 segments
+    getTabletStatus()
+    /*def tablets = sql_return_maparray """ show tablets from ${tableName}; """
+    logger.info("tablets: ${tablets}")
+    assertEquals(1, tablets.size())
+    String tabletId = ""
+    String tabletBackendId = ""
+    String compactionUrl = ""
+    for (Map<String, String> tablet : tablets) {
+        tabletId = tablet["TabletId"].toLong()
+        tabletBackendId = tablet["BackendId"]
+        compactionUrl = tablet["CompactionStatus"]
+    }
+    def (code, out, err) = curl("GET", compactionUrl)
+    logger.info("Show tablets status: code=" + code + ", out=" + out + ", err=" + err)
+    assertEquals(code, 0)
+    def tabletJson = parseJson(out.trim())
+    assert tabletJson.rowsets instanceof List
+    assertEquals(2, tabletJson.rowsets.size())
+    def rowset1 = tabletJson.rowsets.get(1)
+    logger.info("rowset1: ${rowset1}")*/
 
-    // getAlterTableState()
+    // do schema change
+    sql """ ALTER TABLE ${tableName} ADD COLUMN `k3` int(11) key """
+    getAlterTableState()
+    // check generate 1 segments
+    getTabletStatus()
+
     // select data
 }
