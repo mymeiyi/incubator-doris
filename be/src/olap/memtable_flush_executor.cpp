@@ -154,7 +154,6 @@ Status FlushToken::_do_flush_memtable(MemTable* memtable, int32_t segment_id, in
         SCOPED_CONSUME_MEM_TRACKER(memtable->mem_tracker());
         std::unique_ptr<vectorized::Block> block;
         RETURN_IF_ERROR(memtable->to_block(&block));
-        LOG(INFO) << "sout: memtable write block=\n" << block->dump_data(0);
         RETURN_IF_ERROR(_rowset_writer->flush_memtable(block.get(), segment_id, flush_size));
     }
     memtable->set_flush_success();

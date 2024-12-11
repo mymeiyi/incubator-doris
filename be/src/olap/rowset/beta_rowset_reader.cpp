@@ -190,14 +190,6 @@ Status BetaRowsetReader::get_segment_iterators(RowsetReaderContext* read_context
     _read_options.topn_filter_target_node_id = _read_context->topn_filter_target_node_id;
     _read_options.read_orderby_key_reverse = _read_context->read_orderby_key_reverse;
     _read_options.read_orderby_key_columns = _read_context->read_orderby_key_columns;
-    if (_read_options.read_orderby_key_columns) {
-        std::stringstream ss;
-        for (const auto& item : *(_read_options.read_orderby_key_columns)) {
-            ss << item << ", ";
-        }
-        LOG(INFO) << "sout: table=" << _read_context->tablet_schema->table_id()
-                  << ", read_orderby_key_columns=[" << ss.str() << "]";
-    }
     _read_options.io_ctx.reader_type = _read_context->reader_type;
     _read_options.io_ctx.file_cache_stats = &_stats->file_cache_stats;
     _read_options.runtime_state = _read_context->runtime_state;

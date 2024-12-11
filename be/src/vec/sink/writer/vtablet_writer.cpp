@@ -552,8 +552,6 @@ Status VNodeChannel::add_block(vectorized::Block* block, const Payload* payload)
         _cur_add_block_request->add_tablet_ids(tablet_id);
     }
 
-    /*LOG(INFO) << "sout: cur block=\n"
-              << _cur_mutable_block->dump_data(0) << ", batch size=" << _batch_size;*/
     if (_cur_mutable_block->rows() >= _batch_size ||
         _cur_mutable_block->bytes() > config::doris_scanner_row_bytes) {
         {
@@ -1741,7 +1739,6 @@ void VTabletWriter::_generate_index_channels_payloads(
 }
 
 Status VTabletWriter::write(RuntimeState* state, doris::vectorized::Block& input_block) {
-    // LOG(INFO) << "sout: write block=\n" << input_block.dump_data(0);
     SCOPED_CONSUME_MEM_TRACKER(_mem_tracker.get());
     Status status = Status::OK();
 
