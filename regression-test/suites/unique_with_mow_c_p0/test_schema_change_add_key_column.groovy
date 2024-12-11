@@ -19,7 +19,6 @@ import org.awaitility.Awaitility
 import static java.util.concurrent.TimeUnit.SECONDS
 
 suite("test_schema_change_add_key_column", "nonConcurrent") {
-    def db = "regression_test_unique_with_mow_c_p0"
     def tableName = "test_schema_change_add_key_column"
 
     def getAlterTableState = {
@@ -30,7 +29,7 @@ suite("test_schema_change_add_key_column", "nonConcurrent") {
         return true
     }
 
-    def getTabletStatus = {
+    def getTabletStatus = { rowsetNum, lastRowsetSegmentNum ->
         def tablets = sql_return_maparray """ show tablets from ${tableName}; """
         logger.info("tablets: ${tablets}")
         assertEquals(1, tablets.size())
@@ -43,66 +42,106 @@ suite("test_schema_change_add_key_column", "nonConcurrent") {
         assertEquals(code, 0)
         def tabletJson = parseJson(out.trim())
         assert tabletJson.rowsets instanceof List
-        assertEquals(2, tabletJson.rowsets.size())
-        def rowset1 = tabletJson.rowsets.get(1)
-        logger.info("rowset1: ${rowset1}")
+        assertTrue(tabletJson.rowsets.size() >= rowsetNum)
+        def rowset = tabletJson.rowsets.get(rowsetNum - 1)
+        logger.info("rowset: ${rowset}")
+        int start_index = rowset.indexOf("]")
+        int end_index = rowset.indexOf("DATA")
+        def segmentNumStr = rowset.substring(start_index + 1, end_index).trim()
+        logger.info("segmentNumStr: ${segmentNumStr}")
+        assertEquals(lastRowsetSegmentNum, Integer.parseInt(segmentNumStr))
     }
 
-    sql """ DROP TABLE IF EXISTS ${tableName} """
-    sql """
-        CREATE TABLE IF NOT EXISTS ${tableName} (
-            `k1` int(11) NULL, 
-            `k2` int(11) NULL, 
-            `v3` int(11) NULL,
-            `v4` int(11) NULL
-        ) unique KEY(`k1`, `k2`) 
-        cluster by(`v3`, `v4`) 
-        DISTRIBUTED BY HASH(`k1`) BUCKETS 1
-        PROPERTIES (
-            "replication_num" = "1"
-        );
-    """
+    for (int i = 0; i < 2; i++) {
+        tableName = "test_schema_change_add_key_column_" + i
+        sql """ DROP TABLE IF EXISTS ${tableName} """
+        sql """
+            CREATE TABLE IF NOT EXISTS ${tableName} (
+                `k1` int(11) NULL, 
+                `k2` int(11) NULL, 
+                `v3` int(11) NULL,
+                `v4` int(11) NULL
+            ) unique KEY(`k1`, `k2`) 
+            cluster by(`v3`, `v4`) 
+            DISTRIBUTED BY HASH(`k1`) BUCKETS 1
+            PROPERTIES (
+            """ + (i == 1 ? "\"function_column.sequence_col\"='v3', " : "") +
+            """
+                "replication_num" = "1"
+            );
+            """
 
-    // batch_size is 4164 in csv_reader.cpp
-    // _batch_size is 8192 in vtablet_writer.cpp
-    def backendId_to_params = get_be_param("doris_scanner_row_bytes")
-    onFinish {
-        GetDebugPoint().disableDebugPointForAllBEs("MemTable.need_flush")
-        set_original_be_param("doris_scanner_row_bytes", backendId_to_params)
-    }
-    GetDebugPoint().enableDebugPointForAllBEs("MemTable.need_flush")
-    set_be_param.call("doris_scanner_row_bytes", "1")
-
-    streamLoad {
-        table "${tableName}"
-        set 'column_separator', ','
-        file 'test_schema_change_add_key_column.csv'
-        time 10000 // limit inflight 10s
-
-        check { result, exception, startTime, endTime ->
-            if (exception != null) {
-                throw exception
-            }
-            log.info("Stream load result: ${result}".toString())
-            def json = parseJson(result)
-            assertEquals("success", json.Status.toLowerCase())
-            assertEquals(8192, json.NumberTotalRows)
-            assertEquals(0, json.NumberFilteredRows)
+        // batch_size is 4164 in csv_reader.cpp
+        // _batch_size is 8192 in vtablet_writer.cpp
+        def backendId_to_params = get_be_param("doris_scanner_row_bytes")
+        onFinish {
+            GetDebugPoint().disableDebugPointForAllBEs("MemTable.need_flush")
+            set_original_be_param("doris_scanner_row_bytes", backendId_to_params)
         }
+        GetDebugPoint().enableDebugPointForAllBEs("MemTable.need_flush")
+        set_be_param.call("doris_scanner_row_bytes", "1")
+
+        streamLoad {
+            table "${tableName}"
+            set 'column_separator', ','
+            file 'test_schema_change_add_key_column.csv'
+            time 10000 // limit inflight 10s
+
+            check { result, exception, startTime, endTime ->
+                if (exception != null) {
+                    throw exception
+                }
+                log.info("Stream load result: ${result}".toString())
+                def json = parseJson(result)
+                assertEquals("success", json.Status.toLowerCase())
+                assertEquals(8192, json.NumberTotalRows)
+                assertEquals(0, json.NumberFilteredRows)
+            }
+        }
+        // check generate 3 segments
+        getTabletStatus(2, 3)
+
+        streamLoad {
+            table "${tableName}"
+            set 'column_separator', ','
+            file 'test_schema_change_add_key_column1.csv'
+            time 10000 // limit inflight 10s
+
+            check { result, exception, startTime, endTime ->
+                if (exception != null) {
+                    throw exception
+                }
+                log.info("Stream load result: ${result}".toString())
+                def json = parseJson(result)
+                assertEquals("success", json.Status.toLowerCase())
+                assertEquals(20480, json.NumberTotalRows)
+                assertEquals(0, json.NumberFilteredRows)
+            }
+        }
+        // check generate 3 segments
+        getTabletStatus(3, 6)
+
+        def rowCount1 = sql """ select count() from ${tableName}; """
+        logger.info("rowCount1: ${rowCount1}")
+
+        // do schema change
+        sql """ ALTER TABLE ${tableName} ADD COLUMN `k3` int(11) key """
+        getAlterTableState()
+        // check generate 1 segments
+        getTabletStatus(2, 1) //[2-3] or [2-2] [3-3]
+        // getTabletStatus(3, 1)
+
+        // check row count
+        def rowCount2 = sql """ select count() from ${tableName}; """
+        logger.info("rowCount2: ${rowCount2}")
+        assertEquals(rowCount1[0][0], rowCount2[0][0])
+        // check no duplicated key
+        def result = sql """ select `k1`, `k2`, count(*) a from ${tableName} group by `k1`, `k2` having a > 1; """
+        logger.info("result: ${result}")
+        assertEquals(0, result.size())
+        // check one row value
+        order_qt_select1 """ select * from ${tableName} where `k1` = 12345; """
+        order_qt_select2 """ select * from ${tableName} where `k1` = 17320; """
+        order_qt_select3 """ select * from ${tableName} where `k1` = 59832 and `k2` = 36673; """
     }
-
-    // check generate 3 segments
-    getTabletStatus()
-
-    // do schema change
-    sql """ ALTER TABLE ${tableName} ADD COLUMN `k3` int(11) key """
-    getAlterTableState()
-    // check generate 1 segments
-    getTabletStatus()
-
-    // select data
-    def result = sql """ select `k1`, `k2`, count(*) a from ${tableName} group by `k1`, `k2` having a > 1; """
-    logger.info("result: ${result}")
-    assertEquals(0, result.size())
-    qt_sql """ select * from ${tableName} where `k1` = 12345; """
 }
