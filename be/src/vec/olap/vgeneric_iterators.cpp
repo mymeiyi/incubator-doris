@@ -333,6 +333,15 @@ Status VMergeIterator::init(const StorageReadOptions& opts) {
     _schema = &(_origin_iters[0]->schema());
     _record_rowids = opts.record_rowids;
 
+    if (opts.read_orderby_key_columns) {
+        std::stringstream ss;
+        for (const auto& item : *(opts.read_orderby_key_columns)) {
+            ss << item << ", ";
+        }
+        LOG(INFO) << "sout: tablet=" << opts.tablet_id << ", read_orderby_key_columns=[" << ss.str()
+                  << "]";
+    }
+
     for (auto& iter : _origin_iters) {
         auto ctx = std::make_shared<VMergeIteratorContext>(std::move(iter), _sequence_id_idx,
                                                            _is_unique, _is_reverse,

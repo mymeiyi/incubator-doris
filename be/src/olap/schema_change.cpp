@@ -543,6 +543,7 @@ Status VSchemaChangeDirectly::_inner_process(RowsetReaderSharedPtr rowset_reader
         auto ref_block = vectorized::Block::create_unique(base_tablet_schema->create_block());
 
         auto st = rowset_reader->next_block(ref_block.get());
+        LOG(INFO) << "sout: read block in sc=\n" << ref_block->dump_data(0);
         if (!st) {
             if (st.is<ErrorCode::END_OF_FILE>()) {
                 if (ref_block->rows() == 0) {
@@ -990,6 +991,11 @@ Status SchemaChangeJob::_do_process_alter_tablet(const TAlterTabletReqV2& reques
                 reader_context.read_orderby_key_columns = &cluster_key_idxes;
                 reader_context.is_unique = false;
                 reader_context.sequence_id_idx = -1;
+                std::stringstream ss;
+                for (const auto& item : *(reader_context.read_orderby_key_columns)) {
+                    ss << item << ", ";
+                }
+                LOG(INFO) << "sout: read_orderby_key_columns=[" << ss.str() << "]";
             }
             for (auto& rs_split : rs_splits) {
                 res = rs_split.rs_reader->init(&reader_context);

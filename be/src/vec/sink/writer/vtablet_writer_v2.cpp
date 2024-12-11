@@ -414,6 +414,7 @@ Status VTabletWriterV2::_select_streams(int64_t tablet_id, int64_t partition_id,
 }
 
 Status VTabletWriterV2::write(RuntimeState* state, Block& input_block) {
+    LOG(INFO) << "sout: write block=\n" << input_block.dump_data(0);
     SCOPED_CONSUME_MEM_TRACKER(_mem_tracker.get());
     Status status = Status::OK();
 
