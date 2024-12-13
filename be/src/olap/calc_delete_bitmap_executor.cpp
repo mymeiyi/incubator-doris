@@ -35,7 +35,7 @@ Status CalcDeleteBitmapToken::submit(BaseTabletSPtr tablet, RowsetSharedPtr cur_
                                      const std::vector<RowsetSharedPtr>& target_rowsets,
                                      int64_t end_version, DeleteBitmapPtr delete_bitmap,
                                      RowsetWriter* rowset_writer,
-                                     DeleteBitmapPtr tablet_delete_bitmap) {
+                                     DeleteBitmapPtr tablet_delete_bitmap, bool need_log) {
     {
         std::shared_lock rlock(_lock);
         RETURN_IF_ERROR(_status);
@@ -46,7 +46,7 @@ Status CalcDeleteBitmapToken::submit(BaseTabletSPtr tablet, RowsetSharedPtr cur_
         SCOPED_ATTACH_TASK(_query_thread_context);
         auto st = tablet->calc_segment_delete_bitmap(cur_rowset, cur_segment, target_rowsets,
                                                      delete_bitmap, end_version, rowset_writer,
-                                                     tablet_delete_bitmap);
+                                                     tablet_delete_bitmap, need_log);
         if (!st.ok()) {
             LOG(WARNING) << "failed to calc segment delete bitmap, tablet_id: "
                          << tablet->tablet_id() << " rowset: " << cur_rowset->rowset_id()
