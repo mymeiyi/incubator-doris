@@ -1091,9 +1091,7 @@ uint64_t DeleteBitmap::cardinality() const {
     std::shared_lock l(lock);
     uint64_t res = 0;
     for (auto entry : delete_bitmap) {
-        if (std::get<1>(entry.first) != DeleteBitmap::INVALID_SEGMENT_ID) {
-            res += entry.second.cardinality();
-        }
+        res += entry.second.cardinality();
     }
     return res;
 }
@@ -1102,9 +1100,7 @@ uint64_t DeleteBitmap::get_size() const {
     std::shared_lock l(lock);
     uint64_t charge = 0;
     for (auto& [k, v] : delete_bitmap) {
-        if (std::get<1>(k) != DeleteBitmap::INVALID_SEGMENT_ID) {
-            charge += v.getSizeInBytes();
-        }
+        charge += v.getSizeInBytes();
     }
     return charge;
 }
@@ -1223,7 +1219,7 @@ void DeleteBitmap::remove_stale_delete_bitmap_from_queue(const std::vector<std::
             _stale_delete_bitmap.erase(version_str);
         }
     }
-    if (tablet_id == -1 || to_delete.empty() || !config::is_cloud_mode()) {
+    if (tablet_id == -1 || to_delete.empty()) {
         return;
     }
     CloudStorageEngine& engine = ExecEnv::GetInstance()->storage_engine().to_cloud();
@@ -1236,13 +1232,7 @@ void DeleteBitmap::remove_stale_delete_bitmap_from_queue(const std::vector<std::
 
 uint64_t DeleteBitmap::get_delete_bitmap_count() {
     std::shared_lock l(lock);
-    uint64_t count = 0;
-    for (auto it = delete_bitmap.begin(); it != delete_bitmap.end(); it++) {
-        if (std::get<1>(it->first) != DeleteBitmap::INVALID_SEGMENT_ID) {
-            count++;
-        }
-    }
-    return count;
+    return delete_bitmap.size();
 }
 
 // We cannot just copy the underlying memory to construct a string
