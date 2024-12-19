@@ -102,8 +102,7 @@ Status SegcompactionWorker::_get_segcompaction_reader(
         RETURN_IF_ERROR(
                 tablet->calc_delete_bitmap_between_segments(_rowset, segments, delete_bitmap));
         read_options.delete_bitmap = &delete_bitmap;*/
-
-        read_options.delete_bitmap = ctx.mow_context->delete_bitmap;
+        // read_options.delete_bitmap = ctx.mow_context->delete_bitmap;
     }
     std::vector<std::unique_ptr<RowwiseIterator>> seg_iterators;
     std::map<uint32_t, uint32_t> segment_rows;
