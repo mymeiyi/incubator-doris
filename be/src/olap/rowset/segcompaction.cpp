@@ -102,6 +102,7 @@ Status SegcompactionWorker::_get_segcompaction_reader(
         RETURN_IF_ERROR(
                 tablet->calc_delete_bitmap_between_segments(_rowset, segments, delete_bitmap));
         read_options.delete_bitmap = &delete_bitmap;*/
+
         read_options.delete_bitmap = ctx.mow_context->delete_bitmap;
     }
     std::vector<std::unique_ptr<RowwiseIterator>> seg_iterators;
@@ -114,6 +115,16 @@ Status SegcompactionWorker::_get_segcompaction_reader(
                                               s.to_string());
         }
         seg_iterators.push_back(std::move(iter));
+        if (!tablet->tablet_schema()->cluster_key_uids().empty()) {
+            auto d = ctx.mow_context->delete_bitmap->get_agg(
+                    {ctx.rowset_id, seg_ptr->id(), DeleteBitmap::TEMP_VERSION_COMMON});
+            if (d->isEmpty()) {
+                LOG(INFO) << "sout: skip empty dm, seg_id=" << seg_ptr->id();
+                continue; // Empty delete bitmap for the segment
+            }
+            LOG(INFO) << "sout: set dm, seg_id=" << seg_ptr->id();
+            read_options.delete_bitmap.emplace(seg_ptr->id(), std::move(d));
+        }
         segment_rows.emplace(seg_ptr->id(), seg_ptr->num_rows());
     }
     if (record_rowids && _rowid_conversion != nullptr) {
