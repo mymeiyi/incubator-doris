@@ -210,6 +210,7 @@ Status SegcompactionWorker::_check_correctness(OlapReaderStatistics& reader_stat
                                                Merger::Statistics& merger_stat, uint32_t begin,
                                                uint32_t end) {
     uint64_t raw_rows_read = reader_stat.raw_rows_read; /* total rows read before merge */
+    uint64_t rows_del_by_bitmap = reader_stat.rows_del_by_bitmap;
     uint64_t sum_src_row = 0; /* sum of rows in each involved source segments */
     uint64_t filtered_rows = merger_stat.filtered_rows; /* rows filtered by del conditions */
     uint64_t output_rows = merger_stat.output_rows;     /* rows after merge */
@@ -224,7 +225,7 @@ Status SegcompactionWorker::_check_correctness(OlapReaderStatistics& reader_stat
     LOG(INFO) << "sout: tablet_id=" << _writer->_context.tablet_id
               << " begin=" << begin << " end=" << end
               << " sum_src_row=" << sum_src_row
-              << " raw_rows_read=" << raw_rows_read
+              << " rows_del_by_bitmap=" << rows_del_by_bitmap << " raw_rows_read=" << raw_rows_read
               << " filtered_rows=" << filtered_rows
               << " output_rows=" << output_rows
               << " merged_rows=" << merged_rows;
