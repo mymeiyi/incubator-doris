@@ -107,13 +107,6 @@ Status SegcompactionWorker::_get_segcompaction_reader(
     std::vector<std::unique_ptr<RowwiseIterator>> seg_iterators;
     std::map<uint32_t, uint32_t> segment_rows;
     for (auto& seg_ptr : *segments) {
-        std::unique_ptr<RowwiseIterator> iter;
-        auto s = seg_ptr->new_iterator(schema, read_options, &iter);
-        if (!s.ok()) {
-            return Status::Error<INIT_FAILED>("failed to create iterator[{}]: {}", seg_ptr->id(),
-                                              s.to_string());
-        }
-        seg_iterators.push_back(std::move(iter));
         if (!tablet->tablet_schema()->cluster_key_uids().empty()) {
             auto d = delete_bitmap->get_agg(
                     {ctx.rowset_id, seg_ptr->id(), DeleteBitmap::TEMP_VERSION_COMMON});
@@ -121,9 +114,17 @@ Status SegcompactionWorker::_get_segcompaction_reader(
                 LOG(INFO) << "sout: skip empty dm, seg_id=" << seg_ptr->id();
                 continue; // Empty delete bitmap for the segment
             }
-            LOG(INFO) << "sout: set dm, seg_id=" << seg_ptr->id();
+            LOG(INFO) << "sout: set dm, seg_id=" << seg_ptr->id()
+                      << ", dm count=" << d->cardinality();
             read_options.delete_bitmap.emplace(seg_ptr->id(), std::move(d));
         }
+        std::unique_ptr<RowwiseIterator> iter;
+        auto s = seg_ptr->new_iterator(schema, read_options, &iter);
+        if (!s.ok()) {
+            return Status::Error<INIT_FAILED>("failed to create iterator[{}]: {}", seg_ptr->id(),
+                                              s.to_string());
+        }
+        seg_iterators.push_back(std::move(iter));
         segment_rows.emplace(seg_ptr->id(), seg_ptr->num_rows());
     }
     if (record_rowids && _rowid_conversion != nullptr) {
