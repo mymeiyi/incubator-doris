@@ -96,11 +96,11 @@ Status SegcompactionWorker::_get_segcompaction_reader(
     read_options.use_page_cache = false;
     read_options.tablet_schema = ctx.tablet_schema;
     read_options.record_rowids = record_rowids;
+    std::shared_ptr<DeleteBitmap> delete_bitmap =
+            std::make_shared<DeleteBitmap>(tablet->tablet_id());
     if (!tablet->tablet_schema()->cluster_key_uids().empty()) {
-        /*std::shared_ptr<DeleteBitmap> delete_bitmap =
-                std::make_shared<DeleteBitmap>(tablet->tablet_id());
-        RETURN_IF_ERROR(
-                tablet->calc_delete_bitmap_between_segments(nullptr, segments, delete_bitmap));*/
+        RETURN_IF_ERROR(tablet->calc_delete_bitmap_between_segments(ctx->rowset_id, segments,
+                                                                    delete_bitmap));
         // read_options.delete_bitmap = &delete_bitmap;
         // read_options.delete_bitmap = ctx.mow_context->delete_bitmap;
     }
@@ -115,7 +115,7 @@ Status SegcompactionWorker::_get_segcompaction_reader(
         }
         seg_iterators.push_back(std::move(iter));
         if (!tablet->tablet_schema()->cluster_key_uids().empty()) {
-            auto d = ctx.mow_context->delete_bitmap->get_agg(
+            auto d = delete_bitmap->get_agg(
                     {ctx.rowset_id, seg_ptr->id(), DeleteBitmap::TEMP_VERSION_COMMON});
             if (d->isEmpty()) {
                 LOG(INFO) << "sout: skip empty dm, seg_id=" << seg_ptr->id();
