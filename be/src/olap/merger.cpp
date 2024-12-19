@@ -295,10 +295,10 @@ Status Merger::vertical_compact_one_group(
         RETURN_NOT_OK_STATUS_WITH_WARN(reader.next_block_with_aggregation(&block, &eof),
                                        "failed to read next block when merging rowsets of tablet " +
                                                std::to_string(tablet->tablet_id()));
-        if (is_key) {
+        /*if (is_key) {
             LOG(INFO) << "sout: tablet_id=" << tablet->tablet_id() << ", read=\n"
                       << block.dump_data(0, block.rows());
-        }
+        }*/
         RETURN_NOT_OK_STATUS_WITH_WARN(
                 dst_rowset_writer->add_columns(&block, column_group, is_key, max_rows_per_segment,
                                                has_cluster_key),

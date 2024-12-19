@@ -96,6 +96,9 @@ Status SegcompactionWorker::_get_segcompaction_reader(
     read_options.use_page_cache = false;
     read_options.tablet_schema = ctx.tablet_schema;
     read_options.record_rowids = record_rowids;
+    /*if (!tablet->tablet_schema()->cluster_key_uids().empty()) {
+        read_options.delete_bitmap = ctx.mow_context->delete_bitmap;
+    }*/
     std::vector<std::unique_ptr<RowwiseIterator>> seg_iterators;
     std::map<uint32_t, uint32_t> segment_rows;
     for (auto& seg_ptr : *segments) {
