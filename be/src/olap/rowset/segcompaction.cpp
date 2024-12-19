@@ -100,8 +100,8 @@ Status SegcompactionWorker::_get_segcompaction_reader(
         /*std::shared_ptr<DeleteBitmap> delete_bitmap =
                 std::make_shared<DeleteBitmap>(tablet->tablet_id());
         RETURN_IF_ERROR(
-                tablet->calc_delete_bitmap_between_segments(_rowset, segments, delete_bitmap));
-        read_options.delete_bitmap = &delete_bitmap;*/
+                tablet->calc_delete_bitmap_between_segments(nullptr, segments, delete_bitmap));*/
+        // read_options.delete_bitmap = &delete_bitmap;
         // read_options.delete_bitmap = ctx.mow_context->delete_bitmap;
     }
     std::vector<std::unique_ptr<RowwiseIterator>> seg_iterators;
