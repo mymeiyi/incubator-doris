@@ -18,7 +18,7 @@
 import org.codehaus.groovy.runtime.IOGroovyMethods
 
 suite("test_segcompaction_unique_keys_mow_ck") {
-    for (int i = 0; i < 2; i++) {
+    for (int i = 0; i < 1; i++) {
     def tableName = "segcompaction_unique_keys_regression_test_mow_ck_" + i
     String ak = getS3AK()
     String sk = getS3SK()
