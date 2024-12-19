@@ -43,15 +43,16 @@ suite("test_compact_seg", "nonConcurrent") {
 
     // batch_size is 4164 in csv_reader.cpp
     // _batch_size is 8192 in vtablet_writer.cpp
-    def backendId_to_params = get_be_param("doris_scanner_row_bytes")
+    def doris_scanner_row_bytes_params = get_be_param("doris_scanner_row_bytes")
+    def segcompaction_batch_size_params = get_be_param("segcompaction_batch_size")
     onFinish {
         GetDebugPoint().disableDebugPointForAllBEs("MemTable.need_flush")
-        set_original_be_param("doris_scanner_row_bytes", backendId_to_params)
-        update_all_be_config('segcompaction_batch_size', 10)
+        set_original_be_param("doris_scanner_row_bytes", doris_scanner_row_bytes_params)
+        set_original_be_param('segcompaction_batch_size', segcompaction_batch_size_params)
     }
     GetDebugPoint().enableDebugPointForAllBEs("MemTable.need_flush")
     set_be_param.call("doris_scanner_row_bytes", "1")
-    update_all_be_config('segcompaction_batch_size', 5)
+    set_be_param.call('segcompaction_batch_size', 5)
 
     for (int j = 0; j < 2; j++) {
         tableName = "test_compact_seg_" + j
