@@ -214,6 +214,13 @@ Status SegcompactionWorker::_check_correctness(OlapReaderStatistics& reader_stat
     uint64_t filtered_rows = merger_stat.filtered_rows; /* rows filtered by del conditions */
     uint64_t output_rows = merger_stat.output_rows;     /* rows after merge */
     uint64_t merged_rows = merger_stat.merged_rows;     /* dup key merged by unique/agg */
+    LOG(INFO) << "sout: tablet_id=" << _writer->_context.tablet_id
+              << " begin=" << begin << " end=" << end
+              << " raw_rows_read=" << raw_rows_read
+              << " sum_src_row=" << sum_src_row
+              << " filtered_rows=" << filtered_rows
+              << " output_rows=" << output_rows
+              << " merged_rows=" << merged_rows;
 
     {
         std::lock_guard<std::mutex> lock(_writer->_segid_statistics_map_mutex);

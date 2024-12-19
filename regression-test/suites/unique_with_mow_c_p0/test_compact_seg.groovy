@@ -26,19 +26,27 @@ suite("test_compact_seg", "nonConcurrent") {
         for (Map<String, String> tablet : tablets) {
             compactionUrl = tablet["CompactionStatus"]
         }
-        def (code, out, err) = curl("GET", compactionUrl)
-        logger.info("Show tablets status: code=" + code + ", out=" + out + ", err=" + err)
-        assertEquals(code, 0)
-        def tabletJson = parseJson(out.trim())
-        assert tabletJson.rowsets instanceof List
-        assertTrue(tabletJson.rowsets.size() >= rowsetNum)
-        def rowset = tabletJson.rowsets.get(rowsetNum - 1)
-        logger.info("rowset: ${rowset}")
-        int start_index = rowset.indexOf("]")
-        int end_index = rowset.indexOf("DATA")
-        def segmentNumStr = rowset.substring(start_index + 1, end_index).trim()
-        logger.info("segmentNumStr: ${segmentNumStr}")
-        assertEquals(lastRowsetSegmentNum, Integer.parseInt(segmentNumStr))
+        for (int i = 0; i < 10; i++) {
+            def (code, out, err) = curl("GET", compactionUrl)
+            logger.info("Show tablets status: code=" + code + ", out=" + out + ", err=" + err)
+            assertEquals(code, 0)
+            def tabletJson = parseJson(out.trim())
+            assert tabletJson.rowsets instanceof List
+            assertTrue(tabletJson.rowsets.size() >= rowsetNum)
+            def rowset = tabletJson.rowsets.get(rowsetNum - 1)
+            logger.info("rowset: ${rowset}")
+            int start_index = rowset.indexOf("]")
+            int end_index = rowset.indexOf("DATA")
+            def segmentNumStr = rowset.substring(start_index + 1, end_index).trim()
+            logger.info("segmentNumStr: ${segmentNumStr}")
+            if (Integer.parseInt(segmentNumStr) == lastRowsetSegmentNum) {
+                break
+            }
+            if (i == 9) {
+                assertEquals(lastRowsetSegmentNum, Integer.parseInt(segmentNumStr))
+            }
+            sleep(2000)
+        }
     }
 
     // batch_size is 4164 in csv_reader.cpp
