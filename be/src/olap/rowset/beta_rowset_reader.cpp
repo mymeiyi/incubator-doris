@@ -252,6 +252,9 @@ Status BetaRowsetReader::get_segment_iterators(RowsetReaderContext* read_context
     const bool is_merge_iterator = _is_merge_iterator();
     const bool use_lazy_init_iterators =
             !is_merge_iterator && _read_context->reader_type == ReaderType::READER_QUERY;
+    LOG(INFO) << "sout: tablet=" << _rowset->tablet_path()
+              << ", _read_context->need_ordered_result=" << _read_context->need_ordered_result
+              << ", use_lazy=" << use_lazy_init_iterators;
     for (int i = seg_start; i < seg_end; i++) {
         auto& seg_ptr = segments[i];
         std::unique_ptr<RowwiseIterator> iter;
