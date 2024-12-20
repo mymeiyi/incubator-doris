@@ -344,6 +344,10 @@ Status Merger::vertical_compact_one_group(
         if (!block.rows()) {
             break;
         }
+        /*if (is_key) {
+            LOG(INFO) << "sout: tablet_id=" << tablet_id << ", read=\n"
+                      << block.dump_data(0, block.rows());
+        }*/
         RETURN_NOT_OK_STATUS_WITH_WARN(dst_segment_writer.append_block(&block, 0, block.rows()),
                                        "failed to write block when merging rowsets of tablet " +
                                                std::to_string(tablet_id));

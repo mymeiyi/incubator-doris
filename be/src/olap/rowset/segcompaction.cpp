@@ -103,8 +103,11 @@ Status SegcompactionWorker::_get_segcompaction_reader(
             auto d = delete_bitmap->get_agg(
                     {ctx.rowset_id, seg_ptr->id(), DeleteBitmap::TEMP_VERSION_COMMON});
             if (d->isEmpty()) {
+                LOG(INFO) << "sout: skip empty dm, seg_id=" << seg_ptr->id();
                 continue; // Empty delete bitmap for the segment
             }
+            LOG(INFO) << "sout: set dm, seg_id=" << seg_ptr->id()
+                      << ", dm count=" << d->cardinality();
             read_options.delete_bitmap.emplace(seg_ptr->id(), std::move(d));
         }
     }
@@ -218,6 +221,13 @@ Status SegcompactionWorker::_check_correctness(OlapReaderStatistics& reader_stat
             sum_src_row += _writer->_segid_statistics_map[i].row_num;
         }
     }
+    LOG(INFO) << "sout: tablet_id=" << _writer->_context.tablet_id
+              << " begin=" << begin << " end=" << end
+              << " sum_src_row=" << sum_src_row
+              << " rows_del_by_bitmap=" << rows_del_by_bitmap << " raw_rows_read=" << raw_rows_read
+              << " filtered_rows=" << filtered_rows
+              << " output_rows=" << output_rows
+              << " merged_rows=" << merged_rows;
 
     DBUG_EXECUTE_IF("SegcompactionWorker._check_correctness_wrong_sum_src_row", { sum_src_row++; });
     uint64_t raw_rows = raw_rows_read;
