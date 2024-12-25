@@ -535,6 +535,8 @@ Status OlapScanLocalState::_build_key_ranges_and_filters() {
                                    !_scan_keys.has_range_value() && !eos && !should_break;
              ++column_index) {
             auto iter = _colname_to_value_range.find(column_names[column_index]);
+            LOG(INFO) << "sout: column_index=" << column_index
+                      << ", find=" << (_colname_to_value_range.end() != iter);
             if (_colname_to_value_range.end() == iter) {
                 break;
             }
