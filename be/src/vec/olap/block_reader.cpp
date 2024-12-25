@@ -219,6 +219,7 @@ Status BlockReader::init(const ReaderParams& read_params) {
         }
     }
 
+    LOG(INFO) << "sout: read_params, keys=" << read_params.start_key.size();
     auto status = _init_collect_iter(read_params);
     if (!status.ok()) [[unlikely]] {
         if (!config::is_cloud_mode()) {
