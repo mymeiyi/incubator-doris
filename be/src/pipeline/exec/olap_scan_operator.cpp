@@ -409,6 +409,7 @@ Status OlapScanLocalState::_init_scanners(std::list<vectorized::VScannerSPtr>* s
             }
 
             COUNTER_UPDATE(_key_range_counter, scanner_ranges.size());
+            LOG(INFO) << "sout: scan range=" << scanner_ranges.size();
             auto scanner = vectorized::NewOlapScanner::create_shared(
                     this, vectorized::NewOlapScanner::Params {
                                   state(),
