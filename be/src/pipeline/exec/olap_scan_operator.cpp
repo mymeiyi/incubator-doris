@@ -334,9 +334,16 @@ Status OlapScanLocalState::_init_scanners(std::list<vectorized::VScannerSPtr>* s
         _sync_rowset_timer->update(duration_ns);
     }
 
+    LOG(INFO) << "sout: enable_parallel_scan=" << enable_parallel_scan
+              << ", !_should_run_serial=" << !p._should_run_serial
+              << ", !has_cpu_limit=" << !has_cpu_limit
+              << ", _push_down_agg_type=" << p._push_down_agg_type
+              << ", _storage_no_merge=" << _storage_no_merge()
+              << ", is_preaggregation=" << p._olap_scan_node.is_preaggregation;
     if (enable_parallel_scan && !p._should_run_serial && !has_cpu_limit &&
         p._push_down_agg_type == TPushAggOp::NONE &&
         (_storage_no_merge() || p._olap_scan_node.is_preaggregation)) {
+        LOG(INFO) << "sout: cond range=" << _cond_ranges.size();
         std::vector<OlapScanRange*> key_ranges;
         for (auto& range : _cond_ranges) {
             if (range->begin_scan_range.size() == 1 &&

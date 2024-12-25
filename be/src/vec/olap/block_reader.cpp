@@ -98,6 +98,7 @@ bool BlockReader::_rowsets_mono_asc_disjoint(const ReaderParams& read_params) {
 }
 
 Status BlockReader::_init_collect_iter(const ReaderParams& read_params) {
+    LOG(INFO) << "sout: read_params, keys=" << read_params.start_key.size();
     auto res = _capture_rs_readers(read_params);
     if (!res.ok()) {
         LOG(WARNING) << "fail to init reader when _capture_rs_readers. res:" << res

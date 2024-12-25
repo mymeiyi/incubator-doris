@@ -323,6 +323,8 @@ Status NewOlapScanner::_init_tablet_reader_params(
         _tablet_reader_params.start_key.push_back(key_range->begin_scan_range);
         _tablet_reader_params.end_key.push_back(key_range->end_scan_range);
     }
+    LOG(INFO) << "sout: start_key size=" << _tablet_reader_params.start_key.size()
+              << ", end_key size=" << _tablet_reader_params.end_key.size();
 
     _tablet_reader_params.profile = _local_state->profile();
     _tablet_reader_params.runtime_state = _state;
