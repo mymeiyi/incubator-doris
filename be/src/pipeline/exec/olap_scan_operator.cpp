@@ -380,6 +380,8 @@ Status OlapScanLocalState::_init_scanners(std::list<vectorized::VScannerSPtr>* s
 
     int scanners_per_tablet = std::max(1, 64 / (int)_scan_ranges.size());
 
+    LOG(INFO) << "sout: scan range size=" << _scan_ranges.size()
+              << ", cond range=" << _cond_ranges.size();
     for (auto& scan_range : _scan_ranges) {
         auto tablet = DORIS_TRY(ExecEnv::get_tablet(scan_range->tablet_id));
         int64_t version = 0;
