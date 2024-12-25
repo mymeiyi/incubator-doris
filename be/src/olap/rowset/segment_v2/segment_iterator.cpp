@@ -381,6 +381,10 @@ Status SegmentIterator::_lazy_init() {
         _segment->_tablet_schema->cluster_key_uids().empty()) {
         RETURN_IF_ERROR(_get_row_ranges_by_keys());
     }
+    if (!_segment->_tablet_schema->cluster_key_uids().empty()) {
+        LOG(INFO) << "sout: SegmentIterator::_lazy_init, opt.key_range size="
+                  << _opts.key_ranges.size() << ", row bitmap empty=" << _row_bitmap.isEmpty();
+    }
     RETURN_IF_ERROR(_get_row_ranges_by_column_conditions());
     RETURN_IF_ERROR(_vec_init_lazy_materialization());
     // Remove rows that have been marked deleted
