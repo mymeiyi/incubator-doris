@@ -239,6 +239,7 @@ Status BlockReader::init(const ReaderParams& read_params) {
         if (read_params.reader_type == ReaderType::READER_QUERY &&
             _reader_context.enable_unique_key_merge_on_write) {
             _next_block_func = &BlockReader::_direct_next_block;
+            LOG(INFO) << "sout: use _direct_next_block. tablet_id=" << tablet()->tablet_id();
         } else {
             _next_block_func = &BlockReader::_unique_key_next_block;
             if (_filter_delete) {
