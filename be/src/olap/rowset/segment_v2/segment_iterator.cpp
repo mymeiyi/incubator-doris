@@ -406,6 +406,8 @@ Status SegmentIterator::_lazy_init() {
 }
 
 Status SegmentIterator::_get_row_ranges_by_keys() {
+    LOG(INFO) << "sout: SegmentIterator::_get_row_ranges_by_keys, opt.key_range size="
+              << _opts.key_ranges.size() << ", row bitmap empty=" << _row_bitmap.isEmpty();
     DorisMetrics::instance()->segment_row_total->increment(num_rows());
 
     // fast path for empty segment or empty key ranges
