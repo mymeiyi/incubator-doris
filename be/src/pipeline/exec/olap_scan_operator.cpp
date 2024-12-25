@@ -510,7 +510,8 @@ inline std::string push_down_agg_to_string(const TPushAggOp::type& op) {
 }
 
 Status OlapScanLocalState::_build_key_ranges_and_filters() {
-    LOG(INFO) << "sout: before scan keys=" << _scan_keys.debug_string();
+    LOG(INFO) << "sout: before scan keys=" << _scan_keys.debug_string()
+              << ", push_down_agg_type=" << _parent->cast<OlapScanOperatorX>()._push_down_agg_type;
     auto& p = _parent->cast<OlapScanOperatorX>();
     if (p._push_down_agg_type == TPushAggOp::NONE ||
         p._push_down_agg_type == TPushAggOp::COUNT_ON_INDEX) {
@@ -520,6 +521,7 @@ Status OlapScanLocalState::_build_key_ranges_and_filters() {
 
         // 1. construct scan key except last olap engine short key
         _scan_keys.set_is_convertible(p.limit() == -1);
+        LOG(INFO) << "sout: column_names size=" << column_names.size();
 
         // we use `exact_range` to identify a key range is an exact range or not when we convert
         // it to `_scan_keys`. If `exact_range` is true, we can just discard it from `_olap_filters`.
