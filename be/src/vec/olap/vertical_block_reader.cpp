@@ -218,7 +218,7 @@ Status VerticalBlockReader::init(const ReaderParams& read_params) {
 
 Status VerticalBlockReader::init(const ReaderParams& read_params,
                                  CompactionSampleInfo* sample_info) {
-    LOG(INFO) << "sout: VerticalBlockReader::init. tablet_id=" << tablet()->tablet_id();
+    // LOG(INFO) << "sout: VerticalBlockReader::init. tablet_id=" << tablet()->tablet_id();
     StorageReadOptions opts;
     if (read_params.batch_size > 0) {
         _reader_context.batch_size = read_params.batch_size;
