@@ -373,6 +373,7 @@ Status SegmentIterator::init_iterators() {
 }
 
 Status SegmentIterator::_lazy_init() {
+    LOG(INFO) << "sout: SegmentIterator::_lazy_init";
     SCOPED_RAW_TIMER(&_opts.stats->block_init_ns);
     DorisMetrics::instance()->segment_read_total->increment(1);
     _row_bitmap.addRange(0, _segment->num_rows());
@@ -2022,6 +2023,7 @@ void SegmentIterator::_clear_iterators() {
 Status SegmentIterator::_next_batch_internal(vectorized::Block* block) {
     bool is_mem_reuse = block->mem_reuse();
     DCHECK(is_mem_reuse);
+    LOG(INFO) << "sout: SegmentIterator::_next_batch_internal, _lazy_inited: " << _lazy_inited;
 
     SCOPED_RAW_TIMER(&_opts.stats->block_load_ns);
     if (UNLIKELY(!_lazy_inited)) {
