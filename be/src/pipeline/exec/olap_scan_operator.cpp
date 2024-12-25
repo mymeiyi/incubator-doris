@@ -510,6 +510,7 @@ inline std::string push_down_agg_to_string(const TPushAggOp::type& op) {
 }
 
 Status OlapScanLocalState::_build_key_ranges_and_filters() {
+    LOG(INFO) << "sout: before scan keys=" << _scan_keys.debug_string();
     auto& p = _parent->cast<OlapScanOperatorX>();
     if (p._push_down_agg_type == TPushAggOp::NONE ||
         p._push_down_agg_type == TPushAggOp::COUNT_ON_INDEX) {
@@ -591,7 +592,7 @@ Status OlapScanLocalState::_build_key_ranges_and_filters() {
         _runtime_profile->add_info_string("KeyRanges", _scan_keys.debug_string());
         _runtime_profile->add_info_string("TabletIds", tablets_id_to_string(_scan_ranges));
     }
-    VLOG_CRITICAL << _scan_keys.debug_string();
+    LOG(INFO) << "sout: after scan keys=" << _scan_keys.debug_string();
 
     return Status::OK();
 }
