@@ -199,6 +199,7 @@ Status BlockReader::_init_agg_state(const ReaderParams& read_params) {
 }
 
 Status BlockReader::init(const ReaderParams& read_params) {
+    LOG(INFO) << "sout: BlockReader::init. tablet_id=" << tablet()->tablet_id();
     RETURN_IF_ERROR(TabletReader::init(read_params));
 
     int32_t return_column_size = read_params.origin_return_columns->size();
