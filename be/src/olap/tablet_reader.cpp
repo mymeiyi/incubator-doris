@@ -407,6 +407,8 @@ Status TabletReader::_init_return_columns(const ReaderParams& read_params) {
 
 Status TabletReader::_init_keys_param(const ReaderParams& read_params) {
     SCOPED_RAW_TIMER(&_stats.tablet_reader_init_keys_param_timer_ns);
+    LOG(INFO) << "sout: TabletReader::_init_keys_param, start key size="
+              << read_params.start_key.size();
     if (read_params.start_key.empty()) {
         return Status::OK();
     }

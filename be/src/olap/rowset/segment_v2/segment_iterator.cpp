@@ -373,7 +373,6 @@ Status SegmentIterator::init_iterators() {
 }
 
 Status SegmentIterator::_lazy_init() {
-    LOG(INFO) << "sout: SegmentIterator::_lazy_init";
     SCOPED_RAW_TIMER(&_opts.stats->block_init_ns);
     DorisMetrics::instance()->segment_read_total->increment(1);
     _row_bitmap.addRange(0, _segment->num_rows());
