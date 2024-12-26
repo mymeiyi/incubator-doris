@@ -536,7 +536,9 @@ Status OlapScanLocalState::_build_key_ranges_and_filters() {
              ++column_index) {
             auto iter = _colname_to_value_range.find(column_names[column_index]);
             LOG(INFO) << "sout: column_index=" << column_index
-                      << ", find=" << (_colname_to_value_range.end() != iter);
+                      << ", find=" << (_colname_to_value_range.end() != iter)
+                      << ", max_pushdown_conditions_per_column="
+                      << p._max_pushdown_conditions_per_column;
             if (_colname_to_value_range.end() == iter) {
                 break;
             }
@@ -547,6 +549,10 @@ Status OlapScanLocalState::_build_key_ranges_and_filters() {
                         // because extend_scan_key method may change the first parameter.
                         // but the original range may be converted to olap filters, if it's not a exact_range.
                         auto temp_range = range;
+                        LOG(INFO) << "sout: range.get_fixed_value_size="
+                                  << range.get_fixed_value_size()
+                                  << ", _max_pushdown_conditions_per_column="
+                                  << p._max_pushdown_conditions_per_column;
                         if (range.get_fixed_value_size() <= p._max_pushdown_conditions_per_column) {
                             RETURN_IF_ERROR(
                                     _scan_keys.extend_scan_key(temp_range, p._max_scan_key_num,
@@ -554,6 +560,8 @@ Status OlapScanLocalState::_build_key_ranges_and_filters() {
                             if (exact_range) {
                                 _colname_to_value_range.erase(iter->first);
                             }
+                            LOG(INFO) << "sout: extend_scan_key, exact_range=" << exact_range
+                                      << ", eos=" << eos << ", should_break=" << should_break;
                         } else {
                             // if exceed max_pushdown_conditions_per_column, use whole_value_rang instead
                             // and will not erase from _colname_to_value_range, it must be not exact_range
@@ -561,6 +569,8 @@ Status OlapScanLocalState::_build_key_ranges_and_filters() {
                             RETURN_IF_ERROR(
                                     _scan_keys.extend_scan_key(temp_range, p._max_scan_key_num,
                                                                &exact_range, &eos, &should_break));
+                            LOG(INFO) << "sout: extend_scan_key, exact_range=" << exact_range
+                                      << ", eos=" << eos << ", should_break=" << should_break;
                         }
                         return Status::OK();
                     },
