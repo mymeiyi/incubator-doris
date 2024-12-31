@@ -293,6 +293,7 @@ size_t MemTable::_sort() {
     SCOPED_RAW_TIMER(&_stat.sort_ns);
     _stat.sort_times++;
     size_t same_keys_num = 0;
+    LOG(INFO) << "sout: _last_sorted_pos=" << _last_sorted_pos << ", tablet_id=" << _tablet_id;
     // sort new rows
     Tie tie = Tie(_last_sorted_pos, _row_in_blocks.size());
     for (size_t i = 0; i < _tablet_schema->num_key_columns(); i++) {
