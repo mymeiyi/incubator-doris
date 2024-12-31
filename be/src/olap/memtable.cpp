@@ -331,6 +331,7 @@ size_t MemTable::_sort() {
 }
 
 Status MemTable::_sort_by_cluster_keys() {
+    LOG(INFO) << "sout: _sort_by_cluster_keys, tablet_id=" << _tablet_id;
     SCOPED_RAW_TIMER(&_stat.sort_ns);
     _stat.sort_times++;
     // sort all rows
