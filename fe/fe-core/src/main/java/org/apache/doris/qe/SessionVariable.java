@@ -1431,7 +1431,7 @@ public class SessionVariable implements Serializable, Writable {
      * the new optimizer is fully developed. I hope that day
      * would be coming soon.
      */
-    @VariableMgr.VarAttr(name = ENABLE_NEREIDS_PLANNER, needForward = true, varType = VariableAnnotation.REMOVED)
+    @VariableMgr.VarAttr(name = ENABLE_NEREIDS_PLANNER, needForward = true)
     private boolean enableNereidsPlanner = true;
 
     @VariableMgr.VarAttr(name = DISABLE_NEREIDS_RULES, needForward = true)
@@ -4697,5 +4697,9 @@ public class SessionVariable implements Serializable, Writable {
 
     public boolean getDisableInvertedIndexV1ForVaraint() {
         return disableInvertedIndexV1ForVaraint;
+    }
+
+    public boolean isEnableNereidsPlanner() {
+        return enableNereidsPlanner;
     }
 }

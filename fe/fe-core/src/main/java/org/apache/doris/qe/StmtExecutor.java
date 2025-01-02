@@ -725,7 +725,7 @@ public class StmtExecutor {
         }
         if (logicalPlan instanceof Command) {
             if (logicalPlan instanceof Redirect) {
-                OlapGroupCommitInsertExecutor.analyzeGroupCommit(logicalPlan);
+                OlapGroupCommitInsertExecutor.analyzeGroupCommit(context, logicalPlan);
                 redirectStatus = ((Redirect) logicalPlan).toRedirectStatus();
                 if (isForwardToMaster()) {
                     // before forward to master, we also need to set profileType in this node
@@ -759,6 +759,12 @@ public class StmtExecutor {
             // t3: observer fe receive editlog creating the table from the master fe
             syncJournalIfNeeded();
             try {
+                /*OlapGroupCommitInsertExecutor.analyzeGroupCommit(context, logicalPlan);
+                if (context.isGroupCommit() && context.getCommand() == MysqlCommand.COM_STMT_PREPARE
+                        && !context.getSessionVariable().isEnableNereidsPlanner()) {
+                    throw new MustFallbackException(
+                            "Use legacy planner for prepare stmt + group_commit + enable_nereids_planner=false");
+                }*/
                 ((Command) logicalPlan).verifyCommandSupported(context);
                 ((Command) logicalPlan).run(context, this);
             } catch (MustFallbackException e) {
@@ -1062,6 +1068,11 @@ public class StmtExecutor {
                 parsedStmt.analyze(analyzer);
             }
             parsedStmt.checkPriv();
+            /*if (prepareStmt instanceof PrepareStmt && !isExecuteStmt) {
+                handlePrepareStmt();
+                return;
+            }*/
+
             // sql/sqlHash block
             checkBlockRules();
             if (parsedStmt instanceof QueryStmt) {
