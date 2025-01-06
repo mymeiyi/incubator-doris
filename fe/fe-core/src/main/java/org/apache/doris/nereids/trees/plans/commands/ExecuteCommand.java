@@ -31,6 +31,9 @@ import org.apache.doris.qe.PreparedStatementContext;
 import org.apache.doris.qe.ShortCircuitQueryContext;
 import org.apache.doris.qe.StmtExecutor;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -39,6 +42,8 @@ import java.util.stream.Collectors;
  * Prepared Statement
  */
 public class ExecuteCommand extends Command {
+    private static final Logger LOG = LogManager.getLogger(ExecuteCommand.class);
+
     private final String stmtName;
     private final PrepareCommand prepareCommand;
     private final StatementContext statementContext;
@@ -83,12 +88,19 @@ public class ExecuteCommand extends Command {
             // execute real statement
             preparedStmtCtx.shortCircuitQueryContext = Optional.empty();
             statementContext.setShortCircuitQueryContext(null);
+            LOG.info("sout: group commit={}", ctx.isGroupCommit());
+            if (ctx.isGroupCommit()) {
+
+            }
             executor.execute();
             if (executor.getContext().getStatementContext().isShortCircuitQuery()) {
                 // cache short-circuit plan
                 preparedStmtCtx.shortCircuitQueryContext = Optional.of(
                         new ShortCircuitQueryContext(executor.planner(), (Queriable) executor.getParsedStmt()));
                 statementContext.setShortCircuitQueryContext(preparedStmtCtx.shortCircuitQueryContext.get());
+            }
+            if (executor.getContext().isGroupCommit()) {
+
             }
             return;
         }
