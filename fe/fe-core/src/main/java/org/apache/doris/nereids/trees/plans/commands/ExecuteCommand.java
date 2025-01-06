@@ -98,58 +98,55 @@ public class ExecuteCommand extends Command {
         executor.setParsedStmt(planAdapter);
         // If it's not a short circuit query or schema version is different(indicates schema changed) or
         // has nondeterministic functions in statement, then need to do reanalyze and plan
-        boolean isShortCircuit = executor.getContext().getStatementContext().isShortCircuitQuery();
-        boolean hasShortCircuitContext = preparedStmtCtx.shortCircuitQueryContext.isPresent();
-        boolean schemaVersionMismatch = hasShortCircuitContext
-                    && preparedStmtCtx.shortCircuitQueryContext.get().tbl.getBaseSchemaVersion()
-                    != preparedStmtCtx.shortCircuitQueryContext.get().schemaVersion;
-        boolean needAnalyze = !isShortCircuit || schemaVersionMismatch || !hasShortCircuitContext
-                        || executor.getContext().getStatementContext().hasNondeterministic();
-        if (needAnalyze) {
-            // execute real statement
-            preparedStmtCtx.shortCircuitQueryContext = Optional.empty();
-            statementContext.setShortCircuitQueryContext(null);
-            LogicalPlan logicalPlan = prepareCommand.getLogicalPlan();
-            OlapGroupCommitInsertExecutor.analyzeGroupCommit(ctx, logicalPlan);
-            LOG.info("sout: before is group commit={}", ctx.isGroupCommit());
-            if (ctx.isGroupCommit()) {
-                InsertIntoTableCommand command = (InsertIntoTableCommand) logicalPlan;
-                OlapTable table = (OlapTable) command.getTable(ctx);
+        if (executor.getContext().getStatementContext().isShortCircuitQuery()
+                && preparedStmtCtx.shortCircuitQueryContext.isPresent()
+                && preparedStmtCtx.shortCircuitQueryContext.get().tbl.getBaseSchemaVersion()
+                == preparedStmtCtx.shortCircuitQueryContext.get().schemaVersion && !executor.getContext()
+                .getStatementContext().hasNondeterministic()) {
+            PointQueryExecutor.directExecuteShortCircuitQuery(executor, preparedStmtCtx, statementContext);
+            return;
+        }
+        OlapGroupCommitInsertExecutor.analyzeGroupCommit(ctx, prepareCommand);
+        if (ctx.isGroupCommit()) {
+            InsertIntoTableCommand command = (InsertIntoTableCommand) (prepareCommand.getLogicalPlan());
+            OlapTable table = (OlapTable) command.getTable(ctx);
+            GroupCommitPlanner groupCommitPlanner;
+            if (preparedStmtCtx.groupCommitPlanner.isPresent()
+                    && table.getBaseSchemaVersion() == preparedStmtCtx.groupCommitPlanner.get().baseSchemaVersion) {
+                groupCommitPlanner = preparedStmtCtx.groupCommitPlanner.get();
+            } else {
                 List<String> targetColumnNames = command.getTargetColumns();
                 if (targetColumnNames != null && targetColumnNames.isEmpty()) {
                     targetColumnNames = null;
                 }
-                GroupCommitPlanner groupCommitPlanner = EnvFactory.getInstance()
+                groupCommitPlanner = EnvFactory.getInstance()
                         .createGroupCommitPlanner((Database) table.getDatabase(), table,
                                 targetColumnNames, ctx.queryId(),
                                 ConnectContext.get().getSessionVariable().getGroupCommit());
-                Map<PlaceholderId, Expr> colNameToConjunct = Maps.newTreeMap();
-                for (Entry<PlaceholderId, Expression> entry : statementContext.getIdToPlaceholderRealExpr()
-                        .entrySet()) {
-                    Expr conjunctVal = ((Literal)  entry.getValue()).toLegacyLiteral();
-                    colNameToConjunct.put(entry.getKey(), conjunctVal);
-                }
-                PDataRow oneRow = groupCommitPlanner.getOneRow(
-                        colNameToConjunct.values().stream().collect(Collectors.toList()));
-                List<InternalService.PDataRow> rows = Lists.newArrayList(oneRow);
-                PGroupCommitInsertResponse response = groupCommitPlanner.executeGroupCommitInsert(ctx, rows);
-                LOG.info("sout: Group commit response: {}", response);
-                return;
             }
-            executor.execute();
-            if (executor.getContext().getStatementContext().isShortCircuitQuery()) {
-                // cache short-circuit plan
-                preparedStmtCtx.shortCircuitQueryContext = Optional.of(
-                        new ShortCircuitQueryContext(executor.planner(), (Queriable) executor.getParsedStmt()));
-                statementContext.setShortCircuitQueryContext(preparedStmtCtx.shortCircuitQueryContext.get());
+            Map<PlaceholderId, Expr> colNameToConjunct = Maps.newTreeMap();
+            for (Entry<PlaceholderId, Expression> entry : statementContext.getIdToPlaceholderRealExpr()
+                    .entrySet()) {
+                Expr conjunctVal = ((Literal) entry.getValue()).toLegacyLiteral();
+                colNameToConjunct.put(entry.getKey(), conjunctVal);
             }
-            LOG.info("sout: after is group commit={}", ctx.isGroupCommit());
-            if (ctx.isGroupCommit()) {
-
-            }
+            PDataRow oneRow = groupCommitPlanner.getOneRow(
+                    colNameToConjunct.values().stream().collect(Collectors.toList()));
+            List<InternalService.PDataRow> rows = Lists.newArrayList(oneRow);
+            PGroupCommitInsertResponse response = groupCommitPlanner.executeGroupCommitInsert(ctx, rows);
+            LOG.info("sout: Group commit response: {}", response);
             return;
         }
-        PointQueryExecutor.directExecuteShortCircuitQuery(executor, preparedStmtCtx, statementContext);
+        // execute real statement
+        preparedStmtCtx.shortCircuitQueryContext = Optional.empty();
+        statementContext.setShortCircuitQueryContext(null);
+        executor.execute();
+        if (executor.getContext().getStatementContext().isShortCircuitQuery()) {
+            // cache short-circuit plan
+            preparedStmtCtx.shortCircuitQueryContext = Optional.of(
+                    new ShortCircuitQueryContext(executor.planner(), (Queriable) executor.getParsedStmt()));
+            statementContext.setShortCircuitQueryContext(preparedStmtCtx.shortCircuitQueryContext.get());
+        }
     }
 
     /**

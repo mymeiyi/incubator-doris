@@ -171,7 +171,7 @@ public class CloudEnvFactory extends EnvFactory {
     @Override
     public GroupCommitPlanner createGroupCommitPlanner(Database db, OlapTable table, List<String> targetColumnNames,
             TUniqueId queryId, String groupCommit) throws UserException, TException {
-        return  new CloudGroupCommitPlanner(db, table, targetColumnNames, queryId, groupCommit);
+        return new CloudGroupCommitPlanner(db, table, targetColumnNames, queryId, groupCommit);
     }
 
     @Override

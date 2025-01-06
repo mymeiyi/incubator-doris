@@ -25,6 +25,7 @@ import org.apache.doris.catalog.Column;
 import org.apache.doris.catalog.Database;
 import org.apache.doris.catalog.Env;
 import org.apache.doris.catalog.OlapTable;
+import org.apache.doris.catalog.TableIf.TableType;
 import org.apache.doris.common.DdlException;
 import org.apache.doris.common.FormatOptions;
 import org.apache.doris.common.LoadException;
@@ -49,8 +50,10 @@ import org.apache.doris.thrift.TPipelineFragmentParamsList;
 import org.apache.doris.thrift.TScanRangeParams;
 import org.apache.doris.thrift.TStreamLoadPutRequest;
 import org.apache.doris.thrift.TUniqueId;
+import org.apache.doris.transaction.TransactionStatus;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.google.protobuf.ByteString;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -75,6 +78,7 @@ public class GroupCommitPlanner {
     protected OlapTable table;
     protected TUniqueId loadId;
     protected Backend backend;
+    public int baseSchemaVersion;
     private TPipelineFragmentParamsList paramsList;
     private ByteString execPlanFragmentParamsBytes;
 
@@ -83,6 +87,7 @@ public class GroupCommitPlanner {
             throws UserException, TException {
         this.db = db;
         this.table = table;
+        this.baseSchemaVersion = table.getBaseSchemaVersion();
         if (Env.getCurrentEnv().getGroupCommitManager().isBlock(this.table.getId())) {
             String msg = "insert table " + this.table.getId() + SCHEMA_CHANGE;
             LOG.info(msg);
@@ -158,10 +163,6 @@ public class GroupCommitPlanner {
         return backend;
     }
 
-    public TPipelineFragmentParamsList getParamsList() {
-        return paramsList;
-    }
-
     public InternalService.PDataRow getOneRow(List<Expr> row) throws UserException {
         InternalService.PDataRow data = StmtExecutor.getRowStringValue(row, FormatOptions.getDefault());
         if (LOG.isDebugEnabled()) {
@@ -190,5 +191,37 @@ public class GroupCommitPlanner {
             rows.add(getOneRow(exprList));
         }
         return rows;
+    }
+
+    public void setReturnInfo(ConnectContext ctx, PGroupCommitInsertResponse response) {
+        String labelName = response.getLabel();
+        TransactionStatus txnStatus = TransactionStatus.PREPARE;
+        long txnId = response.getTxnId();
+        long loadedRows = response.getLoadedRows();
+        long filteredRows = (int) response.getFilteredRows();
+        String errorUrl = response.getErrorUrl();
+        // {'label':'my_label1', 'status':'visible', 'txnId':'123'}
+        // {'label':'my_label1', 'status':'visible', 'txnId':'123' 'err':'error messages'}
+        StringBuilder sb = new StringBuilder();
+        sb.append("{'label':'").append(labelName).append("', 'status':'").append(txnStatus.name());
+        sb.append("', 'txnId':'").append(txnId).append("'");
+        if (table.getType() == TableType.MATERIALIZED_VIEW) {
+            sb.append("', 'rows':'").append(loadedRows).append("'");
+        }
+        /*if (!Strings.isNullOrEmpty(errMsg)) {
+            sb.append(", 'err':'").append(errMsg).append("'");
+        }*/
+        if (!Strings.isNullOrEmpty(errorUrl)) {
+            sb.append(", 'err_url':'").append(errorUrl).append("'");
+        }
+        sb.append("}");
+
+        ctx.getState().setOk(loadedRows, (int) filteredRows, sb.toString());
+        // set insert result in connection context,
+        // so that user can use `show insert result` to get info of the last insert operation.
+        ctx.setOrUpdateInsertResult(txnId, labelName, db.getFullName(), table.getName(),
+                txnStatus, loadedRows, (int) filteredRows);
+        // update it, so that user can get loaded rows in fe.audit.log
+        ctx.updateReturnRows((int) loadedRows);
     }
 }
