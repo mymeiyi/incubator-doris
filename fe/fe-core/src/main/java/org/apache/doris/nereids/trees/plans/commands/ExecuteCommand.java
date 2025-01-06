@@ -88,7 +88,7 @@ public class ExecuteCommand extends Command {
             // execute real statement
             preparedStmtCtx.shortCircuitQueryContext = Optional.empty();
             statementContext.setShortCircuitQueryContext(null);
-            LOG.info("sout: group commit={}", ctx.isGroupCommit());
+            LOG.info("sout: before is group commit={}", ctx.isGroupCommit());
             if (ctx.isGroupCommit()) {
 
             }
@@ -99,7 +99,8 @@ public class ExecuteCommand extends Command {
                         new ShortCircuitQueryContext(executor.planner(), (Queriable) executor.getParsedStmt()));
                 statementContext.setShortCircuitQueryContext(preparedStmtCtx.shortCircuitQueryContext.get());
             }
-            if (executor.getContext().isGroupCommit()) {
+            LOG.info("sout: after is group commit={}", ctx.isGroupCommit());
+            if (ctx.isGroupCommit()) {
 
             }
             return;
