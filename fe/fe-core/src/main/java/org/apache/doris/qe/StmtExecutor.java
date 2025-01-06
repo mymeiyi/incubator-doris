@@ -2383,7 +2383,7 @@ public class StmtExecutor {
                 GroupCommitPlanner groupCommitPlanner = nativeInsertStmt.planForGroupCommit(context.queryId);
                 reuseGroupCommitPlan = nativeInsertStmt.isReuseGroupCommitPlan();
                 List<InternalService.PDataRow> rows = groupCommitPlanner.getRows(nativeInsertStmt);
-                PGroupCommitInsertResponse response = groupCommitPlanner.executeGroupCommitInsert(context, rows);
+                PGroupCommitInsertResponse response = groupCommitPlanner.executeGroupCommitInsert(context, rows, false);
                 TStatusCode code = TStatusCode.findByValue(response.getStatus().getStatusCode());
                 ProtocolStringList errorMsgsList = response.getStatus().getErrorMsgsList();
                 if (code == TStatusCode.DATA_QUALITY_ERROR && !errorMsgsList.isEmpty() && errorMsgsList.get(0)

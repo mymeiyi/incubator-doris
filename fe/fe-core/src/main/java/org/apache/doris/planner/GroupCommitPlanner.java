@@ -134,7 +134,7 @@ public class GroupCommitPlanner {
     }
 
     public PGroupCommitInsertResponse executeGroupCommitInsert(ConnectContext ctx,
-            List<InternalService.PDataRow> rows)
+            List<InternalService.PDataRow> rows, boolean setReturnInfo)
             throws DdlException, RpcException, ExecutionException, InterruptedException {
         selectBackends(ctx);
 
@@ -147,7 +147,11 @@ public class GroupCommitPlanner {
                 .build();
         Future<PGroupCommitInsertResponse> future = BackendServiceProxy.getInstance()
                 .groupCommitInsert(new TNetworkAddress(backend.getHost(), backend.getBrpcPort()), request);
-        return future.get();
+        PGroupCommitInsertResponse response = future.get();
+        if (setReturnInfo) {
+            setReturnInfo(ctx, response);
+        }
+        return response;
     }
 
     protected void selectBackends(ConnectContext ctx) throws DdlException {
@@ -193,7 +197,7 @@ public class GroupCommitPlanner {
         return rows;
     }
 
-    public void setReturnInfo(ConnectContext ctx, PGroupCommitInsertResponse response) {
+    private void setReturnInfo(ConnectContext ctx, PGroupCommitInsertResponse response) {
         String labelName = response.getLabel();
         TransactionStatus txnStatus = TransactionStatus.PREPARE;
         long txnId = response.getTxnId();

@@ -133,7 +133,7 @@ public class ExecuteCommand extends Command {
             PDataRow oneRow = groupCommitPlanner.getOneRow(
                     colNameToConjunct.values().stream().collect(Collectors.toList()));
             List<InternalService.PDataRow> rows = Lists.newArrayList(oneRow);
-            PGroupCommitInsertResponse response = groupCommitPlanner.executeGroupCommitInsert(ctx, rows);
+            PGroupCommitInsertResponse response = groupCommitPlanner.executeGroupCommitInsert(ctx, rows, true);
             LOG.info("sout: Group commit response: {}", response);
             return;
         }
