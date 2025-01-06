@@ -37,7 +37,6 @@ import org.apache.doris.cloud.load.CleanCopyJobScheduler;
 import org.apache.doris.cloud.load.CloudBrokerLoadJob;
 import org.apache.doris.cloud.load.CloudLoadManager;
 import org.apache.doris.cloud.load.CloudRoutineLoadManager;
-import org.apache.doris.cloud.planner.CloudGroupCommitPlanner;
 import org.apache.doris.cloud.qe.CloudCoordinator;
 import org.apache.doris.cloud.system.CloudSystemInfoService;
 import org.apache.doris.cloud.transaction.CloudGlobalTransactionMgr;
@@ -51,7 +50,6 @@ import org.apache.doris.load.loadv2.LoadJobScheduler;
 import org.apache.doris.load.loadv2.LoadManager;
 import org.apache.doris.load.routineload.RoutineLoadManager;
 import org.apache.doris.nereids.stats.StatsErrorEstimator;
-import org.apache.doris.planner.GroupCommitPlanner;
 import org.apache.doris.planner.PlanFragment;
 import org.apache.doris.planner.Planner;
 import org.apache.doris.planner.ScanNode;
@@ -166,12 +164,6 @@ public class CloudEnvFactory extends EnvFactory {
                                          String timezone, boolean loadZeroTolerance, boolean enableProfile) {
         return new CloudCoordinator(jobId, queryId, descTable, fragments, scanNodes, timezone, loadZeroTolerance,
                                 enableProfile);
-    }
-
-    @Override
-    public GroupCommitPlanner createGroupCommitPlanner(Database db, OlapTable table, List<String> targetColumnNames,
-            TUniqueId queryId, String groupCommit) throws UserException, TException {
-        return new CloudGroupCommitPlanner(db, table, targetColumnNames, queryId, groupCommit);
     }
 
     @Override
