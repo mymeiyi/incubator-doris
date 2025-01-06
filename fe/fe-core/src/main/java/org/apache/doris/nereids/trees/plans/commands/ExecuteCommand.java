@@ -123,12 +123,11 @@ public class ExecuteCommand extends Command {
                         .createGroupCommitPlanner((Database) table.getDatabase(), table,
                                 targetColumnNames, ctx.queryId(),
                                 ConnectContext.get().getSessionVariable().getGroupCommit());
-                Map<String, Expr> colNameToConjunct = Maps.newTreeMap();
-                for (Entry<PlaceholderId, SlotReference> entry : statementContext.getIdToComparisonSlot().entrySet()) {
-                    String colName = entry.getValue().getColumn().get().getName();
-                    Expr conjunctVal = ((Literal)  statementContext.getIdToPlaceholderRealExpr()
-                            .get(entry.getKey())).toLegacyLiteral();
-                    colNameToConjunct.put(colName, conjunctVal);
+                Map<PlaceholderId, Expr> colNameToConjunct = Maps.newTreeMap();
+                for (Entry<PlaceholderId, Expression> entry : statementContext.getIdToPlaceholderRealExpr()
+                        .entrySet()) {
+                    Expr conjunctVal = ((Literal)  entry.getValue()).toLegacyLiteral();
+                    colNameToConjunct.put(entry.getKey(), conjunctVal);
                 }
                 PDataRow oneRow = groupCommitPlanner.getOneRow(
                         colNameToConjunct.values().stream().collect(Collectors.toList()));
