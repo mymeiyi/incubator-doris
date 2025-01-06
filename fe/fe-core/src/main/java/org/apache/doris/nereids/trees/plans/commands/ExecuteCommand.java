@@ -116,6 +116,9 @@ public class ExecuteCommand extends Command {
                 InsertIntoTableCommand command = (InsertIntoTableCommand) logicalPlan;
                 OlapTable table = (OlapTable) command.getTable(ctx);
                 List<String> targetColumnNames = command.getTargetColumns();
+                if (targetColumnNames != null && targetColumnNames.isEmpty()) {
+                    targetColumnNames = null;
+                }
                 GroupCommitPlanner groupCommitPlanner = EnvFactory.getInstance()
                         .createGroupCommitPlanner((Database) table.getDatabase(), table,
                                 targetColumnNames, ctx.queryId(),
