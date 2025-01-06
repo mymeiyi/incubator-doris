@@ -24,6 +24,7 @@ import org.apache.doris.nereids.exceptions.AnalysisException;
 import org.apache.doris.nereids.glue.LogicalPlanAdapter;
 import org.apache.doris.nereids.trees.expressions.Expression;
 import org.apache.doris.nereids.trees.plans.PlanType;
+import org.apache.doris.nereids.trees.plans.commands.insert.OlapGroupCommitInsertExecutor;
 import org.apache.doris.nereids.trees.plans.visitor.PlanVisitor;
 import org.apache.doris.qe.ConnectContext;
 import org.apache.doris.qe.PointQueryExecutor;
@@ -88,6 +89,7 @@ public class ExecuteCommand extends Command {
             // execute real statement
             preparedStmtCtx.shortCircuitQueryContext = Optional.empty();
             statementContext.setShortCircuitQueryContext(null);
+            OlapGroupCommitInsertExecutor.analyzeGroupCommit(ctx, prepareCommand.getLogicalPlan());
             LOG.info("sout: before is group commit={}", ctx.isGroupCommit());
             if (ctx.isGroupCommit()) {
 
