@@ -17,25 +17,45 @@
 
 package org.apache.doris.nereids.trees.plans.commands;
 
+import org.apache.doris.analysis.Expr;
+import org.apache.doris.analysis.LiteralExpr;
 import org.apache.doris.analysis.Queriable;
 import org.apache.doris.analysis.StmtType;
+import org.apache.doris.catalog.Database;
+import org.apache.doris.catalog.EnvFactory;
+import org.apache.doris.catalog.OlapTable;
+import org.apache.doris.catalog.TableIf;
 import org.apache.doris.nereids.StatementContext;
 import org.apache.doris.nereids.exceptions.AnalysisException;
 import org.apache.doris.nereids.glue.LogicalPlanAdapter;
 import org.apache.doris.nereids.trees.expressions.Expression;
+import org.apache.doris.nereids.trees.expressions.SlotReference;
+import org.apache.doris.nereids.trees.expressions.functions.scalar.Exp;
+import org.apache.doris.nereids.trees.expressions.literal.Literal;
+import org.apache.doris.nereids.trees.plans.PlaceholderId;
 import org.apache.doris.nereids.trees.plans.PlanType;
+import org.apache.doris.nereids.trees.plans.commands.insert.InsertIntoTableCommand;
 import org.apache.doris.nereids.trees.plans.commands.insert.OlapGroupCommitInsertExecutor;
+import org.apache.doris.nereids.trees.plans.logical.LogicalPlan;
 import org.apache.doris.nereids.trees.plans.visitor.PlanVisitor;
+import org.apache.doris.planner.GroupCommitPlanner;
+import org.apache.doris.proto.InternalService;
+import org.apache.doris.proto.InternalService.PDataRow;
+import org.apache.doris.proto.InternalService.PGroupCommitInsertResponse;
 import org.apache.doris.qe.ConnectContext;
 import org.apache.doris.qe.PointQueryExecutor;
 import org.apache.doris.qe.PreparedStatementContext;
 import org.apache.doris.qe.ShortCircuitQueryContext;
 import org.apache.doris.qe.StmtExecutor;
 
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -89,10 +109,30 @@ public class ExecuteCommand extends Command {
             // execute real statement
             preparedStmtCtx.shortCircuitQueryContext = Optional.empty();
             statementContext.setShortCircuitQueryContext(null);
-            OlapGroupCommitInsertExecutor.analyzeGroupCommit(ctx, prepareCommand.getLogicalPlan());
+            LogicalPlan logicalPlan = prepareCommand.getLogicalPlan();
+            OlapGroupCommitInsertExecutor.analyzeGroupCommit(ctx, logicalPlan);
             LOG.info("sout: before is group commit={}", ctx.isGroupCommit());
             if (ctx.isGroupCommit()) {
-
+                InsertIntoTableCommand command = (InsertIntoTableCommand) logicalPlan;
+                OlapTable table = (OlapTable) command.getTable(ctx);
+                List<String> targetColumnNames = command.getTargetColumns();
+                GroupCommitPlanner groupCommitPlanner = EnvFactory.getInstance()
+                        .createGroupCommitPlanner((Database) table.getDatabase(), table,
+                                targetColumnNames, ctx.queryId(),
+                                ConnectContext.get().getSessionVariable().getGroupCommit());
+                Map<String, Expr> colNameToConjunct = Maps.newTreeMap();
+                for (Entry<PlaceholderId, SlotReference> entry : statementContext.getIdToComparisonSlot().entrySet()) {
+                    String colName = entry.getValue().getColumn().get().getName();
+                    Expr conjunctVal = ((Literal)  statementContext.getIdToPlaceholderRealExpr()
+                            .get(entry.getKey())).toLegacyLiteral();
+                    colNameToConjunct.put(colName, conjunctVal);
+                }
+                PDataRow oneRow = groupCommitPlanner.getOneRow(
+                        colNameToConjunct.values().stream().collect(Collectors.toList()));
+                List<InternalService.PDataRow> rows = Lists.newArrayList(oneRow);
+                PGroupCommitInsertResponse response = groupCommitPlanner.executeGroupCommitInsert(ctx, rows);
+                LOG.info("sout: Group commit response: {}", response);
+                return;
             }
             executor.execute();
             if (executor.getContext().getStatementContext().isShortCircuitQuery()) {

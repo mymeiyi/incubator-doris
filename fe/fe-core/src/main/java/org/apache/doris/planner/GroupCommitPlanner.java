@@ -162,17 +162,21 @@ public class GroupCommitPlanner {
         return paramsList;
     }
 
+    public InternalService.PDataRow getOneRow(List<Expr> row) throws UserException {
+        InternalService.PDataRow data = StmtExecutor.getRowStringValue(row, FormatOptions.getDefault());
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("add row: [{}]", data.getColList().stream().map(c -> c.getValue())
+                    .collect(Collectors.joining(",")));
+        }
+        return data;
+    }
+
     public List<InternalService.PDataRow> getRows(NativeInsertStmt stmt) throws UserException {
         List<InternalService.PDataRow> rows = new ArrayList<>();
         SelectStmt selectStmt = (SelectStmt) (stmt.getQueryStmt());
         if (selectStmt.getValueList() != null) {
             for (List<Expr> row : selectStmt.getValueList().getRows()) {
-                InternalService.PDataRow data = StmtExecutor.getRowStringValue(row, FormatOptions.getDefault());
-                if (LOG.isDebugEnabled()) {
-                    LOG.debug("add row: [{}]", data.getColList().stream().map(c -> c.getValue())
-                            .collect(Collectors.joining(",")));
-                }
-                rows.add(data);
+                rows.add(getOneRow(row));
             }
         } else {
             List<Expr> exprList = new ArrayList<>();
@@ -183,12 +187,7 @@ public class GroupCommitPlanner {
                     exprList.add(resultExpr);
                 }
             }
-            InternalService.PDataRow data = StmtExecutor.getRowStringValue(exprList, FormatOptions.getDefault());
-            if (LOG.isDebugEnabled()) {
-                LOG.debug("add row: [{}]", data.getColList().stream().map(c -> c.getValue())
-                        .collect(Collectors.joining(",")));
-            }
-            rows.add(data);
+            rows.add(getOneRow(exprList));
         }
         return rows;
     }

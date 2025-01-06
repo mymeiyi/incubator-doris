@@ -36,6 +36,9 @@ import org.apache.doris.mysql.privilege.PrivPredicate;
 import org.apache.doris.nereids.CascadesContext;
 import org.apache.doris.nereids.NereidsPlanner;
 import org.apache.doris.nereids.StatementContext;
+import org.apache.doris.nereids.analyzer.UnboundHiveTableSink;
+import org.apache.doris.nereids.analyzer.UnboundIcebergTableSink;
+import org.apache.doris.nereids.analyzer.UnboundJdbcTableSink;
 import org.apache.doris.nereids.analyzer.UnboundTableSink;
 import org.apache.doris.nereids.exceptions.AnalysisException;
 import org.apache.doris.nereids.glue.LogicalPlanAdapter;
@@ -47,6 +50,7 @@ import org.apache.doris.nereids.trees.plans.PlanType;
 import org.apache.doris.nereids.trees.plans.commands.Command;
 import org.apache.doris.nereids.trees.plans.commands.ForwardWithSync;
 import org.apache.doris.nereids.trees.plans.logical.LogicalPlan;
+import org.apache.doris.nereids.trees.plans.logical.UnboundLogicalSink;
 import org.apache.doris.nereids.trees.plans.physical.PhysicalEmptyRelation;
 import org.apache.doris.nereids.trees.plans.physical.PhysicalHiveTableSink;
 import org.apache.doris.nereids.trees.plans.physical.PhysicalIcebergTableSink;
@@ -141,6 +145,29 @@ public class InsertIntoTableCommand extends Command implements ForwardWithSync, 
 
     public AbstractInsertExecutor initPlan(ConnectContext ctx, StmtExecutor executor) throws Exception {
         return initPlan(ctx, executor, true);
+    }
+
+    public List<String> getTargetColumns() {
+        if (originLogicalQuery instanceof UnboundTableSink) {
+            UnboundLogicalSink<? extends Plan> unboundTableSink = (UnboundTableSink<? extends Plan>) originLogicalQuery;
+            return unboundTableSink.getColNames();
+        } else {
+            throw new AnalysisException("the root of plan should be"
+                    + " [UnboundTableSink], but it is " + originLogicalQuery.getType());
+        }
+    }
+
+    public TableIf getTable(ConnectContext ctx) throws Exception {
+        TableIf targetTableIf = InsertUtils.getTargetTable(originLogicalQuery, ctx);
+        if (!Env.getCurrentEnv().getAccessManager()
+                .checkTblPriv(ConnectContext.get(), targetTableIf.getDatabase().getCatalog().getName(),
+                        targetTableIf.getDatabase().getFullName(), targetTableIf.getName(),
+                        PrivPredicate.LOAD)) {
+            ErrorReport.reportAnalysisException(ErrorCode.ERR_TABLEACCESS_DENIED_ERROR, "LOAD",
+                    ConnectContext.get().getQualifiedUser(), ConnectContext.get().getRemoteIP(),
+                    targetTableIf.getDatabase().getFullName() + "." + targetTableIf.getName());
+        }
+        return targetTableIf;
     }
 
     /**
