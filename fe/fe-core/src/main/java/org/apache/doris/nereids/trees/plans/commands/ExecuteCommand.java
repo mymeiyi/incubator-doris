@@ -110,10 +110,12 @@ public class ExecuteCommand extends Command {
         if (ctx.isGroupCommit()) {
             InsertIntoTableCommand command = (InsertIntoTableCommand) (prepareCommand.getLogicalPlan());
             OlapTable table = (OlapTable) command.getTable(ctx);
+            boolean reuse = false;
             GroupCommitPlanner groupCommitPlanner;
             if (preparedStmtCtx.groupCommitPlanner.isPresent()
                     && table.getBaseSchemaVersion() == preparedStmtCtx.groupCommitPlanner.get().baseSchemaVersion) {
                 groupCommitPlanner = preparedStmtCtx.groupCommitPlanner.get();
+                reuse = true;
             } else {
                 List<String> targetColumnNames = command.getTargetColumns();
                 if (targetColumnNames != null && targetColumnNames.isEmpty()) {
@@ -123,6 +125,7 @@ public class ExecuteCommand extends Command {
                         .createGroupCommitPlanner((Database) table.getDatabase(), table,
                                 targetColumnNames, ctx.queryId(),
                                 ConnectContext.get().getSessionVariable().getGroupCommit());
+                preparedStmtCtx.groupCommitPlanner = Optional.of(groupCommitPlanner);
             }
             Map<PlaceholderId, Expr> colNameToConjunct = Maps.newTreeMap();
             for (Entry<PlaceholderId, Expression> entry : statementContext.getIdToPlaceholderRealExpr()
@@ -133,7 +136,7 @@ public class ExecuteCommand extends Command {
             PDataRow oneRow = groupCommitPlanner.getOneRow(
                     colNameToConjunct.values().stream().collect(Collectors.toList()));
             List<InternalService.PDataRow> rows = Lists.newArrayList(oneRow);
-            groupCommitPlanner.executeGroupCommitInsert(ctx, rows, true);
+            groupCommitPlanner.executeGroupCommitInsert(ctx, rows, true, reuse);
             return;
         }
         // execute real statement

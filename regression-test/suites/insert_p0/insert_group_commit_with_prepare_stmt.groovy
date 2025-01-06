@@ -193,7 +193,7 @@ suite("insert_group_commit_with_prepare_stmt") {
     }
 
     table = "test_prepared_stmt_duplicate"
-    result1 = connect(user, password, url + "&rewriteBatchedStatements=true&cachePrepStmts=true&sessionVariables=group_commit=async_mode") {
+    result1 = connect(user, password, url + "&rewriteBatchedStatements=false&cachePrepStmts=true&sessionVariables=group_commit=async_mode") {
         try {
             // create table
             sql """ drop table if exists ${table}; """

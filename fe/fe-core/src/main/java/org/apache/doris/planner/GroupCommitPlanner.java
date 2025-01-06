@@ -136,6 +136,12 @@ public class GroupCommitPlanner {
     public PGroupCommitInsertResponse executeGroupCommitInsert(ConnectContext ctx,
             List<InternalService.PDataRow> rows, boolean setReturnInfo)
             throws DdlException, RpcException, ExecutionException, InterruptedException {
+        return executeGroupCommitInsert(ctx, rows, setReturnInfo, false);
+    }
+
+    public PGroupCommitInsertResponse executeGroupCommitInsert(ConnectContext ctx,
+            List<InternalService.PDataRow> rows, boolean setReturnInfo, boolean reuse)
+            throws DdlException, RpcException, ExecutionException, InterruptedException {
         selectBackends(ctx);
 
         PGroupCommitInsertRequest request = PGroupCommitInsertRequest.newBuilder()
@@ -149,7 +155,7 @@ public class GroupCommitPlanner {
                 .groupCommitInsert(new TNetworkAddress(backend.getHost(), backend.getBrpcPort()), request);
         PGroupCommitInsertResponse response = future.get();
         if (setReturnInfo) {
-            setReturnInfo(ctx, response);
+            setReturnInfo(ctx, reuse, response);
         }
         return response;
     }
@@ -197,7 +203,7 @@ public class GroupCommitPlanner {
         return rows;
     }
 
-    private void setReturnInfo(ConnectContext ctx, PGroupCommitInsertResponse response) {
+    private void setReturnInfo(ConnectContext ctx, boolean reuse, PGroupCommitInsertResponse response) {
         String labelName = response.getLabel();
         TransactionStatus txnStatus = TransactionStatus.PREPARE;
         long txnId = response.getTxnId();
@@ -217,6 +223,9 @@ public class GroupCommitPlanner {
         }*/
         if (!Strings.isNullOrEmpty(errorUrl)) {
             sb.append(", 'err_url':'").append(errorUrl).append("'");
+        }
+        if (reuse) {
+            sb.append(", 'reuse_group_commit_plan':'").append(true).append("'");
         }
         sb.append("}");
 
