@@ -2391,7 +2391,7 @@ public class StmtExecutor {
                     LOG.info("group commit insert failed. stmt: {}, query_id: {}, db_id: {}, table_id: {}"
                                     + ", schema version: {}, backend_id: {}, status: {}, retry: {}",
                             insertStmt.getOrigStmt().originStmt, DebugUtil.printId(context.queryId()), dbId, tableId,
-                            nativeInsertStmt.getBaseSchemaVersion(), groupCommitPlanner.getBackend().getId(),
+                            nativeInsertStmt.getBaseSchemaVersion(), groupCommitPlanner.getBackendId(),
                             response.getStatus(), i);
                     if (i < maxRetry) {
                         List<TableIf> tables = Lists.newArrayList(insertStmt.getTargetTable());
