@@ -24,17 +24,26 @@ import org.apache.doris.analysis.SlotRef;
 import org.apache.doris.catalog.Column;
 import org.apache.doris.catalog.Database;
 import org.apache.doris.catalog.Env;
+import org.apache.doris.catalog.EnvFactory;
 import org.apache.doris.catalog.OlapTable;
 import org.apache.doris.catalog.TableIf.TableType;
 import org.apache.doris.common.DdlException;
 import org.apache.doris.common.FormatOptions;
 import org.apache.doris.common.LoadException;
 import org.apache.doris.common.UserException;
+import org.apache.doris.nereids.StatementContext;
+import org.apache.doris.nereids.trees.expressions.Expression;
+import org.apache.doris.nereids.trees.expressions.literal.Literal;
+import org.apache.doris.nereids.trees.plans.PlaceholderId;
+import org.apache.doris.nereids.trees.plans.commands.PrepareCommand;
+import org.apache.doris.nereids.trees.plans.commands.insert.InsertIntoTableCommand;
 import org.apache.doris.proto.InternalService;
+import org.apache.doris.proto.InternalService.PDataRow;
 import org.apache.doris.proto.InternalService.PGroupCommitInsertRequest;
 import org.apache.doris.proto.InternalService.PGroupCommitInsertResponse;
 import org.apache.doris.proto.Types;
 import org.apache.doris.qe.ConnectContext;
+import org.apache.doris.qe.PreparedStatementContext;
 import org.apache.doris.qe.StmtExecutor;
 import org.apache.doris.rpc.BackendServiceProxy;
 import org.apache.doris.rpc.RpcException;
@@ -54,6 +63,8 @@ import org.apache.doris.transaction.TransactionStatus;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.protobuf.ByteString;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -64,6 +75,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
@@ -133,13 +146,47 @@ public class GroupCommitPlanner {
         execPlanFragmentParamsBytes = ByteString.copyFrom(new TSerializer().serialize(paramsList));
     }
 
+    public static void executeGroupCommitInsert(ConnectContext ctx, PreparedStatementContext preparedStmtCtx,
+            StatementContext statementContext)
+            throws Exception {
+        PrepareCommand prepareCommand = preparedStmtCtx.command;
+        InsertIntoTableCommand command = (InsertIntoTableCommand) (prepareCommand.getLogicalPlan());
+        OlapTable table = (OlapTable) command.getTable(ctx);
+        boolean reuse = false;
+        GroupCommitPlanner groupCommitPlanner;
+        if (preparedStmtCtx.groupCommitPlanner.isPresent()
+                && table.getBaseSchemaVersion() == preparedStmtCtx.groupCommitPlanner.get().baseSchemaVersion) {
+            groupCommitPlanner = preparedStmtCtx.groupCommitPlanner.get();
+            reuse = true;
+        } else {
+            List<String> targetColumnNames = command.getTargetColumns();
+            if (targetColumnNames != null && targetColumnNames.isEmpty()) {
+                targetColumnNames = null;
+            }
+            groupCommitPlanner = EnvFactory.getInstance()
+                    .createGroupCommitPlanner((Database) table.getDatabase(), table,
+                            targetColumnNames, ctx.queryId(),
+                            ConnectContext.get().getSessionVariable().getGroupCommit());
+            preparedStmtCtx.groupCommitPlanner = Optional.of(groupCommitPlanner);
+        }
+        Map<PlaceholderId, Expr> colNameToConjunct = Maps.newTreeMap();
+        for (Entry<PlaceholderId, Expression> entry : statementContext.getIdToPlaceholderRealExpr()
+                .entrySet()) {
+            Expr conjunctVal = ((Literal) entry.getValue()).toLegacyLiteral();
+            colNameToConjunct.put(entry.getKey(), conjunctVal);
+        }
+        PDataRow oneRow = getOneRow(colNameToConjunct.values().stream().collect(Collectors.toList()));
+        List<InternalService.PDataRow> rows = Lists.newArrayList(oneRow);
+        groupCommitPlanner.executeGroupCommitInsert(ctx, rows, true, reuse);
+    }
+
     public PGroupCommitInsertResponse executeGroupCommitInsert(ConnectContext ctx,
             List<InternalService.PDataRow> rows, boolean setReturnInfo)
             throws DdlException, RpcException, ExecutionException, InterruptedException {
         return executeGroupCommitInsert(ctx, rows, setReturnInfo, false);
     }
 
-    public PGroupCommitInsertResponse executeGroupCommitInsert(ConnectContext ctx,
+    private PGroupCommitInsertResponse executeGroupCommitInsert(ConnectContext ctx,
             List<InternalService.PDataRow> rows, boolean setReturnInfo, boolean reuse)
             throws DdlException, RpcException, ExecutionException, InterruptedException {
         selectBackends(ctx);
@@ -160,7 +207,7 @@ public class GroupCommitPlanner {
         return response;
     }
 
-    protected void selectBackends(ConnectContext ctx) throws DdlException {
+    private void selectBackends(ConnectContext ctx) throws DdlException {
         try {
             backend = Env.getCurrentEnv().getGroupCommitManager()
                     .selectBackendForGroupCommit(this.table.getId(), ctx);
@@ -173,7 +220,7 @@ public class GroupCommitPlanner {
         return backend;
     }
 
-    public InternalService.PDataRow getOneRow(List<Expr> row) throws UserException {
+    private static InternalService.PDataRow getOneRow(List<Expr> row) throws UserException {
         InternalService.PDataRow data = StmtExecutor.getRowStringValue(row, FormatOptions.getDefault());
         if (LOG.isDebugEnabled()) {
             LOG.debug("add row: [{}]", data.getColList().stream().map(c -> c.getValue())

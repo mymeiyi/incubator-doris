@@ -17,45 +17,23 @@
 
 package org.apache.doris.nereids.trees.plans.commands;
 
-import org.apache.doris.analysis.Expr;
-import org.apache.doris.analysis.LiteralExpr;
 import org.apache.doris.analysis.Queriable;
 import org.apache.doris.analysis.StmtType;
-import org.apache.doris.catalog.Database;
-import org.apache.doris.catalog.EnvFactory;
-import org.apache.doris.catalog.OlapTable;
-import org.apache.doris.catalog.TableIf;
 import org.apache.doris.nereids.StatementContext;
 import org.apache.doris.nereids.exceptions.AnalysisException;
 import org.apache.doris.nereids.glue.LogicalPlanAdapter;
 import org.apache.doris.nereids.trees.expressions.Expression;
-import org.apache.doris.nereids.trees.expressions.SlotReference;
-import org.apache.doris.nereids.trees.expressions.functions.scalar.Exp;
-import org.apache.doris.nereids.trees.expressions.literal.Literal;
-import org.apache.doris.nereids.trees.plans.PlaceholderId;
 import org.apache.doris.nereids.trees.plans.PlanType;
-import org.apache.doris.nereids.trees.plans.commands.insert.InsertIntoTableCommand;
 import org.apache.doris.nereids.trees.plans.commands.insert.OlapGroupCommitInsertExecutor;
-import org.apache.doris.nereids.trees.plans.logical.LogicalPlan;
 import org.apache.doris.nereids.trees.plans.visitor.PlanVisitor;
 import org.apache.doris.planner.GroupCommitPlanner;
-import org.apache.doris.proto.InternalService;
-import org.apache.doris.proto.InternalService.PDataRow;
-import org.apache.doris.proto.InternalService.PGroupCommitInsertResponse;
 import org.apache.doris.qe.ConnectContext;
 import org.apache.doris.qe.PointQueryExecutor;
 import org.apache.doris.qe.PreparedStatementContext;
 import org.apache.doris.qe.ShortCircuitQueryContext;
 import org.apache.doris.qe.StmtExecutor;
 
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
 import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -63,8 +41,6 @@ import java.util.stream.Collectors;
  * Prepared Statement
  */
 public class ExecuteCommand extends Command {
-    private static final Logger LOG = LogManager.getLogger(ExecuteCommand.class);
-
     private final String stmtName;
     private final PrepareCommand prepareCommand;
     private final StatementContext statementContext;
@@ -108,35 +84,7 @@ public class ExecuteCommand extends Command {
         }
         OlapGroupCommitInsertExecutor.analyzeGroupCommit(ctx, prepareCommand);
         if (ctx.isGroupCommit()) {
-            InsertIntoTableCommand command = (InsertIntoTableCommand) (prepareCommand.getLogicalPlan());
-            OlapTable table = (OlapTable) command.getTable(ctx);
-            boolean reuse = false;
-            GroupCommitPlanner groupCommitPlanner;
-            if (preparedStmtCtx.groupCommitPlanner.isPresent()
-                    && table.getBaseSchemaVersion() == preparedStmtCtx.groupCommitPlanner.get().baseSchemaVersion) {
-                groupCommitPlanner = preparedStmtCtx.groupCommitPlanner.get();
-                reuse = true;
-            } else {
-                List<String> targetColumnNames = command.getTargetColumns();
-                if (targetColumnNames != null && targetColumnNames.isEmpty()) {
-                    targetColumnNames = null;
-                }
-                groupCommitPlanner = EnvFactory.getInstance()
-                        .createGroupCommitPlanner((Database) table.getDatabase(), table,
-                                targetColumnNames, ctx.queryId(),
-                                ConnectContext.get().getSessionVariable().getGroupCommit());
-                preparedStmtCtx.groupCommitPlanner = Optional.of(groupCommitPlanner);
-            }
-            Map<PlaceholderId, Expr> colNameToConjunct = Maps.newTreeMap();
-            for (Entry<PlaceholderId, Expression> entry : statementContext.getIdToPlaceholderRealExpr()
-                    .entrySet()) {
-                Expr conjunctVal = ((Literal) entry.getValue()).toLegacyLiteral();
-                colNameToConjunct.put(entry.getKey(), conjunctVal);
-            }
-            PDataRow oneRow = groupCommitPlanner.getOneRow(
-                    colNameToConjunct.values().stream().collect(Collectors.toList()));
-            List<InternalService.PDataRow> rows = Lists.newArrayList(oneRow);
-            groupCommitPlanner.executeGroupCommitInsert(ctx, rows, true, reuse);
+            GroupCommitPlanner.executeGroupCommitInsert(ctx, preparedStmtCtx, statementContext);
             return;
         }
         // execute real statement
