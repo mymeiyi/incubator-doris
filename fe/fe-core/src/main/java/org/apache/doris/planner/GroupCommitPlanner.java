@@ -227,6 +227,7 @@ public class GroupCommitPlanner {
                 groupCommitPlanner = preparedStmtCtx.groupCommitPlanner.get();
                 reuse = true;
             } else {
+                command.initPlan(ctx, new StmtExecutor(new ConnectContext(), ""), false);
                 List<String> targetColumnNames = command.getTargetColumns();
                 groupCommitPlanner = EnvFactory.getInstance()
                         .createGroupCommitPlanner((Database) table.getDatabase(), table,
