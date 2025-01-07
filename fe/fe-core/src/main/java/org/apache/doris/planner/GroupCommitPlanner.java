@@ -41,7 +41,6 @@ import org.apache.doris.nereids.trees.plans.PlaceholderId;
 import org.apache.doris.nereids.trees.plans.commands.PrepareCommand;
 import org.apache.doris.nereids.trees.plans.commands.insert.InsertIntoTableCommand;
 import org.apache.doris.proto.InternalService;
-import org.apache.doris.proto.InternalService.PDataRow;
 import org.apache.doris.proto.InternalService.PGroupCommitInsertRequest;
 import org.apache.doris.proto.InternalService.PGroupCommitInsertResponse;
 import org.apache.doris.proto.Types;
@@ -67,7 +66,6 @@ import org.apache.doris.transaction.TransactionStatus;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ProtocolStringList;
@@ -98,8 +96,7 @@ public class GroupCommitPlanner {
     public int baseSchemaVersion;
     private int targetColumnSize;
     protected TUniqueId loadId;
-    protected Backend backend;
-    private TPipelineFragmentParamsList paramsList;
+    private long backendId;
     private ByteString execPlanFragmentParamsBytes;
 
     public GroupCommitPlanner(Database db, OlapTable table, List<String> targetColumnNames, TUniqueId queryId,
@@ -148,16 +145,16 @@ public class GroupCommitPlanner {
         Preconditions.checkState(scanRangeParams.size() == 1);
         loadId = queryId;
         // see BackendServiceProxy#execPlanFragmentsAsync
-        paramsList = new TPipelineFragmentParamsList();
+        TPipelineFragmentParamsList paramsList = new TPipelineFragmentParamsList();
         paramsList.addToParamsList(tRequest);
         execPlanFragmentParamsBytes = ByteString.copyFrom(new TSerializer().serialize(paramsList));
     }
 
     public PGroupCommitInsertResponse executeGroupCommitInsert(ConnectContext ctx,
             List<InternalService.PDataRow> rows)
-            throws DdlException, RpcException, ExecutionException, InterruptedException {
-        selectBackends(ctx);
-
+            throws DdlException, RpcException, ExecutionException, InterruptedException, LoadException {
+        Backend backend = Env.getCurrentEnv().getGroupCommitManager().selectBackendForGroupCommit(table.getId(), ctx);
+        backendId = backend.getId();
         PGroupCommitInsertRequest request = PGroupCommitInsertRequest.newBuilder()
                 .setExecPlanFragmentRequest(InternalService.PExecPlanFragmentRequest.newBuilder()
                         .setRequest(execPlanFragmentParamsBytes)
@@ -170,17 +167,8 @@ public class GroupCommitPlanner {
         return future.get();
     }
 
-    private void selectBackends(ConnectContext ctx) throws DdlException {
-        try {
-            backend = Env.getCurrentEnv().getGroupCommitManager()
-                    .selectBackendForGroupCommit(this.table.getId(), ctx);
-        } catch (LoadException e) {
-            throw new DdlException("No suitable backend");
-        }
-    }
-
-    public Backend getBackend() {
-        return backend;
+    public long getBackendId() {
+        return backendId;
     }
 
     public List<InternalService.PDataRow> getRows(NativeInsertStmt stmt) throws UserException {
@@ -276,11 +264,10 @@ public class GroupCommitPlanner {
         ProtocolStringList errorMsgsList = response.getStatus().getErrorMsgsList();
         if (code == TStatusCode.DATA_QUALITY_ERROR && !errorMsgsList.isEmpty() && errorMsgsList.get(0)
                 .contains("schema version not match")) {
-            LOG.info("group commit insert failed. query_id: {}, db_id: {}, table_id: {}, schema version: {}, "
-                            + "backend_id: {}, status: {}, retry: {}",
+            LOG.info("group commit insert failed. query: {}, db: {}, table: {}, schema version: {}, "
+                            + "backend: {}, status: {}, retry: {}",
                     DebugUtil.printId(ctx.queryId()), db.getId(), table.getId(),
-                    baseSchemaVersion, backend.getId(),
-                    response.getStatus(), retry);
+                    baseSchemaVersion, backendId, response.getStatus(), retry);
             if (retry < MAX_RETRY_FOR_SCHEMA_VERSION_MISMATCH) {
                 return true;
             } else {
@@ -294,8 +281,8 @@ public class GroupCommitPlanner {
     }
 
     private void handleInsertFailed(ConnectContext ctx, PGroupCommitInsertResponse response) throws DdlException {
-        String errMsg = "group commit insert failed. db_id: " + db.getId() + ", table_id: " + table.getId()
-                + ", query_id: " + DebugUtil.printId(ctx.queryId()) + ", backend_id: " + backend.getId()
+        String errMsg = "group commit insert failed. db: " + db.getId() + ", table: " + table.getId()
+                + ", query: " + DebugUtil.printId(ctx.queryId()) + ", backend: " + backendId
                 + ", status: " + response.getStatus();
         if (response.hasErrorUrl()) {
             errMsg += ", error url: " + response.getErrorUrl();
