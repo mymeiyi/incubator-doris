@@ -89,7 +89,9 @@ suite("insert_group_commit_with_prepare_stmt") {
             assertTrue(serverInfo.contains("'status':'PREPARE'"))
             assertTrue(serverInfo.contains("'label':'group_commit_"))
             // TODO: currently if enable_server_side_prepared_statement = true, will not reuse plan
-            // assertEquals(reuse_plan, serverInfo.contains("reuse_group_commit_plan"))
+            if (reuse_plan) {
+                assertEquals(reuse_plan, serverInfo.contains("reuse_group_commit_plan"))
+            }
         } else {
             // for batch insert
             ConnectionImpl connection = (ConnectionImpl) stmt.getConnection()
@@ -193,7 +195,7 @@ suite("insert_group_commit_with_prepare_stmt") {
     }
 
     table = "test_prepared_stmt_duplicate"
-    result1 = connect(user, password, url + "&rewriteBatchedStatements=true&cachePrepStmts=true&sessionVariables=group_commit=async_mode") {
+    result1 = connect(user, password, url + "&rewriteBatchedStatements=false&cachePrepStmts=true&sessionVariables=group_commit=async_mode") {
         try {
             // create table
             sql """ drop table if exists ${table}; """
