@@ -96,6 +96,7 @@ public class GroupCommitPlanner {
     protected Database db;
     protected OlapTable table;
     public int baseSchemaVersion;
+    private int targetColumnSize;
     protected TUniqueId loadId;
     protected Backend backend;
     private TPipelineFragmentParamsList paramsList;
@@ -212,6 +213,15 @@ public class GroupCommitPlanner {
         return data;
     }
 
+    private static List<InternalService.PDataRow> getRows(int targetColumnSize, List<Expr> rows) throws UserException {
+        List<InternalService.PDataRow> data = new ArrayList<>();
+        for (int i = 0; i < rows.size(); i += targetColumnSize) {
+            List<Expr> row = rows.subList(i, Math.min(i + targetColumnSize, rows.size()));
+            data.add(getOneRow(row));
+        }
+        return data;
+    }
+
     // nereids planner
     public static void executeGroupCommitInsert(ConnectContext ctx, PreparedStatementContext preparedStmtCtx,
             StatementContext statementContext)
@@ -227,21 +237,29 @@ public class GroupCommitPlanner {
                 groupCommitPlanner = preparedStmtCtx.groupCommitPlanner.get();
                 reuse = true;
             } else {
+                // call nereids planner to check to sql
                 command.initPlan(ctx, new StmtExecutor(new ConnectContext(), ""), false);
                 List<String> targetColumnNames = command.getTargetColumns();
                 groupCommitPlanner = EnvFactory.getInstance()
                         .createGroupCommitPlanner((Database) table.getDatabase(), table,
                                 targetColumnNames, ctx.queryId(),
                                 ConnectContext.get().getSessionVariable().getGroupCommit());
+                // TODO use planner column size
+                groupCommitPlanner.targetColumnSize = targetColumnNames == null ? table.getBaseSchema().size() :
+                        targetColumnNames.size();
                 preparedStmtCtx.groupCommitPlanner = Optional.of(groupCommitPlanner);
+            }
+            if (statementContext.getIdToPlaceholderRealExpr().size() % groupCommitPlanner.targetColumnSize != 0) {
+                throw new DdlException("Column size: " + statementContext.getIdToPlaceholderRealExpr().size()
+                        + " does not match with target column size: " + groupCommitPlanner.targetColumnSize);
             }
             Map<PlaceholderId, Expr> valueExprs = Maps.newTreeMap();
             for (Entry<PlaceholderId, Expression> entry : statementContext.getIdToPlaceholderRealExpr()
                     .entrySet()) {
                 valueExprs.put(entry.getKey(), ((Literal) entry.getValue()).toLegacyLiteral());
             }
-            PDataRow oneRow = getOneRow(valueExprs.values().stream().collect(Collectors.toList()));
-            List<InternalService.PDataRow> rows = Lists.newArrayList(oneRow);
+            List<InternalService.PDataRow> rows = getRows(groupCommitPlanner.targetColumnSize,
+                    valueExprs.values().stream().collect(Collectors.toList()));
             PGroupCommitInsertResponse response = groupCommitPlanner.executeGroupCommitInsert(ctx, rows);
             boolean needRetry = groupCommitPlanner.handleResponse(ctx, retry, reuse, response);
             if (needRetry) {
