@@ -40,10 +40,12 @@ import org.apache.doris.nereids.analyzer.UnboundTableSink;
 import org.apache.doris.nereids.exceptions.AnalysisException;
 import org.apache.doris.nereids.glue.LogicalPlanAdapter;
 import org.apache.doris.nereids.properties.PhysicalProperties;
+import org.apache.doris.nereids.trees.expressions.NamedExpression;
 import org.apache.doris.nereids.trees.expressions.Slot;
 import org.apache.doris.nereids.trees.plans.Explainable;
 import org.apache.doris.nereids.trees.plans.Plan;
 import org.apache.doris.nereids.trees.plans.PlanType;
+import org.apache.doris.nereids.trees.plans.algebra.InlineTable;
 import org.apache.doris.nereids.trees.plans.commands.Command;
 import org.apache.doris.nereids.trees.plans.commands.ForwardWithSync;
 import org.apache.doris.nereids.trees.plans.logical.LogicalPlan;
@@ -442,11 +444,20 @@ public class InsertIntoTableCommand extends Command implements ForwardWithSync, 
     }
 
     /**
-     * get the target columns of the insert command
+     * get the target columns of the insert command in group commit mode
      */
     public List<String> getTargetColumns() {
         if (originLogicalQuery instanceof UnboundTableSink) {
             UnboundLogicalSink<? extends Plan> unboundTableSink = (UnboundTableSink<? extends Plan>) originLogicalQuery;
+            List<String> colNames = unboundTableSink.getColNames();
+            if (unboundTableSink.child() instanceof InlineTable) {
+                InlineTable inlineTable = (InlineTable) unboundTableSink.child();
+                List<List<NamedExpression>> constantExprsList = inlineTable.getConstantExprsList();
+                for (List<NamedExpression> expressions : constantExprsList) {
+                    for (NamedExpression expression : expressions) {
+                    }
+                }
+            }
             return CollectionUtils.isEmpty(unboundTableSink.getColNames()) ? null : unboundTableSink.getColNames();
         } else {
             throw new AnalysisException(
