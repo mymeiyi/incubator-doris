@@ -775,7 +775,8 @@ void TabletMeta::to_meta_pb(TabletMetaPB* tablet_meta_pb) {
             stale_rs_ids.insert(rowset->rowset_id());
         }
         DeleteBitmapPB* delete_bitmap_pb = tablet_meta_pb->mutable_delete_bitmap();
-        for (auto& [id, bitmap] : delete_bitmap().snapshot().delete_bitmap) {
+        auto dm = delete_bitmap().snapshot().delete_bitmap;
+        for (auto& [id, bitmap] : dm) {
             auto& [rowset_id, segment_id, ver] = id;
             if (stale_rs_ids.count(rowset_id) != 0) {
                 continue;
@@ -787,8 +788,8 @@ void TabletMeta::to_meta_pb(TabletMetaPB* tablet_meta_pb) {
             bitmap.write(bitmap_data.data());
             *(delete_bitmap_pb->add_segment_delete_bitmaps()) = std::move(bitmap_data);
         }
-        LOG(INFO) << "save meta for tablet_id=" << tablet_id()
-                  << ", dm size=" << delete_bitmap_pb->rowset_ids_size();
+        LOG(INFO) << "save meta for tablet_id=" << tablet_id() << ", dm size=" << dm.size()
+                  << ", save dm size=" << delete_bitmap_pb->rowset_ids_size();
     }
     _binlog_config.to_pb(tablet_meta_pb->mutable_binlog_config());
     tablet_meta_pb->set_compaction_policy(compaction_policy());
