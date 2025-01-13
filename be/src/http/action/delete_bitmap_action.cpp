@@ -101,6 +101,16 @@ Status DeleteBitmapAction::_handle_show_local_delete_bitmap_count(HttpRequest* r
     auto count = tablet->tablet_meta()->delete_bitmap().get_delete_bitmap_count();
     auto cardinality = tablet->tablet_meta()->delete_bitmap().cardinality();
     auto size = tablet->tablet_meta()->delete_bitmap().get_size();
+    auto dm = tablet->tablet_meta()->delete_bitmap().snapshot().delete_bitmap;
+    rapidjson::Document dm_arr;
+    dm_arr.SetArray();
+    for (auto& [id, bitmap] : dm) {
+        auto& [rowset_id, segment_id, ver] = id;
+        std::stringstream ss;
+        ss << rowset_id.to_string() << ", " << segment_id << ": " << ver;
+        value.SetString(ss.str());
+        versions_arr.PushBack(value, dm_arr.GetAllocator());
+    }
     LOG(INFO) << "show_local_delete_bitmap_count,tablet_id=" << tablet_id << ",count=" << count
               << ",cardinality=" << cardinality << ",size=" << size;
 
@@ -109,6 +119,7 @@ Status DeleteBitmapAction::_handle_show_local_delete_bitmap_count(HttpRequest* r
     root.AddMember("delete_bitmap_count", count, root.GetAllocator());
     root.AddMember("cardinality", cardinality, root.GetAllocator());
     root.AddMember("size", size, root.GetAllocator());
+    root.AddMember("delete_bitmap", dm_arr, root.GetAllocator());
 
     // to json string
     rapidjson::StringBuffer strbuf;
