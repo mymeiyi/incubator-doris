@@ -235,7 +235,7 @@ void TabletMetaManager::decode_delete_bitmap_key(std::string_view enc_key, TTabl
 
 Status TabletMetaManager::save_delete_bitmap(DataDir* store, TTabletId tablet_id,
                                              DeleteBitmapPtr delete_bitmap, int64_t version) {
-    LOG(INFO) << "sout: save delete bitmap, tablet_id:" << tablet_id << ", version: " << version
+    LOG(INFO) << "save delete bitmap, tablet_id:" << tablet_id << ", version: " << version
               << ", dm size=" << delete_bitmap->delete_bitmap.size();
     if (delete_bitmap->delete_bitmap.empty()) {
         return Status::OK();
@@ -269,8 +269,8 @@ Status TabletMetaManager::traverse_delete_bitmap(
         TTabletId tablet_id;
         int64_t version;
         decode_delete_bitmap_key(key, &tablet_id, &version);
-        LOG(INFO) << "traverse delete bitmap, tablet_id: " << tablet_id
-                    << ", version: " << version;
+        /*LOG(INFO) << "traverse delete bitmap, tablet_id: " << tablet_id
+                    << ", version: " << version;*/
         return func(tablet_id, version, value);
     };
     return meta->iterate(META_COLUMN_FAMILY_INDEX, DELETE_BITMAP, traverse_header_func);
@@ -286,8 +286,8 @@ Status TabletMetaManager::remove_old_version_delete_bitmap(DataDir* store, TTabl
     auto get_remove_keys_func = [&](std::string_view key, std::string_view val) -> bool {
         // include end_key
         if (key > end_key) {
-            LOG(INFO) << "remove old version delete bitmap, tablet_id: " << tablet_id
-                      << ", skip key=" << key;
+            /*LOG(INFO) << "remove old version delete bitmap, tablet_id: " << tablet_id
+                      << ", skip key=" << key;*/
             return false;
         }
         remove_keys.emplace_back(key);
