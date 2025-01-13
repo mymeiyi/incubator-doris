@@ -235,7 +235,8 @@ void TabletMetaManager::decode_delete_bitmap_key(std::string_view enc_key, TTabl
 
 Status TabletMetaManager::save_delete_bitmap(DataDir* store, TTabletId tablet_id,
                                              DeleteBitmapPtr delete_bitmap, int64_t version) {
-    VLOG_NOTICE << "save delete bitmap, tablet_id:" << tablet_id << ", version: " << version;
+    LOG(INFO) << "sout: save delete bitmap, tablet_id:" << tablet_id << ", version: " << version
+              << ", dm size=" << delete_bitmap->delete_bitmap.size();
     if (delete_bitmap->delete_bitmap.empty()) {
         return Status::OK();
     }
@@ -268,7 +269,7 @@ Status TabletMetaManager::traverse_delete_bitmap(
         TTabletId tablet_id;
         int64_t version;
         decode_delete_bitmap_key(key, &tablet_id, &version);
-        VLOG_NOTICE << "traverse delete bitmap, tablet_id: " << tablet_id
+        LOG(INFO) << "traverse delete bitmap, tablet_id: " << tablet_id
                     << ", version: " << version;
         return func(tablet_id, version, value);
     };
@@ -285,14 +286,16 @@ Status TabletMetaManager::remove_old_version_delete_bitmap(DataDir* store, TTabl
     auto get_remove_keys_func = [&](std::string_view key, std::string_view val) -> bool {
         // include end_key
         if (key > end_key) {
+            LOG(INFO) << "remove old version delete bitmap, tablet_id: " << tablet_id
+                      << ", skip key=" << key;
             return false;
         }
         remove_keys.emplace_back(key);
         return true;
     };
-    LOG(INFO) << "remove old version delete bitmap, tablet_id: " << tablet_id
-              << " version: " << version << ", removed keys size: " << remove_keys.size();
     RETURN_IF_ERROR(meta->iterate(META_COLUMN_FAMILY_INDEX, begin_key, get_remove_keys_func));
+    LOG(INFO) << "remove old version delete bitmap, tablet_id: " << tablet_id
+              << ", version: " << version << ", removed keys size: " << remove_keys.size();
     return meta->remove(META_COLUMN_FAMILY_INDEX, remove_keys);
 }
 
