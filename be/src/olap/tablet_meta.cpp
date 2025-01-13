@@ -787,6 +787,8 @@ void TabletMeta::to_meta_pb(TabletMetaPB* tablet_meta_pb) {
             bitmap.write(bitmap_data.data());
             *(delete_bitmap_pb->add_segment_delete_bitmaps()) = std::move(bitmap_data);
         }
+        LOG(INFO) << "save meta for tablet_id=" << tablet_id()
+                  << ", dm size=" << delete_bitmap_pb->rowset_ids_size();
     }
     _binlog_config.to_pb(tablet_meta_pb->mutable_binlog_config());
     tablet_meta_pb->set_compaction_policy(compaction_policy());
