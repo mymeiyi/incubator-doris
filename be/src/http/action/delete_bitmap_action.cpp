@@ -108,8 +108,9 @@ Status DeleteBitmapAction::_handle_show_local_delete_bitmap_count(HttpRequest* r
         auto& [rowset_id, segment_id, ver] = id;
         std::stringstream ss;
         ss << rowset_id.to_string() << ", " << segment_id << ": " << ver;
+        rapidjson::Value value;
         value.SetString(ss.str());
-        versions_arr.PushBack(value, dm_arr.GetAllocator());
+        dm_arr.PushBack(value, dm_arr.GetAllocator());
     }
     LOG(INFO) << "show_local_delete_bitmap_count,tablet_id=" << tablet_id << ",count=" << count
               << ",cardinality=" << cardinality << ",size=" << size;
