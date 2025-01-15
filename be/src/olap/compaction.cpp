@@ -1061,6 +1061,10 @@ void Compaction::agg_and_remove_old_version_delete_bitmap(
             auto d = _tablet->tablet_meta()->delete_bitmap().get_agg(
                     {rowset->rowset_id(), seg_id, pre_max_version});
             to_remove_vec.emplace_back(std::make_tuple(_tablet->tablet_id(), start, end));
+            LOG(INFO) << "sout: add dm to remove for tablet=" << _tablet->tablet_id()
+                      << ", version=" << rowset->version().to_string()
+                      << ", rowset=" << rowset->rowset_id() << ", seg=" << seg_id
+                      << ", start_version=0, end_version=" << pre_max_version;
             if (d->isEmpty()) {
                 continue;
             }
@@ -1252,6 +1256,12 @@ Status CompactionMixin::modify_rowsets() {
             }
 
             tablet()->merge_delete_bitmap(output_rowset_delete_bitmap);
+            if (config::enable_delete_bitmap_merge_on_compaction &&
+                compaction_type() == ReaderType::READER_CUMULATIVE_COMPACTION &&
+                _tablet->keys_type() == KeysType::UNIQUE_KEYS &&
+                _tablet->enable_unique_key_merge_on_write() && _input_rowsets.size() != 1) {
+                process_old_version_delete_bitmap();
+            }
             RETURN_IF_ERROR(tablet()->modify_rowsets(output_rowsets, _input_rowsets, true));
         }
     } else {
@@ -1264,13 +1274,6 @@ Status CompactionMixin::modify_rowsets() {
         _tablet->tablet_meta()->all_stale_rs_metas().size() >=
                 config::tablet_rowset_stale_sweep_threshold_size) {
         tablet()->delete_expired_stale_rowset();
-    }
-
-    if (config::enable_delete_bitmap_merge_on_compaction &&
-        compaction_type() == ReaderType::READER_CUMULATIVE_COMPACTION &&
-        _tablet->keys_type() == KeysType::UNIQUE_KEYS &&
-        _tablet->enable_unique_key_merge_on_write() && _input_rowsets.size() != 1) {
-        process_old_version_delete_bitmap();
     }
 
     int64_t cur_max_version = 0;
@@ -1293,7 +1296,7 @@ Status CompactionMixin::modify_rowsets() {
 
 void CompactionMixin::process_old_version_delete_bitmap() {
     std::vector<RowsetSharedPtr> pre_rowsets {};
-    for (const auto& it : tablet()->rowset_map()) {
+    for (const auto& it : tablet()->rowset_map()) { // TODO should hold meta lock?
         if (it.first.second < _input_rowsets.front()->start_version()) {
             pre_rowsets.emplace_back(it.second);
         }
