@@ -1125,10 +1125,10 @@ Status CompactionMixin::modify_rowsets() {
                 _input_rowsets, *_rowid_conversion, 0, version.second + 1, missed_rows.get(),
                 location_map.get(), _tablet->tablet_meta()->delete_bitmap(),
                 &output_rowset_delete_bitmap);
-        LOG(INFO) << "sout: output_rowset_delete_bitmap: tablet=" << tablet()
+        LOG(INFO) << "sout: output_rowset_delete_bitmap: tablet=" << tablet()->tablet_id()
                   << ", dm size=" << output_rowset_delete_bitmap.delete_bitmap.size();
         for (const auto& item : output_rowset_delete_bitmap.delete_bitmap) {
-            LOG(INFO) << "sout: output_rowset_delete_bitmap: tablet=" << tablet()
+            LOG(INFO) << "sout: output_rowset_delete_bitmap: tablet=" << tablet()->tablet_id()
                       << ", rowset=" << std::get<0>(item.first)
                       << ", seg=" << std::get<1>(item.first)
                       << ", version=" << std::get<2>(item.first)
