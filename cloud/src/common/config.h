@@ -185,6 +185,7 @@ CONF_Bool(enable_txn_store_retry, "true");
 //  (1 << txn_store_retry_times) * txn_store_retry_base_internvals_ms < 10s
 CONF_Int32(txn_store_retry_times, "4");
 CONF_Int32(txn_store_retry_base_intervals_ms, "500");
+CONF_Int32(delete_bitmap_txn_store_retry_base_intervals_ms, "50");
 // Whether to retry the txn conflict errors that returns by the underlying txn store.
 CONF_Bool(enable_retry_txn_conflict, "true");
 

@@ -2299,35 +2299,67 @@ void MetaServiceImpl::remove_delete_bitmap_update_lock(
     }
 
     RPC_RATE_LIMIT(remove_delete_bitmap_update_lock)
-    std::unique_ptr<Transaction> txn;
-    TxnErrorCode err = txn_kv_->create_txn(&txn);
-    if (err != TxnErrorCode::TXN_OK) {
-        code = cast_as<ErrCategory::CREATE>(err);
-        msg = "failed to init txn";
-        return;
-    }
-    if (!check_delete_bitmap_lock(code, msg, ss, txn, instance_id, request->table_id(),
-                                  request->lock_id(), request->initiator())) {
-        LOG(WARNING) << "failed to check delete bitmap tablet lock"
-                     << " table_id=" << request->table_id() << " tablet_id=" << request->tablet_id()
-                     << " request lock_id=" << request->lock_id()
-                     << " request initiator=" << request->initiator() << " msg " << msg;
-        return;
-    }
-    std::string lock_key =
-            meta_delete_bitmap_update_lock_key({instance_id, request->table_id(), -1});
-    txn->remove(lock_key);
-    err = txn->commit();
-    if (err != TxnErrorCode::TXN_OK) {
-        code = cast_as<ErrCategory::COMMIT>(err);
-        ss << "failed to remove delete bitmap tablet lock , err=" << err;
-        msg = ss.str();
-        return;
-    }
 
-    LOG(INFO) << "remove delete bitmap table lock table_id=" << request->table_id()
-              << " tablet_id=" << request->tablet_id() << " lock_id=" << request->lock_id()
-              << ", key=" << hex(lock_key) << ", initiator=" << request->initiator();
+    int32_t retry_times = 0;
+    uint64_t duration_ms = 0, retry_drift_ms = 0;
+    while (true) {
+        response->Clear();
+        std::unique_ptr<Transaction> txn;
+        TxnErrorCode err = txn_kv_->create_txn(&txn);
+        if (err != TxnErrorCode::TXN_OK) {
+            code = cast_as<ErrCategory::CREATE>(err);
+            msg = "failed to init txn";
+            return;
+        }
+        if (!check_delete_bitmap_lock(code, msg, ss, txn, instance_id, request->table_id(),
+                                      request->lock_id(), request->initiator())) {
+            LOG(WARNING) << "failed to check delete bitmap tablet lock"
+                         << " table_id=" << request->table_id()
+                         << " tablet_id=" << request->tablet_id()
+                         << " request lock_id=" << request->lock_id()
+                         << " request initiator=" << request->initiator() << " msg " << msg;
+            return;
+        }
+        std::string lock_key =
+                meta_delete_bitmap_update_lock_key({instance_id, request->table_id(), -1});
+        txn->remove(lock_key);
+        err = txn->commit();
+        if (err == TxnErrorCode::TXN_OK) {
+            LOG(INFO) << "remove delete bitmap table lock table_id=" << request->table_id()
+                      << " tablet_id=" << request->tablet_id() << " lock_id=" << request->lock_id()
+                      << ", key=" << hex(lock_key) << ", initiator=" << request->initiator();
+            return;
+        } else if (err == TxnErrorCode::TXN_CONFLICT && config::enable_txn_store_retry &&
+                   config::enable_retry_txn_conflict &&
+                   retry_times < config::txn_store_retry_times &&
+                   // Retrying KV_TXN_TOO_OLD is very expensive, so we only retry once.
+                   !(retry_times > 1 && err == TxnErrorCode::TXN_TOO_OLD)) {
+            if (retry_times == 0) {
+                // the first retry, add random drift.
+                duration seed = duration_cast<nanoseconds>(steady_clock::now().time_since_epoch());
+                std::default_random_engine rng(static_cast<uint64_t>(seed.count()));
+                retry_drift_ms = std::uniform_int_distribution<uint64_t>(
+                        0, config::delete_bitmap_txn_store_retry_base_intervals_ms)(rng);
+            }
+
+            // 1 2 4 8 ...
+            duration_ms =
+                    (1 << retry_times) * config::delete_bitmap_txn_store_retry_base_intervals_ms +
+                    retry_drift_ms;
+            retry_times += 1;
+            LOG(WARNING) << __PRETTY_FUNCTION__ << " sleep " << duration_ms
+                         << " ms before next round, retry times left: "
+                         << (config::txn_store_retry_times - retry_times) << ", code: " << err
+                         << ", msg: " << response->status().msg();
+            bthread_usleep(duration_ms * 1000);
+            continue;
+        } else {
+            code = cast_as<ErrCategory::COMMIT>(err);
+            ss << "failed to remove delete bitmap tablet lock , err=" << err;
+            msg = ss.str();
+            return;
+        }
+    }
 }
 
 void MetaServiceImpl::remove_delete_bitmap(google::protobuf::RpcController* controller,
