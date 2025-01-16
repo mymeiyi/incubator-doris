@@ -1042,6 +1042,7 @@ Status CloudCompactionMixin::update_delete_bitmap() {
     return Status::OK();
 }
 
+// pre rowsets version is lower than input start rowset
 void Compaction::agg_and_remove_old_version_delete_bitmap(
         std::vector<RowsetSharedPtr>& pre_rowsets,
         std::vector<std::tuple<int64_t, DeleteBitmap::BitmapKey, DeleteBitmap::BitmapKey>>&
@@ -1124,6 +1125,13 @@ Status CompactionMixin::modify_rowsets() {
                 _input_rowsets, *_rowid_conversion, 0, version.second + 1, missed_rows.get(),
                 location_map.get(), _tablet->tablet_meta()->delete_bitmap(),
                 &output_rowset_delete_bitmap);
+        for (const auto& item : output_rowset_delete_bitmap.delete_bitmap) {
+            LOG(INFO) << "sout: output_rowset_delete_bitmap: tablet=" << tablet()
+                      << ", rowset=" << std::get<0>(item.first)
+                      << ", seg=" << std::get<1>(item.first)
+                      << ", version=" << std::get<2>(item.first)
+                      << ", cardinality=" << item.second.cardinality();
+        }
         if (missed_rows) {
             missed_rows_size = missed_rows->size();
             std::size_t merged_missed_rows_size = _stats.merged_rows;
