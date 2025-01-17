@@ -860,9 +860,12 @@ Status CloudTablet::calc_delete_bitmap_for_compaction(
     }
 
     // 2. calc delete bitmap for incremental data
+    int64_t t1 = MonotonicMicros();
     RETURN_IF_ERROR(_engine.meta_mgr().get_delete_bitmap_update_lock(
             *this, COMPACTION_DELETE_BITMAP_LOCK_ID, initiator));
+    int64_t t2 = MonotonicMicros();
     RETURN_IF_ERROR(_engine.meta_mgr().sync_tablet_rowsets(this));
+    int64_t t3 = MonotonicMicros();
 
     calc_compaction_output_rowset_delete_bitmap(
             input_rowsets, rowid_conversion, version.second, UINT64_MAX, missed_rows.get(),
