@@ -888,10 +888,11 @@ Status CloudTablet::calc_delete_bitmap_for_compaction(
                                                             output_rowset_delete_bitmap.get()));
     int64_t t5 = MonotonicMicros();
     LOG(INFO) << "calc_delete_bitmap_for_compaction, tablet_id=" << tablet_id()
-              << ", get update lock cost=" << t2 - t1 << "us, sync_tablet_rowsets cost=" << t3 - t2
-              << "us, calc delete bitmap cost=" << t4 - t3
-              << "us, check rowid conversion cost=" << t5 - t4
-              << "us, store delete bitmap cost=" << t6 - t5 << "us";
+              << ", get update lock cost=" << (t2 - t1)
+              << "us, sync_tablet_rowsets cost=" << (t3 - t2)
+              << "us, calc delete bitmap cost=" << (t4 - t3)
+              << "us, check rowid conversion cost=" << (t5 - t4)
+              << "us, store delete bitmap cost=" << (t6 - t5) << "us";
     return Status::OK();
 }
 
