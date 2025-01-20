@@ -123,7 +123,7 @@ void start_compaction_job(MetaServiceCode& code, std::string& msg, std::stringst
     int64_t tablet_id = request->job().idx().tablet_id();
     std::string stats_key =
             stats_tablet_key({instance_id, table_id, index_id, partition_id, tablet_id});
-    LOG(INFO) << "stats_tablet_key, tablet=" << tablet_id << ", key=" << stats_key;
+    LOG(INFO) << "stats_tablet_key, tablet=" << tablet_id << ", key=" << hex(stats_key);
     std::string stats_val;
     TxnErrorCode err = txn->get(stats_key, &stats_val);
     if (err != TxnErrorCode::TXN_OK) {
@@ -739,7 +739,7 @@ void process_compaction_job(MetaServiceCode& code, std::string& msg, std::string
         return;
     }
     auto stats_key = stats_tablet_key({instance_id, table_id, index_id, partition_id, tablet_id});
-    LOG(INFO) << "stats_tablet_key, tablet=" << tablet_id << ", key=" << stats_key;
+    LOG(INFO) << "stats_tablet_key, tablet=" << tablet_id << ", key=" << hex(stats_key);
     auto stats_val = stats->SerializeAsString();
 
     VLOG_DEBUG << "data size, tablet_id=" << tablet_id << " stats.num_rows=" << stats->num_rows()
@@ -1232,7 +1232,7 @@ void process_schema_change_job(MetaServiceCode& code, std::string& msg, std::str
     // clang-format on
     auto stats_key = stats_tablet_key(
             {instance_id, new_table_id, new_index_id, new_partition_id, new_tablet_id});
-    LOG(INFO) << "stats_tablet_key, tablet=" << new_tablet_id << ", key=" << stats_key;
+    LOG(INFO) << "stats_tablet_key, tablet=" << new_tablet_id << ", key=" << hex(stats_key);
     auto stats_val = stats->SerializeAsString();
     txn->put(stats_key, stats_val);
     merge_tablet_stats(*stats, detached_stats);
