@@ -1710,6 +1710,7 @@ static bool check_delete_bitmap_lock(MetaServiceCode& code, std::string& msg, st
         code = MetaServiceCode::LOCK_EXPIRED;
         return false;
     }
+    LOG(INFO) << "check_delete_bitmap_lock, table_id=" << table_id << ", key=" << hex(lock_key);
     bool found = false;
     for (auto initiator : lock_info.initiators()) {
         if (lock_initiator == initiator) {
@@ -2157,6 +2158,7 @@ void MetaServiceImpl::get_delete_bitmap_update_lock(google::protobuf::RpcControl
         code = MetaServiceCode::KV_TXN_GET_ERR;
         return;
     }
+    LOG(INFO) << "get_delete_bitmap_update_lock, table_id=" << table_id << ", key=" << hex(lock_key);
     using namespace std::chrono;
     int64_t now = duration_cast<seconds>(system_clock::now().time_since_epoch()).count();
     if (err == TxnErrorCode::TXN_OK) {
@@ -2229,6 +2231,7 @@ void MetaServiceImpl::get_delete_bitmap_update_lock(google::protobuf::RpcControl
         return;
     }
 
+    // TODO
     for (const auto& tablet_idx : request->tablet_indexes()) {
         TabletStatsPB tablet_stat;
         std::string stats_key =

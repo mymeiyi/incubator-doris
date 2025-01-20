@@ -41,6 +41,7 @@ void internal_get_tablet_stats(MetaServiceCode& code, std::string& msg, Transact
                                TabletStatsPB& stats, TabletStats& detached_stats, bool snapshot) {
     // clang-format off
     auto begin_key = stats_tablet_key({instance_id, idx.table_id(), idx.index_id(), idx.partition_id(), idx.tablet_id()});
+    LOG(INFO) << "get tablet stats, tablet_id=" << idx.tablet_id() << ", key=" << hex(begin_key);
     auto begin_key_check = begin_key;
     auto end_key = stats_tablet_key({instance_id, idx.table_id(), idx.index_id(), idx.partition_id(), idx.tablet_id() + 1});
     // clang-format on
@@ -285,6 +286,8 @@ MetaServiceResponseStatus fix_tablet_stats_internal(
         tablet_stat_key = stats_tablet_key(
                 {instance_id, tablet_stat.idx().table_id(), tablet_stat.idx().index_id(),
                  tablet_stat.idx().partition_id(), tablet_stat.idx().tablet_id()});
+        LOG(INFO) << "fix_tablet_stats_internal, tablet_id=" << tablet_stat.idx().tablet_id()
+                  << ", key=" << hex(tablet_stat_key);
         if (!tablet_stat.SerializeToString(&tablet_stat_value)) {
             st.set_code(MetaServiceCode::PROTOBUF_SERIALIZE_ERR);
             st.set_msg("failed to serialize tablet stat");
@@ -391,6 +394,8 @@ MetaServiceResponseStatus check_new_tablet_stats(
             st.set_code(cast_as<ErrCategory::READ>(err));
             return st;
         }
+        LOG(INFO) << "check_new_tablet_stats, tablet_id=" << tablet_stat_ptr->idx().tablet_id()
+                  << ", key=" << hex(tablet_stat_key);
         TabletStatsPB tablet_stat_check;
         tablet_stat_check.ParseFromArray(tablet_stat_value.data(), tablet_stat_value.size());
         if (tablet_stat_check.DebugString() != tablet_stat_ptr->DebugString() &&
