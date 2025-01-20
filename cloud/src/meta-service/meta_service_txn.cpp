@@ -893,7 +893,7 @@ void update_tablet_stats(const StatsTabletKeyInfo& info, const TabletStats& stat
     } else {
         std::string key;
         stats_tablet_key(info, &key);
-        LOG(INFO) << "stats_tablet_key, key=" << key;
+        LOG(INFO) << "stats_tablet_key, key=" << hex(key);
         std::string val;
         TxnErrorCode err = txn->get(key, &val);
         if (err != TxnErrorCode::TXN_OK) {
@@ -2412,7 +2412,7 @@ void commit_txn_with_sub_txn(const CommitTxnRequest* request, CommitTxnResponse*
         update_tablet_stats = [&](const StatsTabletKeyInfo& info, const TabletStats& stats) {
             auto& key = kv_pool.emplace_back();
             stats_tablet_key(info, &key);
-            LOG(INFO) << "stats_tablet_key, key=" << key;
+            LOG(INFO) << "stats_tablet_key, key=" << hex(key);
             auto& val = kv_pool.emplace_back();
             TxnErrorCode err = txn->get(key, &val);
             if (err != TxnErrorCode::TXN_OK) {
