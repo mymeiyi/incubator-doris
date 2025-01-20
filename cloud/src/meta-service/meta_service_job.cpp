@@ -739,7 +739,7 @@ void process_compaction_job(MetaServiceCode& code, std::string& msg, std::string
         return;
     }
     auto stats_key = stats_tablet_key({instance_id, table_id, index_id, partition_id, tablet_id});
-    LOG(INFO) << "stats_tablet_key, tablet=" << tablet_id << ", key=" << hex(stats_key);
+    LOG(INFO) << "put stats_tablet_key, tablet=" << tablet_id << ", key=" << hex(stats_key);
     auto stats_val = stats->SerializeAsString();
 
     VLOG_DEBUG << "data size, tablet_id=" << tablet_id << " stats.num_rows=" << stats->num_rows()
