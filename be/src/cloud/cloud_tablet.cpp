@@ -886,7 +886,7 @@ Status CloudTablet::calc_delete_bitmap_for_compaction(
     // 3. store delete bitmap
     RETURN_IF_ERROR(_engine.meta_mgr().update_delete_bitmap(*this, -1, initiator,
                                                             output_rowset_delete_bitmap.get()));
-    int64_t t5 = MonotonicMicros();
+    int64_t t6 = MonotonicMicros();
     LOG(INFO) << "calc_delete_bitmap_for_compaction, tablet_id=" << tablet_id()
               << ", get update lock cost=" << (t2 - t1)
               << "us, sync_tablet_rowsets cost=" << (t3 - t2)
