@@ -870,9 +870,11 @@ Status CloudTablet::calc_delete_bitmap_for_compaction(
     calc_compaction_output_rowset_delete_bitmap(
             input_rowsets, rowid_conversion, version.second, UINT64_MAX, missed_rows.get(),
             location_map.get(), tablet_meta()->delete_bitmap(), output_rowset_delete_bitmap.get());
+    int64_t t4 = MonotonicMicros();
     if (location_map) {
         RETURN_IF_ERROR(check_rowid_conversion(output_rowset, *location_map));
     }
+    int64_t t5 = MonotonicMicros();
     if (missed_rows) {
         DCHECK_EQ(missed_rows->size(), missed_rows_size);
         if (missed_rows->size() != missed_rows_size) {
@@ -884,6 +886,12 @@ Status CloudTablet::calc_delete_bitmap_for_compaction(
     // 3. store delete bitmap
     RETURN_IF_ERROR(_engine.meta_mgr().update_delete_bitmap(*this, -1, initiator,
                                                             output_rowset_delete_bitmap.get()));
+    int64_t t5 = MonotonicMicros();
+    LOG(INFO) << "calc_delete_bitmap_for_compaction, tablet_id=" << tablet_id()
+              << ", get update lock cost=" << t2 - t1 << "us, sync_tablet_rowsets cost=" << t3 - t2
+              << "us, calc delete bitmap cost=" << t4 - t3
+              << "us, check rowid conversion cost=" << t5 - t4
+              << "us, store delete bitmap cost=" << t6 - t5 << "us";
     return Status::OK();
 }
 
