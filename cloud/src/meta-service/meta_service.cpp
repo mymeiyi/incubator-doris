@@ -341,10 +341,10 @@ void MetaServiceImpl::batch_get_version(::google::protobuf::RpcController* contr
     }
 
     constexpr size_t BATCH_SIZE = 500;
-    std::vector<std::string> version_keys;
-    std::vector<std::optional<std::string>> version_values;
-    version_keys.reserve(BATCH_SIZE);
-    version_values.reserve(BATCH_SIZE);
+    std::vector<std::string> stats_keys;
+    std::vector<std::optional<std::string>> stats_values;
+    stats_keys.reserve(BATCH_SIZE);
+    stats_values.reserve(BATCH_SIZE);
 
     while ((code == MetaServiceCode::OK || code == MetaServiceCode::KV_TXN_TOO_OLD) &&
            response->versions_size() < num_acquired) {
@@ -358,8 +358,8 @@ void MetaServiceImpl::batch_get_version(::google::protobuf::RpcController* contr
 
         for (size_t i = response->versions_size(); i < num_acquired; i += BATCH_SIZE) {
             size_t limit = (i + BATCH_SIZE < num_acquired) ? i + BATCH_SIZE : num_acquired;
-            version_keys.clear();
-            version_values.clear();
+            stats_keys.clear();
+            stats_values.clear();
             for (size_t j = i; j < limit; j++) {
                 int64_t db_id = request->db_ids(j);
                 int64_t table_id = request->table_ids(j);
@@ -370,10 +370,10 @@ void MetaServiceImpl::batch_get_version(::google::protobuf::RpcController* contr
                     int64_t partition_id = request->partition_ids(j);
                     partition_version_key({instance_id, db_id, table_id, partition_id}, &ver_key);
                 }
-                version_keys.push_back(std::move(ver_key));
+                stats_keys.push_back(std::move(ver_key));
             }
 
-            err = txn->batch_get(&version_values, version_keys);
+            err = txn->batch_get(&stats_values, stats_keys);
             TEST_SYNC_POINT_CALLBACK("batch_get_version_err", &err);
             if (err == TxnErrorCode::TXN_TOO_OLD) {
                 // txn too old, fallback to non-snapshot versions.
@@ -387,7 +387,7 @@ void MetaServiceImpl::batch_get_version(::google::protobuf::RpcController* contr
                 break;
             }
 
-            for (auto&& value : version_values) {
+            for (auto&& value : stats_values) {
                 if (!value.has_value()) {
                     // return -1 if the target version is not exists.
                     response->add_versions(-1);
@@ -2229,6 +2229,7 @@ void MetaServiceImpl::get_delete_bitmap_update_lock(google::protobuf::RpcControl
             msg = "failed to init txn";
             return;
         }
+
         for (const auto& tablet_idx : request->tablet_indexes()) {
             TabletStatsPB tablet_stat;
             std::string stats_key =
@@ -2266,22 +2267,22 @@ void MetaServiceImpl::get_delete_bitmap_update_lock(google::protobuf::RpcControl
         }
     } else {
         int32_t batch_size = config::max_mow_tablet_stat_num_per_batch;
-        std::vector<std::string> version_keys;
-        std::vector<std::optional<std::string>> version_values;
-        version_keys.reserve(batch_size);
-        version_values.reserve(batch_size);
+        std::vector<std::string> stats_keys;
+        std::vector<std::optional<std::string>> stats_values;
+        stats_keys.reserve(batch_size);
+        stats_values.reserve(batch_size);
         size_t num_acquired = request->tablet_indexes_size();
 
         for (size_t i = response->base_compaction_cnts_size(); i < num_acquired; i += batch_size) {
             size_t limit = (i + batch_size < num_acquired) ? i + batch_size : num_acquired;
-            version_keys.clear();
-            version_values.clear();
+            stats_keys.clear();
+            stats_values.clear();
             for (size_t j = i; j < limit; j++) {
                 auto& tablet_idx = request->tablet_indexes(j);
                 std::string stats_key =
                         stats_tablet_key({instance_id, tablet_idx.table_id(), tablet_idx.index_id(),
                                           tablet_idx.partition_id(), tablet_idx.tablet_id()});
-                version_keys.push_back(std::move(stats_key));
+                stats_keys.push_back(std::move(stats_key));
             }
 
             err = txn_kv_->create_txn(&txn);
@@ -2291,14 +2292,14 @@ void MetaServiceImpl::get_delete_bitmap_update_lock(google::protobuf::RpcControl
                 return;
             }
 
-            err = txn->batch_get(&version_values, version_keys);
+            err = txn->batch_get(&stats_values, stats_keys);
             if (err != TxnErrorCode::TXN_OK) {
                 msg = fmt::format("failed to batch get tablet stats, index={}, err={}", i, err);
                 code = cast_as<ErrCategory::READ>(err);
                 return;
             }
 
-            for (auto&& value : version_values) {
+            for (auto&& value : stats_values) {
                 TabletStatsPB tablet_stat;
                 if (!tablet_stat.ParseFromString(*value)) {
                     code = MetaServiceCode::PROTOBUF_PARSE_ERR;
