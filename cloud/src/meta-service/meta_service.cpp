@@ -1710,6 +1710,7 @@ static bool check_delete_bitmap_lock(MetaServiceCode& code, std::string& msg, st
         code = MetaServiceCode::LOCK_EXPIRED;
         return false;
     }
+    // LOG(INFO) << "check_delete_bitmap_lock, table_id=" << table_id << ", key=" << hex(lock_key);
     bool found = false;
     for (auto initiator : lock_info.initiators()) {
         if (lock_initiator == initiator) {
@@ -2157,6 +2158,7 @@ void MetaServiceImpl::get_delete_bitmap_update_lock(google::protobuf::RpcControl
         code = MetaServiceCode::KV_TXN_GET_ERR;
         return;
     }
+    // LOG(INFO) << "get_delete_bitmap_update_lock, table_id=" << table_id << ", key=" << hex(lock_key);
     using namespace std::chrono;
     int64_t now = duration_cast<seconds>(system_clock::now().time_since_epoch()).count();
     if (err == TxnErrorCode::TXN_OK) {
@@ -2222,14 +2224,69 @@ void MetaServiceImpl::get_delete_bitmap_update_lock(google::protobuf::RpcControl
     // these steps can be done in different fdb txns
 
     StopWatch read_stats_sw;
-    err = txn_kv_->create_txn(&txn);
+    /*err = txn_kv_->create_txn(&txn);
     if (err != TxnErrorCode::TXN_OK) {
         code = cast_as<ErrCategory::CREATE>(err);
         msg = "failed to init txn";
         return;
+    }*/
+
+    constexpr size_t BATCH_SIZE = 500;
+    std::vector<std::string> version_keys;
+    std::vector<std::optional<std::string>> version_values;
+    version_keys.reserve(BATCH_SIZE);
+    version_values.reserve(BATCH_SIZE);
+    size_t num_acquired = request->tablet_indexes_size();
+    while ((code == MetaServiceCode::OK || code == MetaServiceCode::KV_TXN_TOO_OLD) &&
+           response->base_compaction_cnts_size() < num_acquired) {
+        err = txn_kv_->create_txn(&txn);
+        if (err != TxnErrorCode::TXN_OK) {
+            msg = "failed to create txn";
+            code = cast_as<ErrCategory::CREATE>(err);
+            break;
+        }
+
+        for (size_t i = response->base_compaction_cnts_size(); i < num_acquired; i += BATCH_SIZE) {
+            size_t limit = (i + BATCH_SIZE < num_acquired) ? i + BATCH_SIZE : num_acquired;
+            LOG(INFO) << "sout: get tablet stats, i=" << i << ", limit=" << limit;
+            version_keys.clear();
+            version_values.clear();
+            for (size_t j = i; j < limit; j++) {
+                auto& tablet_idx = request->tablet_indexes(j);
+                std::string stats_key =
+                        stats_tablet_key({instance_id, tablet_idx.table_id(), tablet_idx.index_id(),
+                                          tablet_idx.partition_id(), tablet_idx.tablet_id()});
+                version_keys.push_back(std::move(stats_key));
+            }
+
+            err = txn->batch_get(&version_values, version_keys);
+            if (err == TxnErrorCode::TXN_TOO_OLD) {
+                // txn too old, fallback to non-snapshot versions.
+                LOG(WARNING) << "batch get tablet stats execution time exceeds the txn mvcc window, "
+                                "fallback to acquire non-snapshot versions, partition_ids_size="
+                             << request->partition_ids_size() << ", index=" << i;
+                break;
+            } else if (err != TxnErrorCode::TXN_OK) {
+                msg = fmt::format("failed to batch get tablet stats, index={}, err={}", i, err);
+                code = cast_as<ErrCategory::READ>(err);
+                break;
+            }
+
+            for (auto&& value : version_values) {
+                TabletStatsPB tablet_stat;
+                if (!tablet_stat.ParseFromString(*value)) {
+                    code = MetaServiceCode::PROTOBUF_PARSE_ERR;
+                    msg = "marformed tablet stats value";
+                    return;
+                }
+                response->add_base_compaction_cnts(tablet_stat.base_compaction_cnt());
+                response->add_cumulative_compaction_cnts(tablet_stat.cumulative_compaction_cnt());
+                response->add_cumulative_points(tablet_stat.cumulative_point());
+            }
+        }
     }
 
-    for (const auto& tablet_idx : request->tablet_indexes()) {
+    /*for (const auto& tablet_idx : request->tablet_indexes()) {
         TabletStatsPB tablet_stat;
         std::string stats_key =
                 stats_tablet_key({instance_id, tablet_idx.table_id(), tablet_idx.index_id(),
@@ -2263,7 +2320,7 @@ void MetaServiceImpl::get_delete_bitmap_update_lock(google::protobuf::RpcControl
         response->add_base_compaction_cnts(tablet_stat.base_compaction_cnt());
         response->add_cumulative_compaction_cnts(tablet_stat.cumulative_compaction_cnt());
         response->add_cumulative_points(tablet_stat.cumulative_point());
-    }
+    }*/
 
     read_stats_sw.pause();
     LOG(INFO) << fmt::format("tablet_idxes.size()={}, read tablet compaction cnts cost={} ms",

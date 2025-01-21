@@ -77,7 +77,12 @@ void begin_rpc(std::string_view func_name, brpc::Controller* ctrl, const Request
     } else if constexpr (std::is_same_v<Request, RemoveDeleteBitmapRequest>) {
         LOG(INFO) << "begin " << func_name << " from " << ctrl->remote_side()
                   << " tablet_id=" << req->tablet_id() << " rowset_size=" << req->rowset_ids_size();
-    } else {
+    } /*else if constexpr (std::is_same_v<Request, GetDeleteBitmapUpdateLockRequest>) {
+        LOG(INFO) << "begin " << func_name << " from " << ctrl->remote_side()
+                  << ", table_id=" << req->table_id() << ", lock_id=" << req->lock_id()
+                  << ", initiator=" << req->initiator() << ", expiration=" << req->expiration()
+                  << ", require_compaction_stats=" << req->require_compaction_stats();
+    }*/ else {
         LOG(INFO) << "begin " << func_name << " from " << ctrl->remote_side()
                   << " request=" << req->ShortDebugString();
     }
