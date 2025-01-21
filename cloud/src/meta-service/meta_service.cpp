@@ -2271,54 +2271,43 @@ void MetaServiceImpl::get_delete_bitmap_update_lock(google::protobuf::RpcControl
         version_keys.reserve(batch_size);
         version_values.reserve(batch_size);
         size_t num_acquired = request->tablet_indexes_size();
-        while ((code == MetaServiceCode::OK || code == MetaServiceCode::KV_TXN_TOO_OLD) &&
-               response->base_compaction_cnts_size() < num_acquired) {
-            err = txn_kv_->create_txn(&txn);
-            if (err != TxnErrorCode::TXN_OK) {
-                msg = "failed to create txn";
-                code = cast_as<ErrCategory::CREATE>(err);
-                break;
+
+        for (size_t i = response->base_compaction_cnts_size(); i < num_acquired; i += batch_size) {
+            size_t limit = (i + batch_size < num_acquired) ? i + batch_size : num_acquired;
+            version_keys.clear();
+            version_values.clear();
+            for (size_t j = i; j < limit; j++) {
+                auto& tablet_idx = request->tablet_indexes(j);
+                std::string stats_key =
+                        stats_tablet_key({instance_id, tablet_idx.table_id(), tablet_idx.index_id(),
+                                          tablet_idx.partition_id(), tablet_idx.tablet_id()});
+                version_keys.push_back(std::move(stats_key));
             }
 
-            for (size_t i = response->base_compaction_cnts_size(); i < num_acquired;
-                 i += batch_size) {
-                size_t limit = (i + batch_size < num_acquired) ? i + batch_size : num_acquired;
-                version_keys.clear();
-                version_values.clear();
-                for (size_t j = i; j < limit; j++) {
-                    auto& tablet_idx = request->tablet_indexes(j);
-                    std::string stats_key = stats_tablet_key(
-                            {instance_id, tablet_idx.table_id(), tablet_idx.index_id(),
-                             tablet_idx.partition_id(), tablet_idx.tablet_id()});
-                    version_keys.push_back(std::move(stats_key));
-                }
+            err = txn_kv_->create_txn(&txn);
+            if (err != TxnErrorCode::TXN_OK) {
+                code = cast_as<ErrCategory::CREATE>(err);
+                msg = "failed to init txn";
+                return;
+            }
 
-                err = txn->batch_get(&version_values, version_keys);
-                if (err == TxnErrorCode::TXN_TOO_OLD) {
-                    // txn too old, fallback to non-snapshot versions.
-                    LOG(WARNING)
-                            << "batch get tablet stats execution time exceeds the txn mvcc window, "
-                               "fallback to acquire non-snapshot versions, partition_ids_size="
-                            << request->partition_ids_size() << ", index=" << i;
-                    break;
-                } else if (err != TxnErrorCode::TXN_OK) {
-                    msg = fmt::format("failed to batch get tablet stats, index={}, err={}", i, err);
-                    code = cast_as<ErrCategory::READ>(err);
-                    break;
-                }
+            err = txn->batch_get(&version_values, version_keys);
+            if (err != TxnErrorCode::TXN_OK) {
+                msg = fmt::format("failed to batch get tablet stats, index={}, err={}", i, err);
+                code = cast_as<ErrCategory::READ>(err);
+                return;
+            }
 
-                for (auto&& value : version_values) {
-                    TabletStatsPB tablet_stat;
-                    if (!tablet_stat.ParseFromString(*value)) {
-                        code = MetaServiceCode::PROTOBUF_PARSE_ERR;
-                        msg = "marformed tablet stats value";
-                        return;
-                    }
-                    response->add_base_compaction_cnts(tablet_stat.base_compaction_cnt());
-                    response->add_cumulative_compaction_cnts(
-                            tablet_stat.cumulative_compaction_cnt());
-                    response->add_cumulative_points(tablet_stat.cumulative_point());
+            for (auto&& value : version_values) {
+                TabletStatsPB tablet_stat;
+                if (!tablet_stat.ParseFromString(*value)) {
+                    code = MetaServiceCode::PROTOBUF_PARSE_ERR;
+                    msg = "marformed tablet stats value";
+                    return;
                 }
+                response->add_base_compaction_cnts(tablet_stat.base_compaction_cnt());
+                response->add_cumulative_compaction_cnts(tablet_stat.cumulative_compaction_cnt());
+                response->add_cumulative_points(tablet_stat.cumulative_point());
             }
         }
     }
