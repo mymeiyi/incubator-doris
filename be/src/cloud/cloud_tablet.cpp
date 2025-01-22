@@ -884,14 +884,15 @@ Status CloudTablet::calc_delete_bitmap_for_compaction(
     }
 
     // 3. store delete bitmap
-    RETURN_IF_ERROR(_engine.meta_mgr().update_delete_bitmap(*this, -1, initiator,
-                                                            output_rowset_delete_bitmap.get()));
+    auto st = _engine.meta_mgr().update_delete_bitmap(*this, -1, initiator,
+                                                      output_rowset_delete_bitmap.get());
     int64_t t6 = MonotonicMicros();
     LOG(INFO) << "calc_delete_bitmap_for_compaction, tablet_id=" << tablet_id()
               << ", get lock cost " << (t2 - t1) << " us, sync rowsets cost " << (t3 - t2)
               << " us, calc delete bitmap cost " << (t4 - t3) << " us, check rowid conversion cost "
-              << (t5 - t4) << " us, store delete bitmap cost " << (t6 - t5) << " us";
-    return Status::OK();
+              << (t5 - t4) << " us, store delete bitmap cost " << (t6 - t5)
+              << " us, st=" << st.to_string();
+    return st;
 }
 
 Status CloudTablet::sync_meta() {
