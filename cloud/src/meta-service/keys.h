@@ -190,7 +190,8 @@ using StorageVaultKeyInfo = BasicKeyInfo<26, std::tuple<std::string, std::string
 using TableVersionKeyInfo = BasicKeyInfo<27, std::tuple<std::string, int64_t, int64_t>>;
 //                                                      0:instance_id  1:index_id
 using MetaSchemaPBDictionaryInfo = BasicKeyInfo<28 , std::tuple<std::string,  int64_t>>;
-
+//                                                      0:instance_id  1:table_id 2:tablet_id
+using MowTabletCompactionInfo = BasicKeyInfo<29 , std::tuple<std::string, int64_t, int64_t>>;
 
 void instance_key(const InstanceKeyInfo& in, std::string* out);
 static inline std::string instance_key(const InstanceKeyInfo& in) { std::string s; instance_key(in, &s); return s; }

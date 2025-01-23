@@ -68,6 +68,9 @@ using namespace std::chrono;
 
 namespace doris::cloud {
 
+static constexpr int COMPACTION_DELETE_BITMAP_LOCK_ID = -1;
+static constexpr int SCHEMA_CHANGE_DELETE_BITMAP_LOCK_ID = -2;
+
 MetaServiceImpl::MetaServiceImpl(std::shared_ptr<TxnKv> txn_kv,
                                  std::shared_ptr<ResourceManager> resource_mgr,
                                  std::shared_ptr<RateLimiter> rate_limiter) {
@@ -2201,17 +2204,25 @@ void MetaServiceImpl::get_delete_bitmap_update_lock(google::protobuf::RpcControl
             msg = "failed to parse DeleteBitmapUpdateLockPB";
             return;
         }
-        if (lock_info.expiration() > 0 && lock_info.expiration() < now) {
-            LOG(INFO) << "delete bitmap lock expired, continue to process. lock_id="
-                      << lock_info.lock_id() << " table_id=" << table_id << " now=" << now;
-            lock_info.clear_initiators();
-        } else if (lock_info.lock_id() != request->lock_id()) {
-            ss << "already be locked. request lock_id=" << request->lock_id()
-               << " locked by lock_id=" << lock_info.lock_id() << " table_id=" << table_id
-               << " now=" << now << " expiration=" << lock_info.expiration();
-            msg = ss.str();
-            code = MetaServiceCode::LOCK_CONFLICT;
-            return;
+        if (lock_info.lock_id() != COMPACTION_DELETE_BITMAP_LOCK_ID) {
+            if (lock_info.expiration() > 0 && lock_info.expiration() < now) {
+                LOG(INFO) << "delete bitmap lock expired, continue to process. lock_id="
+                          << lock_info.lock_id() << " table_id=" << table_id << " now=" << now;
+                lock_info.clear_initiators();
+            } else if (lock_info.lock_id() != request->lock_id()) {
+                ss << "already be locked. request lock_id=" << request->lock_id()
+                   << " locked by lock_id=" << lock_info.lock_id() << " table_id=" << table_id
+                   << " now=" << now << " expiration=" << lock_info.expiration();
+                msg = ss.str();
+                code = MetaServiceCode::LOCK_CONFLICT;
+                return;
+            }
+        } else {
+            if (request->lock_id() == COMPACTION_DELETE_BITMAP_LOCK_ID) {
+
+            } else {
+
+            }
         }
     }
 
