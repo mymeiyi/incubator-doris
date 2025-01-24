@@ -135,8 +135,9 @@ public class BindSink implements AnalysisRuleFactory {
         boolean isPartialUpdate = sink.isPartialUpdate() && table.getKeysType() == KeysType.UNIQUE_KEYS;
 
         LogicalPlan child = ((LogicalPlan) sink.child());
+        String sequenceCol = table.getSequenceMapCol() == null ? Column.SEQUENCE_COL : table.getSequenceMapCol();
         boolean childHasSeqCol = child.getOutput().stream()
-                .anyMatch(slot -> slot.getName().equals(Column.SEQUENCE_COL));
+                .anyMatch(slot -> slot.getName().equals(sequenceCol));
         boolean needExtraSeqCol = isPartialUpdate && !childHasSeqCol && table.hasSequenceCol()
                 && table.getSequenceMapCol() != null
                 && sink.getColNames().contains(table.getSequenceMapCol());
