@@ -2280,16 +2280,35 @@ void MetaServiceImpl::get_delete_bitmap_update_lock(google::protobuf::RpcControl
             }
 
             lock_info.set_lock_id(request->lock_id());
-            lock_info.set_expiration(now + request->expiration());
-            bool found = false;
-            for (auto initiator : lock_info.initiators()) {
-                if (request->initiator() == initiator) {
-                    found = true;
-                    break;
+            if (request->lock_id() != COMPACTION_DELETE_BITMAP_LOCK_ID) {
+                lock_info.set_expiration(now + request->expiration());
+                bool found = false;
+                for (auto initiator : lock_info.initiators()) {
+                    if (request->initiator() == initiator) {
+                        found = true;
+                        break;
+                    }
                 }
-            }
-            if (!found) {
-                lock_info.add_initiators(request->initiator());
+                if (!found) {
+                    lock_info.add_initiators(request->initiator());
+                }
+            } else {
+                // put tablet compaction key
+                std::string tablet_compaction_key =
+                        mow_tablet_compaction_key({instance_id, table_id, request->initiator()});
+                std::string tablet_compaction_val;
+                MowTabletCompactionPB mow_tablet_compaction;
+                mow_tablet_compaction.set_expiration(now + request->expiration());
+                mow_tablet_compaction.SerializeToString(&tablet_compaction_val);
+                if (tablet_compaction_val.empty()) {
+                    code = MetaServiceCode::PROTOBUF_SERIALIZE_ERR;
+                    msg = "MowTabletCompactionPB serialization error";
+                    return;
+                }
+                txn->put(tablet_compaction_key, tablet_compaction_val);
+                LOG(INFO) << "xxx put tablet compaction key=" << hex(tablet_compaction_key)
+                          << " table_id=" << table_id << " lock_id=" << request->lock_id()
+                          << " initiator=" << request->initiator();
             }
             lock_info.SerializeToString(&lock_val);
             if (lock_val.empty()) {
