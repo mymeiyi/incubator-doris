@@ -499,9 +499,9 @@ static bool check_and_remove_delete_bitmap_update_lock(MetaServiceCode& code, st
         }
         MowTabletCompactionPB mow_tablet_compaction;
         mow_tablet_compaction.SerializeToString(&tablet_compaction_val);
-        if (tablet_compaction_val.empty()) {
-            code = MetaServiceCode::PROTOBUF_SERIALIZE_ERR;
-            msg = "tablet compaction pb serialization error";
+        if (!mow_tablet_compaction.ParseFromString(tablet_compaction_val)) [[unlikely]] {
+            code = MetaServiceCode::PROTOBUF_PARSE_ERR;
+            msg = "failed to parse MowTabletCompactionPB";
             return false;
         }
         using namespace std::chrono;

@@ -2228,8 +2228,8 @@ void MetaServiceImpl::get_delete_bitmap_update_lock(google::protobuf::RpcControl
     int64_t now = duration_cast<seconds>(system_clock::now().time_since_epoch()).count();
     if (err == TxnErrorCode::TXN_KEY_NOT_FOUND) {
         lock_info.set_lock_id(request->lock_id());
-        lock_info.set_expiration(now + request->expiration());
         if (request->lock_id() != COMPACTION_DELETE_BITMAP_LOCK_ID) {
+            lock_info.set_expiration(now + request->expiration());
             lock_info.add_initiators(request->initiator());
         } else {
             // put tablet compaction key
@@ -2245,6 +2245,9 @@ void MetaServiceImpl::get_delete_bitmap_update_lock(google::protobuf::RpcControl
                 return;
             }
             txn->put(tablet_compaction_key, tablet_compaction_val);
+            LOG(INFO) << "xxx put tablet compaction key=" << hex(tablet_compaction_key)
+                      << " table_id=" << table_id << " lock_id=" << request->lock_id()
+                      << " initiator=" << request->initiator();
         }
         lock_info.SerializeToString(&lock_val);
         if (lock_val.empty()) {
