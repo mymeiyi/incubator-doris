@@ -2226,7 +2226,37 @@ void MetaServiceImpl::get_delete_bitmap_update_lock(google::protobuf::RpcControl
     }
     using namespace std::chrono;
     int64_t now = duration_cast<seconds>(system_clock::now().time_since_epoch()).count();
-    if (err == TxnErrorCode::TXN_OK) {
+    if (err == TxnErrorCode::TXN_KEY_NOT_FOUND) {
+        lock_info.set_lock_id(request->lock_id());
+        lock_info.set_expiration(now + request->expiration());
+        if (lock_info.lock_id() != COMPACTION_DELETE_BITMAP_LOCK_ID) {
+            lock_info.add_initiators(request->initiator());
+        } else {
+            // put tablet compaction key
+            std::string tablet_compaction_key =
+                    mow_tablet_compaction_key({instance_id, table_id, request->initiator()});
+            std::string tablet_compaction_val;
+            MowTabletCompactionPB mow_tablet_compaction;
+            mow_tablet_compaction.set_expiration(now + request->expiration());
+            mow_tablet_compaction.SerializeToString(&tablet_compaction_val);
+            if (tablet_compaction_val.empty()) {
+                code = MetaServiceCode::PROTOBUF_SERIALIZE_ERR;
+                msg = "MowTabletCompactionPB serialization error";
+                return;
+            }
+            txn->put(tablet_compaction_key, tablet_compaction_val);
+        }
+        lock_info.SerializeToString(&lock_val);
+        if (lock_val.empty()) {
+            code = MetaServiceCode::PROTOBUF_SERIALIZE_ERR;
+            msg = "pb serialization error";
+            return;
+        }
+        txn->put(lock_key, lock_val);
+        LOG(INFO) << "xxx put lock_key=" << hex(lock_key) << " table_id=" << table_id
+                  << " lock_id=" << request->lock_id() << " initiator=" << request->initiator()
+                  << " initiators_size=" << lock_info.initiators_size();
+    } else if (err == TxnErrorCode::TXN_OK) {
         if (!lock_info.ParseFromString(lock_val)) [[unlikely]] {
             code = MetaServiceCode::PROTOBUF_PARSE_ERR;
             msg = "failed to parse DeleteBitmapUpdateLockPB";
