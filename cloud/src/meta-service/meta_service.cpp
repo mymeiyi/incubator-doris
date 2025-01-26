@@ -2184,6 +2184,27 @@ void MetaServiceImpl::get_delete_bitmap(google::protobuf::RpcController* control
     }
 }
 
+static bool put_mow_tablet_compaction_key(MetaServiceCode& code, std::string& msg,
+                                          std::stringstream& ss, std::unique_ptr<Transaction>& txn,
+                                          std::string& instance_id, int64_t table_id,
+                                          int64_t lock_id, int64_t initiator, int64_t expiration) {
+    std::string tablet_compaction_key =
+            mow_tablet_compaction_key({instance_id, table_id, initiator});
+    std::string tablet_compaction_val;
+    MowTabletCompactionPB mow_tablet_compaction;
+    mow_tablet_compaction.set_expiration(expiration);
+    mow_tablet_compaction.SerializeToString(&tablet_compaction_val);
+    if (tablet_compaction_val.empty()) {
+        code = MetaServiceCode::PROTOBUF_SERIALIZE_ERR;
+        msg = "MowTabletCompactionPB serialization error";
+        return false;
+    }
+    txn->put(tablet_compaction_key, tablet_compaction_val);
+    LOG(INFO) << "xxx put tablet compaction key=" << hex(tablet_compaction_key)
+              << " table_id=" << table_id << " lock_id=" << lock_id << " initiator=" << initiator;
+    return true;
+}
+
 void MetaServiceImpl::get_delete_bitmap_update_lock(google::protobuf::RpcController* controller,
                                                     const GetDeleteBitmapUpdateLockRequest* request,
                                                     GetDeleteBitmapUpdateLockResponse* response,
@@ -2226,28 +2247,18 @@ void MetaServiceImpl::get_delete_bitmap_update_lock(google::protobuf::RpcControl
     }
     using namespace std::chrono;
     int64_t now = duration_cast<seconds>(system_clock::now().time_since_epoch()).count();
+    int64_t expiration = now + request->expiration();
     if (err == TxnErrorCode::TXN_KEY_NOT_FOUND) {
         lock_info.set_lock_id(request->lock_id());
         if (request->lock_id() != COMPACTION_DELETE_BITMAP_LOCK_ID) {
-            lock_info.set_expiration(now + request->expiration());
+            lock_info.set_expiration(expiration);
             lock_info.add_initiators(request->initiator());
         } else {
-            // put tablet compaction key
-            std::string tablet_compaction_key =
-                    mow_tablet_compaction_key({instance_id, table_id, request->initiator()});
-            std::string tablet_compaction_val;
-            MowTabletCompactionPB mow_tablet_compaction;
-            mow_tablet_compaction.set_expiration(now + request->expiration());
-            mow_tablet_compaction.SerializeToString(&tablet_compaction_val);
-            if (tablet_compaction_val.empty()) {
-                code = MetaServiceCode::PROTOBUF_SERIALIZE_ERR;
-                msg = "MowTabletCompactionPB serialization error";
+            if (!put_mow_tablet_compaction_key(code, msg, ss, txn, instance_id, table_id,
+                                               request->lock_id(), request->initiator(),
+                                               expiration)) {
                 return;
             }
-            txn->put(tablet_compaction_key, tablet_compaction_val);
-            LOG(INFO) << "xxx put tablet compaction key=" << hex(tablet_compaction_key)
-                      << " table_id=" << table_id << " lock_id=" << request->lock_id()
-                      << " initiator=" << request->initiator();
         }
         lock_info.SerializeToString(&lock_val);
         if (lock_val.empty()) {
@@ -2281,7 +2292,7 @@ void MetaServiceImpl::get_delete_bitmap_update_lock(google::protobuf::RpcControl
 
             lock_info.set_lock_id(request->lock_id());
             if (request->lock_id() != COMPACTION_DELETE_BITMAP_LOCK_ID) {
-                lock_info.set_expiration(now + request->expiration());
+                lock_info.set_expiration(expiration);
                 bool found = false;
                 for (auto initiator : lock_info.initiators()) {
                     if (request->initiator() == initiator) {
@@ -2293,22 +2304,11 @@ void MetaServiceImpl::get_delete_bitmap_update_lock(google::protobuf::RpcControl
                     lock_info.add_initiators(request->initiator());
                 }
             } else {
-                // put tablet compaction key
-                std::string tablet_compaction_key =
-                        mow_tablet_compaction_key({instance_id, table_id, request->initiator()});
-                std::string tablet_compaction_val;
-                MowTabletCompactionPB mow_tablet_compaction;
-                mow_tablet_compaction.set_expiration(now + request->expiration());
-                mow_tablet_compaction.SerializeToString(&tablet_compaction_val);
-                if (tablet_compaction_val.empty()) {
-                    code = MetaServiceCode::PROTOBUF_SERIALIZE_ERR;
-                    msg = "MowTabletCompactionPB serialization error";
+                if (!put_mow_tablet_compaction_key(code, msg, ss, txn, instance_id, table_id,
+                                                   request->lock_id(), request->initiator(),
+                                                   expiration)) {
                     return;
                 }
-                txn->put(tablet_compaction_key, tablet_compaction_val);
-                LOG(INFO) << "xxx put tablet compaction key=" << hex(tablet_compaction_key)
-                          << " table_id=" << table_id << " lock_id=" << request->lock_id()
-                          << " initiator=" << request->initiator();
             }
             lock_info.SerializeToString(&lock_val);
             if (lock_val.empty()) {
@@ -2322,19 +2322,11 @@ void MetaServiceImpl::get_delete_bitmap_update_lock(google::protobuf::RpcControl
                       << " initiators_size=" << lock_info.initiators_size();
         } else {
             if (request->lock_id() == COMPACTION_DELETE_BITMAP_LOCK_ID) {
-                // put tablet compaction key
-                std::string tablet_compaction_key =
-                        mow_tablet_compaction_key({instance_id, table_id, request->initiator()});
-                std::string tablet_compaction_val;
-                MowTabletCompactionPB mow_tablet_compaction;
-                mow_tablet_compaction.set_expiration(now + request->expiration());
-                mow_tablet_compaction.SerializeToString(&tablet_compaction_val);
-                if (lock_val.empty()) {
-                    code = MetaServiceCode::PROTOBUF_SERIALIZE_ERR;
-                    msg = "MowTabletCompactionPB serialization error";
+                if (!put_mow_tablet_compaction_key(code, msg, ss, txn, instance_id, table_id,
+                                                   request->lock_id(), request->initiator(),
+                                                   expiration)) {
                     return;
                 }
-                txn->put(tablet_compaction_key, tablet_compaction_val);
             } else {
                 // check if compaction key is expired
                 bool has_unexpired_compaction = false;
@@ -2384,7 +2376,7 @@ void MetaServiceImpl::get_delete_bitmap_update_lock(google::protobuf::RpcControl
                     return;
                 }
                 lock_info.set_lock_id(request->lock_id());
-                lock_info.set_expiration(now + request->expiration());
+                lock_info.set_expiration(expiration);
                 lock_info.clear_initiators();
                 lock_info.add_initiators(request->initiator());
                 lock_info.SerializeToString(&lock_val);
