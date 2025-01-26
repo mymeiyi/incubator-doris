@@ -2364,6 +2364,20 @@ void MetaServiceImpl::get_delete_bitmap_update_lock(google::protobuf::RpcControl
                     code = MetaServiceCode::LOCK_CONFLICT;
                     return;
                 }
+                lock_info.set_lock_id(request->lock_id());
+                lock_info.set_expiration(now + request->expiration());
+                lock_info.initiators().Clear();
+                lock_info.add_initiators(request->initiator());
+                lock_info.SerializeToString(&lock_val);
+                if (lock_val.empty()) {
+                    code = MetaServiceCode::PROTOBUF_SERIALIZE_ERR;
+                    msg = "pb serialization error";
+                    return;
+                }
+                txn->put(lock_key, lock_val);
+                LOG(INFO) << "xxx put lock_key=" << hex(lock_key) << " table_id=" << table_id
+                          << " lock_id=" << request->lock_id() << " initiator=" << request->initiator()
+                          << " initiators_size=" << lock_info.initiators_size();
             }
         }
     }
