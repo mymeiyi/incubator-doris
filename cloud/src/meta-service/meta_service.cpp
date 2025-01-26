@@ -2366,7 +2366,7 @@ void MetaServiceImpl::get_delete_bitmap_update_lock(google::protobuf::RpcControl
                 }
                 lock_info.set_lock_id(request->lock_id());
                 lock_info.set_expiration(now + request->expiration());
-                lock_info.initiators().Clear();
+                lock_info.clear_initiators();
                 lock_info.add_initiators(request->initiator());
                 lock_info.SerializeToString(&lock_val);
                 if (lock_val.empty()) {
