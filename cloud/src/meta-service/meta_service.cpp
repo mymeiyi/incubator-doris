@@ -2205,6 +2205,26 @@ static bool put_mow_tablet_compaction_key(MetaServiceCode& code, std::string& ms
     return true;
 }
 
+static bool put_delete_bitmap_update_lock_key(MetaServiceCode& code, std::string& msg,
+                                              std::stringstream& ss,
+                                              std::unique_ptr<Transaction>& txn, int64_t table_id,
+                                              int64_t lock_id, int64_t initiator,
+                                              std::string& lock_key,
+                                              DeleteBitmapUpdateLockPB& lock_info) {
+    std::string lock_val;
+    lock_info.SerializeToString(&lock_val);
+    if (lock_val.empty()) {
+        code = MetaServiceCode::PROTOBUF_SERIALIZE_ERR;
+        msg = "DeleteBitmapUpdateLockPB serialization error";
+        return false;
+    }
+    txn->put(lock_key, lock_val);
+    LOG(INFO) << "xxx put lock_key=" << hex(lock_key) << " table_id=" << table_id
+              << " lock_id=" << lock_id << " initiator=" << initiator
+              << " initiators_size=" << lock_info.initiators_size();
+    return true;
+}
+
 void MetaServiceImpl::get_delete_bitmap_update_lock(google::protobuf::RpcController* controller,
                                                     const GetDeleteBitmapUpdateLockRequest* request,
                                                     GetDeleteBitmapUpdateLockResponse* response,
@@ -2260,16 +2280,10 @@ void MetaServiceImpl::get_delete_bitmap_update_lock(google::protobuf::RpcControl
                 return;
             }
         }
-        lock_info.SerializeToString(&lock_val);
-        if (lock_val.empty()) {
-            code = MetaServiceCode::PROTOBUF_SERIALIZE_ERR;
-            msg = "pb serialization error";
+        if (!put_delete_bitmap_update_lock_key(code, msg, ss, txn, table_id, request->lock_id(),
+                                               request->initiator(), lock_key, lock_info)) {
             return;
         }
-        txn->put(lock_key, lock_val);
-        LOG(INFO) << "xxx put lock_key=" << hex(lock_key) << " table_id=" << table_id
-                  << " lock_id=" << request->lock_id() << " initiator=" << request->initiator()
-                  << " initiators_size=" << lock_info.initiators_size();
     } else if (err == TxnErrorCode::TXN_OK) {
         if (!lock_info.ParseFromString(lock_val)) [[unlikely]] {
             code = MetaServiceCode::PROTOBUF_PARSE_ERR;
@@ -2310,16 +2324,10 @@ void MetaServiceImpl::get_delete_bitmap_update_lock(google::protobuf::RpcControl
                     return;
                 }
             }
-            lock_info.SerializeToString(&lock_val);
-            if (lock_val.empty()) {
-                code = MetaServiceCode::PROTOBUF_SERIALIZE_ERR;
-                msg = "pb serialization error";
+            if (!put_delete_bitmap_update_lock_key(code, msg, ss, txn, table_id, request->lock_id(),
+                                                   request->initiator(), lock_key, lock_info)) {
                 return;
             }
-            txn->put(lock_key, lock_val);
-            LOG(INFO) << "xxx put lock_key=" << hex(lock_key) << " table_id=" << table_id
-                      << " lock_id=" << request->lock_id() << " initiator=" << request->initiator()
-                      << " initiators_size=" << lock_info.initiators_size();
         } else {
             if (request->lock_id() == COMPACTION_DELETE_BITMAP_LOCK_ID) {
                 if (!put_mow_tablet_compaction_key(code, msg, ss, txn, instance_id, table_id,
@@ -2375,20 +2383,15 @@ void MetaServiceImpl::get_delete_bitmap_update_lock(google::protobuf::RpcControl
                     code = MetaServiceCode::LOCK_CONFLICT;
                     return;
                 }
+                // all compaction is expired
                 lock_info.set_lock_id(request->lock_id());
                 lock_info.set_expiration(expiration);
                 lock_info.clear_initiators();
                 lock_info.add_initiators(request->initiator());
-                lock_info.SerializeToString(&lock_val);
-                if (lock_val.empty()) {
-                    code = MetaServiceCode::PROTOBUF_SERIALIZE_ERR;
-                    msg = "pb serialization error";
+                if (!put_delete_bitmap_update_lock_key(code, msg, ss, txn, table_id, request->lock_id(),
+                                                       request->initiator(), lock_key, lock_info)) {
                     return;
                 }
-                txn->put(lock_key, lock_val);
-                LOG(INFO) << "xxx put lock_key=" << hex(lock_key) << " table_id=" << table_id
-                          << " lock_id=" << request->lock_id() << " initiator=" << request->initiator()
-                          << " initiators_size=" << lock_info.initiators_size();
             }
         }
     }
