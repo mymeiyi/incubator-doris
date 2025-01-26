@@ -2229,7 +2229,7 @@ void MetaServiceImpl::get_delete_bitmap_update_lock(google::protobuf::RpcControl
     if (err == TxnErrorCode::TXN_KEY_NOT_FOUND) {
         lock_info.set_lock_id(request->lock_id());
         lock_info.set_expiration(now + request->expiration());
-        if (lock_info.lock_id() != COMPACTION_DELETE_BITMAP_LOCK_ID) {
+        if (request->lock_id() != COMPACTION_DELETE_BITMAP_LOCK_ID) {
             lock_info.add_initiators(request->initiator());
         } else {
             // put tablet compaction key
